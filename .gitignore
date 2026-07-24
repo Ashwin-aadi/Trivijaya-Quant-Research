@@ -1,11 +1,12 @@
 # --- Data and run artifacts (regenerable / large / immutable-local) ---
-data/
-runs/
+# Anchored to the repo root so they don't also swallow src/data/ or tests/data/.
+/data/
+/runs/
 
 # --- Local research process notes (kept off the remote) ---
-CLAUDE.md
-DECISIONS.md
-reports/
+/CLAUDE.md
+/DECISIONS.md
+/reports/
 
 # --- Python ---
 __pycache__/
