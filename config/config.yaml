@@ -1,0 +1,49 @@
+# Single source of truth for every parameter in the lab.
+# Nothing numeric should be hard-coded in source files; it lives here.
+#
+# Values tagged "PROPOSED — pending PI sign-off at Checkpoint 1.0" are the defaults put forward
+# for approval. They are used so the pipeline runs, but they are not settled until the checkpoint
+# is signed off and the decision is recorded in DECISIONS.md.
+
+meta:
+  seed: 42                      # global seed; every stochastic op takes an explicit seed
+  project: trivijaya-quant-research
+
+paths:
+  data_raw: data/raw           # immutable, write-once, each file has a .meta.json sibling
+  data_interim: data/interim   # regenerable intermediates
+  data_processed: data/processed
+  runs: runs                   # one dir per execution, each with a manifest.json
+
+calendar:
+  exchange: NSE
+  # First date the calendar and all downstream data cover.
+  history_start: "2015-01-01"
+
+dates:
+  # PROPOSED — pending PI sign-off at Checkpoint 1.0.
+  # Development window is what we fit, tune, and inspect. The holdout is never touched until a
+  # project's final experimental phase, and only with logged PI authorization (charter RULE 7).
+  dev_start: "2015-01-01"
+  dev_end: "2023-12-31"
+  holdout_start: "2024-01-01"  # everything from here on is sacred / never-touched
+
+universe:
+  # PROPOSED — pending PI sign-off at Checkpoint 1.0.
+  # Options weighed at the checkpoint: nifty50 (most liquid, small cross-section),
+  # nifty100 (proposed), nifty200 (wider, less liquid).
+  index: nifty100
+  # Point-in-time membership is the single most important correctness requirement (charter §1.0).
+  # The source and its survivorship evidence are decided at the checkpoint, then recorded here.
+  membership_source: null      # set once the PI chooses a source
+  # A stock must clear this median-ADV floor (INR) to be tradable on a given date.
+  # PROPOSED — a liquidity screen, not yet approved.
+  min_median_adv_inr: 10000000  # 1 crore
+
+data:
+  prices:
+    # Which source is authoritative is a Checkpoint 1.0 decision (bhavcopy vs yfinance).
+    # The other is retained as a cross-check and the discrepancy rate is reported.
+    authoritative_source: null   # "bhavcopy" | "yfinance", set at checkpoint
+    # Tolerance (relative) beyond which a bhavcopy/yfinance disagreement is flagged, not averaged.
+    cross_check_rel_tol: 0.01

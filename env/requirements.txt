@@ -1,0 +1,23 @@
+# Core dependencies for the data foundation (Phase 1.0).
+# Exact installed versions are frozen into every run manifest (see src/common/manifest.py);
+# this file pins the compatible ranges. Phase-specific packages are added as those phases begin,
+# not up front.
+
+# --- Tabular / numeric ---
+polars>=1.0,<2.0
+pyarrow>=15.0          # parquet backend for polars I/O
+numpy>=1.26,<3.0
+
+# --- Config / IO ---
+pyyaml>=6.0
+requests>=2.31
+
+# --- Indian market data sources (all free) ---
+yfinance>=0.2.40       # cross-check source, .NS tickers
+jugaad-data>=0.26      # NSE bhavcopy archives + corporate actions
+nsepython>=2.9         # index membership / fallback lookups
+
+# --- Dev tooling ---
+ruff>=0.6
+mypy>=1.10
+pytest>=8.0

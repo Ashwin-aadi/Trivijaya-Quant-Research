@@ -1,0 +1,38 @@
+[project]
+name = "trivijaya-quant-research"
+version = "0.1.0"
+description = "Measurement infrastructure for quantitative research on Indian equities."
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/F: pyflakes+pycodestyle, I: isort, B: bugbear, UP: pyupgrade,
+# ANN: annotations (we require full type hints), SIM: simplify.
+select = ["E", "F", "I", "B", "UP", "ANN", "SIM"]
+ignore = [
+    "ANN101",  # missing type for `self` — noise, not a real hint
+    "ANN102",  # missing type for `cls` — same
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use fixtures and assertions where annotations add nothing.
+"tests/**" = ["ANN"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+files = ["src", "tests"]
+# Third-party data libraries ship without stubs; don't fail the whole run on them.
+[[tool.mypy.overrides]]
+module = ["yfinance.*", "jugaad_data.*", "nsepython.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"

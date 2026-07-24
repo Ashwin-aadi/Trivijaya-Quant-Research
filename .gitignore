@@ -1,0 +1,36 @@
+# --- Data and run artifacts (regenerable / large / immutable-local) ---
+data/
+runs/
+
+# --- Local research process notes (kept off the remote) ---
+CLAUDE.md
+DECISIONS.md
+reports/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/.venv/
+
+# --- Tooling caches ---
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- Secrets / local overrides ---
+.env
+config/local.yaml
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
