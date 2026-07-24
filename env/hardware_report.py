@@ -11,7 +11,7 @@ import ctypes
 import platform
 import shutil
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def total_ram_gb() -> str:
@@ -67,7 +67,7 @@ def gpu_report() -> str:
 
 def main() -> None:
     lines = [
-        f"Generated (UTC): {datetime.now(timezone.utc).isoformat()}",
+        f"Generated (UTC): {datetime.now(UTC).isoformat()}",
         f"OS: {platform.platform()}",
         f"Machine: {platform.machine()}",
         f"Processor: {platform.processor() or 'unknown'}",

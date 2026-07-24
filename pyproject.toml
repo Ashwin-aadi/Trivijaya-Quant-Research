@@ -36,3 +36,4 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -q"
+pythonpath = ["."]   # so `import src...` resolves from the repo root
