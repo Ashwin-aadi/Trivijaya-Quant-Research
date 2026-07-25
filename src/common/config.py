@@ -55,6 +55,7 @@ class DatesConfig:
 @dataclass(frozen=True)
 class UniverseConfig:
     index: str
+    size: int                    # fixed index size, asserted as an invariant on every date
     membership_source: str | None
     min_median_adv_inr: int
 
@@ -63,6 +64,7 @@ class UniverseConfig:
 class PricesConfig:
     authoritative_source: str | None
     cross_check_rel_tol: float
+    max_discrepancy_rate: float  # above this, halt rather than proceed (broken adjustment)
 
 
 @dataclass(frozen=True)
@@ -135,12 +137,14 @@ def _build(raw: dict[str, Any], source_path: Path, config_hash: str) -> Config:
         ),
         universe=UniverseConfig(
             index=str(_require(uni, "index", "universe")),
+            size=int(_require(uni, "size", "universe")),
             membership_source=uni.get("membership_source"),
             min_median_adv_inr=int(_require(uni, "min_median_adv_inr", "universe")),
         ),
         data=DataConfig(prices=PricesConfig(
             authoritative_source=prices.get("authoritative_source"),
             cross_check_rel_tol=float(_require(prices, "cross_check_rel_tol", "data.prices")),
+            max_discrepancy_rate=float(_require(prices, "max_discrepancy_rate", "data.prices")),
         )),
         raw=raw,
         source_path=source_path,

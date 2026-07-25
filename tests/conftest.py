@@ -24,16 +24,18 @@ calendar:
   history_start: "2015-01-01"
 dates:
   dev_start: "2015-01-01"
-  dev_end: "2023-12-31"
-  holdout_start: "2024-01-01"
+  dev_end: "2024-12-31"
+  holdout_start: "2025-01-01"
 universe:
   index: nifty100
-  membership_source: null
+  size: 100
+  membership_source: event_chain
   min_median_adv_inr: 10000000
 data:
   prices:
-    authoritative_source: null
+    authoritative_source: bhavcopy
     cross_check_rel_tol: 0.01
+    max_discrepancy_rate: 0.03
 """
 
 

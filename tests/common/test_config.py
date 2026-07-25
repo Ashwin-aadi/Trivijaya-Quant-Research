@@ -21,8 +21,9 @@ def test_loads_and_types(tmp_path: Path, good_config_text: str) -> None:
     cfg = load_config(write(tmp_path, good_config_text))
     assert cfg.meta.seed == 42
     assert cfg.dates.dev_start == date(2015, 1, 1)
-    assert cfg.dates.holdout_start == date(2024, 1, 1)
-    assert cfg.universe.membership_source is None
+    assert cfg.dates.holdout_start == date(2025, 1, 1)
+    assert cfg.universe.size == 100
+    assert cfg.universe.membership_source == "event_chain"
     assert cfg.data.prices.cross_check_rel_tol == pytest.approx(0.01)
 
 
@@ -45,7 +46,7 @@ def test_missing_section_rejected(tmp_path: Path, good_config_text: str) -> None
 
 def test_holdout_must_follow_dev(tmp_path: Path, good_config_text: str) -> None:
     # holdout_start before dev_end would leak holdout data into development.
-    bad = good_config_text.replace('holdout_start: "2024-01-01"', 'holdout_start: "2023-06-01"')
+    bad = good_config_text.replace('holdout_start: "2025-01-01"', 'holdout_start: "2024-06-01"')
     with pytest.raises(ConfigError):
         load_config(write(tmp_path, bad))
 
