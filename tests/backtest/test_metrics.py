@@ -68,20 +68,20 @@ def test_constant_return_series_has_no_volatility_and_no_sharpe() -> None:
     assert annualised_return(constant) > 0.0
 
 
-def test_a_near_constant_series_slips_past_the_zero_volatility_guard() -> None:
-    """Pins a known fragility in ``sharpe_ratio`` rather than leaving it undocumented.
+def test_float_residue_does_not_produce_an_enormous_sharpe() -> None:
+    """Regression test for a division that used to explode on a constant series.
 
-    For a mathematically constant series of 0.01 the sample variance is not exactly zero in
-    floating point — roughly 1e-16 of residue survives — so the ``volatility == 0`` guard does not
-    fire and the ratio explodes to order 1e16. This is asserted, not fixed, because the fix is a
-    tolerance the PI has to choose. Raised in the phase report; do not silently change either the
-    source or this test.
+    A mathematically constant series does not give exactly zero variance in floating point: for
+    0.01 repeated, roughly 1e-16 of residue survives. An exact ``volatility == 0`` guard therefore
+    never fired, and dividing the return by that residue produced a Sharpe around 1e16. The guard
+    is now a tolerance, so a series with no real dispersion reports 0.0 — an undefined ratio, not
+    an astronomical one.
     """
     near_constant = [0.01] * 250
     volatility = annualised_volatility(near_constant)
-    assert volatility != 0.0            # mathematically it is zero
-    assert volatility < 1e-12           # numerically it is float residue, nothing more
-    assert sharpe_ratio(near_constant) > 1e10
+    assert volatility != 0.0            # mathematically zero, numerically not
+    assert volatility < 1e-12           # and far below anything a real strategy produces
+    assert sharpe_ratio(near_constant) == 0.0
 
 
 def test_single_observation_has_no_dispersion_and_no_sharpe() -> None:

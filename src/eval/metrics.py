@@ -13,6 +13,11 @@ from collections.abc import Sequence
 # NSE trades roughly 250 sessions a year; used to annualise daily statistics.
 TRADING_DAYS_PER_YEAR = 250
 
+# Annualised volatility below this is floating-point residue, not risk. Set far under any real
+# strategy's volatility (the quietest cash-like book still moves by basis points) and far above
+# the ~1e-16 noise floor a constant series leaves behind.
+NEGLIGIBLE_VOLATILITY = 1e-12
+
 
 def annualised_return(returns: Sequence[float]) -> float:
     """Geometric mean return, annualised. Returns 0.0 for an empty series."""
@@ -45,7 +50,12 @@ def sharpe_ratio(returns: Sequence[float], risk_free_rate: float = 0.0) -> float
     if len(returns) < 2:
         return 0.0
     volatility = annualised_volatility(returns)
-    if volatility == 0:
+    # Tolerance, not exact equality. A mathematically constant series does not generally produce
+    # a variance of exactly zero in floating point — [0.01] * 250 leaves a residue near 1e-16 —
+    # and dividing by that residue yields a Sharpe around 1e16. Anything below this threshold is
+    # numerical noise rather than a real risk measurement, so the ratio is undefined and reported
+    # as zero.
+    if volatility < NEGLIGIBLE_VOLATILITY:
         return 0.0
     return (annualised_return(returns) - risk_free_rate) / volatility
 
