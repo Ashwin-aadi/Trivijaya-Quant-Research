@@ -20,7 +20,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import polars as pl  # noqa: E402
 
 from src.common.config import load_config  # noqa: E402
 from src.common.io import write_derived_parquet  # noqa: E402
@@ -63,12 +62,13 @@ def main() -> int:
         run.note("adjustment_events", len(events))
         adjusted = apply_adjustments(panel, events)
 
-        # Rank on adjusted traded value so a split cannot alter a stock's apparent liquidity.
-        ranked_panel = adjusted.with_columns(
-            (pl.col("adj_close") * pl.col("adj_volume")).alias("turnover_inr")
-        )
+        # Rank on the exchange's own reported rupee turnover rather than reconstructing it from
+        # adjusted price times adjusted volume. Turnover is already invariant to splits — a
+        # capital change moves price and share count in opposite directions — so using it keeps
+        # the universe entirely independent of corporate-action adjustment, and therefore immune
+        # to any error in it.
         snapshots = build_universe_history(
-            ranked_panel, calendar, cfg.dates.dev_start, cfg.dates.dev_end, cfg.universe
+            adjusted, calendar, cfg.dates.dev_start, cfg.dates.dev_end, cfg.universe
         )
         run.note("rebalances", len(snapshots))
 
