@@ -107,6 +107,82 @@ def detect_adjustments(
     return events
 
 
+def fetch_declared_splits(symbol: str, start: date, end: date) -> list[AdjustmentEvent]:
+    """Corporate actions as declared by an independent source, for one symbol.
+
+    Necessary because the restated-previous-close method above is unreliable: NSE leaves
+    ``PREV_CLOSE`` un-restated for a large share of real capital changes, so detection alone
+    misses them and leaves fictitious crashes in the return series. A source that publishes split
+    ratios directly does not depend on the exchange having restated anything.
+    """
+    import yfinance as yf
+
+    series = yf.Ticker(f"{symbol}.NS").splits
+    if series is None or series.empty:
+        return []
+    events: list[AdjustmentEvent] = []
+    for stamp, ratio in series.items():
+        ex_date = stamp.date()
+        if start <= ex_date <= end and float(ratio) > 0:
+            events.append(AdjustmentEvent(symbol=symbol, ex_date=ex_date, factor=float(ratio)))
+    return events
+
+
+@dataclass(frozen=True)
+class FactorDisagreement:
+    """A declared split ratio that the observed price move does not corroborate."""
+
+    symbol: str
+    ex_date: date
+    declared_factor: float
+    implied_factor: float      # prior close divided by ex-date close
+
+
+def reconcile_with_prices(
+    events: list[AdjustmentEvent],
+    panel: pl.DataFrame,
+    calendar: TradingCalendar,
+    rel_tol: float = 0.10,
+) -> tuple[list[AdjustmentEvent], list[FactorDisagreement]]:
+    """Check each declared factor against the price move actually observed on its ex-date.
+
+    A genuine 1:2 split roughly halves the quoted price, so the declared ratio and the observed
+    ratio should agree closely. Where they do not, the event is usually not a clean split — a
+    demerger, or a split combined with a real move — and silently applying the declared factor
+    would inject an error rather than remove one. Those cases are returned separately so they can
+    be reported and judged, never quietly applied.
+    """
+    prices = {
+        (row["symbol"], row["session_date"]): row["close"]
+        for row in panel.select(["symbol", "session_date", "close"]).iter_rows(named=True)
+    }
+    agreed: list[AdjustmentEvent] = []
+    disputed: list[FactorDisagreement] = []
+
+    for event in events:
+        if not calendar.is_trading_day(event.ex_date):
+            continue
+        try:
+            previous = calendar.previous_session(event.ex_date)
+        except Exception:  # noqa: BLE001 - outside calendar range; nothing to reconcile against
+            continue
+        before = prices.get((event.symbol, previous))
+        on_day = prices.get((event.symbol, event.ex_date))
+        if not before or not on_day or on_day <= 0:
+            continue
+        implied = before / on_day
+        if abs(implied - event.factor) / event.factor <= rel_tol:
+            agreed.append(event)
+        else:
+            disputed.append(
+                FactorDisagreement(event.symbol, event.ex_date, event.factor, implied)
+            )
+
+    _log.info("reconciled %d declared events: %d corroborated by prices, %d disputed",
+              len(events), len(agreed), len(disputed))
+    return agreed, disputed
+
+
 def adjustment_factors(
     events: list[AdjustmentEvent],
     symbol: str,

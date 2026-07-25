@@ -116,4 +116,6 @@ def test_dropped_names_retain_prices_before_they_left() -> None:
             (pl.col("symbol") == symbol) & (pl.col("session_date") <= dates[0])
         )
         assert history.height > 0, f"{symbol} left the universe but has no prior price history"
-        assert history["adj_close"].min() > 0, f"{symbol} has non-positive prices before it left"
+        cheapest = history["adj_close"].min()
+        assert isinstance(cheapest, float)
+        assert cheapest > 0, f"{symbol} has non-positive prices before it left"

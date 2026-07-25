@@ -88,11 +88,19 @@ def cross_check(
     symbols: list[str],
     rel_tol: float,
     max_worst: int = 15,
+    price_column: str = "adj_close",
 ) -> CrossCheckResult:
-    """Compare bhavcopy closes against the reference source for the given symbols."""
+    """Compare our closes against the reference source for the given symbols.
+
+    Defaults to the adjusted column because the reference back-adjusts its history for splits
+    even when asked for unadjusted prices — its ``auto_adjust`` flag governs dividends only.
+    Comparing our *raw* prices against it therefore measures the split basis rather than data
+    quality, and reports a large discrepancy even when both sources are perfectly correct.
+    """
     result = CrossCheckResult(compared_points=0, mismatches=0, symbols_compared=0)
     for symbol in symbols:
-        own = panel.filter(pl.col("symbol") == symbol).select(["session_date", "close"])
+        own = (panel.filter(pl.col("symbol") == symbol)
+               .select(["session_date", pl.col(price_column).alias("close")]))
         if own.is_empty():
             continue
         start = own["session_date"].min()
