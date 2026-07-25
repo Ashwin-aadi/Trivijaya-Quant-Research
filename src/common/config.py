@@ -83,14 +83,16 @@ class Config:
     config_hash: str           # sha256 of the raw file bytes
 
 
-def _require(section: dict[str, Any], key: str, where: str) -> Any:
+def _require(section: dict[str, Any], key: str, where: str) -> Any:  # noqa: ANN401
+    # Returns a raw YAML value whose type isn't known until the caller validates it.
     """Fetch a required key, raising ConfigError with a locating message if it is absent."""
     if key not in section:
         raise ConfigError(f"missing required key '{key}' in config section '{where}'")
     return section[key]
 
 
-def _parse_date(value: Any, where: str) -> date:
+def _parse_date(value: Any, where: str) -> date:  # noqa: ANN401
+    # `value` is a raw YAML scalar (str, date, or something invalid we reject below).
     """Accept an ISO date string or an already-parsed date; reject anything else."""
     if isinstance(value, date):
         return value

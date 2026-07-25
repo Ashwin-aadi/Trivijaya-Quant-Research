@@ -4,6 +4,7 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+
 from src.common.exceptions import DataIntegrityError
 from src.common.io import meta_path, verify_raw, write_derived_parquet, write_raw_parquet
 
@@ -34,7 +35,8 @@ def test_verify_detects_tampering(tmp_path: Path) -> None:
     write_raw_parquet(sample_df(), path, source_url="src")
     # Corrupt the metadata's recorded hash; verification must catch the mismatch.
     mp = meta_path(path)
-    mp.write_text(mp.read_text(encoding="utf-8").replace('"sha256"', '"sha256_x"'), encoding="utf-8")
+    corrupted = mp.read_text(encoding="utf-8").replace('"sha256"', '"sha256_x"')
+    mp.write_text(corrupted, encoding="utf-8")
     with pytest.raises(DataIntegrityError):
         verify_raw(path)
 

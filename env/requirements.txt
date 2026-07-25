@@ -21,3 +21,4 @@ nsepython>=2.9         # index membership / fallback lookups
 ruff>=0.6
 mypy>=1.10
 pytest>=8.0
+types-PyYAML>=6.0    # stubs so mypy can check the config loader

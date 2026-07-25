@@ -6,6 +6,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+
 from src.common.config import load_config
 from src.common.exceptions import ConfigError
 

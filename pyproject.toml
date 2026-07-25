@@ -13,10 +13,10 @@ src = ["src", "tests"]
 # E/F: pyflakes+pycodestyle, I: isort, B: bugbear, UP: pyupgrade,
 # ANN: annotations (we require full type hints), SIM: simplify.
 select = ["E", "F", "I", "B", "UP", "ANN", "SIM"]
-ignore = [
-    "ANN101",  # missing type for `self` — noise, not a real hint
-    "ANN102",  # missing type for `cls` — same
-]
+
+[tool.ruff.lint.isort]
+# Our own package, so imports from it group separately from third-party.
+known-first-party = ["src"]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests use fixtures and assertions where annotations add nothing.

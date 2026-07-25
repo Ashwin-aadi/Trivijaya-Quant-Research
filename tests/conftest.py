@@ -7,6 +7,7 @@ probe parser edge cases mutate ``good_config_text`` and write their own file.
 from pathlib import Path
 
 import pytest
+
 from src.common.config import Config, load_config
 
 GOOD_CONFIG_TEXT = """

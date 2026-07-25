@@ -77,8 +77,8 @@ class RunManifest:
         """Record a local model tag (e.g. an Ollama tag). Results aren't reproducible without it."""
         self._models.append(tag)
 
-    def note(self, key: str, value: Any) -> None:
-        """Attach an arbitrary extra field to the manifest."""
+    def note(self, key: str, value: Any) -> None:  # noqa: ANN401
+        """Attach an arbitrary extra field to the manifest (any JSON-serialisable value)."""
         self._extra[key] = value
 
     def __enter__(self) -> RunManifest:
@@ -107,7 +107,7 @@ class RunManifest:
             "models": self._models,
             "input_hashes": self._inputs,
             "packages": _installed_packages(),
-            "error": None if exc is None else f"{exc_type.__name__}: {exc}",
+            "error": None if exc_type is None else f"{exc_type.__name__}: {exc}",
             **self._extra,
         }
         (self.run_dir / "manifest.json").write_text(

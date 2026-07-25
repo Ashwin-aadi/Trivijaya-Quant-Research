@@ -67,7 +67,7 @@ def verify_raw(path: Path) -> dict[str, Any]:
     mp = meta_path(path)
     if not mp.exists():
         raise DataIntegrityError(f"raw file has no .meta.json sibling: {path}")
-    meta = json.loads(mp.read_text(encoding="utf-8"))
+    meta: dict[str, Any] = json.loads(mp.read_text(encoding="utf-8"))
     actual = sha256_file(path)
     if actual != meta.get("sha256"):
         raise DataIntegrityError(
