@@ -37,6 +37,20 @@ REQUIRED_COLUMNS = frozenset(
      "PREV_CLOSE", "TTL_TRD_QNTY", "TURNOVER_LACS"}
 )
 
+# NSE's dated archive still serves the older header layout, and its turnover column is already in
+# rupees rather than lakhs. Mapping the old names onto the current ones keeps a single downstream
+# schema; TURNOVER_IS_RUPEES records which convention the file used so the unit conversion below
+# stays correct for both.
+LEGACY_COLUMN_MAP = {
+    "OPEN": "OPEN_PRICE",
+    "HIGH": "HIGH_PRICE",
+    "LOW": "LOW_PRICE",
+    "CLOSE": "CLOSE_PRICE",
+    "PREVCLOSE": "PREV_CLOSE",
+    "TOTTRDQTY": "TTL_TRD_QNTY",
+    "TOTTRDVAL": "TURNOVER_INR",   # deliberately a distinct name: already rupees, not lakhs
+}
+
 # Only ordinary rolling-settlement equity counts as investable here. BE/SM/ST and the rest are
 # trade-to-trade, SME, or other segments with different microstructure.
 EQUITY_SERIES = "EQ"
@@ -73,13 +87,17 @@ def parse_bhavcopy_csv(csv_path: Path, session: date) -> pl.DataFrame:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
             raise DataIntegrityError(f"bhavcopy for {session} has no header row: {csv_path}")
-        fields = [name.strip() for name in reader.fieldnames]
-        missing = REQUIRED_COLUMNS - set(fields)
+        fields = [LEGACY_COLUMN_MAP.get(name.strip(), name.strip())
+                  for name in reader.fieldnames]
+        turnover_in_rupees = "TURNOVER_INR" in fields
+        required = REQUIRED_COLUMNS - ({"TURNOVER_LACS"} if turnover_in_rupees else set())
+        missing = required - set(fields)
         if missing:
             raise DataIntegrityError(
                 f"bhavcopy for {session} is missing columns {sorted(missing)}; got {fields}"
             )
-        rows = [{k.strip(): (v.strip() if isinstance(v, str) else v)
+        rows = [{LEGACY_COLUMN_MAP.get(k.strip(), k.strip()):
+                 (v.strip() if isinstance(v, str) else v)
                  for k, v in raw_row.items() if k is not None}
                 for raw_row in reader]
 
@@ -100,14 +118,65 @@ def parse_bhavcopy_csv(csv_path: Path, session: date) -> pl.DataFrame:
             "close": [float(r["CLOSE_PRICE"]) for r in equity],
             "prev_close": [float(r["PREV_CLOSE"]) for r in equity],
             "volume": [float(r["TTL_TRD_QNTY"]) for r in equity],
-            # NSE reports turnover in lakhs; convert to rupees so every money figure in the repo
-            # is in the same unit and no downstream code has to remember this.
-            "turnover_inr": [float(r["TURNOVER_LACS"]) * 100_000 for r in equity],
+            # Normalise turnover to rupees so every money figure in the repo shares one unit and
+            # no downstream code has to remember which file layout it came from. The current
+            # layout reports lakhs; the dated archive already reports rupees.
+            "turnover_inr": (
+                [float(r["TURNOVER_INR"]) for r in equity]
+                if turnover_in_rupees
+                else [float(r["TURNOVER_LACS"]) * 100_000 for r in equity]
+            ),
         }
     )
     if frame["close"].min() is not None and frame["close"].min() <= 0:  # type: ignore[operator]
         raise DataIntegrityError(f"bhavcopy for {session} contains a non-positive close price")
     return frame
+
+
+def fetch_from_archive(session: date, scratch: Path) -> Path:
+    """Pull one session from NSE's dated archive, which serves a zipped CSV.
+
+    Used when the primary helper cannot deliver a session. Some dates come back as a ZIP whose
+    bytes decode into gibberish if treated as text, so the archive is read as binary and extracted
+    explicitly rather than run through a text-mode path.
+    """
+    import io
+    import zipfile
+
+    import requests
+
+    session_http = requests.Session()
+    session_http.headers.update(
+        {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120 Safari/537.36"
+            ),
+            "Referer": "https://www.nseindia.com/",
+        }
+    )
+    session_http.get("https://www.nseindia.com/", timeout=30)  # establish cookies
+
+    # Archive paths use an uppercase three-letter month, e.g. .../2022/AUG/cm08AUG2022bhav.csv.zip
+    month = f"{session:%b}".upper()
+    stamp = f"{session:%d%b%Y}".upper()
+    url = (
+        "https://nsearchives.nseindia.com/content/historical/EQUITIES/"
+        f"{session.year}/{month}/cm{stamp}bhav.csv.zip"
+    )
+    response = session_http.get(url, timeout=60)
+    if response.status_code != 200:
+        raise DataIntegrityError(
+            f"archive returned HTTP {response.status_code} for {session} ({url})"
+        )
+    if response.content[:2] != b"PK":
+        raise DataIntegrityError(f"archive payload for {session} is not a ZIP ({url})")
+
+    archive = zipfile.ZipFile(io.BytesIO(response.content))
+    member = archive.namelist()[0]
+    extracted = scratch / member
+    extracted.write_bytes(archive.read(member))
+    return extracted
 
 
 def fetch_session(raw_root: Path, session: date) -> pl.DataFrame:
@@ -116,12 +185,23 @@ def fetch_session(raw_root: Path, session: date) -> pl.DataFrame:
     if target.exists():
         return read_parquet(target)
 
-    from jugaad_data.nse import bhavcopy_save  # lazy: keeps parsing importable without network
+    # Lazy import keeps the parsing logic importable without a network stack.
+    from jugaad_data.nse import bhavcopy_save
 
     scratch = Path(tempfile.mkdtemp(prefix="bhav_"))
     try:
-        downloaded = Path(bhavcopy_save(session, str(scratch)))
-        frame = parse_bhavcopy_csv(downloaded, session)
+        # Two independent routes to the same file. The primary helper covers recent dates but
+        # returns an error page for older ones and chokes on ZIP payloads under Windows' cp1252
+        # codec; the dated archive serves a zipped CSV and covers both. Falling back matters
+        # because a hole in the panel makes corporate-action detection report fictitious splits.
+        try:
+            downloaded = Path(bhavcopy_save(session, str(scratch)))
+            frame = parse_bhavcopy_csv(downloaded, session)
+        except (UnicodeEncodeError, UnicodeDecodeError, DataIntegrityError, OSError) as primary:
+            _log.info("primary fetch unusable for %s (%s); trying the dated archive",
+                      session, type(primary).__name__)
+            downloaded = fetch_from_archive(session, scratch)
+            frame = parse_bhavcopy_csv(downloaded, session)
         write_raw_parquet(
             frame,
             target,

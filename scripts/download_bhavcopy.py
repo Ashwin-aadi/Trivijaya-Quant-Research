@@ -39,7 +39,13 @@ def main() -> int:
     cfg = load_config()
     calendar_file = cfg.paths.data_raw / "calendar_cnx100.parquet"
     calendar = load_calendar(calendar_file)
-    sessions = calendar.sessions_in_range(cfg.dates.dev_start, cfg.dates.dev_end)
+
+    # Reach back a full trailing window before dev_start. The first rebalance ranks stocks on the
+    # preceding months of traded value, so without this warm-up the earliest universe would be
+    # built on truncated history and would not be comparable with later ones.
+    first_dev_session = calendar.next_session(cfg.dates.dev_start, strictly_after=False)
+    warmup_start = calendar.shift(first_dev_session, -cfg.universe.trailing_sessions)
+    sessions = calendar.sessions_in_range(warmup_start, cfg.dates.dev_end)
 
     pending = [s for s in sessions if not session_path(cfg.paths.data_raw, s).exists()]
     _log.info("dev window %s..%s: %d sessions, %d still to download",
