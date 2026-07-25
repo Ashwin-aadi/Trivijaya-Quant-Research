@@ -31,7 +31,7 @@ import json
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Final
+from typing import Any, Final
 
 import requests
 
@@ -39,7 +39,7 @@ from src.audit.prompts import LABELS, PROBE_RATIONALE, PROBE_SOURCE, build_promp
 from src.common.exceptions import LabError
 from src.common.log import get_logger
 
-logger = get_logger(__name__)
+_log = get_logger(__name__)
 
 # These are constants rather than config entries because config.yaml has no audit section until
 # the PI ratifies one; they move there when it exists.
@@ -196,12 +196,12 @@ def batch_classify(
             item.rationale, item.source_code, model_tag=model_tag, host=host, timeout=timeout
         )
         findings.append(finding)
-        logger.info(
+        _log.info(
             "semantic audit %d/%d: %s -> %s (confidence %.2f)",
             index, len(items), item.name, finding.label, finding.confidence,
         )
     elapsed = time.perf_counter() - started
-    logger.info("semantic audit finished: %d items in %.1f s", len(findings), elapsed)
+    _log.info("semantic audit finished: %d items in %.1f s", len(findings), elapsed)
     return findings
 
 
@@ -236,7 +236,7 @@ def throughput_estimate(
         seconds_per_item=per_item,
         estimated_seconds=per_item * n_items,
     )
-    logger.info("throughput estimate: %s", estimate.summary())
+    _log.info("throughput estimate: %s", estimate.summary())
     return estimate
 
 
@@ -251,7 +251,7 @@ def _post_generate(prompt: str, *, model_tag: str, host: str, timeout: float) ->
     person reading the traceback should not have to go looking for that.
     """
     url = f"{host}{GENERATE_PATH}"
-    payload = {
+    payload: dict[str, Any] = {
         "model": model_tag,
         "prompt": prompt,
         "stream": False,
@@ -333,25 +333,24 @@ def _extract_json_object(text: str) -> str:
 
 def _coerce_confidence(value: object, raw: str) -> float:
     """Read the confidence field as a float in [0, 1], clamping and logging when out of range."""
+    complaint = f"confidence is not a number: {value!r} (reply {raw[:200]!r})"
     # bool is a subclass of int, so `True` would otherwise sail through as a confidence of 1.0.
     if isinstance(value, bool) or value is None:
-        raise SemanticAuditParseError(f"confidence is not a number: {value!r} (reply {raw[:200]!r})")
+        raise SemanticAuditParseError(complaint)
     if isinstance(value, str):
         try:
             number = float(value.strip().rstrip("%"))
         except ValueError as exc:
-            raise SemanticAuditParseError(
-                f"confidence is not a number: {value!r} (reply {raw[:200]!r})"
-            ) from exc
+            raise SemanticAuditParseError(complaint) from exc
     elif isinstance(value, int | float):
         number = float(value)
     else:
-        raise SemanticAuditParseError(f"confidence is not a number: {value!r} (reply {raw[:200]!r})")
+        raise SemanticAuditParseError(complaint)
     clamped = min(1.0, max(0.0, number))
     if clamped != number:
         # Worth seeing rather than silently fixing: a model returning 95 for a 0-1 field has
         # misread the instructions, which casts some doubt on the label it returned with it.
-        logger.warning("clamped out-of-range confidence %r to %.2f", number, clamped)
+        _log.warning("clamped out-of-range confidence %r to %.2f", number, clamped)
     return clamped
 
 

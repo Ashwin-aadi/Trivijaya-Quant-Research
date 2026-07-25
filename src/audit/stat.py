@@ -217,7 +217,7 @@ def _sharpe_grid(
     sums: np.ndarray,
     sums_of_squares: np.ndarray,
 ) -> np.ndarray:
-    """Per-observation Sharpe of every strategy under every partition, shape (partitions, strategies).
+    """Sharpe of every strategy under every partition; shape (n_partitions, n_strategies).
 
     ``mask`` is (n_partitions, n_splits), holding 1.0 where a block belongs to the set being scored.
     Each aggregation is then a single matrix product, so the whole grid costs three BLAS calls
@@ -244,7 +244,9 @@ def _sharpe_grid(
 def _validate_returns_matrix(matrix: np.ndarray, n_splits: int) -> None:
     """Reject shapes and split counts for which the CSCV statistic is undefined or unaffordable."""
     if matrix.ndim != 2:
-        raise ValueError(f"returns_matrix must be 2-D (observations, strategies), got {matrix.ndim}")
+        raise ValueError(
+            f"returns_matrix must be 2-D (observations, strategies), got {matrix.ndim}-D"
+        )
     n_observations, n_strategies = matrix.shape
     if n_strategies < 2:
         raise ValueError(
@@ -442,27 +444,28 @@ class TrialCounter:
         numbered consecutively from 1, records the previous entry's digest, and hashes to its own
         recorded digest. A missing or empty ledger verifies trivially with a count of 0.
         """
+        lines = self._read_lines()
         previous_hash = self.genesis_hash()
-        for line_number, line in enumerate(self._read_lines(), start=1):
+        for line_number, line in enumerate(lines, start=1):
             entry = self._parse_entry(line, line_number)
             if entry["seq"] != line_number:
                 raise TamperError(
                     f"{self.path} line {line_number}: sequence number is {entry['seq']}, "
-                    f"expected {line_number} — an entry was inserted, removed, or reordered"
+                    f"expected {line_number}: an entry was inserted, removed, or reordered"
                 )
             if entry["prev_hash"] != previous_hash:
                 raise TamperError(
                     f"{self.path} line {line_number}: recorded prev_hash does not match the "
-                    f"previous entry's digest — the chain is broken here"
+                    f"previous entry's digest, so the chain is broken here"
                 )
             recomputed = _entry_digest(previous_hash, entry)
             if recomputed != entry["hash"]:
                 raise TamperError(
                     f"{self.path} line {line_number}: contents hash to {recomputed[:16]}... but "
-                    f"the line records {str(entry['hash'])[:16]}... — this entry was edited"
+                    f"the line records {str(entry['hash'])[:16]}..., so this entry was edited"
                 )
             previous_hash = str(entry["hash"])
-        return line_number if self._read_lines() else 0
+        return len(lines)
 
     @staticmethod
     def genesis_hash() -> str:
