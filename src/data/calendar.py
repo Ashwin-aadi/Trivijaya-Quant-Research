@@ -19,8 +19,15 @@ from __future__ import annotations
 import bisect
 from collections.abc import Iterable
 from datetime import date, timedelta
+from pathlib import Path
 
-from src.common.exceptions import LabError
+import polars as pl
+
+from src.common.exceptions import DataIntegrityError, LabError
+from src.common.io import read_parquet, write_raw_parquet
+from src.common.log import get_logger
+
+_log = get_logger(__name__)
 
 # Monday=0 ... Sunday=6. NSE is closed on the weekend; intraweek closures are holidays.
 _WEEKEND = {5, 6}
@@ -115,6 +122,64 @@ class TradingCalendar:
     def count_sessions(self, start: date, end: date) -> int:
         """Number of trading days in [start, end] inclusive."""
         return len(self.sessions_in_range(start, end))
+
+
+def fetch_index_sessions(
+    symbol: str,
+    start: date,
+    end: date,
+    raw_path: Path,
+) -> pl.DataFrame:
+    """Download index level history and cache it immutably as the calendar's source of truth.
+
+    The exchange published a level for this index on exactly the days it was open, so the dates
+    present in this series *are* the trading sessions — no hand-maintained holiday list, and no
+    dependence on the stock price source, which keeps "no price rows on a holiday" an independent
+    check rather than a tautology.
+
+    Special sessions (Muhurat trading, budget-day Saturdays, disaster-recovery sessions) carry an
+    index level like any other day and are therefore preserved automatically. Nothing here filters
+    on weekday, precisely so those days are not silently discarded as anomalies.
+    """
+    if raw_path.exists():
+        _log.info("index history already cached at %s", raw_path)
+        return read_parquet(raw_path)
+
+    import yfinance as yf  # imported lazily so the pure calendar logic needs no network stack
+
+    frame = yf.Ticker(symbol).history(
+        start=start.isoformat(), end=end.isoformat(), auto_adjust=False
+    )
+    if frame.empty:
+        raise DataIntegrityError(
+            f"index history for {symbol} came back empty for {start}..{end}; "
+            "refusing to build a calendar from nothing"
+        )
+    sessions = pl.DataFrame(
+        {
+            "session_date": [ts.date() for ts in frame.index],
+            "close": frame["Close"].to_list(),
+        }
+    )
+    write_raw_parquet(
+        sessions,
+        raw_path,
+        source_url=f"yfinance:{symbol}",
+        extra={
+            "symbol": symbol,
+            "requested_start": start.isoformat(),
+            "requested_end": end.isoformat(),
+            "purpose": "trading session calendar",
+        },
+    )
+    _log.info("cached %d sessions for %s to %s", sessions.height, symbol, raw_path)
+    return sessions
+
+
+def load_calendar(raw_path: Path, name: str = "NSE") -> TradingCalendar:
+    """Build a TradingCalendar from a cached index-history file."""
+    frame = read_parquet(raw_path)
+    return TradingCalendar(frame["session_date"].to_list(), name=name)
 
 
 def sessions_from_weekdays(

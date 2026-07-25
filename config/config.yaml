@@ -17,30 +17,53 @@ paths:
 
 calendar:
   exchange: NSE
-  # First date the calendar and all downstream data cover.
-  history_start: "2015-01-01"
+  # Trading sessions are derived from NIFTY 100 index levels, not from a hand-typed holiday list:
+  # the index has a value on exactly the days the market traded. Deliberately independent of the
+  # stock price source so the "no price rows on holidays" test stays a real cross-check.
+  # Special sessions (Muhurat, budget-day Saturdays) are preserved, never filtered as anomalies.
+  history_start: "2019-01-01"   # a year before dev_start, so trailing windows have history
+  index_symbol: "^CNX100"       # yfinance ticker for the NIFTY 100 index
 
 dates:
-  # Approved 2026-07-25. Development is what we fit, tune, and inspect. The holdout is never
-  # touched until a project's final experimental phase, and only with logged PI authorization
-  # (charter RULE 7). Holdout deliberately spans 2025 onward: it contains a real correction and
-  # volatility spike, so it punishes fragile strategies rather than flattering them.
-  dev_start: "2015-01-01"
+  # Approved 2026-07-25 (revised after the data-availability halt). Development is what we fit,
+  # tune, and inspect. The holdout is never touched until a project's final experimental phase,
+  # and only with logged PI authorization (charter RULE 7).
+  dev_start: "2020-01-01"
   dev_end: "2024-12-31"
   holdout_start: "2025-01-01"  # everything from here on is sacred / never-touched
 
 universe:
-  # Approved 2026-07-25: NIFTY 100. A 50-name cross-section was rejected as too thin for the
-  # downstream factor and fragility work (quantile buckets would be mostly noise).
-  index: nifty100
-  size: 100                    # fixed index size; enforced as an invariant on every date
-  # Point-in-time membership is the single most important correctness requirement (charter §1.0).
-  # Built by event-chain reconstruction: a base constituent list plus every dated reconstitution
-  # event, so stocks later removed or delisted remain in the historical universes.
-  membership_source: event_chain
-  # A stock must clear this median-ADV floor (INR) to be tradable on a given date.
-  # PROPOSED — a liquidity screen, not yet approved.
-  min_median_adv_inr: 10000000  # 1 crore
+  # Rules-based liquidity universe ("Option B", approved 2026-07-25). At each rebalance date the
+  # universe is the top `size` NSE equities by trailing median daily traded value, computed using
+  # only sessions strictly before that date. Survivorship-free by construction: nothing consults a
+  # published membership list, so stocks that later delist simply stop qualifying rather than
+  # vanishing from history.
+  #
+  # NOT the NIFTY 100. Results must never be labelled as such — this is a liquidity proxy.
+  method: liquidity_rank
+  size: 100
+  # --- The four parameters below are PROPOSED DEFAULTS awaiting PI ratification at Checkpoint 1.0.
+  # They are real methodological choices, not implementation details.
+  #
+  # (1) Trailing window over which median traded value is measured. 126 sessions ~ 6 months.
+  #     6 months smooths one-off spikes (a single block deal can lift 3-month traded value for
+  #     weeks) while still adapting within a year.
+  trailing_sessions: 126
+  # (2) Rebalance frequency. Quarterly matches real index practice and keeps turnover — and
+  #     therefore transaction costs, which Phase 1.1 models in detail — far below monthly.
+  rebalance: quarterly
+  # (3) Buffer bands. Without a buffer, stocks near rank `size` churn in and out every rebalance,
+  #     generating spurious turnover and cost. A name must rank at least as high as `entry_rank`
+  #     to join, and an incumbent is only dropped once it falls past `exit_rank`.
+  entry_rank: 90
+  exit_rank: 110
+  # (4) Minimum listing history. A stock needs the full trailing window to have a meaningful
+  #     traded-value estimate, and must actually have traded on most of it (filters dormant
+  #     listings). Freshly-listed names are ineligible until they accumulate the window; this is
+  #     a stated scope limitation, not a bias — the rule is applied identically at every date
+  #     using only past data.
+  min_listed_sessions: 126
+  min_traded_fraction: 0.8
 
 data:
   prices:

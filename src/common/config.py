@@ -43,6 +43,7 @@ class PathsConfig:
 class CalendarConfig:
     exchange: str
     history_start: date
+    index_symbol: str            # index whose level history defines the trading sessions
 
 
 @dataclass(frozen=True)
@@ -54,10 +55,20 @@ class DatesConfig:
 
 @dataclass(frozen=True)
 class UniverseConfig:
-    index: str
-    size: int                    # fixed index size, asserted as an invariant on every date
-    membership_source: str | None
-    min_median_adv_inr: int
+    """Parameters defining the rules-based liquidity universe.
+
+    Every field after ``size`` is a methodological choice awaiting PI ratification, not an
+    implementation detail — see config.yaml for the reasoning behind each proposed default.
+    """
+
+    method: str
+    size: int
+    trailing_sessions: int       # lookback over which median traded value is measured
+    rebalance: str               # "quarterly" | "monthly"
+    entry_rank: int              # must rank at least this high to join
+    exit_rank: int               # incumbent is dropped only once it falls past this
+    min_listed_sessions: int     # required listed history before a name is eligible
+    min_traded_fraction: float   # required share of the window on which it actually traded
 
 
 @dataclass(frozen=True)
@@ -128,6 +139,7 @@ def _build(raw: dict[str, Any], source_path: Path, config_hash: str) -> Config:
             exchange=str(_require(cal, "exchange", "calendar")),
             history_start=_parse_date(_require(cal, "history_start", "calendar"),
                                       "calendar.history_start"),
+            index_symbol=str(_require(cal, "index_symbol", "calendar")),
         ),
         dates=DatesConfig(
             dev_start=_parse_date(_require(dates, "dev_start", "dates"), "dates.dev_start"),
@@ -136,10 +148,14 @@ def _build(raw: dict[str, Any], source_path: Path, config_hash: str) -> Config:
                                       "dates.holdout_start"),
         ),
         universe=UniverseConfig(
-            index=str(_require(uni, "index", "universe")),
+            method=str(_require(uni, "method", "universe")),
             size=int(_require(uni, "size", "universe")),
-            membership_source=uni.get("membership_source"),
-            min_median_adv_inr=int(_require(uni, "min_median_adv_inr", "universe")),
+            trailing_sessions=int(_require(uni, "trailing_sessions", "universe")),
+            rebalance=str(_require(uni, "rebalance", "universe")),
+            entry_rank=int(_require(uni, "entry_rank", "universe")),
+            exit_rank=int(_require(uni, "exit_rank", "universe")),
+            min_listed_sessions=int(_require(uni, "min_listed_sessions", "universe")),
+            min_traded_fraction=float(_require(uni, "min_traded_fraction", "universe")),
         ),
         data=DataConfig(prices=PricesConfig(
             authoritative_source=prices.get("authoritative_source"),

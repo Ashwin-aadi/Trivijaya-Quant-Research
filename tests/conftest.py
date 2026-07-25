@@ -21,16 +21,21 @@ paths:
   runs: runs
 calendar:
   exchange: NSE
-  history_start: "2015-01-01"
+  history_start: "2019-01-01"
+  index_symbol: "^CNX100"
 dates:
-  dev_start: "2015-01-01"
+  dev_start: "2020-01-01"
   dev_end: "2024-12-31"
   holdout_start: "2025-01-01"
 universe:
-  index: nifty100
+  method: liquidity_rank
   size: 100
-  membership_source: event_chain
-  min_median_adv_inr: 10000000
+  trailing_sessions: 126
+  rebalance: quarterly
+  entry_rank: 90
+  exit_rank: 110
+  min_listed_sessions: 126
+  min_traded_fraction: 0.8
 data:
   prices:
     authoritative_source: bhavcopy
