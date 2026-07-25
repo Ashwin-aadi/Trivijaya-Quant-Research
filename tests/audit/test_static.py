@@ -1,0 +1,199 @@
+"""Tests for the static leakage auditor.
+
+Two things are being checked, and the second matters as much as the first. The auditor must catch
+every deliberate cheat, and it must stay quiet on honest code — a detector that flags everything
+has perfect recall and no value. Several tests below are therefore negative controls: ordinary
+constructions that look superficially like leakage and must not be reported.
+
+The fixture-level test is the real measurement. It runs the auditor over every strategy in the
+repository and asserts precision and recall directly, so a regression that starts flagging honest
+strategies fails here rather than quietly degrading the Phase 1.3 numbers.
+"""
+
+from pathlib import Path
+
+from src.audit.static import (
+    LeakClass,
+    Severity,
+    audit_file,
+    audit_source,
+    is_rejected,
+)
+
+LEAKY_DIR = Path("tests/fixtures/leaky")
+CLEAN_DIR = Path("tests/fixtures/clean")
+
+
+def classes_of(source: str) -> set[LeakClass]:
+    return {finding.leak_class for finding in audit_source(source)}
+
+
+# --- the headline measurement -------------------------------------------------
+
+
+def test_catches_every_leaky_fixture() -> None:
+    """All three deliberate cheats must be rejected. This is the layer's reason to exist."""
+    fixtures = sorted(LEAKY_DIR.glob("leak_*.py"))
+    assert len(fixtures) == 3, f"expected 3 leaky fixtures, found {len(fixtures)}"
+    missed = [p.name for p in fixtures if not is_rejected(audit_file(p))]
+    assert not missed, f"leaky fixtures not caught: {missed}"
+
+
+def test_no_false_positives_on_honest_strategies() -> None:
+    """Not one honest fixture may be rejected.
+
+    This is the expensive error. A leakage auditor that cries wolf is ignored, and in Phase 1.3 the
+    false-positive rate measured here is the denominator of the headline precision figure.
+    """
+    fixtures = [p for p in sorted(CLEAN_DIR.glob("*.py")) if not p.name.startswith("_")]
+    assert len(fixtures) >= 20, f"expected at least 20 clean fixtures, found {len(fixtures)}"
+    flagged = [p.name for p in fixtures if is_rejected(audit_file(p))]
+    assert not flagged, f"honest strategies wrongly flagged: {flagged}"
+
+
+def test_survivorship_is_caught_structurally_not_by_magnitude() -> None:
+    """The survivorship fixture must be caught by reading the code, never by its return.
+
+    Its backtested Sharpe is about 1.2 — entirely plausible. An auditor that only noticed
+    survivorship when the number looked too good would miss precisely the real-world cases that
+    matter, which sit in exactly that range. The auditor never sees returns at all; this test
+    pins that the detection comes from the membership reference in the source.
+    """
+    findings = audit_file(LEAKY_DIR / "leak_survivorship.py")
+    assert LeakClass.SURVIVORSHIP_SELECTION in {f.leak_class for f in findings}
+
+
+# --- individual detectors -----------------------------------------------------
+
+
+def test_negative_shift_is_future_indexing() -> None:
+    assert LeakClass.FUTURE_INDEXING in classes_of(
+        "def f(df):\n    return df['close'].shift(-1)\n"
+    )
+
+
+def test_negative_shift_written_as_unary_minus() -> None:
+    """The same defect spelled differently must still be caught.
+
+    A regular expression tuned to `shift(-1)` misses `shift(-(n))`; parsing the tree does not.
+    """
+    assert LeakClass.FUTURE_INDEXING in classes_of(
+        "def f(df, n):\n    return df['close'].shift(-(1))\n"
+    )
+
+
+def test_forward_slice_is_caught() -> None:
+    assert LeakClass.FUTURE_INDEXING in classes_of(
+        "def f(series, t):\n    return series[t + 1:]\n"
+    )
+
+
+def test_scaler_fitted_outside_a_fold() -> None:
+    source = (
+        "from sklearn.preprocessing import StandardScaler\n"
+        "def f(data):\n"
+        "    scaler = StandardScaler()\n"
+        "    scaler.fit(data)\n"
+        "    return scaler\n"
+    )
+    assert LeakClass.FULL_SAMPLE_FIT in classes_of(source)
+
+
+def test_constructor_taking_bulk_data_is_flagged() -> None:
+    """Accepting the dataset up front is how a strategy acquires the future."""
+    source = (
+        "class S:\n"
+        "    def __init__(self, panel):\n"
+        "        self._panel = panel\n"
+    )
+    assert LeakClass.FULL_SAMPLE_FIT in classes_of(source)
+
+
+def test_reading_stored_panel_while_deciding_is_flagged() -> None:
+    """The out-of-band read: reaching around the point-in-time view to stored state."""
+    source = (
+        "class S:\n"
+        "    def __init__(self, panel):\n"
+        "        self._panel = panel\n"
+        "    def generate(self, view):\n"
+        "        return self._panel.filter(view.as_of)\n"
+    )
+    findings = audit_source(source)
+    assert LeakClass.FUTURE_INDEXING in {f.leak_class for f in findings}
+
+
+def test_target_named_variable_is_flagged() -> None:
+    assert LeakClass.TARGET_IN_FEATURES in classes_of(
+        "def f():\n    features = [momentum, future_return]\n    return features\n"
+    )
+
+
+# --- negative controls: honest code that must stay quiet ----------------------
+
+
+def test_positive_shift_is_not_flagged() -> None:
+    """Shifting forward looks backwards in time, which is exactly what a lag should do."""
+    assert not audit_source("def f(df):\n    return df['close'].shift(1)\n")
+
+
+def test_rolling_window_statistics_are_not_flagged() -> None:
+    """Aggregating a trailing window is ordinary and must not be reported."""
+    source = (
+        "def f(window):\n"
+        "    average = sum(window) / len(window)\n"
+        "    return average\n"
+    )
+    assert not is_rejected(audit_source(source))
+
+
+def test_constructor_with_only_settings_is_not_flagged() -> None:
+    """Windows and thresholds are configuration, not data."""
+    source = (
+        "class S:\n"
+        "    def __init__(self, lookback=63, holdings=10):\n"
+        "        self._lookback = lookback\n"
+        "        self._holdings = holdings\n"
+    )
+    assert not audit_source(source)
+
+
+def test_reading_the_view_while_deciding_is_not_flagged() -> None:
+    """The sanctioned path must never be reported, or every honest strategy fails."""
+    source = (
+        "class S:\n"
+        "    def __init__(self, lookback=21):\n"
+        "        self._lookback = lookback\n"
+        "    def generate(self, view):\n"
+        "        return view.closes(lookback=self._lookback)\n"
+    )
+    assert not is_rejected(audit_source(source))
+
+
+# --- robustness ---------------------------------------------------------------
+
+
+def test_unparseable_source_is_reported_not_raised() -> None:
+    """Generated code that does not compile is a result to record, not an exception.
+
+    The generator in a later phase produces code that sometimes fails to parse. Those attempts
+    still count as trials, so the auditor has to return a finding rather than crash the run.
+    """
+    findings = audit_source("def broken(:\n")
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.HIGH
+    assert "does not parse" in findings[0].explanation
+
+
+def test_findings_carry_a_location_and_an_explanation() -> None:
+    """Every finding must be checkable by a human without re-reading the whole file."""
+    findings = audit_source("def f(df):\n    return df['close'].shift(-1)\n")
+    assert findings
+    for finding in findings:
+        assert finding.line_number > 0
+        assert finding.code_snippet
+        # The explanation states why the construct leaks, not merely that a pattern matched.
+        assert len(finding.explanation) > 40
+
+
+def test_empty_source_yields_nothing() -> None:
+    assert audit_source("") == []
