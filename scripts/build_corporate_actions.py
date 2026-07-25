@@ -31,7 +31,9 @@ from src.data.calendar import load_calendar  # noqa: E402
 from src.data.corporate_actions import (  # noqa: E402
     apply_adjustments,
     fetch_declared_splits,
+    find_unexplained_moves,
     reconcile_with_prices,
+    resolve_disputed,
 )
 
 _log = get_logger("build_corporate_actions")
@@ -62,30 +64,48 @@ def main() -> int:
                 _log.info("%d/%d symbols fetched", index, len(symbols))
 
         agreed, disputed = reconcile_with_prices(declared, panel, calendar)
-        adjusted = apply_adjustments(panel.drop(
-            [c for c in panel.columns if c.startswith("adj_") or c == "divisor"]
-        ), agreed)
+
+        # Resolve contradicted events by snapping the observed ratio to a conventional factor.
+        # Only dates the feed already flagged are eligible — see resolve_disputed for why.
+        snapped, decisions = resolve_disputed(disputed)
+
+        base = panel.drop([c for c in panel.columns if c.startswith("adj_") or c == "divisor"])
+        adjusted = apply_adjustments(base, agreed + snapped)
         write_derived_parquet(adjusted, cfg.paths.data_processed / "prices_adjusted.parquet")
 
-        if disputed:
+        # The snap table is the reviewer's verification surface: every judgement in one place.
+        if decisions:
             write_derived_parquet(
                 pl.DataFrame({
-                    "symbol": [d.symbol for d in disputed],
-                    "ex_date": [d.ex_date for d in disputed],
-                    "declared_factor": [d.declared_factor for d in disputed],
-                    "implied_factor": [d.implied_factor for d in disputed],
+                    "symbol": [d.symbol for d in decisions],
+                    "ex_date": [d.ex_date for d in decisions],
+                    "declared_factor": [d.declared_factor for d in decisions],
+                    "implied_factor": [d.implied_factor for d in decisions],
+                    "applied_factor": [d.applied_factor for d in decisions],
+                    "outcome": [d.outcome for d in decisions],
                 }),
-                cfg.paths.data_processed / "disputed_corporate_actions.parquet",
+                cfg.paths.data_processed / "snap_table.parquet",
             )
+
+        # Anything large the feed never mentioned stays untouched and is surfaced, not corrected.
+        declared_dates = {(e.symbol, e.ex_date) for e in declared}
+        unexplained = find_unexplained_moves(adjusted, calendar, declared_dates)
+        write_derived_parquet(
+            unexplained, cfg.paths.data_processed / "unexplained_moves.parquet"
+        )
 
         run.note("symbols_queried", len(symbols))
         run.note("declared_events", len(declared))
         run.note("applied_events", len(agreed))
         run.note("disputed_events", len(disputed))
+        run.note("snapped_events", len(snapped))
+        run.note("unresolved_events", sum(1 for d in decisions if d.outcome == "unresolved"))
+        run.note("unexplained_moves", unexplained.height)
         run.note("symbol_fetch_failures", failed)
 
-    _log.info("declared=%d applied=%d disputed=%d failed_symbols=%d",
-              len(declared), len(agreed), len(disputed), len(failed))
+    _log.info("declared=%d applied=%d snapped=%d unresolved=%d unexplained_moves=%d",
+              len(declared), len(agreed), len(snapped),
+              sum(1 for d in decisions if d.outcome == "unresolved"), unexplained.height)
     return 0
 
 

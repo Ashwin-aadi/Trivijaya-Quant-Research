@@ -19,7 +19,7 @@ from __future__ import annotations
 import csv
 import shutil
 import tempfile
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import polars as pl
@@ -49,6 +49,7 @@ LEGACY_COLUMN_MAP = {
     "PREVCLOSE": "PREV_CLOSE",
     "TOTTRDQTY": "TTL_TRD_QNTY",
     "TOTTRDVAL": "TURNOVER_INR",   # deliberately a distinct name: already rupees, not lakhs
+    "TIMESTAMP": "DATE1",          # the session the file claims to describe
 }
 
 # Only ordinary rolling-settlement equity counts as investable here. BE/SM/ST and the rest are
@@ -65,6 +66,45 @@ def _looks_like_html(first_line: str) -> bool:
     """True if the payload is a web page rather than CSV — the silent failure described above."""
     head = first_line.lstrip().lower()
     return head.startswith("<!doctype") or head.startswith("<html") or "<html" in head
+
+
+def _assert_file_is_for_session(rows: list[dict[str, str]], session: date, csv_path: Path) -> None:
+    """Confirm the file describes the session we asked for, using its own embedded date.
+
+    Structural validation is not enough. The upstream feed has been observed returning a
+    perfectly well-formed CSV whose *contents* belong to a different, earlier session. Nothing
+    about the shape of such a file is wrong, so every column check passes and the stale prices
+    enter the panel silently — where they surface later as fictitious 50% overnight moves across
+    hundreds of unrelated symbols at once. Comparing the file's own date stamp against the
+    requested date is a cheap, decisive check that catches this at ingestion.
+    """
+    stamps = {row["DATE1"] for row in rows if row.get("DATE1")}
+    if not stamps:
+        raise DataIntegrityError(
+            f"bhavcopy for {session} carries no date column; cannot confirm it is the right "
+            f"session ({csv_path})"
+        )
+    if len(stamps) > 1:
+        raise DataIntegrityError(
+            f"bhavcopy for {session} mixes {len(stamps)} different dates: {sorted(stamps)[:5]}"
+        )
+
+    raw = stamps.pop().strip()
+    for pattern in ("%d-%b-%Y", "%d-%B-%Y", "%Y-%m-%d"):
+        try:
+            stated = datetime.strptime(raw, pattern).date()
+            break
+        except ValueError:
+            continue
+    else:
+        raise DataIntegrityError(f"bhavcopy for {session} has an unparseable date stamp: {raw!r}")
+
+    if stated != session:
+        raise DataIntegrityError(
+            f"bhavcopy content mismatch: requested {session} but the file is dated {stated} "
+            f"({csv_path}). The feed served a stale file; refusing it rather than caching "
+            "wrong-dated prices."
+        )
 
 
 def parse_bhavcopy_csv(csv_path: Path, session: date) -> pl.DataFrame:
@@ -107,6 +147,7 @@ def parse_bhavcopy_csv(csv_path: Path, session: date) -> pl.DataFrame:
             f"bhavcopy for {session} parsed but contains zero {EQUITY_SERIES} rows "
             f"({len(rows)} total rows) — treating as corrupt rather than an empty market"
         )
+    _assert_file_is_for_session(equity, session, csv_path)
 
     frame = pl.DataFrame(
         {

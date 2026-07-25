@@ -3,11 +3,14 @@
 Order matters and is enforced by the code rather than by documentation:
   1. Load the trading calendar (defines which sessions must exist).
   2. Load every cached session into one panel, failing if any is absent.
-  3. Detect split/bonus ex-dates, which refuses to run unless the panel is gap-free.
-  4. Apply adjustments so the liquidity ranking is unaffected by cosmetic capital changes.
-  5. Select the universe at each rebalance, using only sessions strictly before it.
+  3. Assert the panel is gap-free before anything reads across sessions.
+  4. Select the universe at each rebalance, using only sessions strictly before it.
 
-Writes the universe history and the adjusted panel to data/processed/, with a run manifest.
+Run `build_corporate_actions.py` next: it resolves splits from declared corporate actions and
+rewrites the adjusted price columns. The universe itself ranks on the exchange's reported rupee
+turnover, which no capital change can distort, so it does not depend on that step.
+
+Writes the universe history and the price panel to data/processed/, with a run manifest.
 
 Usage:
     python scripts/build_universe.py
@@ -28,7 +31,10 @@ from src.common.manifest import RunManifest  # noqa: E402
 from src.common.seeding import seed_everything  # noqa: E402
 from src.data.bhavcopy import session_path  # noqa: E402
 from src.data.calendar import load_calendar  # noqa: E402
-from src.data.corporate_actions import apply_adjustments, detect_adjustments  # noqa: E402
+from src.data.corporate_actions import (  # noqa: E402
+    apply_adjustments,
+    assert_panel_contiguous,
+)
 from src.data.prices import load_panel  # noqa: E402
 from src.data.universe import build_universe_history, snapshots_to_frame  # noqa: E402
 
@@ -58,9 +64,14 @@ def main() -> int:
         run.note("panel_rows", panel.height)
         run.note("panel_symbols", panel["symbol"].n_unique())
 
-        events = detect_adjustments(panel, calendar)
-        run.note("adjustment_events", len(events))
-        adjusted = apply_adjustments(panel, events)
+        # Confirm the panel has no holes before anything reads across sessions.
+        assert_panel_contiguous(panel, calendar)
+
+        # No adjustment is applied here. Splits are resolved from declared corporate actions in
+        # build_corporate_actions.py, which runs next; inferring them from the exchange's restated
+        # previous close was found to miss roughly 40% of real events. The pass-through keeps the
+        # adj_* columns present so the schema is stable for whatever reads this first.
+        adjusted = apply_adjustments(panel, [])
 
         # Rank on the exchange's own reported rupee turnover rather than reconstructing it from
         # adjusted price times adjusted volume. Turnover is already invariant to splits — a
@@ -77,7 +88,7 @@ def main() -> int:
         write_derived_parquet(adjusted, cfg.paths.data_processed / "prices_adjusted.parquet")
         run.note("universe_rows", universe_frame.height)
 
-    _log.info("universe built: %d rebalances, %d adjustment events", len(snapshots), len(events))
+    _log.info("universe built: %d rebalances over %d sessions", len(snapshots), len(sessions))
     return 0
 
 

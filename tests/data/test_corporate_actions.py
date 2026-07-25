@@ -6,6 +6,7 @@ stock split, and that error would silently corrupt every adjusted series downstr
 """
 
 from datetime import date, timedelta
+from pathlib import Path
 
 import polars as pl
 import pytest
@@ -123,3 +124,41 @@ def test_no_events_still_produces_adjusted_columns() -> None:
     closes = [50.0, 51.0, 52.0]
     adjusted = apply_adjustments(build_panel(sessions, closes, closes), [])
     assert adjusted["adj_close"].to_list() == closes
+
+
+def test_rejects_a_file_dated_for_another_session() -> None:
+    """A structurally perfect CSV whose contents belong to a different day must be refused.
+
+    This is the failure that motivated the check: the upstream feed returned a well-formed file
+    for 2019-09-30 containing an earlier session's prices. Every column was present and every
+    value was plausible, so structural validation passed and the stale prices entered the panel,
+    where they later surfaced as fictitious ~50% overnight moves across 155 unrelated symbols.
+    """
+    import tempfile
+
+    from src.data.bhavcopy import parse_bhavcopy_csv
+
+    header = ("SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,PREVCLOSE,TOTTRDQTY,TOTTRDVAL,TIMESTAMP\n")
+    body = "HDFCBANK,EQ,2460,2470,2450,2462.3,2467.9,1000,2000000,19-SEP-2019\n"
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "cm30SEP2019bhav.csv"
+        path.write_text(header + body, encoding="utf-8")
+        with pytest.raises(DataIntegrityError, match="content mismatch"):
+            parse_bhavcopy_csv(path, date(2019, 9, 30))
+
+
+def test_accepts_a_correctly_dated_file() -> None:
+    import tempfile
+
+    from src.data.bhavcopy import parse_bhavcopy_csv
+
+    header = ("SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,PREVCLOSE,TOTTRDQTY,TOTTRDVAL,TIMESTAMP\n")
+    body = "HDFCBANK,EQ,1240,1250,1220,1227.45,1244.2,1000,1227450,30-SEP-2019\n"
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "cm30SEP2019bhav.csv"
+        path.write_text(header + body, encoding="utf-8")
+        frame = parse_bhavcopy_csv(path, date(2019, 9, 30))
+    assert frame.height == 1
+    assert frame["close"][0] == pytest.approx(1227.45)
+    # The legacy layout reports turnover already in rupees; it must not be scaled again.
+    assert frame["turnover_inr"][0] == pytest.approx(1_227_450.0)

@@ -138,6 +138,127 @@ class FactorDisagreement:
     implied_factor: float      # prior close divided by ex-date close
 
 
+# Capital changes come in conventional sizes. A 1:1 bonus doubles the share count, a 1:5 split
+# quintuples it, and the two are frequently declared together — which is precisely the case the
+# declared ratio alone gets wrong. Candidate factors are therefore every product of a plausible
+# bonus ratio and a plausible split ratio.
+_BONUS_FACTORS = (1.0, 1.2, 1.25, 4 / 3, 1.5, 5 / 3, 2.0, 2.5, 3.0, 4.0)
+_SPLIT_FACTORS = (1.0, 2.0, 5.0, 10.0)
+SIMPLE_FACTORS: tuple[float, ...] = tuple(
+    sorted({round(b * s, 6) for b in _BONUS_FACTORS for s in _SPLIT_FACTORS})
+)
+
+
+def snap_to_simple_factor(implied: float, tolerance: float = 0.05) -> float | None:
+    """Round an observed price ratio to the nearest conventional capital-change factor.
+
+    Returns None when nothing sits within ``tolerance``, which means the move is not explained by
+    any ordinary corporate action and must be left alone.
+    """
+    if implied <= 0:
+        return None
+    best = min(SIMPLE_FACTORS, key=lambda candidate: abs(candidate - implied) / candidate)
+    return best if abs(best - implied) / best <= tolerance else None
+
+
+@dataclass(frozen=True)
+class SnapDecision:
+    """One resolved disagreement, recorded so the whole set can be reviewed by hand."""
+
+    symbol: str
+    ex_date: date
+    declared_factor: float
+    implied_factor: float
+    applied_factor: float | None    # None means nothing was applied
+    outcome: str                    # "snapped" | "no_adjustment" | "unresolved"
+
+
+def resolve_disputed(
+    disputed: list[FactorDisagreement],
+    tolerance: float = 0.05,
+) -> tuple[list[AdjustmentEvent], list[SnapDecision]]:
+    """Resolve declared-but-contradicted events by snapping the observed ratio.
+
+    **The guardrail that makes this safe.** This function only ever runs on dates where the feed
+    has already declared a corporate action. The price move is used to settle the *magnitude* of a
+    confirmed event, never to infer that an event happened. Inferring events from price moves alone
+    would silently flatten a genuine crash on bad news into a non-event, which would be fabricating
+    price history — so a date with no declared action is never touched, anywhere in this module.
+
+    Three outcomes, all recorded:
+      * ``snapped`` — the observed ratio matches a conventional factor; that factor is applied.
+        The common cause is a simultaneous bonus and split, where the feed reports only one leg.
+      * ``no_adjustment`` — the observed ratio snaps to 1.0, i.e. the price did not move as a
+        capital change would. The declared date is wrong or already reflected; nothing is applied.
+      * ``unresolved`` — no conventional factor fits. Deliberately left alone and escalated rather
+        than forced either way.
+    """
+    events: list[AdjustmentEvent] = []
+    decisions: list[SnapDecision] = []
+
+    for item in disputed:
+        snapped = snap_to_simple_factor(item.implied_factor, tolerance)
+        if snapped is None:
+            outcome, applied = "unresolved", None
+        elif abs(snapped - 1.0) < 1e-9:
+            outcome, applied = "no_adjustment", None
+        else:
+            outcome, applied = "snapped", snapped
+            events.append(AdjustmentEvent(item.symbol, item.ex_date, snapped))
+        decisions.append(
+            SnapDecision(item.symbol, item.ex_date, item.declared_factor,
+                         item.implied_factor, applied, outcome)
+        )
+
+    counts = {name: sum(1 for d in decisions if d.outcome == name)
+              for name in ("snapped", "no_adjustment", "unresolved")}
+    _log.info("resolved %d disputed events: %s", len(disputed), counts)
+    return events, decisions
+
+
+def find_unexplained_moves(
+    panel: pl.DataFrame,
+    calendar: TradingCalendar,
+    declared_dates: set[tuple[str, date]],
+    drop_threshold: float = 0.65,
+) -> pl.DataFrame:
+    """Large one-day falls that no declared corporate action accounts for.
+
+    These are deliberately **not** adjusted. Each is either a real crash — which belongs in the
+    price history exactly as it happened — or a capital change the feed does not carry. They are
+    surfaced for human review instead of being silently corrected.
+    """
+    ordered = panel.sort(["symbol", "session_date"]).with_columns(
+        pl.col("adj_close").shift(1).over("symbol").alias("prior_close"),
+        pl.col("session_date").shift(1).over("symbol").alias("prior_session"),
+    )
+    sessions = calendar.sessions_in_range(calendar.first_session, calendar.last_session)
+    index_of = {s: i for i, s in enumerate(sessions)}
+
+    drops = (
+        ordered.drop_nulls(["prior_close", "prior_session"])
+        .filter(pl.col("prior_close") > 0)
+        .with_columns((pl.col("adj_close") / pl.col("prior_close")).alias("change"))
+        .filter(pl.col("change") < drop_threshold)
+    )
+
+    keep = [
+        row for row in drops.iter_rows(named=True)
+        # Only adjacent sessions are comparable, and anything the feed declared is already handled.
+        if index_of[row["session_date"]] - index_of[row["prior_session"]] == 1
+        and (row["symbol"], row["session_date"]) not in declared_dates
+    ]
+    return pl.DataFrame(
+        {
+            "symbol": [r["symbol"] for r in keep],
+            "session_date": [r["session_date"] for r in keep],
+            "prior_close": [r["prior_close"] for r in keep],
+            "close": [r["adj_close"] for r in keep],
+            "change": [r["change"] for r in keep],
+        }
+    )
+
+
 def reconcile_with_prices(
     events: list[AdjustmentEvent],
     panel: pl.DataFrame,
