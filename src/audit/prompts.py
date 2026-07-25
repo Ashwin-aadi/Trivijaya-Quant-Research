@@ -77,17 +77,22 @@ Reply with one JSON object and nothing else, in exactly this shape:
 most 40 words, quoting the specific phrase or line that decided it>"}
 """
 
-# Three worked examples, not four. The prompt has to fit a small context window alongside the
-# strategy source, so one label goes without an exemplar; unfalsifiable_mechanism is the one that
-# reads most directly off its own definition, so it is the one left out. The `consistent` example
-# is not optional - without it the model learns that being shown code means finding fault with it.
+# One worked example per label. unfalsifiable_mechanism is the hardest of the four to assign from
+# a definition alone - it asks whether a rationale could survive *any* outcome, which is an
+# abstract call to make on a 7B model - so it is the one that most needs a worked case, and
+# leaving it without one would make a poor agreement score at Checkpoint 1.3 unreadable: a starved
+# class and a weak layer look identical. Prompt space for it came out of example 1, which was
+# shortened rather than dropped; deleting it would only move the starvation to another class. The
+# `consistent` example is not optional - without it the model learns that being shown code means
+# finding fault with it. Examples run in LABELS order, so the sequence restates the precedence
+# rule the instructions give rather than cutting across it.
 FEW_SHOT_EXAMPLES: Final[str] = """\
-Here are three worked examples.
+Here are four worked examples.
 
 --- EXAMPLE 1 ---
 RATIONALE:
-Stocks that have fallen hardest over the past week tend to bounce as forced selling exhausts
-itself, so the portfolio buys the biggest one-week losers.
+Stocks that have fallen hardest over the past week tend to bounce, so the portfolio buys the
+biggest one-week losers.
 
 CODE:
 scores = returns_5d(view)
@@ -95,10 +100,26 @@ picks = sorted(scores, key=scores.get, reverse=True)[:10]
 
 ANSWER:
 {"label": "rationale_implementation_mismatch", "confidence": 0.93, "explanation": "The rationale \
-buys the biggest losers; sorting with reverse=True and taking the head selects the ten highest \
-five-day returns, i.e. the winners."}
+buys the biggest losers; reverse=True takes the ten highest five-day returns, i.e. the winners."}
 
 --- EXAMPLE 2 ---
+RATIONALE:
+Prices are set by crowd sentiment, which adapts to prevailing conditions. In calm markets
+participants extrapolate and the signal rides the trend; when they turn fearful the same
+participants overreact and it collects the reversal. The mechanism holds in trending and
+mean-reverting markets alike.
+
+CODE:
+sign = 1 if realized_vol(view, window=20) < vol_median(view) else -1
+scores = {s: sign * v for s, v in momentum(view, lookback=60).items()}
+picks = sorted(scores, key=scores.get, reverse=True)[:15]
+
+ANSWER:
+{"label": "unfalsifiable_mechanism", "confidence": 0.85, "explanation": "'holds in trending and \
+mean-reverting markets alike' - the code does implement that switch, so this is not a mismatch; \
+the defect is that no observable outcome could contradict the rationale."}
+
+--- EXAMPLE 3 ---
 RATIONALE:
 We have identified a persistent inefficiency, unique to this framework: names with the strongest
 trailing six-month returns keep outperforming. This relationship does not appear in the
@@ -113,7 +134,7 @@ ANSWER:
 cross-sectional momentum is one of the most documented effects in equities, but the rationale \
 claims it is unique to this framework and absent from the literature."}
 
---- EXAMPLE 3 ---
+--- EXAMPLE 4 ---
 RATIONALE:
 A short moving average above a long one means recent prices are running ahead of the established
 level, the conventional definition of an uptrend. The portfolio holds only names in that state.

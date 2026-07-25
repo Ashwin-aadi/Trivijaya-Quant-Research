@@ -28,6 +28,10 @@ def test_loads_and_types(tmp_path: Path, good_config_text: str) -> None:
     # Buffer bands must straddle the target size or the rule churns / never drops anyone.
     assert cfg.universe.entry_rank <= cfg.universe.size <= cfg.universe.exit_rank
     assert cfg.data.prices.cross_check_rel_tol == pytest.approx(0.01)
+    # An empty model tag would leave Ollama to resolve whatever it happens to hold locally, and a
+    # semantic label is only reproducible against a pinned tag.
+    assert cfg.audit.model_tag
+    assert cfg.audit.num_ctx > 0
 
 
 def test_hash_is_content_stable(tmp_path: Path, good_config_text: str) -> None:
@@ -56,6 +60,20 @@ def test_holdout_must_follow_dev(tmp_path: Path, good_config_text: str) -> None:
     bad = good_config_text.replace('holdout_start: "2025-01-01"', 'holdout_start: "2024-06-01"')
     with pytest.raises(ConfigError):
         load_config(write(tmp_path, bad))
+
+
+def test_shipped_audit_section_matches_the_semantic_module_fallback() -> None:
+    """The audit fallback in src/audit/semantic.py must not drift from the config on disk.
+
+    That module carries a copy of these values so it stays importable without a config file. A copy
+    is only safe while it is tamper-evident: if this fails, config.yaml was edited and the fallback
+    was not, and a run started from another working directory would have used a different model tag
+    than the one the config hash in its manifest claims.
+    """
+    from src.audit.semantic import _FALLBACK_AUDIT
+
+    shipped = load_config(Path(__file__).resolve().parents[2] / "config" / "config.yaml")
+    assert shipped.audit == _FALLBACK_AUDIT
 
 
 def test_bad_date_rejected(tmp_path: Path, good_config_text: str) -> None:

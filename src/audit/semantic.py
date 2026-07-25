@@ -23,6 +23,8 @@ quantization, the same Ollama build. A re-pull of a moving tag can change every 
 corpus, so the tag used is recorded on each finding and belongs in the run manifest.
 
 Inference is local, through Ollama's HTTP API. No paid service is contacted from this repository.
+The model tag, host, context window and timeouts are read from the ``audit:`` section of
+config/config.yaml rather than fixed here, so a run manifest's config hash pins them.
 """
 
 from __future__ import annotations
@@ -36,36 +38,71 @@ from typing import Any, Final
 import requests
 
 from src.audit.prompts import LABELS, PROBE_RATIONALE, PROBE_SOURCE, build_prompt
+from src.common.config import DEFAULT_CONFIG_PATH, AuditConfig, load_config
 from src.common.exceptions import LabError
 from src.common.log import get_logger
 
 _log = get_logger(__name__)
 
-# These are constants rather than config entries because config.yaml has no audit section until
-# the PI ratifies one; they move there when it exists.
-OLLAMA_HOST: Final[str] = "http://localhost:11434"
+# Endpoint paths are Ollama's HTTP API, not parameters of this lab, so they stay here rather than
+# in config.yaml - changing them would mean talking to a different server, not tuning this one.
 GENERATE_PATH: Final[str] = "/api/generate"
 TAGS_PATH: Final[str] = "/api/tags"
 
+#: Mirrors the ``audit:`` section of config/config.yaml, which is the source of truth; these values
+#: are used only when no config file can be found, so that importing this module - which strategy
+#: fixtures and tooling do from arbitrary working directories - never depends on one. The reasoning
+#: behind each value lives in config.yaml and is not repeated here. Keeping the two in step is not
+#: left to good intentions: tests/common/test_config.py asserts they are identical, so a change to
+#: one that is not made to the other fails the suite rather than silently changing which model
+#: labelled a corpus.
+_FALLBACK_AUDIT: Final[AuditConfig] = AuditConfig(
+    model_tag="qwen2.5:7b-instruct-q4_K_M",
+    ollama_host="http://localhost:11434",
+    num_ctx=4_096,
+    request_timeout_seconds=180.0,
+    probe_timeout_seconds=2.0,
+)
+
+
+def _resolve_audit_config() -> AuditConfig:
+    """Read the audit section from the default config path, falling back only if it is absent.
+
+    The fallback is deliberately narrow. A missing file means this module was imported from
+    somewhere without a checkout underfoot, which is not an error. A file that exists but whose
+    ``audit:`` section is missing or malformed raises out of :func:`load_config` instead, because
+    running a corpus against quietly different parameters than the config on disk describes is
+    exactly the kind of unreproducibility this repository exists to detect.
+    """
+    if not DEFAULT_CONFIG_PATH.exists():
+        return _FALLBACK_AUDIT
+    return load_config().audit
+
+
+_AUDIT: Final[AuditConfig] = _resolve_audit_config()
+
+OLLAMA_HOST: Final[str] = _AUDIT.ollama_host
+
 #: Pinned per the charter's model table. The 7B q4_K_M quantization is the largest that leaves
 #: headroom on an 8 GB card; nothing bigger may be substituted without PI approval.
-MODEL_TAG: Final[str] = "qwen2.5:7b-instruct-q4_K_M"
+MODEL_TAG: Final[str] = _AUDIT.model_tag
 
 #: Sampling is switched off entirely. The seed is redundant at temperature 0 for most backends but
 #: is sent anyway: it costs nothing and it removes the question of whether any residual sampling
-#: (tie-breaking, backend-specific kernels) is seeded.
+#: (tie-breaking, backend-specific kernels) is seeded. Neither is configurable: a run of this
+#: auditor with sampling on is not a run of this auditor.
 TEMPERATURE: Final[float] = 0.0
 SEED: Final[int] = 42
 
 #: Context window, pinned. Left to the server default it varies with the Ollama build, and a
 #: silently smaller window truncates the strategy source out of the prompt - the model would then
 #: label an item it was never shown. Sized to hold the prompt clip limits in src.audit.prompts.
-NUM_CTX: Final[int] = 4_096
+NUM_CTX: Final[int] = _AUDIT.num_ctx
 
 #: A 7B model on CPU can take well over a minute per item. Generous on purpose: a timeout here
 #: raises and loses the item, which is more expensive than waiting.
-REQUEST_TIMEOUT_SECONDS: Final[float] = 180.0
-AVAILABILITY_TIMEOUT_SECONDS: Final[float] = 2.0
+REQUEST_TIMEOUT_SECONDS: Final[float] = _AUDIT.request_timeout_seconds
+AVAILABILITY_TIMEOUT_SECONDS: Final[float] = _AUDIT.probe_timeout_seconds
 
 
 class SemanticAuditUnavailable(LabError):

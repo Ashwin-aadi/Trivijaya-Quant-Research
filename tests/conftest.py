@@ -36,6 +36,12 @@ universe:
   exit_rank: 110
   min_listed_sessions: 126
   min_traded_fraction: 0.8
+audit:
+  model_tag: "qwen2.5:7b-instruct-q4_K_M"
+  ollama_host: "http://localhost:11434"
+  num_ctx: 4096
+  request_timeout_seconds: 180.0
+  probe_timeout_seconds: 2.0
 data:
   prices:
     authoritative_source: bhavcopy

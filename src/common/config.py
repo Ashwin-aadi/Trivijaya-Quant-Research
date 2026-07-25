@@ -84,6 +84,22 @@ class DataConfig:
 
 
 @dataclass(frozen=True)
+class AuditConfig:
+    """Parameters for the semantic audit layer's local-model calls.
+
+    ``model_tag`` is reproducibility-load-bearing rather than a tuning knob: a semantic label is
+    only reproducible against a pinned tag and quantization, so it is recorded on every finding
+    and in the run manifest. See config.yaml for why ``num_ctx`` is pinned too.
+    """
+
+    model_tag: str
+    ollama_host: str
+    num_ctx: int                    # pinned: a smaller window truncates the prompt silently
+    request_timeout_seconds: float
+    probe_timeout_seconds: float    # reachability check only, so it fails fast
+
+
+@dataclass(frozen=True)
 class Config:
     meta: MetaConfig
     paths: PathsConfig
@@ -91,6 +107,7 @@ class Config:
     dates: DatesConfig
     universe: UniverseConfig
     data: DataConfig
+    audit: AuditConfig
     raw: dict[str, Any]        # everything as loaded, including keys not yet modelled
     source_path: Path
     config_hash: str           # sha256 of the raw file bytes
@@ -115,6 +132,17 @@ def _parse_date(value: Any, where: str) -> date:  # noqa: ANN401
         except ValueError as exc:
             raise ConfigError(f"bad date '{value}' at {where}: {exc}") from exc
     raise ConfigError(f"expected an ISO date at {where}, got {type(value).__name__}")
+
+
+def _build_audit(audit: dict[str, Any]) -> AuditConfig:
+    """Assemble the audit section. Split out of ``_build`` only to keep that function short."""
+    return AuditConfig(
+        model_tag=str(_require(audit, "model_tag", "audit")),
+        ollama_host=str(_require(audit, "ollama_host", "audit")),
+        num_ctx=int(_require(audit, "num_ctx", "audit")),
+        request_timeout_seconds=float(_require(audit, "request_timeout_seconds", "audit")),
+        probe_timeout_seconds=float(_require(audit, "probe_timeout_seconds", "audit")),
+    )
 
 
 def _build(raw: dict[str, Any], source_path: Path, config_hash: str) -> Config:
@@ -162,6 +190,7 @@ def _build(raw: dict[str, Any], source_path: Path, config_hash: str) -> Config:
             cross_check_rel_tol=float(_require(prices, "cross_check_rel_tol", "data.prices")),
             max_discrepancy_rate=float(_require(prices, "max_discrepancy_rate", "data.prices")),
         )),
+        audit=_build_audit(_require(raw, "audit", "root")),
         raw=raw,
         source_path=source_path,
         config_hash=config_hash,

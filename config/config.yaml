@@ -65,6 +65,29 @@ universe:
   min_listed_sessions: 126
   min_traded_fraction: 0.8
 
+audit:
+  # Parameters for the semantic audit layer (src/audit/semantic.py), which asks a local model to
+  # read a strategy's stated rationale against the code that implements it.
+  #
+  # The model tag is the single most reproducibility-load-bearing value in this file. A semantic
+  # label is a judgment, not a computation: it is only reproducible against a pinned tag with a
+  # pinned quantization. Ollama tags move, and a re-pull can change every label in the corpus
+  # without changing a line of our code. The tag is therefore recorded on each finding and written
+  # into the run manifest; it is not changed without PI approval (charter RULE 5).
+  model_tag: "qwen2.5:7b-instruct-q4_K_M"
+  # Local inference only. No paid service is contacted from this repository.
+  ollama_host: "http://localhost:11434"
+  # Context window, pinned rather than left to the server default, which varies with the Ollama
+  # build. A smaller window would silently truncate the strategy source out of the prompt and the
+  # model would then label an item it was never shown. Sized to hold the clip limits that
+  # src/audit/prompts.py applies to the rationale and the source.
+  num_ctx: 4096
+  # A 7B model on CPU can take well over a minute per item. Generous on purpose: a timeout raises
+  # and loses the item, which costs more than waiting does.
+  request_timeout_seconds: 180.0
+  # Reachability probe only, so it fails fast — it produces no label and nothing is lost by it.
+  probe_timeout_seconds: 2.0
+
 data:
   prices:
     # Approved 2026-07-25 as the default, provisional until the measured discrepancy rate is
