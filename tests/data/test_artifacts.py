@@ -6,6 +6,7 @@ capital changes are picked up from the pipeline rather than hand-maintained.
 """
 
 from datetime import date
+from pathlib import Path
 
 import polars as pl
 
@@ -18,13 +19,13 @@ from src.data.artifacts import (
 )
 
 
-def test_curated_entries_are_present(tmp_path) -> None:
+def test_curated_entries_are_present(tmp_path: Path) -> None:
     register = build_register(tmp_path)          # no snap table -> curated entries only
     symbols = set(register["symbol"].to_list())
     assert {"YESBANK", "IDEA", "TATACHEM", "PEL", "ITC", "RELIANCE", "BHARTIARTL"} <= symbols
 
 
-def test_unresolved_splits_come_from_the_pipeline(tmp_path) -> None:
+def test_unresolved_splits_come_from_the_pipeline(tmp_path: Path) -> None:
     # Written by build_corporate_actions.py; the register must pick it up rather than hard-code it,
     # so changing the snapping tolerance cannot leave the register stale.
     pl.DataFrame(
@@ -45,7 +46,7 @@ def test_unresolved_splits_come_from_the_pipeline(tmp_path) -> None:
     assert "4.33" in unresolved["detail"][0]
 
 
-def test_point_queries(tmp_path) -> None:
+def test_point_queries(tmp_path: Path) -> None:
     register = build_register(tmp_path)
     assert is_flagged(register, "YESBANK", date(2020, 3, 6))
     assert not is_flagged(register, "YESBANK", date(2020, 3, 9))
@@ -54,7 +55,7 @@ def test_point_queries(tmp_path) -> None:
     assert flagged_reasons(register, "INFY", date(2020, 3, 6)) == []
 
 
-def test_window_entries_cover_their_whole_range(tmp_path) -> None:
+def test_window_entries_cover_their_whole_range(tmp_path: Path) -> None:
     # RELIANCE's rights issue is registered as a window, not a single session.
     register = build_register(tmp_path)
     assert is_flagged(register, "RELIANCE", date(2020, 5, 1))
