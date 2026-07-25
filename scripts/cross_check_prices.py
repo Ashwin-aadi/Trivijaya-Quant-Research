@@ -32,7 +32,11 @@ def main() -> int:
     universe = pl.read_parquet(cfg.paths.data_processed / "universe.parquet")
 
     # The most persistent universe members: the core liquid names a strategy would actually hold.
-    counts = universe.group_by("symbol").len().sort("len", descending=True)
+    # Symbol is a secondary sort key because appearance counts tie heavily — most names are present
+    # at every rebalance — and neither group_by nor a single-key sort breaks those ties stably.
+    # Without it the "same" run selects a different sample each time and the headline rate cannot
+    # be reproduced, which RULE 6 does not permit.
+    counts = universe.group_by("symbol").len().sort(["len", "symbol"], descending=[True, False])
     symbols = counts.head(SAMPLE_SIZE)["symbol"].to_list()
 
     window = panel.filter(
