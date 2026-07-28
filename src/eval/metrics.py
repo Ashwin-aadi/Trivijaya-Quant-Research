@@ -10,8 +10,13 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 
-# NSE trades roughly 250 sessions a year; used to annualise daily statistics.
-TRADING_DAYS_PER_YEAR = 250
+# Sessions per year used to annualise daily statistics.
+#
+# 252 rather than the ~250 NSE actually trades, because the Deflated Sharpe machinery in
+# src/audit/stat.py is defined against the Bailey & Lopez de Prado convention, which assumes 252.
+# Mixing a 250-annualised Sharpe into a 252-defined DSR reintroduces exactly the boundary mismatch
+# this module was standardised to remove. One convention, everywhere.
+TRADING_DAYS_PER_YEAR = 252
 
 # Annualised volatility below this is floating-point residue, not risk. Set far under any real
 # strategy's volatility (the quietest cash-like book still moves by basis points) and far above
@@ -20,15 +25,31 @@ NEGLIGIBLE_VOLATILITY = 1e-12
 
 
 def annualised_return(returns: Sequence[float]) -> float:
-    """Geometric mean return, annualised. Returns 0.0 for an empty series."""
+    """Arithmetic mean return, annualised. Returns 0.0 for an empty series.
+
+    **Arithmetic, not geometric, and the choice is deliberate.** A geometric annualisation answers
+    "what did capital actually compound to", which is the right question for a performance report.
+    But this figure feeds :func:`sharpe_ratio`, and the Deflated Sharpe in ``src/audit/stat.py``
+    is defined on an arithmetic per-observation Sharpe. Two conventions differing by double digits
+    on the same series is precisely the seam through which a wrong number reaches the deflation
+    machinery, so the repository carries one convention only. Use :func:`total_return` when the
+    question really is how much money was made.
+    """
     if not returns:
         return 0.0
+    return sum(returns) / len(returns) * TRADING_DAYS_PER_YEAR
+
+
+def total_return(returns: Sequence[float]) -> float:
+    """Cumulative growth over the whole series, as a fraction. Not annualised.
+
+    Kept separate from :func:`annualised_return` so that "how much did it compound" and "what goes
+    into the Sharpe" are different names rather than one name meaning two things.
+    """
     growth = 1.0
     for r in returns:
         growth *= 1.0 + r
-    if growth <= 0:
-        return -1.0
-    return float(growth ** (TRADING_DAYS_PER_YEAR / len(returns))) - 1.0
+    return growth - 1.0
 
 
 def annualised_volatility(returns: Sequence[float]) -> float:

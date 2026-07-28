@@ -32,13 +32,23 @@ Kurtosis throughout is **non-excess** — 3.0 for a normal distribution. The mod
 below 1.0 precisely because excess kurtosis passed by mistake would shrink the standard error and
 flatter the result.
 
-**The project has two annualised Sharpe conventions, and they do not agree.** `src/eval/metrics.py`
-divides a *geometrically* annualised return by a volatility scaled by `sqrt(250)`. The DSR is
-defined on an arithmetic per-observation Sharpe, which annualises as `mean/sd * sqrt(252)`. On the
-live control below the two differ by 13% in one direction over one window and by 3% in the other
-direction over another. This is a difference of definition, not an error in either, but it means a
-Sharpe quoted from `metrics.py` cannot be fed to the DSR without conversion. Both are printed side
-by side wherever a deflation is performed.
+**One annualised Sharpe convention, project-wide.** `src/eval/metrics.py` annualises the
+*arithmetic* mean return by 252 sessions and scales volatility by `sqrt(252)`, which is the form
+the Deflated Sharpe is defined on. A Sharpe quoted anywhere in this repository can therefore be
+fed to the DSR directly.
+
+This was not always so. The module previously annualised geometrically over 250 sessions, and on
+the live control below the two conventions differed by 12.9% over one window and 2.9% the other
+way. Neither was wrong — they answer different questions — but carrying both meant a figure could
+reach the deflation machinery under the wrong definition, and a 12.9% overstatement of a Sharpe
+becomes a much larger overstatement of significance once deflated. The conventions were unified on
+the arithmetic form rather than reconciled at each call site, because a conversion applied at a
+boundary is a step someone eventually forgets. Cumulative growth is still available, under the
+separate and unambiguous name `total_return`.
+
+Consequence for figures published before the change: the live control's `metrics.py` Sharpes move
+from 2.8529 to 2.5265 (2023) and from 0.9448 to 0.9728 (full window). The deflation results are
+unaffected, because they were computed on the arithmetic figures throughout.
 
 ---
 

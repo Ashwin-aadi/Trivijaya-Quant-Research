@@ -24,6 +24,7 @@ from src.eval.metrics import (
     max_drawdown,
     sharpe_ratio,
     summarise,
+    total_return,
     tracking_error,
 )
 
@@ -87,31 +88,57 @@ def test_float_residue_does_not_produce_an_enormous_sharpe() -> None:
 def test_single_observation_has_no_dispersion_and_no_sharpe() -> None:
     """One session cannot support a volatility or a Sharpe, so both are 0.0 rather than an error.
 
-    ``annualised_return`` is not similarly guarded: it happily compounds a single session across a
+    ``annualised_return`` is not similarly guarded: it happily scales a single session across a
     whole year and produces an absurd figure. That is not a defect so much as the reason every
     number in this project is reported next to its sample size.
     """
     assert annualised_volatility([0.01]) == 0.0
     assert sharpe_ratio([0.01]) == 0.0
     assert annualised_return([0.0]) == 0.0
-    # One good day annualised over 250 sessions: 1.01**250 - 1, comfortably above 1000%.
-    assert annualised_return([0.01]) > 10.0
+    # One good day scaled across 252 sessions: 0.01 * 252 = 2.52, i.e. 252%. Still absurd, which
+    # is the point. Under the previous geometric convention the same input gave 1.01**250 - 1,
+    # about 1100% — more absurd still, but absurd in a different way.
+    assert annualised_return([0.01]) == pytest.approx(2.52, rel=1e-12)
 
 
-def test_total_loss_returns_minus_one_rather_than_a_complex_root() -> None:
-    """Equity reaching zero cannot be raised to a fractional power, so the floor is -100%."""
-    assert annualised_return([-1.0]) == -1.0
-    assert annualised_return([-1.0, 0.5, 0.5]) == -1.0
+def test_total_loss_is_floored_only_in_the_cumulative_figure() -> None:
+    """A wipeout floors ``total_return`` at -100%, but the annualised figure has no such floor.
+
+    Under the previous geometric convention ``annualised_return`` returned exactly -1.0 here,
+    because equity reaching zero cannot be raised to a fractional power and the function guarded
+    against a complex root. Arithmetic scaling has no such problem and no such floor: the mean of
+    a series containing -1.0 is simply scaled by 252, giving a large negative number that is
+    mathematically correct and economically meaningless on its own.
+
+    That is not a regression. It is the reason :func:`total_return` exists — the question "how
+    much was lost" is answered there, and is still floored at -100% as it must be.
+    """
+    assert total_return([-1.0]) == pytest.approx(-1.0)
+    assert total_return([-1.0, 0.5, 0.5]) == pytest.approx(-1.0)
+    # The annualised figure scales the mean and is unbounded below; -1.0 over one session is -252.
+    assert annualised_return([-1.0]) == pytest.approx(-252.0)
 
 
 # --- known answers --------------------------------------------------------------
 
 
 def test_annualised_return_known_answer_doubling_over_two_years() -> None:
-    """Doubling over 500 sessions (two trading years) annualises to sqrt(2) - 1, about 41.4%."""
-    per_session = 2.0 ** (1.0 / 500) - 1.0
-    returns = [per_session] * 500
-    assert annualised_return(returns) == pytest.approx(math.sqrt(2.0) - 1.0, rel=1e-9)
+    """Capital doubling over 504 sessions annualises arithmetically to mean x 252.
+
+    Hand-derivable: the per-session return is constant at 2**(1/504) - 1, so the arithmetic mean
+    is that same figure and the annualised value is it multiplied by 252.
+
+    The geometric annualisation of this identical series is sqrt(2) - 1, about 41.4% — the answer
+    this test asserted before the convention was standardised. Arithmetic gives about 69.6%. Both
+    are correct answers to different questions, and the gap between them on a series that merely
+    doubles is why the repository carries one convention: the Deflated Sharpe is defined on the
+    arithmetic form, and feeding it a geometric figure would silently overstate significance.
+    """
+    per_session = 2.0 ** (1.0 / 504) - 1.0
+    returns = [per_session] * 504
+    assert annualised_return(returns) == pytest.approx(per_session * 252, rel=1e-12)
+    # And the geometric figure is still available under its own name, unchanged.
+    assert total_return(returns) == pytest.approx(1.0, rel=1e-9)
 
 
 def test_annualised_volatility_known_answer() -> None:
