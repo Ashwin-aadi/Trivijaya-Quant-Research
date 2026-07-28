@@ -28,10 +28,26 @@ strict = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 files = ["src", "tests"]
+# See the note on the locked corpus below for why this directory is exempt.
+exclude = ["^tests/fixtures/locked/"]
 # Third-party data libraries ship without stubs; don't fail the whole run on them.
 [[tool.mypy.overrides]]
 module = ["yfinance.*", "jugaad_data.*", "nsepython.*"]
 ignore_missing_imports = true
+
+# The locked evaluation corpus is exempt from type checking, for two reasons.
+#
+# These files are never imported or executed. Nothing collects them; the static auditor parses them
+# as text and walks the syntax tree, so a type error in one cannot affect any result.
+#
+# More importantly, they must not be edited. They were written by processes deliberately blocked
+# from seeing the detector source, and the auditor was frozen before the first one existed. Editing
+# them afterwards — even to satisfy a type checker — would be a change made by someone who has read
+# the detectors, which is the contamination the isolation was built to prevent. The errors are
+# polars stub artifacts anyway: `Series.mean()` returns a wide union, and mypy enumerates every
+# member combination, so one arithmetic line produces ninety-two of them.
+#
+# `src/` remains fully strict, as do the other fixture directories.
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
