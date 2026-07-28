@@ -145,6 +145,51 @@ A strategy that builds its own folds bypasses that, which is the case here.
 
 ---
 
+## 6. Data entering at module scope
+
+**Missed entirely — these are rejections that did not happen**, not attribution problems. Three of
+the four misses in the one-time locked-set scoring share this cause.
+
+```python
+_UNIVERSE = ("RELIANCE", "TCS", ...)          # present-day constituents, applied backwards
+
+def _tuned_window() -> int:                    # reads the full panel, scores candidates, argmax
+    ...
+```
+
+**Why.** The provenance model has two entry points: a constructor parameter shown to carry data,
+and an attribute holding one. Module-level state is recognised in only one narrow form,
+`name = <call returning data>`. A function that opens a file, a tuple of symbols written directly
+into the source, or a cache populated on first use is not an entry point the analysis knows about
+— so nothing downstream is tainted and every subsequent detector stays silent.
+
+**Why it was not visible earlier.** The refine corpus routes data through constructors almost
+uniformly. That is a fact about how those cases were written, not about how leakage works. The
+locked corpus was written by processes that had never seen them and reached for module scope
+naturally, which is the entire reason an independent corpus exists.
+
+**Not fixed, deliberately.** Closing this gap and re-scoring would convert the locked corpus into a
+second burned set and leave nothing honest to measure against. If it is closed, that happens
+against a third independently-written corpus, scored once.
+
+---
+
+## 7. A leak with clean provenance
+
+**Missed entirely.** `future_indexing_b` in the locked corpus reverses a frame, takes a rolling
+minimum over the reversed order, and reverses back, so each row's "recent low" is drawn from
+sessions that come after it.
+
+**Why.** It operates on `view.history()` — a legitimately obtained, correctly truncated source.
+There is no provenance violation to find. The defect lives entirely in the semantics of the
+operation sequence, and an auditor built on data provenance is structurally incapable of seeing it.
+
+This is the clearest single limit on the approach. Provenance analysis answers *where did this data
+come from*; it cannot answer *what did you do to it once you had it legitimately*. Any claim that
+this layer detects lookahead in general has to be qualified by that.
+
+---
+
 ## A standing risk, recorded from experience
 
 Two detectors in this module were described in an earlier checkpoint report as structural and were
