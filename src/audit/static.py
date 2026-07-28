@@ -4,17 +4,27 @@
 is that it makes too much money — but that only catches the cartoonish cases. A survivorship-biased
 backtest in this repository produces a Sharpe of about 1.2: entirely plausible, the kind of number
 a researcher would nod at and put into production. Anything detecting leakage by magnitude would
-miss exactly the cases that matter. So this layer never looks at returns. It parses the code and
-finds the cheat structurally, which is the only method that generalises to strategies whose results
-look reasonable.
+miss exactly the cases that matter. So this layer never looks at returns.
 
-Detection is by AST inspection rather than regular expressions, because the patterns of interest
-are structural. `shift(-1)` is a negative shift whether it is written as a literal, a unary minus,
-or spread over three lines, and a regex tuned to the literal form silently misses the rest.
+**Why it must not reason from vocabulary either.** An earlier version matched variable names —
+`final_`, `target`, `panel` and so on. Measured against strategies whose cheats were phrased in
+different words, recall was 0.37, and only one of nine reworded cheats was caught. It also flagged
+honest code: a strategy naming a local `target_weight` was rejected, and one naming the most recent
+visible session `_today` was rejected on the very line implementing point-in-time stamping
+correctly. A detector defeated by renaming a variable is not a detector.
+
+**The principle this version uses instead: where did the data come from?**
+
+The engine hands a strategy exactly one sanctioned source — the ``view`` argument of ``generate``,
+already truncated to before the decision moment. Every leak in this domain is a read that traces
+back to something else: a frame captured in the constructor, a module global, a value derived from
+the whole sample. So the analysis tracks *provenance* rather than spelling. A constructor argument
+is bulk data because it gets indexed and filtered, not because it is called ``panel``. Renaming
+cannot defeat that, because no name is consulted.
 
 Each finding carries the class of defect, the line, the snippet, a severity, and an explanation in
 plain English — the explanation is what a reviewer reads to decide whether they agree, so it states
-what the code does and why that constitutes lookahead, never merely "suspicious pattern found".
+what the code does and why that constitutes lookahead.
 """
 
 from __future__ import annotations
@@ -26,7 +36,7 @@ from pathlib import Path
 
 
 class LeakClass(StrEnum):
-    """The kinds of lookahead this layer knows how to recognise."""
+    """The kinds of lookahead this layer recognises."""
 
     FUTURE_INDEXING = "future_indexing"
     FULL_SAMPLE_FIT = "full_sample_fit"
@@ -34,6 +44,7 @@ class LeakClass(StrEnum):
     SURVIVORSHIP_SELECTION = "survivorship_selection"
     BOUNDARY_CROSSING_WINDOW = "boundary_crossing_window"
     TARGET_IN_FEATURES = "target_in_features"
+    SNOOPED_PARAMETER = "snooped_parameter"
 
 
 class Severity(StrEnum):
@@ -53,40 +64,52 @@ class Finding:
     explanation: str
 
 
-# Fitted transforms. Calling .fit() on any of these outside a training fold is the classic
-# "scaler fitted before the split" leak.
-_FITTED_TRANSFORMS = frozenset(
-    {"StandardScaler", "MinMaxScaler", "RobustScaler", "PCA", "SimpleImputer", "KNNImputer",
-     "QuantileTransformer", "PowerTransformer", "LabelEncoder", "OneHotEncoder"}
+# The function the engine calls to obtain a decision, and the argument through which it supplies
+# the only data a strategy is entitled to see.
+DECISION_FUNCTION = "generate"
+SANCTIONED_SOURCE = "view"
+
+# Methods that only make sense on a collection. Seeing any of them applied to a value is how this
+# module decides that value holds data, rather than consulting what it is named.
+DATA_METHODS = frozenset(
+    {"filter", "select", "group_by", "groupby", "agg", "join", "with_columns", "pivot",
+     "sort", "sort_values", "head", "tail", "unique", "drop_nulls", "dropna", "iter_rows",
+     "to_list", "to_numpy", "to_pandas", "explode", "melt", "slice", "gather", "get_column",
+     "mean", "std", "var", "median", "min", "max", "quantile", "sum", "count", "first", "last"}
 )
 
-# Aggregations that collapse a whole series to one number. Harmless on a window; leakage when the
-# series spans the entire sample, because the result encodes the future.
-_AGGREGATIONS = frozenset({"mean", "std", "var", "median", "min", "max", "quantile", "sum"})
-
-# Names that suggest the object being aggregated is the full panel rather than a visible window.
-_FULL_SAMPLE_HINTS = ("panel", "full", "all_", "entire", "history_all", "dataset", "_data")
-
-# Attribute or variable names implying end-of-period membership was consulted.
-_SURVIVORSHIP_HINTS = (
-    "final_", "last_rebalance", "survivor", "current_constituents", "latest_members",
-    "end_of_period", "_today", "final_universe",
+# Aggregations that collapse a series to a single number.
+AGGREGATIONS = frozenset(
+    {"mean", "std", "var", "median", "min", "max", "quantile", "sum", "first", "last"}
 )
 
-# Words that mark a variable as the thing being predicted. Seeing one among the features means the
-# answer is in the inputs.
-_TARGET_HINTS = ("target", "label", "y_true", "future_return", "next_return", "forward_return")
+# Transforms fitted to data. Fitting one outside a training fold is the classic scaler leak.
+FIT_METHODS = frozenset({"fit", "fit_transform", "partial_fit"})
 
-
-# Constructor parameters that hand a strategy bulk data rather than a setting. An honest strategy
-# is configured with windows and thresholds; it receives its data through the point-in-time view at
-# decision time. Taking the panel up front is how a strategy acquires the future.
-_BULK_DATA_PARAMS = frozenset(
-    {"panel", "prices", "data", "universe", "df", "frame", "returns", "history", "closes"}
+# Window operations. Applied to a series spanning a split, these mix the two sides together.
+WINDOW_METHODS = frozenset(
+    {"rolling", "rolling_mean", "rolling_std", "rolling_sum", "rolling_min", "rolling_max",
+     "rolling_median", "rolling_apply", "ewm", "ewm_mean", "resample", "upsample",
+     "group_by_dynamic"}
 )
 
-# The single sanctioned data source inside a decision function.
-_SANCTIONED_SOURCE = "view"
+# Operations that read a later value into an earlier row by construction. These leak regardless of
+# where the data came from, so they are flagged on sight.
+BACKWARD_FILL_METHODS = frozenset(
+    {"interpolate", "bfill", "backfill", "backward_fill", "fill_null", "fillna", "pad_backward"}
+)
+
+# Keywords whose presence turns an otherwise-neutral fill into a backward one.
+_BACKWARD_KEYWORDS = ("backward", "bfill", "backfill")
+
+
+@dataclass
+class _FunctionScope:
+    """Names known to hold data inside one function, and how they got there."""
+
+    tainted: set[str]          # traced back to something other than the sanctioned view
+    from_future: set[str]      # derived from an explicitly forward-looking operation
+    extrema: set[str]          # derived from a time-collapsing max/last, used for survivorship
 
 
 class _Visitor(ast.NodeVisitor):
@@ -95,126 +118,329 @@ class _Visitor(ast.NodeVisitor):
     def __init__(self, source_lines: list[str]) -> None:
         self.findings: list[Finding] = []
         self._lines = source_lines
-        # Attributes assigned from a bulk-data constructor argument. Reading one of these inside a
-        # decision function is the out-of-band access checked for below.
-        self._stored_bulk_attributes: set[str] = set()
-        self._inside_decision_function = False
+        # Attributes that were shown to hold bulk data, established while reading __init__.
+        self._data_attributes: set[str] = set()
+        self._module_data_names: set[str] = set()
+        self._candidate_collections: set[str] = set()
+        self._data_consumers: dict[str, set[int]] = {}
+        self._scope: _FunctionScope | None = None
+        self._in_decision = False
 
     # --- helpers -----------------------------------------------------------
     def _snippet(self, node: ast.AST) -> str:
         line = getattr(node, "lineno", 0)
-        if 1 <= line <= len(self._lines):
-            return self._lines[line - 1].strip()
-        return ""
+        return self._lines[line - 1].strip() if 1 <= line <= len(self._lines) else ""
 
     def _add(self, node: ast.AST, leak: LeakClass, severity: Severity, why: str) -> None:
         self.findings.append(
-            Finding(
-                leak_class=leak,
-                line_number=getattr(node, "lineno", 0),
-                code_snippet=self._snippet(node),
-                severity=severity,
-                explanation=why,
-            )
+            Finding(leak, getattr(node, "lineno", 0), self._snippet(node), severity, why)
         )
 
     @staticmethod
     def _is_negative_number(node: ast.AST) -> bool:
         """True for -1, -2, ... however they are spelled in the tree."""
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-            operand = node.operand
-            return isinstance(operand, ast.Constant) and isinstance(operand.value, int | float)
-        return isinstance(node, ast.Constant) and isinstance(node.value, int | float) \
-            and node.value < 0
+            return isinstance(node.operand, ast.Constant) and isinstance(
+                node.operand.value, int | float
+            )
+        return (isinstance(node, ast.Constant) and isinstance(node.value, int | float)
+                and node.value < 0)
 
     @staticmethod
-    def _mentions(name: str, hints: tuple[str, ...]) -> bool:
-        lowered = name.lower()
-        return any(hint in lowered for hint in hints)
+    def _root_name(node: ast.AST) -> str | None:
+        """The base identifier of an expression like ``a.b[c].d()`` — here, ``a``."""
+        current: ast.AST = node
+        while True:
+            if isinstance(current, ast.Name):
+                return current.id
+            if isinstance(current, ast.Attribute | ast.Subscript):
+                current = current.value
+            elif isinstance(current, ast.Call):
+                current = current.func
+            else:
+                return None
 
-    # --- visitors ----------------------------------------------------------
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
-        """Inspect constructors for bulk data, and decision functions for out-of-band reads."""
-        if node.name == "__init__":
-            self._check_bulk_data_ingestion(node)
-            self._record_stored_attributes(node)
-            self.generic_visit(node)
-            return
+    def _root_attribute(self, node: ast.AST) -> str | None:
+        """For ``self.x...``, the attribute name ``x``; otherwise None."""
+        current: ast.AST = node
+        while isinstance(current, ast.Call | ast.Subscript):
+            current = current.func if isinstance(current, ast.Call) else current.value
+        while isinstance(current, ast.Attribute):
+            if isinstance(current.value, ast.Name) and current.value.id == "self":
+                return current.attr
+            current = current.value
+        return None
 
-        # `generate` is the decision function: it is handed a point-in-time view and must use
-        # nothing else. Anything it reads from instance state predates the view's truncation.
-        if node.name == "generate":
-            previous = self._inside_decision_function
-            self._inside_decision_function = True
-            self.generic_visit(node)
-            self._inside_decision_function = previous
-            return
-        self.generic_visit(node)
+    def _is_tainted(self, node: ast.AST) -> bool:
+        """True if this expression reads data from anywhere but the sanctioned view."""
+        attribute = self._root_attribute(node)
+        if attribute is not None and attribute in self._data_attributes:
+            return True
+        root = self._root_name(node)
+        if root is None:
+            return False
+        if root in self._module_data_names:
+            return True
+        return self._scope is not None and root in self._scope.tainted
 
-    def _check_bulk_data_ingestion(self, node: ast.FunctionDef) -> None:
-        """A constructor accepting the whole dataset rather than parameters."""
+    # --- constructor analysis ---------------------------------------------
+    def _param_is_used_as_data(self, name: str, body: list[ast.stmt]) -> bool:
+        """Decide by usage, not by name, whether a parameter carries bulk data.
+
+        A configuration value is compared, stored, or used in arithmetic. A frame is indexed with
+        a column name, filtered, aggregated, or iterated. That difference is visible in the tree
+        and survives any renaming, which the previous word-list approach did not.
+        """
+        # Track what the parameter flows into, not just what is done to it directly. A constructor
+        # commonly hands the frame to a helper — `returns = _prepare(panel, window)` — and then
+        # aggregates the result. The data operation is one step removed from the parameter, so
+        # looking only at `panel.<method>()` sees nothing.
+        derived = {name}
+        for node in body:
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Assign):
+                    continue
+                mentions = {n.id for n in ast.walk(child.value) if isinstance(n, ast.Name)}
+                if mentions & derived:
+                    derived.update(t.id for t in child.targets if isinstance(t, ast.Name))
+
+        for node in body:
+            for child in ast.walk(node):
+                if isinstance(child, ast.Subscript):
+                    if (self._root_name(child.value) in derived
+                            and isinstance(child.slice, ast.Constant)
+                            and isinstance(child.slice.value, str)):
+                        return True
+                elif isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute):
+                    if (child.func.attr in DATA_METHODS
+                            and self._root_name(child.func.value) in derived):
+                        return True
+                elif isinstance(child, ast.For) and self._root_name(child.iter) in derived:
+                    return True
+        return False
+
+    def _record_data_attributes(self, name: str, body: list[ast.stmt]) -> None:
+        """Note which ``self.x`` attributes end up holding something derived from ``name``."""
+        for node in body:
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Assign):
+                    continue
+                if self._root_name(child.value) != name:
+                    continue
+                for target in child.targets:
+                    if (isinstance(target, ast.Attribute)
+                            and isinstance(target.value, ast.Name)
+                            and target.value.id == "self"):
+                        self._data_attributes.add(target.attr)
+
+    def _param_reaches_a_data_attribute(self, name: str, body: list[ast.stmt]) -> bool:
+        """True if this parameter is stored into an attribute the class treats as data."""
+        for node in body:
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Assign) or self._root_name(child.value) != name:
+                    continue
+                for target in child.targets:
+                    if (isinstance(target, ast.Attribute)
+                            and isinstance(target.value, ast.Name)
+                            and target.value.id == "self"
+                            and target.attr in self._data_attributes):
+                        return True
+        return False
+
+    def _param_flows_into_a_data_consumer(self, name: str, body: list[ast.stmt]) -> bool:
+        """True if the parameter is handed to a function that treats that argument as data."""
+        for node in body:
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Call):
+                    continue
+                called = child.func.attr if isinstance(child.func, ast.Attribute) else (
+                    child.func.id if isinstance(child.func, ast.Name) else None)
+                if called is None or called not in self._data_consumers:
+                    continue
+                for position, argument in enumerate(child.args):
+                    if (isinstance(argument, ast.Name) and argument.id == name
+                            and position in self._data_consumers[called]):
+                        return True
+        return False
+
+    def _visit_constructor(self, node: ast.FunctionDef) -> None:
         for argument in node.args.args:
             if argument.arg == "self":
                 continue
-            if argument.arg.lower() in _BULK_DATA_PARAMS:
+            # Two ways to establish that a parameter carries data: it is used as data right here,
+            # or it is stored into an attribute the class uses as data elsewhere. The second case
+            # is the common one — a constructor that only assigns gives nothing away by itself.
+            if not (self._param_is_used_as_data(argument.arg, node.body)
+                    or self._param_reaches_a_data_attribute(argument.arg, node.body)
+                    or self._param_flows_into_a_data_consumer(argument.arg, node.body)):
+                continue
+            self._add(
+                node, LeakClass.FULL_SAMPLE_FIT, Severity.HIGH,
+                f"the constructor parameter `{argument.arg}` is indexed, filtered or aggregated "
+                "inside __init__, so it carries a dataset rather than a setting. A strategy "
+                "receives its data through the point-in-time view at decision time; anything "
+                "derived here spans the whole sample, future included.",
+            )
+            self._record_data_attributes(argument.arg, node.body)
+
+    # --- function dispatch -------------------------------------------------
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+        if node.name == "__init__":
+            self._visit_constructor(node)
+            # A parameter sweep is usually run once at construction, not per decision, so the
+            # constructor has to be searched for it too.
+            self._check_parameter_search(node)
+            self.generic_visit(node)
+            return
+
+        previous_scope, previous_flag = self._scope, self._in_decision
+        self._scope = _FunctionScope(set(), set(), set())
+        self._in_decision = node.name == DECISION_FUNCTION
+        self._check_parameter_search(node)
+        self.generic_visit(node)
+        self._scope, self._in_decision = previous_scope, previous_flag
+
+    def _check_parameter_search(self, node: ast.FunctionDef) -> None:
+        """A loop that scores candidate parameter values against data and keeps the best.
+
+        Selecting a parameter by evaluating it on the sample being tested is snooping, and unlike
+        a bare hard-coded constant it leaves a visible structure: iteration over candidates, a
+        data operation inside, and a running best updated under a comparison.
+        """
+        # A sweep is just as often written as a comprehension feeding max(), so both shapes are
+        # examined. What identifies it is not the loop construct but the combination: iterate
+        # candidates, score each against data, keep the winner.
+        comprehensions = [n for n in ast.walk(node)
+                          if isinstance(n, ast.DictComp | ast.ListComp | ast.SetComp
+                                        | ast.GeneratorExp)]
+        for comp in comprehensions:
+            # The decisive question is *what* is being iterated. An honest strategy loops over
+            # symbols — a collection derived from the data. A parameter sweep loops over candidate
+            # settings, which are numeric literals written into the source. Only the second is
+            # snooping, and confusing them would reject ordinary cross-sectional code.
+            if not self._iterates_candidate_values(comp.generators[0].iter):
+                continue
+            scores_data = any(
+                isinstance(n, ast.Call) for n in ast.walk(comp)
+            )
+            if scores_data and self._selects_a_winner(node):
                 self._add(
-                    node, LeakClass.FULL_SAMPLE_FIT, Severity.HIGH,
-                    f"the constructor accepts `{argument.arg}`, handing the strategy bulk data "
-                    "before any decision date exists. An honest strategy is configured with "
-                    "windows and thresholds and receives data through the point-in-time view at "
-                    "decision time; anything derived here spans the whole sample, future included.",
+                    comp, LeakClass.SNOOPED_PARAMETER, Severity.HIGH,
+                    "candidate parameter values are scored against the data and the best is "
+                    "kept. The parameter is chosen with knowledge of the sample it is later "
+                    "evaluated on, so the reported performance includes the benefit of that "
+                    "search.",
+                )
+                return
+
+        for loop in [n for n in ast.walk(node) if isinstance(n, ast.For)]:
+            if not self._iterates_candidate_values(loop.iter):
+                continue
+            body = list(ast.walk(ast.Module(body=loop.body, type_ignores=[])))
+            touches_data = any(
+                isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                and n.func.attr in DATA_METHODS | AGGREGATIONS
+                for n in body
+            )
+            keeps_best = any(isinstance(n, ast.Compare) for n in body) and any(
+                isinstance(n, ast.Assign) for n in body
+            )
+            if touches_data and keeps_best:
+                self._add(
+                    loop, LeakClass.SNOOPED_PARAMETER, Severity.HIGH,
+                    "this loop scores candidate parameter values against the data and keeps the "
+                    "best one. The parameter is therefore chosen with knowledge of the sample it "
+                    "is later evaluated on, so the reported performance includes the benefit of "
+                    "that search.",
                 )
 
-    def _record_stored_attributes(self, node: ast.FunctionDef) -> None:
-        """Note which attributes hold constructor-supplied bulk data."""
-        bulk = {a.arg.lower() for a in node.args.args if a.arg.lower() in _BULK_DATA_PARAMS}
-        if not bulk:
-            return
-        for child in ast.walk(node):
-            if not isinstance(child, ast.Assign):
-                continue
-            for target in child.targets:
-                if (isinstance(target, ast.Attribute)
-                        and isinstance(target.value, ast.Name)
-                        and target.value.id == "self"):
-                    self._stored_bulk_attributes.add(target.attr)
+    def _iterates_candidate_values(self, node: ast.AST) -> bool:
+        """True if this iterable is a fixed set of parameter values rather than data.
 
+        Numeric literals written into the source are settings being swept. A name bound at module
+        level to such a literal counts too, since moving the list to a constant does not change
+        what the loop is doing.
+        """
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id == "range"):
+            return True
+        if isinstance(node, ast.List | ast.Tuple):
+            return all(isinstance(e, ast.Constant) and isinstance(e.value, int | float)
+                       for e in node.elts) and bool(node.elts)
+        if isinstance(node, ast.Name):
+            return node.id in self._candidate_collections
+        return False
+
+    @staticmethod
+    def _selects_a_winner(node: ast.FunctionDef) -> bool:
+        """True if the function picks an extremum out of a collection of scores."""
+        return any(
+            isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+            and n.func.id in ("max", "min", "argmax", "argmin", "sorted")
+            for n in ast.walk(node)
+        )
+
+    # --- assignments propagate provenance ----------------------------------
+    def visit_Assign(self, node: ast.Assign) -> None:  # noqa: N802
+        if self._scope is not None:
+            self._propagate(node)
+        self.generic_visit(node)
+
+    def _propagate(self, node: ast.Assign) -> None:
+        assert self._scope is not None
+        targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+        if not targets:
+            return
+        value = node.value
+        if self._is_tainted(value):
+            self._scope.tainted.update(targets)
+        if self._derives_from_future(value):
+            self._scope.from_future.update(targets)
+        if self._is_time_extremum(value):
+            self._scope.extrema.update(targets)
+
+    def _derives_from_future(self, node: ast.AST) -> bool:
+        """True if the expression reads forward in time, or was built from something that did."""
+        assert self._scope is not None
+        for child in ast.walk(node):
+            if (isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute)
+                    and child.func.attr in ("shift", "diff")):
+                arguments = list(child.args) + [kw.value for kw in child.keywords]
+                if any(self._is_negative_number(a) for a in arguments):
+                    return True
+            if isinstance(child, ast.Name) and child.id in self._scope.from_future:
+                return True
+        return False
+
+    def _is_time_extremum(self, node: ast.AST) -> bool:
+        """True for ``something.max()`` / ``.last()`` / ``[-1]`` — a collapse of the time axis."""
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            return node.func.attr in ("max", "last")
+        return isinstance(node, ast.Subscript) and self._is_negative_number(node.slice)
+
+    # --- reads -------------------------------------------------------------
     def visit_Attribute(self, node: ast.Attribute) -> None:  # noqa: N802
-        self._check_out_of_band_read(node)
-        if self._mentions(node.attr, _SURVIVORSHIP_HINTS):
+        if (self._in_decision and isinstance(node.value, ast.Name)
+                and node.value.id == "self" and node.attr in self._data_attributes):
             self._add(
-                node, LeakClass.SURVIVORSHIP_SELECTION, Severity.HIGH,
-                f"`{node.attr}` refers to membership as at the end of the period. Selecting the "
-                "universe this way silently removes every company that later failed, so the "
-                "backtest only ever trades survivors.",
+                node, LeakClass.FUTURE_INDEXING, Severity.HIGH,
+                f"`self.{node.attr}` is read while deciding, but it holds the dataset captured at "
+                f"construction. The `{SANCTIONED_SOURCE}` argument is truncated to before the "
+                "decision moment; this attribute is not, so reading it reaches past that boundary.",
             )
         self.generic_visit(node)
 
-    def _check_out_of_band_read(self, node: ast.Attribute) -> None:
-        """Reading stored bulk data from inside the decision function."""
-        if not self._inside_decision_function:
-            return
-        if not (isinstance(node.value, ast.Name) and node.value.id == "self"):
-            return
-        if node.attr in self._stored_bulk_attributes:
-            self._add(
-                node, LeakClass.FUTURE_INDEXING, Severity.HIGH,
-                f"`self.{node.attr}` is read while deciding, but it holds the dataset captured "
-                f"at construction. The `{_SANCTIONED_SOURCE}` argument is truncated to before the "
-                "decision moment; this attribute is not, so reading it reaches past that boundary "
-                "and can return rows the strategy could not yet have seen.",
-            )
-
-    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802 - ast API naming
-        func = node.func
-        if isinstance(func, ast.Attribute):
-            self._check_shift(node, func)
-            self._check_fit(node, func)
-            self._check_full_sample_aggregation(node, func)
+    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
+        if isinstance(node.func, ast.Attribute):
+            self._check_shift(node, node.func)
+            self._check_fit(node, node.func)
+            self._check_backward_fill(node, node.func)
+            self._check_window(node, node.func)
+            self._check_tainted_aggregation(node, node.func)
+            self._check_survivorship_filter(node, node.func)
         self.generic_visit(node)
 
     def _check_shift(self, node: ast.Call, func: ast.Attribute) -> None:
-        """A negative shift pulls a later row backwards onto an earlier one."""
         if func.attr not in ("shift", "diff"):
             return
         for argument in list(node.args) + [kw.value for kw in node.keywords]:
@@ -227,77 +453,247 @@ class _Visitor(ast.NodeVisitor):
                 )
 
     def _check_fit(self, node: ast.Call, func: ast.Attribute) -> None:
-        """A transform fitted where the data is not restricted to a training fold."""
-        if func.attr not in ("fit", "fit_transform"):
+        """A transform fitted to data that is not restricted to a training fold."""
+        if func.attr not in FIT_METHODS:
             return
-        target = func.value
-        name = target.id if isinstance(target, ast.Name) else \
-            target.attr if isinstance(target, ast.Attribute) else ""
-        constructed = isinstance(target, ast.Call) and isinstance(target.func, ast.Name) \
-            and target.func.id in _FITTED_TRANSFORMS
-        if constructed or self._mentions(name, ("scaler", "pca", "imputer", "encoder")):
+        fitted_on_tainted = any(self._is_tainted(a) for a in node.args)
+        constructed_here = isinstance(func.value, ast.Call)
+        if fitted_on_tainted or constructed_here or self._is_tainted(func.value):
             self._add(
                 node, LeakClass.FULL_SAMPLE_FIT, Severity.HIGH,
-                f"`{func.attr}` is applied to a transform outside a training fold. The fitted "
-                "statistics then summarise data the strategy has not yet seen at decision time, "
-                "so every later value is scaled using knowledge of the future.",
+                f"`{func.attr}` fits a transform on data that is not confined to a training fold. "
+                "The fitted statistics summarise observations the strategy has not seen at "
+                "decision time, so every later value is scaled using knowledge of the future.",
             )
 
-    def _check_full_sample_aggregation(self, node: ast.Call, func: ast.Attribute) -> None:
-        """An aggregate over something that looks like the whole panel, not a window."""
-        if func.attr not in _AGGREGATIONS:
+    def _check_backward_fill(self, node: ast.Call, func: ast.Attribute) -> None:
+        """Filling or interpolating backwards pulls later values into earlier rows."""
+        if func.attr not in BACKWARD_FILL_METHODS:
             return
-        base = func.value
-        # Only flag when the object aggregated is named like the full dataset. Aggregating a
-        # rolling window is ordinary and must not be reported, or the layer flags everything.
-        name = ""
-        if isinstance(base, ast.Name):
-            name = base.id
-        elif isinstance(base, ast.Attribute):
-            name = base.attr
-        elif isinstance(base, ast.Subscript) and isinstance(base.value, ast.Name):
-            name = base.value.id
-        if name and self._mentions(name, _FULL_SAMPLE_HINTS):
+        keyword_text = " ".join(
+            str(kw.value.value) for kw in node.keywords
+            if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str)
+        ).lower()
+        explicitly_backward = any(word in keyword_text for word in _BACKWARD_KEYWORDS)
+        inherently_backward = func.attr in ("interpolate", "bfill", "backfill", "backward_fill")
+        if explicitly_backward or inherently_backward:
             self._add(
-                node, LeakClass.FULL_SAMPLE_STATISTIC, Severity.MEDIUM,
-                f"`{func.attr}()` is computed over `{name}`, whose name indicates the complete "
-                "sample rather than a trailing window. A statistic spanning the full period "
-                "encodes where prices eventually went.",
+                node, LeakClass.BOUNDARY_CROSSING_WINDOW, Severity.HIGH,
+                f"`{func.attr}` fills earlier rows from later ones. Every value it writes is "
+                "information that did not exist at the timestamp it is written to, so any window "
+                "spanning the gap now straddles the train/test boundary.",
             )
 
-    def visit_Name(self, node: ast.Name) -> None:  # noqa: N802
-        if self._mentions(node.id, _SURVIVORSHIP_HINTS):
+    def _check_window(self, node: ast.Call, func: ast.Attribute) -> None:
+        """A rolling or resampling window computed over a source wider than the visible history."""
+        if func.attr not in WINDOW_METHODS:
+            return
+        if self._is_tainted(func.value):
             self._add(
-                node, LeakClass.SURVIVORSHIP_SELECTION, Severity.HIGH,
-                f"`{node.id}` names an end-of-period constituent set. Applying it to earlier "
-                "dates excludes companies that were tradable then but delisted later.",
+                node, LeakClass.BOUNDARY_CROSSING_WINDOW, Severity.HIGH,
+                f"`{func.attr}` is applied to data that did not come from the point-in-time view, "
+                "so the window spans the whole sample. Statistics computed before a split mix the "
+                "training and test sides together.",
             )
-        elif self._mentions(node.id, _TARGET_HINTS):
-            self._add(
-                node, LeakClass.TARGET_IN_FEATURES, Severity.HIGH,
-                f"`{node.id}` names the quantity being predicted. If it reaches the feature set, "
-                "the model is being shown the answer.",
-            )
-        self.generic_visit(node)
 
+    def _check_tainted_aggregation(self, node: ast.Call, func: ast.Attribute) -> None:
+        """An aggregation over a source that reaches beyond the decision moment."""
+        if func.attr not in AGGREGATIONS or not self._is_tainted(func.value):
+            return
+        self._add(
+            node, LeakClass.FULL_SAMPLE_STATISTIC, Severity.HIGH,
+            f"`{func.attr}()` is computed over data that did not come from the point-in-time "
+            "view. A statistic spanning the full period encodes where prices eventually went.",
+        )
+
+    def _check_survivorship_filter(self, node: ast.Call, func: ast.Attribute) -> None:
+        """Filtering a membership table against its own latest date, then trading earlier dates.
+
+        This is the structure of the survivorship cheat: collapse the time axis to its final value
+        and apply the resulting constituent set backwards. It is detected from the shape of the
+        filter rather than from what anything is called.
+        """
+        if func.attr not in ("filter", "loc", "query") or self._scope is None:
+            return
+        for argument in node.args:
+            for child in ast.walk(argument):
+                if isinstance(child, ast.Name) and child.id in self._scope.extrema:
+                    self._add(
+                        node, LeakClass.SURVIVORSHIP_SELECTION, Severity.HIGH,
+                        f"the membership set is filtered against `{child.id}`, which holds the "
+                        "latest value of a time column. Selecting the final snapshot and applying "
+                        "it to earlier dates removes every constituent that was tradable then but "
+                        "dropped out later, so only survivors are ever held.",
+                    )
+                    return
+
+    # --- slices ------------------------------------------------------------
     def visit_Subscript(self, node: ast.Subscript) -> None:  # noqa: N802
-        """Slices that reach forward, e.g. `series[t + 1:]` or a reversed slice."""
-        sliced = node.slice
-        if isinstance(sliced, ast.Slice):
-            lower, step = sliced.lower, sliced.step
+        if isinstance(node.slice, ast.Slice):
+            lower, step = node.slice.lower, node.slice.step
             if step is not None and self._is_negative_number(step):
                 self._add(
                     node, LeakClass.FUTURE_INDEXING, Severity.MEDIUM,
-                    "A reversed slice iterates the series backwards from the end, which makes it "
+                    "a reversed slice iterates the series backwards from the end, which makes it "
                     "easy to read observations that postdate the decision point.",
                 )
             if isinstance(lower, ast.BinOp) and isinstance(lower.op, ast.Add):
                 self._add(
                     node, LeakClass.FUTURE_INDEXING, Severity.HIGH,
-                    "The slice starts at an offset *after* the current index, so it selects "
+                    "the slice starts at an offset after the current index, so it selects "
                     "observations that had not occurred at decision time.",
                 )
         self.generic_visit(node)
+
+    # --- returned values ---------------------------------------------------
+    def visit_Return(self, node: ast.Return) -> None:  # noqa: N802
+        """A value derived from a forward-looking operation reaching the output."""
+        if self._in_decision and node.value is not None and self._scope is not None:
+            for child in ast.walk(node.value):
+                if isinstance(child, ast.Name) and child.id in self._scope.from_future:
+                    self._add(
+                        node, LeakClass.TARGET_IN_FEATURES, Severity.HIGH,
+                        f"`{child.id}` was built from a forward-looking operation and is used in "
+                        "the returned portfolio. The quantity being predicted is among the inputs, "
+                        "so the strategy is shown the answer.",
+                    )
+                    break
+        self.generic_visit(node)
+
+
+def _collect_data_attributes(tree: ast.Module) -> set[str]:
+    """Attributes that behave like data, judged across the whole module.
+
+    A single pass over ``__init__`` is not enough. The commonest bypass stores the frame and does
+    nothing else with it — ``self._panel = panel`` — so the constructor body offers no evidence at
+    all, and the proof of what the attribute holds appears later, where ``generate`` filters it.
+
+    So the question is asked of the class as a whole: is this attribute ever indexed with a column
+    name, filtered, aggregated, or iterated? If so it holds a dataset, whatever it is called and
+    whichever method reveals it.
+    """
+    attributes: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript):
+            base = node.value
+            if (isinstance(base, ast.Attribute) and isinstance(base.value, ast.Name)
+                    and base.value.id == "self"
+                    and isinstance(node.slice, ast.Constant)
+                    and isinstance(node.slice.value, str)):
+                attributes.add(base.attr)
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr not in DATA_METHODS:
+                continue
+            base = node.func.value
+            while isinstance(base, ast.Call | ast.Subscript):
+                base = base.func if isinstance(base, ast.Call) else base.value
+            if (isinstance(base, ast.Attribute) and isinstance(base.value, ast.Name)
+                    and base.value.id == "self"):
+                attributes.add(base.attr)
+        elif isinstance(node, ast.For):
+            target = node.iter
+            if (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"):
+                attributes.add(target.attr)
+    return attributes
+
+
+def _collect_data_consuming_functions(tree: ast.Module) -> dict[str, set[int]]:
+    """For each function, which of its parameter positions are treated as data inside it.
+
+    Needed because a constructor rarely touches the frame itself. The common shape is
+    ``self._scaler = self._fit_over_everything(panel)`` — the parameter is handed straight to a
+    helper and every data operation happens one call away. Looking only at the constructor body
+    sees a bare argument pass and concludes nothing, which is how a real cheat slipped through.
+
+    Positions are recorded both with and without a leading ``self``, since the same name may be a
+    method or a free function and the call site does not say which.
+    """
+    consuming: dict[str, set[int]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        parameters = [a.arg for a in node.args.args]
+        positions: set[int] = set()
+        for index, parameter in enumerate(parameters):
+            if parameter == "self":
+                continue
+            if _param_used_as_data_in(parameter, node.body):
+                # Offset by one when the first parameter is self, so the index matches the
+                # arguments actually written at the call site.
+                positions.add(index - 1 if parameters and parameters[0] == "self" else index)
+        if positions:
+            consuming[node.name] = positions
+    return consuming
+
+
+def _param_used_as_data_in(name: str, body: list[ast.stmt]) -> bool:
+    """Whether ``name`` is indexed, filtered, aggregated or iterated anywhere in ``body``."""
+    derived = {name}
+    for node in body:
+        for child in ast.walk(node):
+            if isinstance(child, ast.Assign):
+                mentions = {n.id for n in ast.walk(child.value) if isinstance(n, ast.Name)}
+                if mentions & derived:
+                    derived.update(t.id for t in child.targets if isinstance(t, ast.Name))
+    for node in body:
+        for child in ast.walk(node):
+            if isinstance(child, ast.Subscript):
+                base = child.value
+                root = base.id if isinstance(base, ast.Name) else None
+                if root in derived and isinstance(child.slice, ast.Constant) \
+                        and isinstance(child.slice.value, str):
+                    return True
+            elif isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute):
+                base = child.func.value
+                while isinstance(base, ast.Call | ast.Subscript):
+                    base = base.func if isinstance(base, ast.Call) else base.value
+                if isinstance(base, ast.Name) and base.id in derived \
+                        and child.func.attr in DATA_METHODS:
+                    return True
+            elif isinstance(child, ast.For) and isinstance(child.iter, ast.Name) \
+                    and child.iter.id in derived:
+                return True
+    return False
+
+
+def _collect_candidate_collections(tree: ast.Module) -> set[str]:
+    """Module-level names bound to a list or tuple of numeric literals.
+
+    A parameter sweep is often written against a named constant rather than an inline list. Moving
+    the candidates into a constant does not change what the loop does, so the name is resolved here
+    and treated the same way.
+    """
+    names: set[str] = set()
+    for node in tree.body:
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.List | ast.Tuple):
+            continue
+        elements = node.value.elts
+        if elements and all(isinstance(e, ast.Constant) and isinstance(e.value, int | float)
+                            for e in elements):
+            names.update(t.id for t in node.targets if isinstance(t, ast.Name))
+    return names
+
+
+def _collect_module_data_names(tree: ast.Module) -> set[str]:
+    """Module-level names that hold something behaving like a dataset.
+
+    A global frame is a way of smuggling the full sample into a decision function without passing
+    it through the constructor, so provenance tracking has to know about it.
+    """
+    names: set[str] = set()
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        value = node.value
+        looks_like_data = (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Attribute)
+            and value.func.attr in DATA_METHODS | {"read_parquet", "read_csv", "DataFrame"}
+        )
+        if looks_like_data:
+            names.update(t.id for t in node.targets if isinstance(t, ast.Name))
+    return names
 
 
 def audit_source(source: str, filename: str = "<string>") -> list[Finding]:
@@ -311,15 +707,14 @@ def audit_source(source: str, filename: str = "<string>") -> list[Finding]:
         tree = ast.parse(source, filename=filename)
     except SyntaxError as exc:
         return [
-            Finding(
-                leak_class=LeakClass.FUTURE_INDEXING,
-                line_number=exc.lineno or 0,
-                code_snippet=(exc.text or "").strip(),
-                severity=Severity.HIGH,
-                explanation=f"source does not parse and cannot be audited: {exc.msg}",
-            )
+            Finding(LeakClass.FUTURE_INDEXING, exc.lineno or 0, (exc.text or "").strip(),
+                    Severity.HIGH, f"source does not parse and cannot be audited: {exc.msg}")
         ]
     visitor = _Visitor(source.splitlines())
+    visitor._data_attributes = _collect_data_attributes(tree)
+    visitor._candidate_collections = _collect_candidate_collections(tree)
+    visitor._data_consumers = _collect_data_consuming_functions(tree)
+    visitor._module_data_names = _collect_module_data_names(tree)
     visitor.visit(tree)
     return sorted(visitor.findings, key=lambda f: (f.line_number, f.leak_class.value))
 
