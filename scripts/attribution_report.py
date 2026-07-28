@@ -24,10 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # noqa: E402
 
 from src.audit.static import Severity, audit_file, is_rejected  # noqa: E402
 
-# Filename prefix -> the leak class the case is an instance of. `future_dependent_ordering` maps to
-# `full_sample_statistic` because that is what it mechanically is: a key computed over the whole
-# sample driving a selection. It was not given its own class, since a class per surface form would
-# make the corpus breakdown a description of how cases were written rather than of how they leak.
+# Filename prefix -> the leak class the case is an instance of.
 CATEGORY_TO_CLASS = {
     "future_indexing": "future_indexing",
     "survivorship_selection": "survivorship_selection",
@@ -36,9 +33,27 @@ CATEGORY_TO_CLASS = {
     "boundary_crossing_window": "boundary_crossing_window",
     "target_in_features": "target_in_features",
     "point_in_time_bypass": "point_in_time_bypass",
-    "future_dependent_ordering": "full_sample_statistic",
+    "future_dependent_ordering": "future_dependent_ordering",
     "snooped_parameter": "snooped_parameter",
 }
+
+# Categories no detector can attribute, counted as unattributed and labelled so in the output. They
+# are not detector failures and they are not excused either — the case is still expected to be
+# rejected, and only the reason is missing.
+#
+# `target_in_features` — identifying which column is the label is semantic. Nothing structural
+# separates a float column that happens to be the prediction target from any other. The previous
+# rule matched the word `target`, which is what rejected an honest strategy for naming a local
+# `target_weight`. PI ruling, 2026-07-28: report as permanently unattributable, do not merge into
+# `future_indexing` to tidy the taxonomy.
+#
+# `future_dependent_ordering` — this is a surface form, not a mechanism. Two of its three variants
+# reduce to a full-sample statistic (an extremum or sort key computed over the whole period) and
+# the third reduces to a snooped parameter (scoring candidate windows and keeping the winner). It
+# was briefly mapped wholesale to `full_sample_statistic`; that collapse was settled by what the
+# auditor already emitted rather than by the mechanics, and was reverted. Splitting it per variant
+# now, after seeing the output, would repeat the same error.
+UNATTRIBUTABLE = frozenset({"target_in_features", "future_dependent_ordering"})
 
 
 def expected_class(stem: str) -> str:
@@ -59,7 +74,7 @@ def main(root: Path) -> None:
     if not leaky:
         raise SystemExit(f"no cases found under {root / 'leaky'}")
 
-    caught = attributed = 0
+    caught = attributed = by_design = 0
     width = max(len(p.stem) for p in leaky)
     for path in leaky:
         want = expected_class(path.stem)
@@ -68,13 +83,22 @@ def main(root: Path) -> None:
         rejected = is_rejected(findings)
         caught += rejected
         attributed += want in got
-        verdict = "ok" if want in got else ("MISSED" if not rejected else "mislabelled")
-        print(f"{path.stem:<{width}}  want={want:<24} got={','.join(got) or '-':<62}{verdict}")
+        by_design += want in UNATTRIBUTABLE
+        if want in got:
+            verdict = "ok"
+        elif not rejected:
+            verdict = "MISSED"
+        elif want in UNATTRIBUTABLE:
+            verdict = "unattributable by design"
+        else:
+            verdict = "mislabelled"
+        print(f"{path.stem:<{width}}  want={want:<26} got={','.join(got) or '-':<62}{verdict}")
 
     flagged = [p.stem for p in honest if is_rejected(audit_file(p))]
     print(
         f"\ncaught {caught}/{len(leaky)}"
         f"   true class present {attributed}/{len(leaky)}"
+        f"   ({by_design} of the remainder unattributable by design)"
         f"   false positives {len(flagged)}/{len(honest)}"
     )
     if flagged:

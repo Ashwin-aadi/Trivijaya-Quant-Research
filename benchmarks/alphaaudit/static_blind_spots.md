@@ -62,10 +62,35 @@ that rule was deleted rather than widened.
 These cases are still **rejected**, because a strategy that receives a training frame at
 construction commits `POINT_IN_TIME_BYPASS` and is caught there. Only the reason is wrong.
 
-**Open taxonomy question.** As implemented, `TARGET_IN_FEATURES` fires on a forward-derived value
+**Taxonomy, settled.** As implemented, `TARGET_IN_FEATURES` fires on a forward-derived value
 reaching the output, which is a sub-case of `FUTURE_INDEXING` rather than an independent class.
-Whether to report it as a permanently unattributable class or merge it into `future_indexing` is a
-decision recorded as outstanding in `DECISIONS.md`.
+
+**PI ruling, 2026-07-28: report it as permanently unattributable; do not merge it into
+`future_indexing`.** Merging would make the taxonomy look complete at the cost of hiding a real
+limitation. The honest sentence — *identifying the label column is semantic, not structural* — goes
+in the paper as it stands.
+
+---
+
+## 2a. Selection on a future-dependent ordering
+
+**Missed:** the class attribution, for a different reason from the rest of this list — there is no
+class to attribute it to, and deliberately so.
+
+Ranking or selecting names by a key computed over the whole period is a **surface form rather than
+a mechanism.** Two of its variants reduce to a full-sample statistic (an extremum or a sort key
+spanning the period); a third reduces to a snooped parameter (scoring candidate windows and keeping
+the winner). It does not have a mechanism of its own.
+
+**Why it is not mapped onto an existing class.** It briefly was, wholesale, to `full_sample_statistic`.
+That collapse was settled by what the auditor already emitted rather than by the mechanics, and was
+reverted on PI instruction. Splitting it per variant now would arguably be correct, and is refused
+for the same reason: the decision would be taken after seeing the output it affects.
+
+**Recorded against the benchmark, not the detector.** Defining a category by how code looks rather
+than by how it leaks is the confusion the detector rework existed to remove, and it survived into
+the refinement set unnoticed. The cases are retained and still measured; the category is marked
+unattributable rather than force-fitted.
 
 ---
 
