@@ -108,6 +108,11 @@ def test_constructor_taking_bulk_data_is_flagged() -> None:
     The parameter here is called `roster` and the attribute `_book` — deliberately bland. What
     marks them as data is that the class filters the attribute, not what either is named. The
     previous implementation matched a list of words and was defeated by exactly this rename.
+
+    The class reported is `point_in_time_bypass`, which is what this rule actually detects: data
+    reaching the strategy outside the sanctioned channel. It was previously reported as
+    `full_sample_fit`, which was a mislabel — no transform is fitted here — and that one mislabel
+    was stamped on most rejections, because almost every cheat enters through the constructor.
     """
     source = (
         "class S:\n"
@@ -116,11 +121,16 @@ def test_constructor_taking_bulk_data_is_flagged() -> None:
         "    def generate(self, view):\n"
         "        return self._book.filter(view.symbols)\n"
     )
-    assert LeakClass.FULL_SAMPLE_FIT in classes_of(source)
+    assert LeakClass.POINT_IN_TIME_BYPASS in classes_of(source)
 
 
 def test_reading_stored_panel_while_deciding_is_flagged() -> None:
-    """The out-of-band read: reaching around the point-in-time view to stored state."""
+    """The out-of-band read: reaching around the point-in-time view to stored state.
+
+    Reported as `point_in_time_bypass` rather than `future_indexing`. Nothing here indexes forward
+    in time — the defect is the channel the data arrived through, and calling it future indexing
+    conflated two distinct classes in the corpus breakdown.
+    """
     source = (
         "class S:\n"
         "    def __init__(self, panel):\n"
@@ -129,7 +139,53 @@ def test_reading_stored_panel_while_deciding_is_flagged() -> None:
         "        return self._panel.filter(view.as_of)\n"
     )
     findings = audit_source(source)
-    assert LeakClass.FUTURE_INDEXING in {f.leak_class for f in findings}
+    assert LeakClass.POINT_IN_TIME_BYPASS in {f.leak_class for f in findings}
+
+
+def test_a_fit_method_under_another_name_is_still_a_fit() -> None:
+    """`FIT_METHODS` is a word list; a normaliser exposing `calibrate` walks straight past it.
+
+    What makes a method a fit is structural: it takes an argument it treats as data, derives
+    summary statistics from it, and retains them on the instance. Recognising that shape is what
+    stops a rename from hiding the classic scaler leak.
+    """
+    source = (
+        "class N:\n"
+        "    def calibrate(self, rows):\n"
+        "        self._centre = rows.group_by('symbol').mean()\n"
+        "        return self\n"
+        "class S:\n"
+        "    def __init__(self, reference_set):\n"
+        "        self._n = N().calibrate(reference_set)\n"
+    )
+    assert LeakClass.FULL_SAMPLE_FIT in classes_of(source)
+
+
+def test_a_statistic_taken_in_the_constructor_is_attributed_to_its_own_class() -> None:
+    """Provenance has to be tracked inside `__init__`, not only inside `generate`.
+
+    The constructor is where tainted data enters, yet an earlier version walked it with no scope
+    open. Every category-specific detector sits there — the percentile over the whole panel, the
+    extremum feeding a membership filter — so none of them could fire, and each case carried only
+    the constructor rule's own label whatever it was really doing.
+    """
+    source = (
+        "class S:\n"
+        "    def __init__(self, panel):\n"
+        "        rows = panel.filter(panel['symbol'])\n"
+        "        self._cut = rows['score'].quantile(0.8)\n"
+    )
+    assert LeakClass.FULL_SAMPLE_STATISTIC in classes_of(source)
+
+
+def test_a_centred_window_is_flagged_whatever_its_source() -> None:
+    """A centred window averages rows after the one it labels, so it reads forward by construction.
+
+    This is a property of the window itself rather than of where its data came from, so it is
+    judged independently of provenance.
+    """
+    source = "def f(view):\n    return view.closes().rolling_mean(window_size=21, center=True)\n"
+    assert LeakClass.BOUNDARY_CROSSING_WINDOW in classes_of(source)
 
 
 def test_a_forward_derived_value_reaching_the_output_is_flagged() -> None:

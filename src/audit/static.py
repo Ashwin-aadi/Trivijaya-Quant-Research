@@ -36,7 +36,14 @@ from pathlib import Path
 
 
 class LeakClass(StrEnum):
-    """The kinds of lookahead this layer recognises."""
+    """The kinds of lookahead this layer recognises.
+
+    ``POINT_IN_TIME_BYPASS`` names the defect of obtaining data outside the sanctioned channel —
+    a frame captured in the constructor, a module global, an attribute read while deciding. It is
+    reported separately from what the strategy then *does* with that data, because those are
+    different defects and a corpus-level breakdown that merges them is misleading. A strategy that
+    captures the panel and takes a percentile of it is committing both, and both are reported.
+    """
 
     FUTURE_INDEXING = "future_indexing"
     FULL_SAMPLE_FIT = "full_sample_fit"
@@ -45,6 +52,7 @@ class LeakClass(StrEnum):
     BOUNDARY_CROSSING_WINDOW = "boundary_crossing_window"
     TARGET_IN_FEATURES = "target_in_features"
     SNOOPED_PARAMETER = "snooped_parameter"
+    POINT_IN_TIME_BYPASS = "point_in_time_bypass"
 
 
 class Severity(StrEnum):
@@ -84,6 +92,8 @@ AGGREGATIONS = frozenset(
 )
 
 # Transforms fitted to data. Fitting one outside a training fold is the classic scaler leak.
+# These are the scikit-learn spellings; a method that fits under any other name is recognised from
+# its structure instead, by `_collect_fitting_methods`.
 FIT_METHODS = frozenset({"fit", "fit_transform", "partial_fit"})
 
 # Window operations. Applied to a series spanning a split, these mix the two sides together.
@@ -123,8 +133,14 @@ class _Visitor(ast.NodeVisitor):
         self._module_data_names: set[str] = set()
         self._candidate_collections: set[str] = set()
         self._data_consumers: dict[str, set[int]] = {}
+        self._fit_methods: set[str] = set()
         self._scope: _FunctionScope | None = None
         self._in_decision = False
+        # How many enclosing calls have a tainted receiver. Chained frame work nests the interesting
+        # operation inside the call that establishes provenance — `panel.sort(...).with_columns(
+        # pl.col("x").rolling_mean(...))` — where the rolling window's own receiver is a bare column
+        # expression carrying no provenance at all. Reading only the immediate receiver misses it.
+        self._tainted_depth = 0
 
     # --- helpers -----------------------------------------------------------
     def _snippet(self, node: ast.AST) -> str:
@@ -182,6 +198,22 @@ class _Visitor(ast.NodeVisitor):
         if root in self._module_data_names:
             return True
         return self._scope is not None and root in self._scope.tainted
+
+    def _reads_tainted(self, node: ast.AST) -> bool:
+        """As ``_is_tainted``, but also true anywhere inside a call on a tainted receiver."""
+        return self._tainted_depth > 0 or self._is_tainted(node)
+
+    def _mentions_tainted(self, node: ast.AST) -> bool:
+        """True if any part of this expression reads tainted data.
+
+        Used for propagation rather than detection. A helper call hides its provenance behind the
+        function name — ``_trailing_returns(panel, lookback)`` has root ``_trailing_returns`` — so
+        the receiver alone says nothing and the arguments have to be inspected.
+        """
+        return any(
+            isinstance(child, ast.Name | ast.Attribute | ast.Subscript) and self._is_tainted(child)
+            for child in ast.walk(node)
+        )
 
     # --- constructor analysis ---------------------------------------------
     def _param_is_used_as_data(self, name: str, body: list[ast.stmt]) -> bool:
@@ -263,7 +295,9 @@ class _Visitor(ast.NodeVisitor):
                         return True
         return False
 
-    def _visit_constructor(self, node: ast.FunctionDef) -> None:
+    def _visit_constructor(self, node: ast.FunctionDef) -> set[str]:
+        """Report every parameter carrying bulk data, and return their names as tainted sources."""
+        carriers: set[str] = set()
         for argument in node.args.args:
             if argument.arg == "self":
                 continue
@@ -275,22 +309,34 @@ class _Visitor(ast.NodeVisitor):
                     or self._param_flows_into_a_data_consumer(argument.arg, node.body)):
                 continue
             self._add(
-                node, LeakClass.FULL_SAMPLE_FIT, Severity.HIGH,
+                node, LeakClass.POINT_IN_TIME_BYPASS, Severity.HIGH,
                 f"the constructor parameter `{argument.arg}` is indexed, filtered or aggregated "
                 "inside __init__, so it carries a dataset rather than a setting. A strategy "
                 "receives its data through the point-in-time view at decision time; anything "
                 "derived here spans the whole sample, future included.",
             )
             self._record_data_attributes(argument.arg, node.body)
+            carriers.add(argument.arg)
+        return carriers
 
     # --- function dispatch -------------------------------------------------
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
         if node.name == "__init__":
-            self._visit_constructor(node)
+            carriers = self._visit_constructor(node)
+            # The constructor is where tainted data enters, so it is the one function that must be
+            # walked with provenance already established. Leaving it unscoped — as an earlier
+            # version did — meant the percentile taken over the whole panel, the extremum feeding a
+            # membership filter and the centred rolling window were all invisible, and the only
+            # thing reported was that a parameter carried data. Every such case then bore the
+            # constructor rule's label whatever it was actually doing.
+            previous_scope, previous_flag = self._scope, self._in_decision
+            self._scope = _FunctionScope(set(carriers), set(), set())
+            self._in_decision = False
             # A parameter sweep is usually run once at construction, not per decision, so the
             # constructor has to be searched for it too.
             self._check_parameter_search(node)
             self.generic_visit(node)
+            self._scope, self._in_decision = previous_scope, previous_flag
             return
 
         previous_scope, previous_flag = self._scope, self._in_decision
@@ -392,7 +438,7 @@ class _Visitor(ast.NodeVisitor):
         if not targets:
             return
         value = node.value
-        if self._is_tainted(value):
+        if self._mentions_tainted(value):
             self._scope.tainted.update(targets)
         if self._derives_from_future(value):
             self._scope.from_future.update(targets)
@@ -423,7 +469,7 @@ class _Visitor(ast.NodeVisitor):
         if (self._in_decision and isinstance(node.value, ast.Name)
                 and node.value.id == "self" and node.attr in self._data_attributes):
             self._add(
-                node, LeakClass.FUTURE_INDEXING, Severity.HIGH,
+                node, LeakClass.POINT_IN_TIME_BYPASS, Severity.HIGH,
                 f"`self.{node.attr}` is read while deciding, but it holds the dataset captured at "
                 f"construction. The `{SANCTIONED_SOURCE}` argument is truncated to before the "
                 "decision moment; this attribute is not, so reading it reaches past that boundary.",
@@ -438,7 +484,15 @@ class _Visitor(ast.NodeVisitor):
             self._check_window(node, node.func)
             self._check_tainted_aggregation(node, node.func)
             self._check_survivorship_filter(node, node.func)
+        # Everything nested inside a call on a tainted receiver inherits that provenance, so the
+        # window or aggregation buried in a chained frame expression is judged against the frame
+        # it is really operating on rather than against the bare column expression it hangs off.
+        inherits = isinstance(node.func, ast.Attribute) and self._is_tainted(node.func.value)
+        if inherits:
+            self._tainted_depth += 1
         self.generic_visit(node)
+        if inherits:
+            self._tainted_depth -= 1
 
     def _check_shift(self, node: ast.Call, func: ast.Attribute) -> None:
         if func.attr not in ("shift", "diff"):
@@ -454,11 +508,11 @@ class _Visitor(ast.NodeVisitor):
 
     def _check_fit(self, node: ast.Call, func: ast.Attribute) -> None:
         """A transform fitted to data that is not restricted to a training fold."""
-        if func.attr not in FIT_METHODS:
+        if func.attr not in FIT_METHODS and func.attr not in self._fit_methods:
             return
-        fitted_on_tainted = any(self._is_tainted(a) for a in node.args)
+        fitted_on_tainted = any(self._reads_tainted(a) for a in node.args)
         constructed_here = isinstance(func.value, ast.Call)
-        if fitted_on_tainted or constructed_here or self._is_tainted(func.value):
+        if fitted_on_tainted or constructed_here or self._reads_tainted(func.value):
             self._add(
                 node, LeakClass.FULL_SAMPLE_FIT, Severity.HIGH,
                 f"`{func.attr}` fits a transform on data that is not confined to a training fold. "
@@ -488,7 +542,23 @@ class _Visitor(ast.NodeVisitor):
         """A rolling or resampling window computed over a source wider than the visible history."""
         if func.attr not in WINDOW_METHODS:
             return
-        if self._is_tainted(func.value):
+        # A centred window averages rows on both sides of the one it labels, so it reads forward by
+        # construction whatever it is applied to. That is a property of the window itself and holds
+        # even where provenance is clean, so it is judged independently of the source.
+        centred = any(
+            kw.arg in ("center", "centered") and isinstance(kw.value, ast.Constant)
+            and kw.value.value is True
+            for kw in node.keywords
+        )
+        if centred:
+            self._add(
+                node, LeakClass.BOUNDARY_CROSSING_WINDOW, Severity.HIGH,
+                f"`{func.attr}` is centred, so each output value averages the sessions after the "
+                "row it is attached to as well as those before it. Every point in the smoothed "
+                "series therefore contains information that did not exist at its own timestamp, "
+                "and points near a split are built from rows on both sides of it.",
+            )
+        elif self._reads_tainted(func.value):
             self._add(
                 node, LeakClass.BOUNDARY_CROSSING_WINDOW, Severity.HIGH,
                 f"`{func.attr}` is applied to data that did not come from the point-in-time view, "
@@ -498,7 +568,7 @@ class _Visitor(ast.NodeVisitor):
 
     def _check_tainted_aggregation(self, node: ast.Call, func: ast.Attribute) -> None:
         """An aggregation over a source that reaches beyond the decision moment."""
-        if func.attr not in AGGREGATIONS or not self._is_tainted(func.value):
+        if func.attr not in AGGREGATIONS or not self._reads_tainted(func.value):
             return
         self._add(
             node, LeakClass.FULL_SAMPLE_STATISTIC, Severity.HIGH,
@@ -657,6 +727,44 @@ def _param_used_as_data_in(name: str, body: list[ast.stmt]) -> bool:
     return False
 
 
+def _collect_fitting_methods(tree: ast.Module) -> set[str]:
+    """Methods that fit a transform, recognised by what they do rather than what they are called.
+
+    ``FIT_METHODS`` covers the scikit-learn spellings and nothing else, which makes it the same kind
+    of word list this module removed everywhere else: a strategy whose normaliser exposes
+    ``calibrate`` rather than ``fit`` walks straight past it.
+
+    Fitting has a structure independent of naming. The method takes an argument it treats as data,
+    derives summary statistics from it, and retains them on the instance for later use. Anything
+    doing all three is a fit, and applying it outside a training fold leaks whatever period the
+    argument spanned.
+    """
+    fitting: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef) or node.name == "__init__":
+            continue
+        takes_data = any(
+            argument.arg != "self" and _param_used_as_data_in(argument.arg, node.body)
+            for argument in node.args.args
+        )
+        if not takes_data:
+            continue
+        summarises = any(
+            isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+            and n.func.attr in AGGREGATIONS
+            for n in ast.walk(node)
+        )
+        retains = any(
+            isinstance(n, ast.Assign)
+            and any(isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name)
+                    and t.value.id == "self" for t in n.targets)
+            for n in ast.walk(node)
+        )
+        if summarises and retains:
+            fitting.add(node.name)
+    return fitting
+
+
 def _collect_candidate_collections(tree: ast.Module) -> set[str]:
     """Module-level names bound to a list or tuple of numeric literals.
 
@@ -714,6 +822,7 @@ def audit_source(source: str, filename: str = "<string>") -> list[Finding]:
     visitor._data_attributes = _collect_data_attributes(tree)
     visitor._candidate_collections = _collect_candidate_collections(tree)
     visitor._data_consumers = _collect_data_consuming_functions(tree)
+    visitor._fit_methods = _collect_fitting_methods(tree)
     visitor._module_data_names = _collect_module_data_names(tree)
     visitor.visit(tree)
     return sorted(visitor.findings, key=lambda f: (f.line_number, f.leak_class.value))
