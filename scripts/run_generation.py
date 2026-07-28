@@ -67,9 +67,16 @@ def main() -> int:
 
     for index in range(args.n):
         candidate = generate_candidate(index, base_seed=BASE_SEED)
-        # Recorded before anything else can go wrong with the file write: the trial happened
-        # whether or not the artifact survives.
-        counter.record(candidate.class_name, candidate.outcome)  # type: ignore[arg-type]
+        # One ledger entry per draw, not per candidate. A retry consumed a draw from the search
+        # exactly as the first attempt did, and the Deflated Sharpe denominator is the number of
+        # draws. The first run recorded only final outcomes and understated N by ten.
+        # Recorded before the file write: the trial happened whether or not the artifact survives.
+        for attempt_number, outcome in enumerate(candidate.attempt_outcomes, start=1):
+            label = (
+                candidate.class_name if attempt_number == len(candidate.attempt_outcomes)
+                else f"{candidate.class_name}#attempt{attempt_number}"
+            )
+            counter.record(label, outcome)  # type: ignore[arg-type]
 
         path = out_dir / f"candidate_{index:03d}.py"
         if candidate.usable:

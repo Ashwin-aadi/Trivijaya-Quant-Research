@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import inspect
 import json
 import sys
 import time
@@ -96,13 +97,42 @@ def _load_strategy(path: Path) -> type[Strategy]:
     return subclasses[-1]
 
 
+def _instantiate(strategy_class: type[Strategy]) -> Strategy:
+    """Build a strategy, supplying plausible values for any parameter lacking a default.
+
+    The first run discarded 21 otherwise-sound candidates because this called the class with no
+    arguments and the constructor required some. That was a harness defect, not a candidate defect:
+    the prompt invited scalar settings without saying they needed defaults.
+
+    Values are chosen from the annotation, and only for parameters the author left required. A
+    strategy that declares its own defaults is built exactly as written and nothing is substituted.
+    """
+    try:
+        return strategy_class()
+    except TypeError:
+        pass
+
+    signature = inspect.signature(strategy_class.__init__)
+    supplied: dict[str, Any] = {}
+    for name, parameter in signature.parameters.items():
+        if name == "self" or parameter.default is not inspect.Parameter.empty:
+            continue
+        if parameter.kind in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD):
+            continue
+        annotation = parameter.annotation
+        # A window length is the overwhelmingly common required setting; 20 sessions is a month of
+        # trading and is a neutral choice rather than one tuned to make anything perform.
+        supplied[name] = 0.5 if annotation is float or annotation == "float" else 20
+    return strategy_class(**supplied)
+
+
 def run_one(path_str: str, out_dir_str: str) -> dict[str, Any]:
     """Backtest one candidate. Never raises — a failure is the result."""
     path, out_dir = Path(path_str), Path(out_dir_str)
     assert _ENGINE is not None and _WINDOW is not None, "worker initialiser did not run"
     name = path.stem
     try:
-        strategy = _load_strategy(path)()
+        strategy = _instantiate(_load_strategy(path))
         result = _ENGINE.run(strategy, start=_WINDOW[0], end=_WINDOW[1])
     except Exception as exc:  # noqa: BLE001 - untrusted code; every failure is a datum
         return asdict(CandidateResult(
@@ -118,8 +148,10 @@ def run_one(path_str: str, out_dir_str: str) -> dict[str, Any]:
     )
     return asdict(CandidateResult(
         name=name, path=path_str, outcome="evaluated", error=None,
-        sharpe=stats.get("sharpe"), annualised_return=stats.get("annualised_return"),
-        volatility=stats.get("annualised_volatility"), max_drawdown=stats.get("max_drawdown"),
+        # The key is `sharpe_ratio`; asking for `sharpe` returned None for every candidate and
+        # would have produced a corpus with no performance numbers at all.
+        sharpe=stats["sharpe_ratio"], annualised_return=stats["annualised_return"],
+        volatility=stats["annualised_volatility"], max_drawdown=stats["max_drawdown"],
         n_sessions=len(result.returns), returns_path=str(returns_path),
     ))
 

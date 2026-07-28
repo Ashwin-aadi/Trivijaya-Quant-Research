@@ -56,6 +56,10 @@ class Candidate:
     attempts: int
     #: "evaluated" once it parses and conforms; otherwise the reason it did not.
     outcome: str
+    #: One entry per draw from the model, in order. A retry consumed a draw exactly as the first
+    #: attempt did, so the Deflated Sharpe denominator must count all of them - recording only the
+    #: final outcome understates N and weakens the deflation, which is the wrong direction.
+    attempt_outcomes: tuple[str, ...] = ()
 
     @property
     def usable(self) -> bool:
@@ -95,6 +99,19 @@ def _conformance_failure(source: str) -> str | None:
         for n in ast.walk(tree)
     ):
         return "no rationale"
+
+    # A constructor with a required parameter cannot be built by the harness, which instantiates
+    # with no arguments. The first run lost 21 candidates to this: the prompt invited scalar
+    # settings without saying they needed defaults, and the loader assumed they had them. Checking
+    # it here means the mismatch is caught at generation rather than discovered a backtest later.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef) or node.name != "__init__":
+            continue
+        positional = [a.arg for a in node.args.args if a.arg != "self"]
+        n_defaults = len(node.args.defaults)
+        if len(positional) > n_defaults:
+            missing = positional[: len(positional) - n_defaults]
+            return f"__init__ parameters without defaults: {', '.join(missing)}"
     return None
 
 
@@ -134,6 +151,7 @@ def generate_candidate(
     theme = theme_for(index)
     prompt = build_prompt(theme)
     last_reason = "no attempt made"
+    outcomes: list[str] = []
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         # Offsetting by attempt as well as index keeps a retry from redrawing the same failure.
@@ -141,15 +159,19 @@ def generate_candidate(
         source = extract_code(_post(prompt, seed, model_tag=model_tag, host=host))
         reason = _conformance_failure(source)
         if reason is None:
+            outcomes.append("evaluated")
             return Candidate(
                 index=index, seed=seed, theme=theme, source=source,
                 class_name=_class_name(source), attempts=attempt, outcome="evaluated",
+                attempt_outcomes=tuple(outcomes),
             )
         last_reason = reason
+        outcomes.append("syntax_error" if "syntax" in reason else "runtime_error")
         _log.warning("candidate %d attempt %d unusable: %s", index, attempt, reason)
 
     return Candidate(
         index=index, seed=base_seed + index, theme=theme, source="",
         class_name=f"Failed{index}", attempts=MAX_ATTEMPTS,
         outcome="syntax_error" if "syntax" in last_reason else "runtime_error",
+        attempt_outcomes=tuple(outcomes),
     )
