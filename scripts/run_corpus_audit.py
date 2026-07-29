@@ -44,6 +44,12 @@ from src.eval.metrics import sharpe_ratio  # noqa: E402
 
 _log = get_logger(__name__)
 
+#: Draws taken but absent from the ledger, all from the first generation run's per-candidate
+#: recording bug. Fixed at source on 2026-07-28; this constant covers the entries written before the
+#: fix and must not be increased to cover any future gap — a later undercount is a defect to fix, not
+#: a constant to bump.
+UNRECORDED_DRAWS = 10
+
 
 def extract_rationale(source: str) -> str:
     """The candidate's stated reasoning, for the semantic layer to read against its code."""
@@ -166,8 +172,14 @@ def main() -> int:
         return 1
 
     counter = TrialCounter(default_counter_path(cfg))
-    n_trials = counter.verify()
-    _log.info("trial ledger verified: %d trials", n_trials)
+    recorded = counter.verify()
+    # The first generation run recorded one ledger entry per candidate rather than one per draw, so
+    # ten retries were never written. The hash chain was deliberately not rewritten to insert them —
+    # an append-only ledger that gets edited when found wrong is not tamper-evident — so the
+    # correction is applied here instead. Deflating by the recorded count alone would understate the
+    # search and inflate every survivor, which is the wrong direction to be wrong in.
+    n_trials = recorded + UNRECORDED_DRAWS
+    _log.info("trial ledger verified: %d recorded, deflating by %d", recorded, n_trials)
 
     _log.info("static layer over %d candidates", len(paths))
     static = static_layer(paths)

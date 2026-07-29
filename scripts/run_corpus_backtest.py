@@ -23,10 +23,9 @@ import argparse
 import importlib.util
 import inspect
 import json
+import multiprocessing
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -169,18 +168,32 @@ def main() -> int:
 
     out_dir = args.corpus.parent / "backtests"
     out_dir.mkdir(parents=True, exist_ok=True)
-    _log.info("backtesting %d candidates across %d workers", len(candidates), args.workers)
+    # The corpus path goes in the log so a progress reader can tell which corpus a log belongs to.
+    # Without it a stale log from an earlier corpus is indistinguishable from a live one, and the
+    # reported progress silently describes the wrong run.
+    _log.info("backtesting corpus %s: %d candidates across %d workers",
+              args.corpus.resolve(), len(candidates), args.workers)
 
     results: list[dict[str, Any]] = []
     started = time.perf_counter()
-    with ProcessPoolExecutor(max_workers=args.workers, initializer=_worker_init) as pool:
-        futures = {
-            pool.submit(run_one, str(p), str(out_dir)): p for p in candidates
-        }
-        for done, (future, path) in enumerate(futures.items(), start=1):
+
+    # multiprocessing.Pool rather than ProcessPoolExecutor, because only the former can actually
+    # kill a worker. `future.result(timeout=...)` bounds how long the parent waits for a result, not
+    # how long the child runs, and ProcessPoolExecutor's shutdown then joins that child on the way
+    # out of the `with` block. A generated strategy with an unbounded loop therefore hangs the run
+    # forever *after* every result has been collected, with the output trapped in a process that
+    # will not exit. Two candidates in the first corpus did exactly that. `terminate()` kills the
+    # children outright, which is the only thing that works against untrusted code.
+    pool = multiprocessing.Pool(processes=args.workers, initializer=_worker_init)
+    try:
+        pending = [
+            (path, pool.apply_async(run_one, (str(path), str(out_dir))))
+            for path in candidates
+        ]
+        for done, (path, async_result) in enumerate(pending, start=1):
             try:
-                results.append(future.result(timeout=TIMEOUT_SECONDS))
-            except FutureTimeout:
+                results.append(async_result.get(timeout=TIMEOUT_SECONDS))
+            except multiprocessing.TimeoutError:
                 results.append(asdict(CandidateResult(
                     name=path.stem, path=str(path), outcome="timeout",
                     error=f"exceeded {TIMEOUT_SECONDS:.0f}s", sharpe=None,
@@ -196,6 +209,10 @@ def main() -> int:
                 )))
             if done % 25 == 0:
                 _log.info("%d/%d backtested", done, len(candidates))
+    finally:
+        # Not close(): a still-spinning strategy would keep the interpreter alive indefinitely.
+        pool.terminate()
+        pool.join()
 
     elapsed = time.perf_counter() - started
     ran = sum(1 for r in results if r["outcome"] == "evaluated")
