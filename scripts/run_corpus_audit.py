@@ -45,9 +45,9 @@ from src.eval.metrics import sharpe_ratio  # noqa: E402
 _log = get_logger(__name__)
 
 #: Draws taken but absent from the ledger, all from the first generation run's per-candidate
-#: recording bug. Fixed at source on 2026-07-28; this constant covers the entries written before the
-#: fix and must not be increased to cover any future gap — a later undercount is a defect to fix, not
-#: a constant to bump.
+#: recording bug. Fixed at source on 2026-07-28; this constant covers entries written before the
+#: fix and must not be raised to cover a future gap — a later undercount is a defect to fix, not a
+#: constant to bump.
 UNRECORDED_DRAWS = 10
 
 
@@ -184,13 +184,23 @@ def main() -> int:
     _log.info("static layer over %d candidates", len(paths))
     static = static_layer(paths)
 
-    semantic: dict[str, dict[str, Any]] = {}
+    # Verdicts already on disk are carried forward. `--skip-semantic` previously wrote an empty
+    # semantic block straight over the results file, silently discarding ninety minutes of GPU work
+    # and leaving a corpus that looked audited but could not support the three-layer ablation. A
+    # flag that says "do not run this layer" must never mean "delete this layer".
+    existing_path = args.corpus.parent / "audit_results.json"
+    existing: dict[str, Any] = (
+        json.loads(existing_path.read_text(encoding="utf-8")) if existing_path.exists() else {}
+    )
+    semantic: dict[str, dict[str, Any]] = dict(existing.get("semantic", {}))
     if not args.skip_semantic:
         if not is_available():
             _log.error("Ollama unreachable; semantic layer cannot run")
             return 1
         _log.info("semantic layer over %d candidates", len(paths))
         semantic = semantic_layer(paths)
+    elif semantic:
+        _log.info("carrying forward %d existing semantic verdicts", len(semantic))
 
     backtest_path = args.corpus.parent / "backtest_results.json"
     statistical: dict[str, dict[str, Any]] = {}

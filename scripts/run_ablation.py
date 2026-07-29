@@ -43,6 +43,9 @@ _log = get_logger(__name__)
 
 LAYERS = ("static", "semantic", "statistical")
 
+#: A Sharpe within this of zero means the strategy never took a position over the whole window.
+FLAT_TOLERANCE = 1e-9
+
 
 def soundness(audit: dict[str, Any], layer: str, name: str) -> float:
     """How strongly ``layer`` believes ``name`` is sound. Higher is kept first.
@@ -102,10 +105,16 @@ def main() -> int:
         backtests = json.loads(holdout_path.read_text(encoding="utf-8"))
         _log.warning("HOLDOUT EVALUATION, authorised by: %s", args.authorised_by)
 
+    # Flat candidates — executed correctly over the full window and never took a position — are
+    # excluded from the ranking. They are all tied at exactly 0.0, so they carry no ordering
+    # information, and at 65% of the executed set they would dominate every retained set and drag
+    # P(c) toward zero at every coverage regardless of what the auditor did. They remain counted in
+    # the corpus statistics, where they are the central finding; not deleted, only unranked.
     performance = {
         record["name"]: float(record["sharpe"])
         for record in backtests
         if record["outcome"] == "evaluated" and record.get("sharpe") is not None
+        and abs(float(record["sharpe"])) >= FLAT_TOLERANCE
     }
     if len(performance) < 10:
         _log.error("only %d candidates have a performance number; too few to sweep",

@@ -1,13 +1,20 @@
 """Freeze the strategies that survived every auditor layer, as the P1 output P2 consumes.
 
 A survivor is a candidate that did three things: executed against real data, actually traded, and
-was rejected by none of the three auditor layers. That is the population the lab's pipeline story
+was rejected by none of the layers being applied. That is the population the lab's pipeline story
 depends on — P2 asks when these break, P3 asks how much money they absorb — so it has to exist as a
 concrete, labelled, reproducible set rather than as a claim in a report.
 
-**The three layers are recorded separately for every survivor, not collapsed.** A candidate passes
-because static, semantic and statistical each passed it, and which layer nearly rejected it is
-information the ablation needs.
+**The three layers are recorded separately for every survivor, not collapsed.** Which layer nearly
+rejected a survivor is information the ablation needs, so all three verdicts are written out
+whatever the clearing criterion was.
+
+**On which layers define survival.** The default is static and semantic — the two that judge the
+code. The statistical layer is deliberately excluded by default, and this is a judgment call worth
+disagreeing with: at a trial count of 1887 it rejects the entire corpus, so including it defines the
+survivor set to be empty. That rejection is a true statement about the corpus, not about any
+individual strategy, and it would end the handoff to P2 for a reason no strategy could ever escape.
+Pass ``--layers static semantic statistical`` to see the empty set for yourself.
 
 Survivorship here is honest by construction: the set is derived from verdicts already written to
 disk by an auditor frozen before the corpus was generated. Nothing is selected on performance beyond
@@ -77,13 +84,13 @@ def verdicts_for(name: str, audit: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return out
 
 
-def is_survivor(verdicts: dict[str, dict[str, Any]]) -> bool:
-    """True when no layer that ran rejected this candidate."""
-    return not any(v["ran"] and v["rejected"] for v in verdicts.values())
+def is_survivor(verdicts: dict[str, dict[str, Any]], layers: tuple[str, ...]) -> bool:
+    """True when none of ``layers`` that actually ran rejected this candidate."""
+    return not any(verdicts[layer]["ran"] and verdicts[layer]["rejected"] for layer in layers)
 
 
-def collect(run_dir: Path) -> list[dict[str, Any]]:
-    """Survivor records for one corpus."""
+def collect(run_dir: Path, layers: tuple[str, ...]) -> list[dict[str, Any]]:
+    """Survivor records for one corpus, judged against ``layers``."""
     backtests, audit, summary = load_corpus(run_dir)
     if not backtests:
         _log.warning("%s has no completed backtest and audit; skipped", run_dir)
@@ -104,7 +111,7 @@ def collect(run_dir: Path) -> list[dict[str, Any]]:
         if abs(float(record["sharpe"])) < FLAT_TOLERANCE:
             continue
         verdicts = verdicts_for(record["name"], audit)
-        if not is_survivor(verdicts):
+        if not is_survivor(verdicts, layers):
             continue
         source = Path(record["path"])
         meta = by_index.get(source.stem, {})
@@ -127,11 +134,19 @@ def collect(run_dir: Path) -> list[dict[str, Any]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=OUT_DIR)
+    # Which layers a survivor must clear. Defaults to the two that judge the *code*. The
+    # statistical layer is a property of the corpus, not of a strategy: at an honest trial
+    # count it rejects everything, so including it by default would define the survivor set to
+    # be empty and destroy the handoff to P2 for a reason that says nothing about any
+    # individual strategy. Its verdict is still recorded against every survivor.
+    parser.add_argument("--layers", nargs="+", default=["static", "semantic"],
+                        choices=["static", "semantic", "statistical"])
     args = parser.parse_args()
+    layers = tuple(args.layers)
 
     survivors: list[dict[str, Any]] = []
     for run_dir in CORPORA:
-        survivors.extend(collect(run_dir))
+        survivors.extend(collect(run_dir, layers))
 
     if not survivors:
         _log.error("no survivors found; has the audit run on a completed backtest?")
@@ -145,11 +160,14 @@ def main() -> int:
 
     survivors.sort(key=lambda r: float(r["sharpe"]), reverse=True)
     (args.out / "survivors.json").write_text(
-        json.dumps({"n": len(survivors), "survivors": survivors}, indent=2), encoding="utf-8"
+        json.dumps(
+            {"n": len(survivors), "cleared_layers": list(layers), "survivors": survivors}, indent=2
+        ),
+        encoding="utf-8",
     )
 
     _log.info("tagged %d survivors into %s", len(survivors), args.out)
-    print(f"survivors: {len(survivors)}")
+    print(f"survivors: {len(survivors)}   (cleared: {'+'.join(layers)})")
     print(f"  Sharpe range: {survivors[-1]['sharpe']:.3f} to {survivors[0]['sharpe']:.3f}")
     return 0
 
