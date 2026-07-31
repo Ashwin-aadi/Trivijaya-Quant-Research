@@ -103,6 +103,73 @@ class AuditConfig:
 
 
 @dataclass(frozen=True)
+class SegmentRates:
+    """Rates that differ between delivery and intraday, and between buy and sell."""
+
+    stt_buy: float
+    stt_sell: float
+    stamp_duty_buy: float
+    stamp_duty_sell: float
+
+
+@dataclass(frozen=True)
+class BrokerageConfig:
+    delivery_rate: float
+    delivery_flat: float
+    intraday_rate: float
+    intraday_flat_cap: float
+
+
+@dataclass(frozen=True)
+class SlippageConfig:
+    """ASSUMPTION, not a measured Indian parameter. See src/costs/india.py."""
+
+    participation_coefficient: float
+    max_slippage_fraction: float
+
+
+@dataclass(frozen=True)
+class ImpactConfig:
+    """ASSUMPTION. Square-root form is standard; the coefficient is not calibrated to India."""
+
+    coefficient: float
+    default_volatility: float
+
+
+@dataclass(frozen=True)
+class CostsConfig:
+    """Indian transaction costs. Statutory rates are sourced and dated in config.yaml.
+
+    ``effective_from`` and ``verified_on`` exist so that stale rates are visible. These move with
+    Union Budgets and SEBI circulars, and a silently outdated rate corrupts every net figure
+    downstream while looking perfectly healthy.
+    """
+
+    effective_from: date
+    verified_on: date
+    delivery: SegmentRates
+    intraday: SegmentRates
+    exchange_transaction_charge: float
+    ipft_charge: float
+    sebi_turnover_fee: float
+    gst_rate: float
+    brokerage: BrokerageConfig
+    dp_charge_per_scrip_sell: float
+    slippage: SlippageConfig
+    impact: ImpactConfig
+
+
+@dataclass(frozen=True)
+class ConstraintsConfig:
+    """Tradability limits. A strategy violating these could not have been executed as backtested."""
+
+    max_participation_rate: float
+    min_adv_rupees: float
+    adv_window_sessions: int
+    circuit_band: float
+
+
+@dataclass(frozen=True)
 class Config:
     meta: MetaConfig
     paths: PathsConfig
@@ -111,6 +178,8 @@ class Config:
     universe: UniverseConfig
     data: DataConfig
     audit: AuditConfig
+    costs: CostsConfig
+    constraints: ConstraintsConfig
     raw: dict[str, Any]        # everything as loaded, including keys not yet modelled
     source_path: Path
     config_hash: str           # sha256 of the raw file bytes
@@ -145,6 +214,51 @@ def _build_audit(audit: dict[str, Any]) -> AuditConfig:
         num_ctx=int(_require(audit, "num_ctx", "audit")),
         request_timeout_seconds=float(_require(audit, "request_timeout_seconds", "audit")),
         probe_timeout_seconds=float(_require(audit, "probe_timeout_seconds", "audit")),
+    )
+
+
+def _segment_rates(section: dict[str, Any], where: str) -> SegmentRates:
+    return SegmentRates(
+        stt_buy=float(_require(section, "stt_buy", where)),
+        stt_sell=float(_require(section, "stt_sell", where)),
+        stamp_duty_buy=float(_require(section, "stamp_duty_buy", where)),
+        stamp_duty_sell=float(_require(section, "stamp_duty_sell", where)),
+    )
+
+
+def _build_costs(costs: dict[str, Any]) -> CostsConfig:
+    """Assemble the costs section. Every statutory rate here is sourced and dated in config.yaml."""
+    brokerage = _require(costs, "brokerage", "costs")
+    slippage = _require(costs, "slippage", "costs")
+    impact = _require(costs, "impact", "costs")
+    return CostsConfig(
+        effective_from=_parse_date(_require(costs, "effective_from", "costs"),
+                                   "costs.effective_from"),
+        verified_on=_parse_date(_require(costs, "verified_on", "costs"), "costs.verified_on"),
+        delivery=_segment_rates(_require(costs, "delivery", "costs"), "costs.delivery"),
+        intraday=_segment_rates(_require(costs, "intraday", "costs"), "costs.intraday"),
+        exchange_transaction_charge=float(
+            _require(costs, "exchange_transaction_charge", "costs")),
+        ipft_charge=float(_require(costs, "ipft_charge", "costs")),
+        sebi_turnover_fee=float(_require(costs, "sebi_turnover_fee", "costs")),
+        gst_rate=float(_require(costs, "gst_rate", "costs")),
+        brokerage=BrokerageConfig(
+            delivery_rate=float(_require(brokerage, "delivery_rate", "costs.brokerage")),
+            delivery_flat=float(_require(brokerage, "delivery_flat", "costs.brokerage")),
+            intraday_rate=float(_require(brokerage, "intraday_rate", "costs.brokerage")),
+            intraday_flat_cap=float(_require(brokerage, "intraday_flat_cap", "costs.brokerage")),
+        ),
+        dp_charge_per_scrip_sell=float(_require(costs, "dp_charge_per_scrip_sell", "costs")),
+        slippage=SlippageConfig(
+            participation_coefficient=float(
+                _require(slippage, "participation_coefficient", "costs.slippage")),
+            max_slippage_fraction=float(
+                _require(slippage, "max_slippage_fraction", "costs.slippage")),
+        ),
+        impact=ImpactConfig(
+            coefficient=float(_require(impact, "coefficient", "costs.impact")),
+            default_volatility=float(_require(impact, "default_volatility", "costs.impact")),
+        ),
     )
 
 
@@ -196,6 +310,17 @@ def _build(raw: dict[str, Any], source_path: Path, config_hash: str) -> Config:
             max_discrepancy_rate=float(_require(prices, "max_discrepancy_rate", "data.prices")),
         )),
         audit=_build_audit(_require(raw, "audit", "root")),
+        costs=_build_costs(_require(raw, "costs", "root")),
+        constraints=ConstraintsConfig(
+            max_participation_rate=float(_require(
+                _require(raw, "constraints", "root"), "max_participation_rate", "constraints")),
+            min_adv_rupees=float(_require(
+                _require(raw, "constraints", "root"), "min_adv_rupees", "constraints")),
+            adv_window_sessions=int(_require(
+                _require(raw, "constraints", "root"), "adv_window_sessions", "constraints")),
+            circuit_band=float(_require(
+                _require(raw, "constraints", "root"), "circuit_band", "constraints")),
+        ),
         raw=raw,
         source_path=source_path,
         config_hash=config_hash,

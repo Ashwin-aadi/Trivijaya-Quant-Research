@@ -93,6 +93,88 @@ audit:
   # Reachability probe only, so it fails fast — it produces no label and nothing is lost by it.
   probe_timeout_seconds: 2.0
 
+costs:
+  # ---------------------------------------------------------------------------------------------
+  # Indian equity transaction costs. Phase 1.1.
+  #
+  # EVERY statutory rate below was looked up from a citable source on 2026-07-31 and is recorded
+  # with its effective date. None is guessed. Rates are time-varying and move with Union Budgets
+  # and SEBI/exchange circulars, so a stale value here silently corrupts every net figure
+  # downstream -- `effective_from` exists so that staleness is visible rather than assumed away.
+  #
+  # Sources:
+  #   STT            https://www.nseclearing.in/clearing-settlement/equity-derivatives/securities-transaction-tax
+  #                  Budget 2026 raised STT on futures (0.05%) and options (0.15%) from 2026-04-01
+  #                  but left EQUITY DELIVERY UNCHANGED at 0.1% both sides.
+  #   NSE txn charge NSE circular, cash market, effective 2024-10-01, pursuant to SEBI circular
+  #                  SEBI/HO/MRD/TPD-1/P/CIR/2024/92 dated 2024-07-01 (uniform charges for all
+  #                  members). Revised down from 0.00322%.
+  #   NSE IPFT       Investor Protection Fund Trust, cash equities, Rs 10/crore, from 2023-04-01.
+  #   SEBI fee       Rs 10 per crore of turnover.
+  #   Stamp duty     Uniform nationwide regime under the Indian Stamp Act from 2020-07-01:
+  #                  0.015% (Rs 1500/crore) on DELIVERY BUY; 0.003% on intraday buy.
+  #   GST            18% on (brokerage + exchange transaction charges + SEBI fee + IPFT).
+  #
+  # Cross-check: Zerodha quotes a single "0.00307%" NSE transaction charge where Upstox quotes
+  # "0.00297%". Both are correct -- Zerodha bundles the 0.0001% IPFT into the same line. They are
+  # kept separate here so each traces to its own circular.
+  # ---------------------------------------------------------------------------------------------
+  effective_from: "2026-04-01"      # newest effective date among the rates below
+  verified_on: "2026-07-31"
+
+  delivery:
+    stt_buy: 0.001                  # 0.1%
+    stt_sell: 0.001                 # 0.1%
+    stamp_duty_buy: 0.00015         # 0.015%, buy side only
+    stamp_duty_sell: 0.0
+  intraday:
+    stt_buy: 0.0                    # intraday STT is sell-side only
+    stt_sell: 0.00025               # 0.025%
+    stamp_duty_buy: 0.00003         # 0.003%, buy side only
+    stamp_duty_sell: 0.0
+
+  # Applied to both sides in both segments.
+  exchange_transaction_charge: 0.0000297   # 0.00297%, NSE cash market
+  ipft_charge: 0.000001                    # 0.0001%  (Rs 10 / crore)
+  sebi_turnover_fee: 0.000001              # 0.0001%  (Rs 10 / crore)
+  gst_rate: 0.18                           # on brokerage + exchange + SEBI + IPFT
+
+  brokerage:
+    # Discount-broker default. Zero-brokerage delivery is the prevailing market default (Zerodha,
+    # Upstox and others); intraday is typically the lesser of a percentage and a flat cap.
+    delivery_rate: 0.0
+    delivery_flat: 0.0
+    intraday_rate: 0.0003           # 0.03%
+    intraday_flat_cap: 20.0         # rupees per executed order, whichever is lower
+
+  # Depository charge, levied per scrip on the SELL leg only and NOT proportional to value. This
+  # is part statutory (CDSL) and part broker markup, so it is separated from the statutory block.
+  # It matters disproportionately for small positions, which is exactly the regime a diversified
+  # backtest lives in.
+  dp_charge_per_scrip_sell: 3.50    # CDSL component only; broker markup excluded by default
+
+  slippage:
+    # Volume-participation model. A flat basis-point assumption is explicitly NOT acceptable per
+    # the charter: cost must rise with order size as a fraction of that day's volume.
+    #   slippage_fraction = coefficient * participation_rate
+    # where participation_rate = order_value / day's traded value.
+    # ASSUMPTION, not a measured Indian parameter. See the docstring in src/costs/india.py.
+    participation_coefficient: 0.1
+    max_slippage_fraction: 0.05     # a hard cap; beyond this the fill is not credible at all
+
+  impact:
+    # Square-root law: impact = coefficient * volatility * sqrt(participation_rate).
+    # ASSUMPTION. The functional form is standard (Almgren et al.); the coefficient is not
+    # calibrated to Indian data and must not be presented as if it were.
+    coefficient: 1.0
+    default_volatility: 0.02        # daily, used when a per-stock estimate is unavailable
+
+constraints:
+  max_participation_rate: 0.01      # a strategy may not consume more than 1% of a day's volume
+  min_adv_rupees: 10000000.0        # 1 crore minimum average daily traded value
+  adv_window_sessions: 21
+  circuit_band: 0.20                # +/-20% price band; no fill outside it
+
 data:
   prices:
     # Approved 2026-07-25 as the default, provisional until the measured discrepancy rate is
