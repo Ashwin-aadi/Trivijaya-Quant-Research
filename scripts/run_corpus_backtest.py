@@ -37,10 +37,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # noqa: E402
 
 import polars as pl  # noqa: E402
 
-from src.backtest.engine import BacktestEngine  # noqa: E402
+from src.backtest.engine import BacktestEngine
 from src.backtest.strategy import Strategy  # noqa: E402
 from src.common.config import load_config  # noqa: E402
 from src.common.log import get_logger  # noqa: E402
+from src.costs.india import CostModel  # noqa: E402
 from src.data.calendar import load_calendar  # noqa: E402
 from src.eval.metrics import summarise  # noqa: E402
 
@@ -84,7 +85,11 @@ def _worker_init(holdout: bool = False) -> None:
     panel = pl.read_parquet(cfg.paths.data_processed / f"prices_adjusted{suffix}.parquet")
     universe = pl.read_parquet(cfg.paths.data_processed / f"universe{suffix}.parquet")
     calendar = load_calendar(cfg.paths.data_raw / f"calendar_cnx100{suffix}.parquet")
-    _ENGINE = BacktestEngine(panel=panel, calendar=calendar, universe=universe)
+    # Net of Indian transaction costs, charged per leg at the rates in force on each fill
+    # session (Phase 1.1, PI-approved at Checkpoint 1.1). A gross run is no longer the
+    # default: every Sharpe this script reports is now after costs.
+    _ENGINE = BacktestEngine(panel=panel, calendar=calendar, universe=universe,
+                             cost_model=CostModel(cfg.costs))
     _WINDOW = (
         (cfg.dates.holdout_start, cfg.dates.holdout_end) if holdout
         else (cfg.dates.dev_start, cfg.dates.dev_end)

@@ -232,7 +232,7 @@ def main() -> int:
     write_derived_parquet(adjusted, out)
 
     print(f"holdout sessions available: {len(available)}  (frozen end {cfg.dates.holdout_end})")
-    print(f"window: {panel['session_date'].min()} -> {panel['session_date'].max()}")
+    print(f"window: {panel['session_date'].min()!r} -> {panel['session_date'].max()!r}")
     print(f"panel rows: {adjusted.height}   symbols: {adjusted['symbol'].n_unique()}")
     print(f"universe rebalances: {len(snapshots)}")
     print(f"corporate actions applied: {len(agreed) + len(snapped)}"

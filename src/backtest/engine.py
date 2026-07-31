@@ -20,6 +20,7 @@ import polars as pl
 from src.backtest.strategy import MarketView, Signal, Strategy
 from src.common.exceptions import PointInTimeError
 from src.common.log import get_logger
+from src.costs.india import CostModel
 from src.data.calendar import TradingCalendar
 
 _log = get_logger(__name__)
@@ -35,6 +36,13 @@ class BacktestResult:
     gross_exposure: list[float] = field(default_factory=list)
     turnover: list[float] = field(default_factory=list)
     costs: list[float] = field(default_factory=list)
+    # Gross return before transaction costs, kept alongside the net figure so the cost drag is a
+    # measured quantity rather than a difference between two separate runs.
+    gross_returns: list[float] = field(default_factory=list)
+    # Orders that would have consumed more than the configured share of a session's traded value.
+    # Recorded rather than raised so a whole corpus completes and the pattern can be reported; an
+    # engine that aborts on the first breach tells you nothing about how common breaches are.
+    participation_breaches: list[tuple[date, str, float]] = field(default_factory=list)
     # Sessions where a held name sat inside a known-artifacts window. Not an error: a marker so an
     # apparent edge that depends on flagged data can be recognised instead of trusted.
     flagged_sessions: list[date] = field(default_factory=list)
@@ -48,6 +56,7 @@ class BacktestResult:
                 "gross_exposure": self.gross_exposure,
                 "turnover": self.turnover,
                 "cost": self.costs,
+                "gross_return": self.gross_returns,
             }
         )
 
@@ -63,23 +72,30 @@ class BacktestEngine:
         *,
         max_gross_exposure: float = 1.0,
         artifact_register: pl.DataFrame | None = None,
+        cost_model: CostModel | None = None,
     ) -> None:
         self._panel = panel
         self._calendar = calendar
         self._universe = universe
         self._max_gross = max_gross_exposure
         self._register = artifact_register
+        self._costs = cost_model
 
-        # Opens and closes are pulled into dicts once. Per-session dataframe filtering inside the
-        # loop dominated runtime and bought nothing in clarity.
+        # Opens, closes and traded values are pulled into dicts once. Per-session dataframe
+        # filtering inside the loop dominated runtime and bought nothing in clarity.
         self._open: dict[tuple[str, date], float] = {}
         self._close: dict[tuple[str, date], float] = {}
-        for row in panel.select(
-            ["symbol", "session_date", "adj_open", "adj_close"]
-        ).iter_rows(named=True):
+        self._traded_value: dict[tuple[str, date], float] = {}
+        has_turnover = "turnover_inr" in panel.columns
+        columns = ["symbol", "session_date", "adj_open", "adj_close"]
+        if has_turnover:
+            columns.append("turnover_inr")
+        for row in panel.select(columns).iter_rows(named=True):
             key = (row["symbol"], row["session_date"])
             self._open[key] = row["adj_open"]
             self._close[key] = row["adj_close"]
+            if has_turnover:
+                self._traded_value[key] = row["turnover_inr"] or 0.0
 
     def _universe_on(self, day: date) -> tuple[str, ...]:
         """Constituents effective on ``day``: the most recent rebalance at or before it."""
@@ -105,12 +121,15 @@ class BacktestEngine:
         start: date,
         end: date,
         initial_equity: float = 1_000_000.0,
-        cost_per_turnover: float = 0.0,
+        max_participation_rate: float = 0.01,
     ) -> BacktestResult:
         """Execute ``strategy`` across every session in [start, end].
 
-        ``cost_per_turnover`` is a placeholder so the engine records a cost column; the real
-        Indian cost model is a separate phase and is not approximated here.
+        Transaction costs come from the :class:`CostModel` handed to the constructor, charged leg
+        by leg at the rates in force on the fill session. With no cost model the run is **gross**,
+        and the cost column is zero — that is a deliberate configuration, not a silent default:
+        the gross and net figures are both wanted, and reporting one as the other is the failure
+        mode this phase exists to fix.
         """
         sessions = self._calendar.sessions_in_range(start, end)
         if len(sessions) < 2:
@@ -137,7 +156,9 @@ class BacktestEngine:
             target = self._clamp(signal.weights, symbols)
             turnover = sum(abs(target.get(s, 0.0) - holdings.get(s, 0.0))
                            for s in set(target) | set(holdings))
-            cost = turnover * cost_per_turnover
+            cost = self._charge(
+                target, holdings, equity, fill_session, result, max_participation_rate
+            )
 
             # Return accrual, split by how each rupee of the position came to be held.
             #
@@ -181,6 +202,7 @@ class BacktestEngine:
             result.dates.append(fill_session)
             result.equity.append(equity)
             result.returns.append(net_return)
+            result.gross_returns.append(period_return)
             result.gross_exposure.append(sum(abs(w) for w in target.values()))
             result.turnover.append(turnover)
             result.costs.append(cost)
@@ -188,6 +210,52 @@ class BacktestEngine:
         _log.info("%s: %d sessions, final equity %.2f (%d flagged sessions)",
                   strategy.name, len(result.dates), equity, len(set(result.flagged_sessions)))
         return result
+
+    def _charge(
+        self,
+        target: dict[str, float],
+        holdings: dict[str, float],
+        equity: float,
+        fill_session: date,
+        result: BacktestResult,
+        max_participation_rate: float,
+    ) -> float:
+        """Transaction cost of moving from ``holdings`` to ``target``, as a fraction of equity.
+
+        Charged **per name and per side**, never as a single blended round-trip rate. The two legs
+        are not symmetric — stamp duty falls on the buy alone, the depository charge on the sell
+        alone — so a strategy that rotates into new names pays a different amount from one that
+        rotates out, and a blended figure gets both wrong.
+
+        Rates are those in force on ``fill_session``, not today's.
+        """
+        if self._costs is None:
+            return 0.0
+
+        total = 0.0
+        for symbol in set(target) | set(holdings):
+            delta = target.get(symbol, 0.0) - holdings.get(symbol, 0.0)
+            if delta == 0.0:
+                continue
+            rupees = abs(delta) * equity
+            traded_value = self._traded_value.get((symbol, fill_session), 0.0)
+
+            if traded_value > 0:
+                participation = rupees / traded_value
+                if participation > max_participation_rate:
+                    result.participation_breaches.append((fill_session, symbol, participation))
+
+            # One scrip per name sold: the depository charge is levied per symbol, not per rupee,
+            # which is what makes it bite hardest on the small positions a diversified book holds.
+            total += self._costs.execute(
+                rupees,
+                "buy" if delta > 0 else "sell",
+                day_traded_value=traded_value,
+                n_scrips=0 if delta > 0 else 1,
+                on=fill_session,
+            ).total
+
+        return total / equity if equity else 0.0
 
     def _validate(
         self,

@@ -12,14 +12,16 @@ Two very different kinds of number live in this module and they must never be co
 **Statutory and exchange charges are looked up, not modelled.** STT, NSE transaction charges, the
 NSE Investor Protection Fund Trust levy, SEBI turnover fees, stamp duty and GST are published rates.
 Every one is sourced in `config.yaml` with its effective date and circular reference. They are
-time-varying — Union Budgets and SEBI circulars move them — so the config records `verified_on` and
-`effective_from`, and :func:`CostModel.staleness_warning` reports when a backtest window predates
-the rates being applied to it.
+time-varying — Union Budgets and SEBI circulars move them — so `config.yaml` holds a **schedule**
+of dated epochs and every charge is priced at the rates in force **on its own trade date**. Pricing
+a 2020 fill at 2026 rates is an anachronism that produces perfectly healthy-looking numbers, which
+is why it is structurally impossible here: :meth:`CostModel.charge_leg` takes the date.
 
 **Slippage and impact are assumptions.** They are not published, not measured here, and not
-calibrated to Indian data. Their functional forms are standard; their coefficients are guesses that
-happen to be reasonable. Every result that depends on them inherits that uncertainty, and the
-docstrings say so at each point of use.
+calibrated to Indian data — they are engineering defaults, and must never be described otherwise.
+Their functional forms are standard; their coefficients are guesses that happen to be reasonable.
+Every result that depends on them inherits that uncertainty, and the docstrings say so at each
+point of use.
 
 ## Charge structure, equity delivery, per leg
 
@@ -46,7 +48,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
-from src.common.config import CostsConfig
+from src.common.config import CostsConfig, RateSchedule
 
 Side = Literal["buy", "sell"]
 Segment = Literal["delivery", "intraday"]
@@ -122,27 +124,18 @@ class CostModel:
     def __init__(self, config: CostsConfig) -> None:
         self._cfg = config
 
-    def staleness_warning(self, window_start: date, window_end: date) -> str | None:
-        """Whether the configured rates actually applied over the window being backtested.
+    def schedule_summary(self) -> str:
+        """One line per rate epoch, for run manifests and checkpoint reports."""
+        return "\n".join(
+            f"  from {entry.effective_from}  exchange {entry.exchange_transaction_charge:.7%}  "
+            f"STT delivery {entry.delivery.stt_buy:.3%}/{entry.delivery.stt_sell:.3%}  "
+            f"({entry.label})"
+            for entry in self._cfg.schedule
+        )
 
-        Statutory rates move with Union Budgets and SEBI circulars. Applying today's rates to a
-        2020 backtest is an anachronism, and a silent one: the numbers look entirely healthy. This
-        returns a message when that is happening, so a caller can report it rather than discover it
-        in review. It deliberately does not raise — the single-rate-schedule choice is the PI's, and
-        this reports the consequence of whichever choice was made.
-        """
-        if window_start < self._cfg.effective_from:
-            return (
-                f"cost rates effective {self._cfg.effective_from} are being applied to a window "
-                f"starting {window_start}. Charges over "
-                f"{window_start}..{min(window_end, self._cfg.effective_from)} are anachronistic. "
-                f"A time-varying schedule would be needed to fix this."
-            )
-        return None
-
-    def _brokerage(self, turnover: float, segment: Segment) -> float:
+    def _brokerage(self, turnover: float, segment: Segment, rates: RateSchedule) -> float:
         """Discount-broker brokerage: zero on delivery, the lesser of a rate and a cap intraday."""
-        broker = self._cfg.brokerage
+        broker = rates.brokerage
         if segment == "delivery":
             return min(turnover * broker.delivery_rate, broker.delivery_flat) \
                 if broker.delivery_flat else turnover * broker.delivery_rate
@@ -154,8 +147,13 @@ class CostModel:
         side: Side,
         segment: Segment = "delivery",
         n_scrips: int = 0,
+        on: date | None = None,
     ) -> LegCost:
         """Statutory and exchange charges for a single leg of ``turnover`` rupees.
+
+        ``on`` is the **trade date**, and it selects the rate epoch. Omitting it prices at the most
+        recent epoch, which is right for a broker-calculator comparison and wrong for a backtest —
+        so the engine always passes the fill session, and never relies on the default.
 
         ``n_scrips`` is the number of distinct symbols sold, used only for the flat depository
         charge, which is per scrip rather than per rupee and is levied on the sell side alone.
@@ -163,18 +161,19 @@ class CostModel:
         if turnover < 0:
             raise ValueError(f"turnover must be non-negative, got {turnover}")
         cfg = self._cfg
-        rates = cfg.delivery if segment == "delivery" else cfg.intraday
+        epoch = cfg.schedule[-1] if on is None else cfg.rates_on(on)
+        rates = epoch.delivery if segment == "delivery" else epoch.intraday
 
-        brokerage = self._brokerage(turnover, segment)
+        brokerage = self._brokerage(turnover, segment, epoch)
         stt = turnover * (rates.stt_buy if side == "buy" else rates.stt_sell)
         stamp = turnover * (rates.stamp_duty_buy if side == "buy" else rates.stamp_duty_sell)
-        exchange = turnover * cfg.exchange_transaction_charge
-        ipft = turnover * cfg.ipft_charge
-        sebi = turnover * cfg.sebi_turnover_fee
+        exchange = turnover * epoch.exchange_transaction_charge
+        ipft = turnover * epoch.ipft_charge
+        sebi = turnover * epoch.sebi_turnover_fee
 
         # GST applies to the service charges only. STT and stamp duty are taxes in their own right
         # and are not themselves taxed.
-        gst = (brokerage + exchange + ipft + sebi) * cfg.gst_rate
+        gst = (brokerage + exchange + ipft + sebi) * epoch.gst_rate
 
         dp = cfg.dp_charge_per_scrip_sell * n_scrips if side == "sell" else 0.0
 
@@ -230,22 +229,23 @@ class CostModel:
         segment: Segment = "delivery",
         n_scrips: int = 0,
         volatility: float | None = None,
+        on: date | None = None,
     ) -> ExecutionCost:
         """Full cost of one leg: statutory charges, plus slippage, plus impact."""
         return ExecutionCost(
-            leg=self.charge_leg(turnover, side, segment, n_scrips),
+            leg=self.charge_leg(turnover, side, segment, n_scrips, on),
             slippage=self.slippage(turnover, day_traded_value),
             impact=self.impact(turnover, day_traded_value, volatility),
         )
 
     def round_trip(self, turnover: float, segment: Segment = "delivery",
-                   n_scrips: int = 0) -> tuple[LegCost, LegCost]:
+                   n_scrips: int = 0, on: date | None = None) -> tuple[LegCost, LegCost]:
         """Buy and sell legs of the same notional. Returned separately: they are not symmetric.
 
         Stamp duty is charged on the buy alone and the depository charge on the sell alone, so a
         halved round-trip figure is wrong for both legs.
         """
         return (
-            self.charge_leg(turnover, "buy", segment),
-            self.charge_leg(turnover, "sell", segment, n_scrips),
+            self.charge_leg(turnover, "buy", segment, 0, on),
+            self.charge_leg(turnover, "sell", segment, n_scrips, on),
         )

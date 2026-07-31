@@ -50,7 +50,10 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=POOLED)
     args = parser.parse_args()
 
-    summaries, backtests, audits = [], [], []
+    # One entry per batch. Summaries and audits are objects; backtests are lists of records.
+    summaries: list[Any] = []
+    backtests: list[Any] = []
+    audits: list[Any] = []
     for batch in BATCHES:
         for name, sink in (
             ("generation_summary.json", summaries),

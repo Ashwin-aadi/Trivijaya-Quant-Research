@@ -40,10 +40,11 @@ import polars as pl  # noqa: E402
 
 from src.audit.semantic import classify, is_available  # noqa: E402
 from src.audit.static import Severity, audit_file  # noqa: E402
-from src.backtest.engine import BacktestEngine  # noqa: E402
+from src.backtest.engine import BacktestEngine
 from src.backtest.strategy import Strategy  # noqa: E402
 from src.common.config import load_config  # noqa: E402
 from src.common.log import get_logger  # noqa: E402
+from src.costs.india import CostModel  # noqa: E402
 from src.data.calendar import load_calendar  # noqa: E402
 from src.eval.metrics import summarise  # noqa: E402
 
@@ -97,7 +98,8 @@ def main() -> int:
     panel = pl.read_parquet(cfg.paths.data_processed / "prices_adjusted.parquet")
     universe = pl.read_parquet(cfg.paths.data_processed / "universe.parquet")
     calendar = load_calendar(cfg.paths.data_raw / "calendar_cnx100.parquet")
-    engine = BacktestEngine(panel=panel, calendar=calendar, universe=universe)
+    engine = BacktestEngine(panel=panel, calendar=calendar, universe=universe,
+                            cost_model=CostModel(cfg.costs))
 
     semantic_ready = not args.skip_semantic and is_available()
     if not args.skip_semantic and not semantic_ready:

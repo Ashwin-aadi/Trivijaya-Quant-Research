@@ -53,11 +53,12 @@ from src.audit.stat import (  # noqa: E402
     probabilistic_sharpe_ratio,
     probability_of_backtest_overfitting,
 )
-from src.backtest.engine import BacktestEngine  # noqa: E402
+from src.backtest.engine import BacktestEngine
 from src.backtest.strategy import Strategy  # noqa: E402
 from src.common.config import Config, load_config  # noqa: E402
 from src.common.manifest import RunManifest  # noqa: E402
 from src.common.seeding import seed_everything  # noqa: E402
+from src.costs.india import CostModel  # noqa: E402
 from src.data.calendar import TradingCalendar, load_calendar  # noqa: E402
 from src.eval.metrics import sharpe_ratio  # noqa: E402
 
@@ -363,7 +364,7 @@ def main() -> int:
     _sensitivity_table()
 
     calendar, panel, universe, input_paths = _load_inputs(cfg)
-    engine = BacktestEngine(panel, calendar, universe)
+    engine = BacktestEngine(panel, calendar, universe, cost_model=CostModel(cfg.costs))
     fixtures = _load_clean_fixtures()
 
     with RunManifest(cfg, script="scripts/run_stat_audit.py") as run:

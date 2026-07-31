@@ -19,7 +19,9 @@ import pytest
 
 from src.backtest.engine import BacktestEngine
 from src.backtest.strategy import MarketView, Signal, Strategy
+from src.common.config import load_config
 from src.common.exceptions import PointInTimeError
+from src.costs.india import CostModel
 from src.data.calendar import TradingCalendar, sessions_from_weekdays
 
 SYMBOLS: tuple[str, ...] = ("AAA", "BBB", "CCC")
@@ -73,6 +75,9 @@ def make_panel(sessions: list[date], daily_gain: float = DAILY_GAIN) -> pl.DataF
             "session_date": dates,
             "adj_open": opens,
             "adj_close": closes,
+            # Deep enough that participation is negligible, so the cost test measures statutory
+            # charges rather than the slippage cap. A thin-tape case is tested separately.
+            "turnover_inr": [1_000_000_000.0] * len(symbols),
         }
     )
 
@@ -281,26 +286,63 @@ def test_buy_and_hold_compounds_the_expected_equity_curve() -> None:
     assert all(value == pytest.approx(0.0, abs=1e-12) for value in result.turnover[1:])
 
 
-def test_costs_are_charged_against_turnover() -> None:
-    """The placeholder cost column must actually bite, or a costed run is indistinguishable.
-
-    Only the first fill turns the book over, so only the first session carries a cost, and that
-    cost is turnover x rate.
+def test_a_run_without_a_cost_model_is_gross() -> None:
+    """No cost model means no costs, and net equals gross. Explicit, so neither can pose as the
+    other: reporting a gross figure as though it were net is the omission Phase 1.1 exists to fix.
     """
     sessions = make_sessions()
-    engine = build_engine(sessions)
+    result = build_engine(sessions).run(
+        EqualWeightHold(), sessions[0], sessions[-1], initial_equity=INITIAL_EQUITY
+    )
+    assert all(value == 0.0 for value in result.costs)
+    assert result.returns == pytest.approx(result.gross_returns)
+
+
+def test_the_cost_model_is_charged_per_leg_at_the_session_s_rates() -> None:
+    """Costs must bite, and must equal the cost model's own figure for the same legs.
+
+    Only the first fill turns the book over, so only that session carries a cost: three equal buys
+    of a third of the book each, no sells, so no depository charge and no stamp duty rebate.
+    """
+    sessions = make_sessions()
+    panel = make_panel(sessions)
+    model = CostModel(load_config().costs)
+    engine = BacktestEngine(
+        panel, make_calendar(sessions), make_universe([(sessions[0], SYMBOLS)]),
+        cost_model=model,
+    )
     result = engine.run(
-        EqualWeightHold(),
-        sessions[0],
-        sessions[-1],
-        initial_equity=INITIAL_EQUITY,
-        cost_per_turnover=0.001,
+        EqualWeightHold(), sessions[0], sessions[-1], initial_equity=INITIAL_EQUITY
     )
 
-    assert result.costs[0] == pytest.approx(0.001, rel=1e-9)
+    per_name = INITIAL_EQUITY / len(SYMBOLS)
+    expected = len(SYMBOLS) * model.execute(
+        per_name, "buy", day_traded_value=1_000_000_000.0, on=sessions[1]
+    ).total / INITIAL_EQUITY
+
+    assert result.costs[0] == pytest.approx(expected, rel=1e-9)
+    assert result.costs[0] > 0.0, "a costed run must differ from a gross one"
     assert all(value == pytest.approx(0.0, abs=1e-15) for value in result.costs[1:])
-    # The first session's net return is the gross move less the cost of getting invested.
-    assert result.returns[0] == pytest.approx(DAILY_GAIN - 0.001, rel=1e-9)
+    # Gross is recorded untouched; net is gross less the cost of getting invested.
+    assert result.gross_returns[0] == pytest.approx(DAILY_GAIN, rel=1e-9)
+    assert result.returns[0] == pytest.approx(DAILY_GAIN - expected, rel=1e-9)
+
+
+def test_an_oversized_order_is_recorded_as_a_participation_breach() -> None:
+    """The charter demands the limit be enforced, not assumed. Breaches are recorded per order so
+    a whole corpus still runs and the frequency of breaches is itself reportable."""
+    sessions = make_sessions()
+    panel = make_panel(sessions).with_columns(pl.lit(1_000_000.0).alias("turnover_inr"))
+    engine = BacktestEngine(
+        panel, make_calendar(sessions), make_universe([(sessions[0], SYMBOLS)]),
+        cost_model=CostModel(load_config().costs),
+    )
+    result = engine.run(
+        EqualWeightHold(), sessions[0], sessions[-1], initial_equity=INITIAL_EQUITY
+    )
+    # A third of a million rupees into a session that traded ten lakh is 33%, far past the 1% cap.
+    assert len(result.participation_breaches) == len(SYMBOLS)
+    assert all(rate > 0.3 for _, _, rate in result.participation_breaches)
 
 
 def test_a_range_with_fewer_than_two_sessions_is_rejected() -> None:
@@ -526,5 +568,6 @@ def test_result_frame_has_one_row_per_recorded_session() -> None:
         "gross_exposure",
         "turnover",
         "cost",
+        "gross_return",
     ]
     assert frame["session_date"].to_list() == sessions[1:]

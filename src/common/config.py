@@ -137,16 +137,16 @@ class ImpactConfig:
 
 
 @dataclass(frozen=True)
-class CostsConfig:
-    """Indian transaction costs. Statutory rates are sourced and dated in config.yaml.
+class RateSchedule:
+    """Every statutory and exchange rate in force from ``effective_from`` until the next entry.
 
-    ``effective_from`` and ``verified_on`` exist so that stale rates are visible. These move with
-    Union Budgets and SEBI circulars, and a silently outdated rate corrupts every net figure
-    downstream while looking perfectly healthy.
+    Held as complete snapshots rather than deltas. A schedule where each entry overrides only the
+    fields that changed reads compactly and then, three edits later, silently applies a rate nobody
+    intended; a full snapshot per epoch is longer and cannot do that.
     """
 
     effective_from: date
-    verified_on: date
+    label: str
     delivery: SegmentRates
     intraday: SegmentRates
     exchange_transaction_charge: float
@@ -154,9 +154,44 @@ class CostsConfig:
     sebi_turnover_fee: float
     gst_rate: float
     brokerage: BrokerageConfig
-    dp_charge_per_scrip_sell: float
+
+
+@dataclass(frozen=True)
+class CostsConfig:
+    """Indian transaction costs. Statutory rates are sourced and dated in config.yaml.
+
+    Rates are **time-varying**: Union Budgets and SEBI circulars move them, and applying today's
+    rates to a 2020 fill is an anachronism that looks perfectly healthy in the output. ``schedule``
+    therefore holds one entry per epoch and :meth:`rates_on` selects by trade date.
+    """
+
+    verified_on: date
+    schedule: tuple[RateSchedule, ...]      # ascending by effective_from, validated at load
+    dp_mode: str                            # "retail" (what an investor pays) | "research" (CDSL)
+    dp_charge_by_mode: dict[str, float]
     slippage: SlippageConfig
     impact: ImpactConfig
+
+    def rates_on(self, day: date) -> RateSchedule:
+        """The schedule entry in force on ``day``.
+
+        Raises rather than falling back to the earliest entry: pricing a trade from before the
+        schedule begins would charge it rates that did not exist, which is the precise failure this
+        whole structure was introduced to remove.
+        """
+        applicable = [entry for entry in self.schedule if entry.effective_from <= day]
+        if not applicable:
+            raise ConfigError(
+                f"no cost schedule covers {day}; the earliest entry begins "
+                f"{self.schedule[0].effective_from}. Extend costs.schedule with a sourced entry "
+                "rather than pricing this trade at rates that were not in force."
+            )
+        return applicable[-1]
+
+    @property
+    def dp_charge_per_scrip_sell(self) -> float:
+        """The per-scrip sell-side depository charge under the configured mode."""
+        return self.dp_charge_by_mode[self.dp_mode]
 
 
 @dataclass(frozen=True)
@@ -226,29 +261,62 @@ def _segment_rates(section: dict[str, Any], where: str) -> SegmentRates:
     )
 
 
+def _rate_schedule(entry: dict[str, Any], index: int) -> RateSchedule:
+    """One epoch of the statutory schedule."""
+    where = f"costs.schedule[{index}]"
+    brokerage = _require(entry, "brokerage", where)
+    return RateSchedule(
+        effective_from=_parse_date(_require(entry, "effective_from", where),
+                                   f"{where}.effective_from"),
+        label=str(_require(entry, "label", where)),
+        delivery=_segment_rates(_require(entry, "delivery", where), f"{where}.delivery"),
+        intraday=_segment_rates(_require(entry, "intraday", where), f"{where}.intraday"),
+        exchange_transaction_charge=float(
+            _require(entry, "exchange_transaction_charge", where)),
+        ipft_charge=float(_require(entry, "ipft_charge", where)),
+        sebi_turnover_fee=float(_require(entry, "sebi_turnover_fee", where)),
+        gst_rate=float(_require(entry, "gst_rate", where)),
+        brokerage=BrokerageConfig(
+            delivery_rate=float(_require(brokerage, "delivery_rate", f"{where}.brokerage")),
+            delivery_flat=float(_require(brokerage, "delivery_flat", f"{where}.brokerage")),
+            intraday_rate=float(_require(brokerage, "intraday_rate", f"{where}.brokerage")),
+            intraday_flat_cap=float(
+                _require(brokerage, "intraday_flat_cap", f"{where}.brokerage")),
+        ),
+    )
+
+
 def _build_costs(costs: dict[str, Any]) -> CostsConfig:
     """Assemble the costs section. Every statutory rate here is sourced and dated in config.yaml."""
-    brokerage = _require(costs, "brokerage", "costs")
     slippage = _require(costs, "slippage", "costs")
     impact = _require(costs, "impact", "costs")
+
+    raw_schedule = _require(costs, "schedule", "costs")
+    if not isinstance(raw_schedule, list) or not raw_schedule:
+        raise ConfigError("costs.schedule must be a non-empty list of rate epochs")
+    schedule = tuple(_rate_schedule(entry, i) for i, entry in enumerate(raw_schedule))
+    # Ascending order is what rates_on() relies on to pick the last applicable entry. Checked
+    # rather than sorted: a schedule written out of order is a mistake worth surfacing, not
+    # silently repairing.
+    dates = [entry.effective_from for entry in schedule]
+    if dates != sorted(dates) or len(set(dates)) != len(dates):
+        raise ConfigError(
+            f"costs.schedule must be in strictly ascending effective_from order, got {dates}"
+        )
+
+    dp_charge = _require(costs, "dp_charge", "costs")
+    dp_mode = str(_require(costs, "dp_mode", "costs"))
+    dp_by_mode = {str(k): float(v) for k, v in dp_charge.items()}
+    if dp_mode not in dp_by_mode:
+        raise ConfigError(
+            f"costs.dp_mode is '{dp_mode}' but costs.dp_charge defines {sorted(dp_by_mode)}"
+        )
+
     return CostsConfig(
-        effective_from=_parse_date(_require(costs, "effective_from", "costs"),
-                                   "costs.effective_from"),
         verified_on=_parse_date(_require(costs, "verified_on", "costs"), "costs.verified_on"),
-        delivery=_segment_rates(_require(costs, "delivery", "costs"), "costs.delivery"),
-        intraday=_segment_rates(_require(costs, "intraday", "costs"), "costs.intraday"),
-        exchange_transaction_charge=float(
-            _require(costs, "exchange_transaction_charge", "costs")),
-        ipft_charge=float(_require(costs, "ipft_charge", "costs")),
-        sebi_turnover_fee=float(_require(costs, "sebi_turnover_fee", "costs")),
-        gst_rate=float(_require(costs, "gst_rate", "costs")),
-        brokerage=BrokerageConfig(
-            delivery_rate=float(_require(brokerage, "delivery_rate", "costs.brokerage")),
-            delivery_flat=float(_require(brokerage, "delivery_flat", "costs.brokerage")),
-            intraday_rate=float(_require(brokerage, "intraday_rate", "costs.brokerage")),
-            intraday_flat_cap=float(_require(brokerage, "intraday_flat_cap", "costs.brokerage")),
-        ),
-        dp_charge_per_scrip_sell=float(_require(costs, "dp_charge_per_scrip_sell", "costs")),
+        schedule=schedule,
+        dp_mode=dp_mode,
+        dp_charge_by_mode=dp_by_mode,
         slippage=SlippageConfig(
             participation_coefficient=float(
                 _require(slippage, "participation_coefficient", "costs.slippage")),

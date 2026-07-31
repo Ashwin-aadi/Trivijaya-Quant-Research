@@ -119,53 +119,159 @@ costs:
   # "0.00297%". Both are correct -- Zerodha bundles the 0.0001% IPFT into the same line. They are
   # kept separate here so each traces to its own circular.
   # ---------------------------------------------------------------------------------------------
-  effective_from: "2026-04-01"      # newest effective date among the rates below
   verified_on: "2026-07-31"
 
-  delivery:
-    stt_buy: 0.001                  # 0.1%
-    stt_sell: 0.001                 # 0.1%
-    stamp_duty_buy: 0.00015         # 0.015%, buy side only
-    stamp_duty_sell: 0.0
-  intraday:
-    stt_buy: 0.0                    # intraday STT is sell-side only
-    stt_sell: 0.00025               # 0.025%
-    stamp_duty_buy: 0.00003         # 0.003%, buy side only
-    stamp_duty_sell: 0.0
+  # -------------------------------------------------------------------------------------------
+  # TIME-VARYING STATUTORY SCHEDULE (PI decision, Checkpoint 1.1 question 2).
+  #
+  # Each entry applies from its `effective_from` until the next entry's, and every entry states
+  # every rate in full — nothing is inherited from a neighbour, because a partially-overriding
+  # schedule is exactly the kind of construct where a rate quietly stops being the one you think
+  # it is. The engine selects the entry by TRADE DATE, so a 2020 fill is charged 2020 rates.
+  #
+  # ONLY ONE RATE ACTUALLY MOVES over the 2020-2025 study window: the NSE cash transaction charge.
+  # Its three epochs are each independently sourced (below). Everything else is held constant
+  # across the window, and where I could not verify a historical value it is held at the CURRENT
+  # value and flagged in the entry — never invented.
+  #
+  # WHAT I COULD NOT VERIFY, stated rather than guessed:
+  #   * Stamp duty before 2020-07-01 was STATE-dependent (the uniform Indian Stamp Act regime
+  #     begins 2020-07-01). The first six months of the development window therefore carry the
+  #     uniform 0.015% rather than a state rate. Typical pre-regime delivery rates were nearer
+  #     0.01% with per-note caps, so this OVERSTATES cost for 2020-01-01..2020-06-30 -- the
+  #     conservative direction, affecting ~2.5% of the window by 0.005% of buy turnover.
+  #   * NSE IPFT and the SEBI turnover fee: I could not source a citable pre-2023 history for
+  #     either, so both are held at the current Rs 10/crore throughout. Each is 0.0001% of
+  #     turnover; the largest error this can introduce is 0.0002% of a round trip against a total
+  #     of 0.226%, i.e. under one part in a thousand.
+  #   * NSE raised cash charges ~6% in January 2021 and rolled the hike back in 2023. I could not
+  #     retrieve the circular text for either move, so 0.00325% is applied across 2020-2024Q1.
+  #     Had the hike applied it would have been ~0.00345%, a difference of 0.0002% of turnover.
+  # These three unverified items are immaterial individually and jointly; they are recorded here
+  # so no reader has to take that on trust.
+  #
+  # Sources for the rates that ARE pinned:
+  #   STT            https://www.nseclearing.in/clearing-settlement/equity-derivatives/securities-transaction-tax
+  #                  0.1% both sides on equity delivery, unchanged 2020-2026. Budget 2026 raised
+  #                  STT on futures (0.05%) and options (0.15%) only.
+  #   NSE txn charge 0.00325% until 2024-03-31 (long-standing rate).
+  #                  0.00322% from 2024-04-01 -- NSE cut charges 1% across cash and derivatives.
+  #                  https://zerodha.com/marketintel/bulletin/373933/revision-in-nse-transaction-charges-from-april-1-2024
+  #                  0.00297% from 2024-10-01 (Rs 2.97 per lakh per side) -- SEBI true-to-label
+  #                  circular SEBI/HO/MRD/TPD-1/P/CIR/2024/92 dated 2024-07-01, uniform charges
+  #                  irrespective of member turnover.
+  #   NSE IPFT       Investor Protection Fund Trust, cash equities, Rs 10/crore.
+  #   SEBI fee       Rs 10 per crore of turnover, non-debt securities (NSE investor page).
+  #   Stamp duty     Uniform regime under the Indian Stamp Act from 2020-07-01: 0.015%
+  #                  (Rs 1500/crore) on DELIVERY BUY, 0.003% on intraday buy, sell side nil.
+  #   GST            18% on (brokerage + exchange transaction charges + SEBI fee + IPFT).
+  #
+  # INDEPENDENTLY VERIFIED BY THE PI, 2026-07-31, against Zerodha's public brokerage calculator:
+  # equity delivery, NSE, buy 1000 @ 100 and sell 1000 @ 100 (turnover Rs 2,00,000) returns
+  # brokerage 0.00, STT 200.00, exchange charges 6.14, GST 1.14, SEBI 0.20, stamp duty 15.00,
+  # total Rs 222.48 -- matching this model's statutory total exactly. Note that 6.14 confirms the
+  # exchange + IPFT split: (2.97 + 0.10) x 2 = 6.14, i.e. Zerodha's bundled "0.00307%".
+  # -------------------------------------------------------------------------------------------
+  schedule:
+    - effective_from: "2015-01-01"    # earliest date the model will price; predates all our data
+      label: "pre-2024 NSE cash rate"
+      exchange_transaction_charge: 0.0000325   # 0.00325%
+      ipft_charge: 0.000001                    # 0.0001%  (held constant; see note above)
+      sebi_turnover_fee: 0.000001              # 0.0001%  (held constant; see note above)
+      gst_rate: 0.18
+      delivery:
+        stt_buy: 0.001
+        stt_sell: 0.001
+        stamp_duty_buy: 0.00015       # uniform regime; applied before 2020-07-01 too, see note
+        stamp_duty_sell: 0.0
+      intraday:
+        stt_buy: 0.0
+        stt_sell: 0.00025
+        stamp_duty_buy: 0.00003
+        stamp_duty_sell: 0.0
+      brokerage:
+        delivery_rate: 0.0
+        delivery_flat: 0.0
+        intraday_rate: 0.0003
+        intraday_flat_cap: 20.0
 
-  # Applied to both sides in both segments.
-  exchange_transaction_charge: 0.0000297   # 0.00297%, NSE cash market
-  ipft_charge: 0.000001                    # 0.0001%  (Rs 10 / crore)
-  sebi_turnover_fee: 0.000001              # 0.0001%  (Rs 10 / crore)
-  gst_rate: 0.18                           # on brokerage + exchange + SEBI + IPFT
+    - effective_from: "2024-04-01"
+      label: "NSE 1% cut across cash and derivatives"
+      exchange_transaction_charge: 0.0000322   # 0.00322%
+      ipft_charge: 0.000001
+      sebi_turnover_fee: 0.000001
+      gst_rate: 0.18
+      delivery:
+        stt_buy: 0.001
+        stt_sell: 0.001
+        stamp_duty_buy: 0.00015
+        stamp_duty_sell: 0.0
+      intraday:
+        stt_buy: 0.0
+        stt_sell: 0.00025
+        stamp_duty_buy: 0.00003
+        stamp_duty_sell: 0.0
+      brokerage:
+        delivery_rate: 0.0
+        delivery_flat: 0.0
+        intraday_rate: 0.0003
+        intraday_flat_cap: 20.0
 
-  brokerage:
-    # Discount-broker default. Zero-brokerage delivery is the prevailing market default (Zerodha,
-    # Upstox and others); intraday is typically the lesser of a percentage and a flat cap.
-    delivery_rate: 0.0
-    delivery_flat: 0.0
-    intraday_rate: 0.0003           # 0.03%
-    intraday_flat_cap: 20.0         # rupees per executed order, whichever is lower
+    - effective_from: "2024-10-01"
+      label: "SEBI true-to-label, uniform member charges"
+      exchange_transaction_charge: 0.0000297   # 0.00297%, Rs 2.97 per lakh per side
+      ipft_charge: 0.000001
+      sebi_turnover_fee: 0.000001
+      gst_rate: 0.18
+      delivery:
+        stt_buy: 0.001
+        stt_sell: 0.001
+        stamp_duty_buy: 0.00015
+        stamp_duty_sell: 0.0
+      intraday:
+        stt_buy: 0.0
+        stt_sell: 0.00025
+        stamp_duty_buy: 0.00003
+        stamp_duty_sell: 0.0
+      brokerage:
+        delivery_rate: 0.0
+        delivery_flat: 0.0
+        intraday_rate: 0.0003
+        intraday_flat_cap: 20.0
 
-  # Depository charge, levied per scrip on the SELL leg only and NOT proportional to value. This
-  # is part statutory (CDSL) and part broker markup, so it is separated from the statutory block.
-  # It matters disproportionately for small positions, which is exactly the regime a diversified
+  # Depository charge, levied per scrip on the SELL leg only and NOT proportional to value. It
+  # matters disproportionately for small positions, which is exactly the regime a diversified
   # backtest lives in.
-  dp_charge_per_scrip_sell: 3.50    # CDSL component only; broker markup excluded by default
+  #
+  # Two modes, PI decision at Checkpoint 1.1 question 6:
+  #   research  Rs 3.50   the CDSL statutory component alone, useful for decomposing what is
+  #                       regulation and what is broker margin.
+  #   retail    Rs 15.34  what a Zerodha retail client is actually billed per scrip on sale.
+  #                       DEFAULT: it is what a real investor pays, and it is the conservative
+  #                       direction to be wrong in.
+  # Zerodha's public brokerage calculator does NOT include DP, which is why the PI's verified
+  # Rs 222.48 is the statutory figure and both DP modes sit on top of it.
+  dp_mode: retail
+  dp_charge:
+    research: 3.50
+    retail: 15.34
 
   slippage:
     # Volume-participation model. A flat basis-point assumption is explicitly NOT acceptable per
     # the charter: cost must rise with order size as a fraction of that day's volume.
     #   slippage_fraction = coefficient * participation_rate
     # where participation_rate = order_value / day's traded value.
-    # ASSUMPTION, not a measured Indian parameter. See the docstring in src/costs/india.py.
+    # ASSUMPTION, not a measured Indian parameter -- an engineering default. It must never be
+    # described as calibrated to Indian markets (PI, Checkpoint 1.1 question 5). Daily bars cannot
+    # calibrate it; that needs intraday volume profiles. See the docstring in src/costs/india.py.
     participation_coefficient: 0.1
     max_slippage_fraction: 0.05     # a hard cap; beyond this the fill is not credible at all
 
   impact:
     # Square-root law: impact = coefficient * volatility * sqrt(participation_rate).
-    # ASSUMPTION. The functional form is standard (Almgren et al.); the coefficient is not
-    # calibrated to Indian data and must not be presented as if it were.
+    # ASSUMPTION, an engineering default. The functional form is standard (Almgren et al.); the
+    # coefficient is NOT calibrated to Indian data and must never be presented as if it were
+    # (PI, Checkpoint 1.1 question 5).
     coefficient: 1.0
     default_volatility: 0.02        # daily, used when a per-stock estimate is unavailable
 

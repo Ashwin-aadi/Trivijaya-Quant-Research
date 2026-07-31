@@ -12,12 +12,23 @@ from datetime import date
 import pytest
 
 from src.common.config import load_config
+from src.common.exceptions import ConfigError
 from src.costs.india import CostModel
 
 # --------------------------------------------------------------------------------------------
 # HAND COMPUTATION — ₹1,00,000 equity delivery round trip, NSE, discount broker
 #
-# Rates (config.yaml, sourced 2026-07-31):
+# INDEPENDENTLY VERIFIED BY THE PI on 2026-07-31 against Zerodha's public brokerage calculator
+# (equity delivery, NSE, buy 1000 @ 100, sell 1000 @ 100, turnover ₹2,00,000):
+#
+#     brokerage 0.00   STT 200.00   exchange charges 6.14   GST 1.14
+#     SEBI 0.20        stamp duty 15.00                     TOTAL ₹222.48
+#
+# which is this model's statutory total to the paisa. The ₹6.14 exchange line also confirms the
+# exchange/IPFT split: (2.97 + 0.10) x 2 = 6.14, i.e. Zerodha's bundled "0.00307%".
+# Zerodha's calculator does NOT include the depository charge, so the DP figure sits on top.
+#
+# Rates (config.yaml, sourced 2026-07-31, current epoch of the time-varying schedule):
 #   STT delivery            0.1%      both sides
 #   NSE transaction charge  0.00297%  both sides   (from 2024-10-01)
 #   NSE IPFT                0.0001%   both sides   (from 2023-04-01)
@@ -25,7 +36,8 @@ from src.costs.india import CostModel
 #   Stamp duty              0.015%    BUY ONLY     (uniform regime, from 2020-07-01)
 #   GST                     18%       on (brokerage + exchange + IPFT + SEBI)
 #   Brokerage               ₹0                     (zero-brokerage delivery)
-#   DP charge               ₹3.50     per scrip, SELL ONLY
+#   DP charge               ₹15.34    per scrip, SELL ONLY   (retail mode, the default)
+#                           ₹3.50     per scrip, SELL ONLY   (research mode, CDSL component)
 #
 # BUY LEG, turnover ₹1,00,000
 #   brokerage         = 0                                            =   0.0000
@@ -48,15 +60,16 @@ from src.costs.india import CostModel
 #   SEBI turnover fee = 100000 x 0.000001                            =   0.1000
 #   stamp duty        = 0 (sell side)                                =   0.0000
 #   GST               = 3.17 x 0.18                                  =   0.5706
-#   DP charge         = 3.50 x 1                                     =   3.5000
+#   DP charge         = 0 (no scrip charged)                         =   0.0000
 #                                                                      ---------
-#   SELL TOTAL                                                       = 107.2406
+#   SELL TOTAL, statutory                                            = 103.7406
 #
-#   ROUND TRIP TOTAL  = 118.7406 + 107.2406                          = 225.9812
-#   as a fraction of the ₹1,00,000 notional                          =   0.2260%
+#   ROUND TRIP, STATUTORY = 118.7406 + 103.7406                      = 222.4812  <-- PI VERIFIED
+#   as a fraction of the ₹1,00,000 notional                          =   0.2225%
 #
-# Statutory only, excluding the ₹3.50 depository charge:
-#   118.7406 + 103.7406                                              = 222.4812
+# Plus the per-scrip depository charge on the sell leg, one scrip:
+#   retail mode   222.4812 + 15.34                                   = 237.8212  (default)
+#   research mode 222.4812 +  3.50                                   = 225.9812
 # --------------------------------------------------------------------------------------------
 
 NOTIONAL = 100_000.0
@@ -82,25 +95,33 @@ def test_buy_leg_matches_hand_computation(model: CostModel) -> None:
 
 
 def test_sell_leg_matches_hand_computation(model: CostModel) -> None:
-    leg = model.charge_leg(NOTIONAL, "sell", n_scrips=1)
+    leg = model.charge_leg(NOTIONAL, "sell", n_scrips=0)
     assert leg.stt == pytest.approx(100.0, abs=PAISA)
     assert leg.stamp_duty == pytest.approx(0.0, abs=PAISA), "stamp duty is buy-side only"
-    assert leg.dp_charge == pytest.approx(3.50, abs=PAISA)
-    assert leg.statutory_total == pytest.approx(107.2406, abs=PAISA)
+    assert leg.statutory_total == pytest.approx(103.7406, abs=PAISA)
 
 
-def test_round_trip_total_matches_hand_computation(model: CostModel) -> None:
-    buy, sell = model.round_trip(NOTIONAL, n_scrips=1)
-    total = buy.statutory_total + sell.statutory_total
-    assert total == pytest.approx(225.9812, abs=PAISA)
-    # Roughly 22.6 basis points on a round trip. A strategy turning its book over monthly pays this
-    # twelve times a year, which is the whole reason this module exists.
-    assert total / NOTIONAL == pytest.approx(0.002260, abs=1e-6)
+def test_round_trip_matches_the_pi_verified_zerodha_figure(model: CostModel) -> None:
+    """₹222.48 statutory, checked by the PI against Zerodha's calculator on 2026-07-31.
 
-
-def test_round_trip_without_depository_charge(model: CostModel) -> None:
+    This is the external verification the charter requires, pinned as a test so a later edit to a
+    rate cannot quietly move a figure a human confirmed by hand.
+    """
     buy, sell = model.round_trip(NOTIONAL, n_scrips=0)
-    assert buy.statutory_total + sell.statutory_total == pytest.approx(222.4812, abs=PAISA)
+    total = buy.statutory_total + sell.statutory_total
+    assert total == pytest.approx(222.4812, abs=PAISA)
+    # Roughly 22.2 basis points on a round trip. A strategy turning its book over monthly pays this
+    # twelve times a year, which is the whole reason this module exists.
+    assert total / NOTIONAL == pytest.approx(0.0022248, abs=1e-6)
+    # And Zerodha's own exchange-charge line, which bundles IPFT into one 0.00307% figure.
+    assert 2 * (buy.exchange_charge + buy.ipft) == pytest.approx(6.14, abs=PAISA)
+
+
+def test_round_trip_with_the_retail_depository_charge(model: CostModel) -> None:
+    """Retail is the default mode: what an investor is actually billed, not the CDSL floor."""
+    buy, sell = model.round_trip(NOTIONAL, n_scrips=1)
+    assert sell.dp_charge == pytest.approx(15.34, abs=PAISA)
+    assert buy.statutory_total + sell.statutory_total == pytest.approx(237.8212, abs=PAISA)
 
 
 def test_buy_costs_more_than_sell_because_of_stamp_duty(model: CostModel) -> None:
@@ -187,17 +208,52 @@ def test_execute_sums_statutory_slippage_and_impact(model: CostModel) -> None:
     assert cost.total > cost.leg.statutory_total, "frictions must add to the statutory charges"
 
 
-def test_staleness_warning_fires_on_the_development_window(model: CostModel) -> None:
-    """The development window predates the configured rates, and that must be visible.
-
-    This is a real limitation of applying one rate schedule to a 2020-2024 backtest, and the
-    checkpoint asks the PI to choose between a time-varying schedule and a stated constant. The
-    test asserts the warning exists so the choice cannot be made by accident.
-    """
-    warning = model.staleness_warning(date(2020, 1, 1), date(2024, 12, 31))
-    assert warning is not None
-    assert "anachronistic" in warning
+# ---------------------------------------------------------------------------------------------
+# Time-varying schedule (PI decision, Checkpoint 1.1 question 2). Only one rate actually moves
+# over the study window — the NSE cash transaction charge — but it must move, and it must move on
+# the right date, or a 2020 fill is silently charged 2026 rates.
+# ---------------------------------------------------------------------------------------------
 
 
-def test_no_staleness_warning_inside_the_effective_period(model: CostModel) -> None:
-    assert model.staleness_warning(date(2026, 5, 1), date(2026, 6, 30)) is None
+def test_a_2020_trade_is_charged_2020_rates(model: CostModel) -> None:
+    old = model.charge_leg(NOTIONAL, "buy", on=date(2020, 6, 1))
+    assert old.exchange_charge == pytest.approx(3.25, abs=PAISA), "0.00325%, the pre-2024 rate"
+
+
+def test_the_nse_charge_steps_down_on_each_sourced_date(model: CostModel) -> None:
+    """0.00325% -> 0.00322% on 2024-04-01 -> 0.00297% on 2024-10-01, each independently sourced."""
+    def exchange_on(day: date) -> float:
+        return model.charge_leg(NOTIONAL, "buy", on=day).exchange_charge
+
+    assert exchange_on(date(2024, 3, 31)) == pytest.approx(3.25, abs=PAISA)
+    assert exchange_on(date(2024, 4, 1)) == pytest.approx(3.22, abs=PAISA)
+    assert exchange_on(date(2024, 9, 30)) == pytest.approx(3.22, abs=PAISA)
+    assert exchange_on(date(2024, 10, 1)) == pytest.approx(2.97, abs=PAISA)
+
+
+def test_stt_does_not_move_over_the_study_window(model: CostModel) -> None:
+    """STT on equity delivery was 0.1% both sides throughout. Budget 2026 moved F&O only."""
+    for day in (date(2020, 1, 1), date(2023, 6, 15), date(2025, 12, 31), date(2026, 7, 1)):
+        assert model.charge_leg(NOTIONAL, "buy", on=day).stt == pytest.approx(100.0, abs=PAISA)
+
+
+def test_a_trade_before_the_schedule_begins_raises(model: CostModel) -> None:
+    """Better to refuse than to charge rates that were not in force."""
+    with pytest.raises(ConfigError, match="no cost schedule covers"):
+        model.charge_leg(NOTIONAL, "buy", on=date(2010, 1, 1))
+
+
+def test_omitting_the_date_prices_at_the_current_epoch(model: CostModel) -> None:
+    """The default is for broker-calculator comparison. The engine always passes a date."""
+    assert model.charge_leg(NOTIONAL, "buy").exchange_charge == pytest.approx(
+        model.charge_leg(NOTIONAL, "buy", on=date(2026, 7, 31)).exchange_charge
+    )
+
+
+def test_dp_modes_differ_and_retail_is_the_default() -> None:
+    """Research mode isolates the CDSL component; retail is what an investor actually pays."""
+    costs = load_config().costs
+    assert costs.dp_mode == "retail"
+    assert costs.dp_charge_by_mode["research"] == pytest.approx(3.50)
+    assert costs.dp_charge_by_mode["retail"] == pytest.approx(15.34)
+    assert costs.dp_charge_per_scrip_sell == pytest.approx(15.34)
