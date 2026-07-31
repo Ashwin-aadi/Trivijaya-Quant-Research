@@ -60,6 +60,12 @@ def summarise(records: list[dict[str, Any]]) -> dict[str, Any]:
     flipped = [r for r in traded if float(r["sharpe_gross"]) > 0 >= float(r["sharpe"])]
     ruined = [r for r in evaluated if r.get("ruined_on")]
 
+    # Sign reversals, both directions. The negative-to-positive count is the diagnostic: costs
+    # cannot improve a strategy, so anything other than zero here is a wiring fault rather than a
+    # finding, and it is reported even though it should always be empty.
+    to_negative = [r for r in traded if float(r["sharpe_gross"]) > 0 > float(r["sharpe"])]
+    to_positive = [r for r in traded if float(r["sharpe_gross"]) < 0 < float(r["sharpe"])]
+
     return {
         "n_records": len(records),
         "n_evaluated": len(evaluated),
@@ -68,6 +74,9 @@ def summarise(records: list[dict[str, Any]]) -> dict[str, Any]:
         "n_flipped": len(flipped),
         "share_flipped": len(flipped) / len(traded) if traded else None,
         "n_ruined": len(ruined),
+        "n_sign_positive_to_negative": len(to_negative),
+        "share_sign_positive_to_negative": len(to_negative) / len(traded) if traded else None,
+        "n_sign_negative_to_positive": len(to_positive),
         "mean_sharpe_drop": statistics.mean(sharpe_drop) if sharpe_drop else None,
         "median_sharpe_drop": statistics.median(sharpe_drop) if sharpe_drop else None,
         "mean_cagr_drop": statistics.mean(cagr_drop) if cagr_drop else None,
@@ -115,6 +124,12 @@ def main() -> int:
     print(f"  profitable gross, unprofitable net   {stats['n_flipped']} of {stats['n_traded']}"
           f"  ({share:.1%})" if share is not None else "  none traded")
     print(f"  ruined outright by costs             {stats['n_ruined']}")
+    sign_share = stats["share_sign_positive_to_negative"]
+    print(f"  Sharpe sign reversed, positive -> negative   "
+          f"{stats['n_sign_positive_to_negative']} of {stats['n_traded']}"
+          + (f"  ({sign_share:.1%})" if sign_share is not None else ""))
+    print(f"  Sharpe sign reversed, negative -> positive   "
+          f"{stats['n_sign_negative_to_positive']}   (must be 0; costs cannot help)")
 
     traded = [r for r in records if r["outcome"] == "evaluated"
               and r.get("sharpe_gross") is not None

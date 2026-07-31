@@ -33,6 +33,19 @@ from src.costs.india import CostModel  # noqa: E402
 from src.data.calendar import load_calendar  # noqa: E402
 from src.eval.metrics import summarise  # noqa: E402
 
+#: ₹10 lakh, ₹1 crore, ₹10 crore. A proportional cost is identical at all three; the depository
+#: charge should fall roughly a hundredfold across them, and if it does not, the model is wrong.
+BOOKS: tuple[int, ...] = (1_000_000, 10_000_000, 100_000_000)
+
+#: The two factors where the depository charge is most and least implicated, plus the market
+#: reference. Running the scale sweep over all eleven would triple an already slow script for no
+#: additional information — the effect is a property of the charge, not of the strategy.
+SCALE_FACTORS: tuple[tuple[str, str], ...] = (
+    ("inverse_volatility_weighted", "many names, tiny daily adjustments - DP-dominated"),
+    ("momentum_skip_month", "moderate turnover - statutory-dominated"),
+    ("equal_weight_universe", "market reference - almost no turnover"),
+)
+
 
 def main() -> int:
     cfg = load_config()
@@ -56,7 +69,8 @@ def main() -> int:
         for label, costs in modes.items()
     }
 
-    print(f"\nBook size {1_000_000:,} rupees. Sharpe over the development window.\n")
+    print(f"\nPART 1 — depository regime, at a book of {BOOKS[0]:,} rupees. "
+          "Sharpe over the development window.\n")
     print(f"{'strategy':<30} {'gross':>8} " + " ".join(f"{label:>16}" for label in modes))
     for name, _family in FACTORS:
         cells: list[float] = []
@@ -66,6 +80,30 @@ def main() -> int:
             gross = summarise(result.gross_returns)["sharpe_ratio"]
             cells.append(summarise(result.returns)["sharpe_ratio"])
         print(f"{name:<30} {gross:>8.4f} " + " ".join(f"{c:>16.4f}" for c in cells))
+
+    # PART 2 — the scale question. A proportional charge is invariant to book size; the depository
+    # charge is not, because it is a flat fee per scrip. If the DP contribution does not fall
+    # roughly in proportion to the book, the model is not doing what it claims.
+    retail = engines["retail 15.34"]
+    without_dp = engines["none (ablation)"]
+    print("\nPART 2 — cost in basis points per session, by book size.\n")
+    print(f"{'strategy':<30} {'book':>14} {'total bps/d':>12} {'DP bps/d':>10} "
+          f"{'DP share':>9} {'Sharpe':>9}")
+    for name, _family in SCALE_FACTORS:
+        for book in BOOKS:
+            with_dp = retail.run(load_strategy(name)(), cfg.dates.dev_start, cfg.dates.dev_end,
+                                 initial_equity=book)
+            no_dp = without_dp.run(load_strategy(name)(), cfg.dates.dev_start, cfg.dates.dev_end,
+                                   initial_equity=book)
+            n = len(with_dp.costs) or 1
+            total_bps = sum(with_dp.costs) / n * 10_000
+            # The residual after removing the depository charge is the proportional part, so the
+            # difference is the DP contribution measured rather than recomputed from the rate.
+            dp_bps = total_bps - sum(no_dp.costs) / len(no_dp.costs or [1]) * 10_000
+            share = dp_bps / total_bps if total_bps else 0.0
+            print(f"{name:<30} {book:>14,} {total_bps:>12.3f} {dp_bps:>10.3f} "
+                  f"{share:>8.1%} {summarise(with_dp.returns)['sharpe_ratio']:>9.4f}")
+        print()
     return 0
 
 

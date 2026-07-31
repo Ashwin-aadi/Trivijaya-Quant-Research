@@ -207,9 +207,12 @@ class BacktestEngine:
             result.equity.append(equity)
             result.returns.append(net_return)
             result.gross_returns.append(period_return)
-            result.gross_exposure.append(sum(abs(w) for w in target.values()))
-            result.turnover.append(turnover)
-            result.costs.append(cost)
+            result.gross_exposure.append(float(sum(abs(w) for w in target.values())))
+            # float() rather than the bare sum: an empty book makes `sum` return int 0, and a
+            # column that starts with an int and later meets a float is inferred as Int64 and then
+            # raises on the first real turnover. That cost six candidates on the first net run.
+            result.turnover.append(float(turnover))
+            result.costs.append(float(cost))
 
             # Bankruptcy is terminal, and it has to be represented rather than run through. Once
             # equity is non-positive there is no capital to trade and no meaningful return to
