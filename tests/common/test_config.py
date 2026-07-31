@@ -23,6 +23,7 @@ def test_loads_and_types(tmp_path: Path, good_config_text: str) -> None:
     assert cfg.meta.seed == 42
     assert cfg.dates.dev_start == date(2020, 1, 1)
     assert cfg.dates.holdout_start == date(2025, 1, 1)
+    assert cfg.dates.holdout_end == date(2025, 12, 31)
     assert cfg.universe.size == 100
     assert cfg.universe.method == "liquidity_rank"
     # Buffer bands must straddle the target size or the rule churns / never drops anyone.
@@ -58,6 +59,14 @@ def test_missing_section_rejected(tmp_path: Path, good_config_text: str) -> None
 def test_holdout_must_follow_dev(tmp_path: Path, good_config_text: str) -> None:
     # holdout_start before dev_end would leak holdout data into development.
     bad = good_config_text.replace('holdout_start: "2025-01-01"', 'holdout_start: "2024-06-01"')
+    with pytest.raises(ConfigError):
+        load_config(write(tmp_path, bad))
+
+
+def test_holdout_end_must_follow_holdout_start(tmp_path: Path, good_config_text: str) -> None:
+    # A holdout window that ends before it begins is empty, and an empty holdout evaluates to
+    # nothing while still consuming the single Rule 7 evaluation.
+    bad = good_config_text.replace('holdout_end: "2025-12-31"', 'holdout_end: "2024-12-31"')
     with pytest.raises(ConfigError):
         load_config(write(tmp_path, bad))
 

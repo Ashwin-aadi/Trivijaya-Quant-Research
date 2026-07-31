@@ -27,6 +27,7 @@ dates:
   dev_start: "2020-01-01"
   dev_end: "2024-12-31"
   holdout_start: "2025-01-01"
+  holdout_end: "2025-12-31"
 universe:
   method: liquidity_rank
   size: 100
