@@ -97,6 +97,17 @@ def main() -> int:
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
     backtests = json.loads(backtest_path.read_text(encoding="utf-8"))
 
+    # Which candidates are eligible to be ranked is decided on development data in both modes.
+    # Deciding it on holdout flatness would define the population using the very out-of-sample
+    # outcome being measured — a strategy that stopped trading in 2025 would be quietly removed
+    # rather than scored as the zero it earned, and the surviving population would be selected on
+    # the future. The population is fixed in sample; only the score comes from the holdout.
+    eligible = {
+        record["name"] for record in backtests
+        if record["outcome"] == "evaluated" and record.get("sharpe") is not None
+        and abs(float(record["sharpe"])) >= FLAT_TOLERANCE
+    }
+
     if args.holdout:
         holdout_path = args.corpus.parent / "holdout_results.json"
         if not holdout_path.exists():
@@ -110,11 +121,14 @@ def main() -> int:
     # information, and at 65% of the executed set they would dominate every retained set and drag
     # P(c) toward zero at every coverage regardless of what the auditor did. They remain counted in
     # the corpus statistics, where they are the central finding; not deleted, only unranked.
+    # Eligibility is the development-period judgment above; the value is whatever this window says,
+    # zeros included. A candidate that qualified in sample and then never traded in 2025 scores 0.0
+    # and stays in, because that is its out-of-sample result.
     performance = {
         record["name"]: float(record["sharpe"])
         for record in backtests
         if record["outcome"] == "evaluated" and record.get("sharpe") is not None
-        and abs(float(record["sharpe"])) >= FLAT_TOLERANCE
+        and record["name"] in eligible
     }
     if len(performance) < 10:
         _log.error("only %d candidates have a performance number; too few to sweep",

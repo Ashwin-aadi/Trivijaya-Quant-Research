@@ -63,6 +63,14 @@ def main() -> int:
                 return 1
             sink.append(json.loads(path.read_text(encoding="utf-8")))
 
+    # Holdout results are pooled only if every batch has them. A partial pool would quietly compute
+    # AUAP over whichever batch happened to be evaluated, and report it as the whole corpus.
+    holdout_paths = [b / "holdout_results.json" for b in BATCHES]
+    holdouts = (
+        [json.loads(p.read_text(encoding="utf-8")) for p in holdout_paths]
+        if all(p.exists() for p in holdout_paths) else []
+    )
+
     check_comparable(summaries)
 
     merged_backtests: list[dict[str, Any]] = []
@@ -87,6 +95,11 @@ def main() -> int:
         for layer in ("static", "semantic", "statistical"):
             merged_audit[layer].update(audit.get(layer, {}))
 
+    if holdouts:
+        merged_holdout: list[dict[str, Any]] = []
+        for records in holdouts:
+            merged_holdout.extend(records)
+
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "candidates").mkdir(exist_ok=True)  # so --corpus resolves; sources stay in place
     (args.out / "backtest_results.json").write_text(
@@ -96,8 +109,14 @@ def main() -> int:
         json.dumps(merged_audit, indent=2), encoding="utf-8"
     )
 
+    if holdouts:
+        (args.out / "holdout_results.json").write_text(
+            json.dumps(merged_holdout, indent=2), encoding="utf-8"
+        )
+
     print(f"pooled {len(BATCHES)} batches -> {args.out}")
     print(f"  backtests {len(merged_backtests)}")
+    print(f"  holdout   {len(merged_holdout) if holdouts else 0}")
     for layer in ("static", "semantic", "statistical"):
         print(f"  {layer:<12} {len(merged_audit[layer])}")
     print(f"  trials    {merged_audit['n_trials']}")

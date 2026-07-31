@@ -33,14 +33,30 @@ from src.eval.abstention import random_baseline  # noqa: E402
 PALETTE = ("#0173b2", "#de8f05", "#029e73", "#cc78bc", "#ca9161", "#949494", "#d55e00")
 
 
-def load_performance(run_dir: Path, flat_tolerance: float = 1e-9) -> dict[str, float]:
-    """Ranked candidates only — executed, and not flat — matching the ablation's population."""
-    records = json.loads((run_dir / "backtest_results.json").read_text(encoding="utf-8"))
+def load_performance(
+    run_dir: Path, *, holdout: bool, flat_tolerance: float = 1e-9
+) -> dict[str, float]:
+    """The exact population and values the ablation scored, so the band matches the curves.
+
+    Eligibility is always the development judgment — executed and not flat — because that is how the
+    ablation fixes its population. The *values* come from whichever window was scored. Reading
+    development values for a holdout plot would draw a random-rejection band from the wrong
+    distribution entirely, and the band is the only thing on the figure that says what null looks
+    like.
+    """
+    development = json.loads((run_dir / "backtest_results.json").read_text(encoding="utf-8"))
+    eligible = {
+        r["name"] for r in development
+        if r["outcome"] == "evaluated" and r.get("sharpe") is not None
+        and abs(float(r["sharpe"])) >= flat_tolerance
+    }
+    source = "holdout_results.json" if holdout else "backtest_results.json"
+    records = json.loads((run_dir / source).read_text(encoding="utf-8"))
     return {
         r["name"]: float(r["sharpe"])
         for r in records
         if r["outcome"] == "evaluated" and r.get("sharpe") is not None
-        and abs(float(r["sharpe"])) >= flat_tolerance
+        and r["name"] in eligible
     }
 
 
@@ -52,7 +68,7 @@ def main() -> int:
 
     data = json.loads(args.ablation.read_text(encoding="utf-8"))
     run_dir = args.ablation.parent
-    performance = load_performance(run_dir)
+    performance = load_performance(run_dir, holdout=bool(data["reportable_auap"]))
     _, intervals, auap_interval = random_baseline(performance, seed=42)
 
     coverages = data["combinations"][0]["curve"]["coverages"]

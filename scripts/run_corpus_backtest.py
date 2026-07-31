@@ -10,11 +10,14 @@ logical cores, and a worker holding the 252 MB panel has a ~340 MB working set b
 Eight workers is roughly 5.6 GB and leaves room for the OS and the model server; thirty-two would
 want around 22 GB and would thrash. Measured before this was written, not assumed.
 
-**The holdout is not touched here.** The window is the development period from `config.yaml` and
-nothing in this script can reach past it.
+**The holdout is reachable only through a flag pair.** By default the window is the development
+period and the worker loads the development panel, which does not contain a single holdout row —
+so a default run cannot touch the holdout even by mistake. `--holdout` switches to the holdout
+artifacts and is refused unless `--authorised-by` accompanies it (Rule 7).
 
 Usage:
     python scripts/run_corpus_backtest.py --corpus runs/<stamp>/candidates
+    python scripts/run_corpus_backtest.py --corpus <...> --holdout --authorised-by "<who, when>"
 """
 
 from __future__ import annotations
@@ -69,15 +72,23 @@ class CandidateResult:
     returns_path: str | None
 
 
-def _worker_init() -> None:
-    """Load the panel and build the engine once per worker process."""
+def _worker_init(holdout: bool = False) -> None:
+    """Load the panel and build the engine once per worker process.
+
+    The holdout artifacts are separate files, not a filtered view of the development ones, so a
+    development run cannot reach holdout rows even by mistake — they are not in the frame it loaded.
+    """
     global _ENGINE, _WINDOW  # noqa: PLW0603
     cfg = load_config()
-    panel = pl.read_parquet(cfg.paths.data_processed / "prices_adjusted.parquet")
-    universe = pl.read_parquet(cfg.paths.data_processed / "universe.parquet")
-    calendar = load_calendar(cfg.paths.data_raw / "calendar_cnx100.parquet")
+    suffix = "_holdout" if holdout else ""
+    panel = pl.read_parquet(cfg.paths.data_processed / f"prices_adjusted{suffix}.parquet")
+    universe = pl.read_parquet(cfg.paths.data_processed / f"universe{suffix}.parquet")
+    calendar = load_calendar(cfg.paths.data_raw / f"calendar_cnx100{suffix}.parquet")
     _ENGINE = BacktestEngine(panel=panel, calendar=calendar, universe=universe)
-    _WINDOW = (cfg.dates.dev_start, cfg.dates.dev_end)
+    _WINDOW = (
+        (cfg.dates.holdout_start, cfg.dates.holdout_end) if holdout
+        else (cfg.dates.dev_start, cfg.dates.dev_end)
+    )
 
 
 def _load_strategy(path: Path) -> type[Strategy]:
@@ -159,14 +170,34 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, required=True, help="directory of candidate .py")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
+    # Same structural gate as the ablation. A convention that the holdout is only read when intended
+    # is worth very little at the end of a long run; the flag pair makes it impossible to do by
+    # accident, and the authorisation text lands in the output filename's sibling manifest.
+    parser.add_argument("--holdout", action="store_true",
+                        help="evaluate on the holdout; requires --authorised-by")
+    parser.add_argument("--authorised-by", type=str, default=None,
+                        help="the PI's explicit authorisation for a holdout evaluation")
     args = parser.parse_args()
+
+    if args.holdout and not args.authorised_by:
+        _log.error(
+            "the holdout may be evaluated once per project and only with explicit PI authorisation "
+            "(Rule 7). Pass --authorised-by, or omit --holdout to run the development window."
+        )
+        return 2
+    if args.authorised_by and not args.holdout:
+        _log.error("--authorised-by given without --holdout; refusing to guess the intent")
+        return 2
 
     candidates = sorted(args.corpus.glob("candidate_*.py"))
     if not candidates:
         _log.error("no candidates found under %s", args.corpus)
         return 1
 
-    out_dir = args.corpus.parent / "backtests"
+    label = "holdout" if args.holdout else "development"
+    if args.holdout:
+        _log.warning("HOLDOUT EVALUATION, authorised by: %s", args.authorised_by)
+    out_dir = args.corpus.parent / f"backtests_{label}"
     out_dir.mkdir(parents=True, exist_ok=True)
     # The corpus path goes in the log so a progress reader can tell which corpus a log belongs to.
     # Without it a stale log from an earlier corpus is indistinguishable from a live one, and the
@@ -184,7 +215,9 @@ def main() -> int:
     # forever *after* every result has been collected, with the output trapped in a process that
     # will not exit. Two candidates in the first corpus did exactly that. `terminate()` kills the
     # children outright, which is the only thing that works against untrusted code.
-    pool = multiprocessing.Pool(processes=args.workers, initializer=_worker_init)
+    pool = multiprocessing.Pool(
+        processes=args.workers, initializer=_worker_init, initargs=(args.holdout,)
+    )
     try:
         pending = [
             (path, pool.apply_async(run_one, (str(path), str(out_dir))))
@@ -216,7 +249,8 @@ def main() -> int:
 
     elapsed = time.perf_counter() - started
     ran = sum(1 for r in results if r["outcome"] == "evaluated")
-    (args.corpus.parent / "backtest_results.json").write_text(
+    results_name = "holdout_results.json" if args.holdout else "backtest_results.json"
+    (args.corpus.parent / results_name).write_text(
         json.dumps(results, indent=2), encoding="utf-8"
     )
     _log.info("%d/%d ran to completion in %.0f min", ran, len(results), elapsed / 60)
