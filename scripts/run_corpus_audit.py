@@ -163,6 +163,8 @@ def main() -> int:
     parser.add_argument("--corpus", type=Path, required=True)
     parser.add_argument("--skip-semantic", action="store_true",
                         help="static and statistical only; for a fast re-run")
+    parser.add_argument("--force", action="store_true",
+                        help="permit overwriting a layer that already holds verdicts")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -210,6 +212,27 @@ def main() -> int:
         statistical, pbo = statistical_layer(backtests, n_trials or len(paths))
     else:
         _log.warning("no backtest results at %s; statistical layer skipped", backtest_path)
+
+    # Belt and braces over the carry-forward above. Carry-forward stops the specific accident that
+    # happened; this stops the general class of it, by refusing to shrink a layer that already holds
+    # verdicts unless someone says so in as many words. The check is on the write, not on the
+    # intent, so it catches paths nobody thought about when adding a flag.
+    shrunk = [
+        layer for layer, fresh in
+        (("static", static), ("semantic", semantic), ("statistical", statistical))
+        if len(existing.get(layer, {})) > len(fresh)
+    ]
+    if shrunk and not args.force:
+        _log.error(
+            "refusing to write: %s would lose verdicts (%s). This is how ninety minutes of GPU "
+            "output was destroyed once already. Re-run without --skip-semantic to recompute, or "
+            "pass --force if discarding them is genuinely what you want.",
+            " and ".join(shrunk),
+            ", ".join(f"{k}: {len(existing.get(k, {}))} -> {len(v)}" for k, v in
+                      (("static", static), ("semantic", semantic), ("statistical", statistical))
+                      if k in shrunk),
+        )
+        return 3
 
     out = {
         "n_candidates": len(paths),
