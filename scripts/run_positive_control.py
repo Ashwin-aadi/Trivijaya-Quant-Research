@@ -131,19 +131,28 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001 - recorded, exactly as for the AI corpus
             rows.append({"name": name, "family": family, "outcome": "runtime_error",
                          "error": f"{type(exc).__name__}: {exc}"[:200], "sharpe": None,
+                         "sharpe_gross": None,
                          "static_rejected": bool(high), "semantic_label": semantic_label})
             _log.error("%s failed: %s", name, exc)
             continue
 
         stats = summarise(result.returns)
+        gross = summarise(result.gross_returns)
         traded = sum(1 for r in result.returns if abs(r) > 1e-12)
+        n = len(result.returns) or 1
         rows.append({
             "name": name,
             "family": family,
             "outcome": "evaluated",
             "error": None,
             "sharpe": stats["sharpe_ratio"],
+            # Both bases from one run, so the drag is a measured difference on a single path.
+            "sharpe_gross": gross["sharpe_ratio"],
             "annualised_return": stats["annualised_return"],
+            "annualised_return_gross": gross["annualised_return"],
+            "mean_turnover": sum(result.turnover) / n,
+            "mean_cost": sum(result.costs) / n,
+            "ruined_on": str(result.ruined_on) if result.ruined_on else None,
             "volatility": stats["annualised_volatility"],
             "max_drawdown": stats["max_drawdown"],
             "n_sessions": len(result.returns),
@@ -153,8 +162,9 @@ def main() -> int:
             "static_classes": sorted({f.leak_class.value for f in high}),
             "semantic_label": semantic_label,
         })
-        _log.info("%s: Sharpe %.4f over %d sessions (%d active)",
-                  name, stats["sharpe_ratio"], len(result.returns), traded)
+        _log.info("%s: Sharpe %.4f net / %.4f gross over %d sessions (%d active)",
+                  name, stats["sharpe_ratio"], gross["sharpe_ratio"],
+                  len(result.returns), traded)
 
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "positive_control.json").write_text(
@@ -166,13 +176,18 @@ def main() -> int:
 
     evaluated = [r for r in rows if r["outcome"] == "evaluated"]
     flat = [r for r in evaluated if r["flat"]]
-    print(f"\n{'strategy':<32} {'Sharpe':>8} {'active':>7}  {'static':>7} {'semantic':<28} family")
+    print(f"\n{'strategy':<30} {'gross':>7} {'net':>8} {'drag':>7} {'turn/d':>7} "
+          f"{'bps/d':>6}  {'static':>7} family")
     for r in sorted(rows, key=lambda x: -(x["sharpe"] or -99)):
-        sharpe = f"{r['sharpe']:.4f}" if r["sharpe"] is not None else "FAILED"
-        active = r.get("n_active_sessions", 0)
+        if r["sharpe"] is None:
+            print(f"{r['name']:<30} {'FAILED':>7} {'':>8} {'':>7} {'':>7} {'':>6}  "
+                  f"{'':>7} {r['family']}")
+            continue
         verdict = "REJECT" if r["static_rejected"] else "pass"
-        print(f"{r['name']:<32} {sharpe:>8} {active:>7}  {verdict:>7} "
-              f"{str(r['semantic_label']):<28} {r['family']}")
+        ruin = "  RUINED " + str(r["ruined_on"]) if r.get("ruined_on") else ""
+        print(f"{r['name']:<30} {r['sharpe_gross']:>7.4f} {r['sharpe']:>8.4f} "
+              f"{r['sharpe'] - r['sharpe_gross']:>7.4f} {r['mean_turnover']:>7.4f} "
+              f"{r['mean_cost'] * 10000:>6.2f}  {verdict:>7} {r['family']}{ruin}")
 
     print(f"\nexecuted: {len(evaluated)}/{len(rows)}   flat: {len(flat)}")
     if len(evaluated) != len(rows) or flat:

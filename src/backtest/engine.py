@@ -43,6 +43,10 @@ class BacktestResult:
     # Recorded rather than raised so a whole corpus completes and the pattern can be reported; an
     # engine that aborts on the first breach tells you nothing about how common breaches are.
     participation_breaches: list[tuple[date, str, float]] = field(default_factory=list)
+    # The session on which equity reached zero, if it did. A strategy that loses more than the
+    # account has is bankrupt, and the sessions after that point are not a worse result — they are
+    # not a result at all, because there is nothing left to trade.
+    ruined_on: date | None = None
     # Sessions where a held name sat inside a known-artifacts window. Not an error: a marker so an
     # apparent edge that depends on flagged data can be recognised instead of trusted.
     flagged_sessions: list[date] = field(default_factory=list)
@@ -206,6 +210,17 @@ class BacktestEngine:
             result.gross_exposure.append(sum(abs(w) for w in target.values()))
             result.turnover.append(turnover)
             result.costs.append(cost)
+
+            # Bankruptcy is terminal, and it has to be represented rather than run through. Once
+            # equity is non-positive there is no capital to trade and no meaningful return to
+            # compute: the next session's cost would be charged against a negative notional, which
+            # is arithmetic, not economics. Surfaced by the net positive control, where a strategy
+            # rotating a hundred-name book every session was consumed by depository charges.
+            if equity <= 0.0:
+                result.ruined_on = fill_session
+                _log.warning("%s: ruined on %s after %d sessions",
+                             strategy.name, fill_session, len(result.dates))
+                break
 
         _log.info("%s: %d sessions, final equity %.2f (%d flagged sessions)",
                   strategy.name, len(result.dates), equity, len(set(result.flagged_sessions)))

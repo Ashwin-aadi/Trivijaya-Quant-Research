@@ -65,8 +65,20 @@ class CandidateResult:
     path: str
     outcome: str          # "evaluated", "runtime_error", "timeout"
     error: str | None
+    #: Net of Indian transaction costs. This is the headline figure everywhere downstream.
     sharpe: float | None
+    #: The same series before costs, recorded by the engine on the same run. Kept so the cost drag
+    #: is a measured difference on one path rather than two runs that might differ for other
+    #: reasons — and so no reader has to take the size of the drag on trust.
+    sharpe_gross: float | None
     annualised_return: float | None
+    annualised_return_gross: float | None
+    #: Mean per-session turnover and cost, both as fractions of equity. Reported because the drag
+    #: is turnover multiplied by a rate, and a Sharpe reduction is uninterpretable without both.
+    mean_turnover: float | None
+    mean_cost: float | None
+    #: Set when costs consumed the whole account. The sessions after it are not a worse result.
+    ruined_on: str | None
     volatility: float | None
     max_drawdown: float | None
     n_sessions: int
@@ -152,20 +164,32 @@ def run_one(path_str: str, out_dir_str: str) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001 - untrusted code; every failure is a datum
         return asdict(CandidateResult(
             name=name, path=path_str, outcome="runtime_error",
-            error=f"{type(exc).__name__}: {exc}"[:300], sharpe=None, annualised_return=None,
+            error=f"{type(exc).__name__}: {exc}"[:300], sharpe=None, sharpe_gross=None,
+            annualised_return=None, annualised_return_gross=None, mean_turnover=None,
+            mean_cost=None, ruined_on=None,
             volatility=None, max_drawdown=None, n_sessions=0, returns_path=None,
         ))
 
     stats = summarise(result.returns)
+    gross = summarise(result.gross_returns)
+    n = len(result.returns) or 1
     returns_path = out_dir / f"{name}_returns.parquet"
-    pl.DataFrame({"session_date": result.dates, "return": result.returns}).write_parquet(
-        returns_path
-    )
+    pl.DataFrame({
+        "session_date": result.dates,
+        "return": result.returns,
+        "gross_return": result.gross_returns,
+        "cost": result.costs,
+        "turnover": result.turnover,
+    }).write_parquet(returns_path)
     return asdict(CandidateResult(
         name=name, path=path_str, outcome="evaluated", error=None,
         # The key is `sharpe_ratio`; asking for `sharpe` returned None for every candidate and
         # would have produced a corpus with no performance numbers at all.
-        sharpe=stats["sharpe_ratio"], annualised_return=stats["annualised_return"],
+        sharpe=stats["sharpe_ratio"], sharpe_gross=gross["sharpe_ratio"],
+        annualised_return=stats["annualised_return"],
+        annualised_return_gross=gross["annualised_return"],
+        mean_turnover=sum(result.turnover) / n, mean_cost=sum(result.costs) / n,
+        ruined_on=str(result.ruined_on) if result.ruined_on else None,
         volatility=stats["annualised_volatility"], max_drawdown=stats["max_drawdown"],
         n_sessions=len(result.returns), returns_path=str(returns_path),
     ))
@@ -234,16 +258,18 @@ def main() -> int:
             except multiprocessing.TimeoutError:
                 results.append(asdict(CandidateResult(
                     name=path.stem, path=str(path), outcome="timeout",
-                    error=f"exceeded {TIMEOUT_SECONDS:.0f}s", sharpe=None,
-                    annualised_return=None, volatility=None, max_drawdown=None,
-                    n_sessions=0, returns_path=None,
+                    error=f"exceeded {TIMEOUT_SECONDS:.0f}s", sharpe=None, sharpe_gross=None,
+                    annualised_return=None, annualised_return_gross=None,
+                    mean_turnover=None, mean_cost=None, ruined_on=None,
+                    volatility=None, max_drawdown=None, n_sessions=0, returns_path=None,
                 )))
             except Exception as exc:  # noqa: BLE001 - a worker died; record and continue
                 results.append(asdict(CandidateResult(
                     name=path.stem, path=str(path), outcome="runtime_error",
                     error=f"worker died: {type(exc).__name__}: {exc}"[:300], sharpe=None,
-                    annualised_return=None, volatility=None, max_drawdown=None,
-                    n_sessions=0, returns_path=None,
+                    sharpe_gross=None, annualised_return=None, annualised_return_gross=None,
+                    mean_turnover=None, mean_cost=None, ruined_on=None,
+                    volatility=None, max_drawdown=None, n_sessions=0, returns_path=None,
                 )))
             if done % 25 == 0:
                 _log.info("%d/%d backtested", done, len(candidates))
