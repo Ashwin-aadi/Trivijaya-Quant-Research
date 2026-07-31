@@ -31,6 +31,11 @@ dates:
   dev_start: "2020-01-01"
   dev_end: "2024-12-31"
   holdout_start: "2025-01-01"  # everything from here on is sacred / never-touched
+  # Frozen 2026-07-31, BEFORE any holdout data was fetched, and deliberately set to a calendar
+  # boundary rather than to the latest available session. Left open, the window length would be a
+  # researcher degree of freedom; chosen after seeing a result, it would be the exact pathology
+  # this lab exists to detect. One clean year, ~248 sessions. PI-approved.
+  holdout_end: "2025-12-31"
 
 universe:
   # Rules-based liquidity universe ("Option B", approved 2026-07-25). At each rebalance date the

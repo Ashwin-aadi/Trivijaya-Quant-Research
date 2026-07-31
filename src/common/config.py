@@ -51,6 +51,9 @@ class DatesConfig:
     dev_start: date
     dev_end: date
     holdout_start: date
+    #: Frozen before any holdout data was fetched. A holdout whose end moves with whatever data
+    #: happens to be available is not a fixed window, and its length becomes a free parameter.
+    holdout_end: date
 
 
 @dataclass(frozen=True)
@@ -174,6 +177,8 @@ def _build(raw: dict[str, Any], source_path: Path, config_hash: str) -> Config:
             dev_end=_parse_date(_require(dates, "dev_end", "dates"), "dates.dev_end"),
             holdout_start=_parse_date(_require(dates, "holdout_start", "dates"),
                                       "dates.holdout_start"),
+            holdout_end=_parse_date(_require(dates, "holdout_end", "dates"),
+                                    "dates.holdout_end"),
         ),
         universe=UniverseConfig(
             method=str(_require(uni, "method", "universe")),
@@ -212,5 +217,10 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
     if cfg.dates.holdout_start <= cfg.dates.dev_end:
         raise ConfigError(
             f"holdout_start ({cfg.dates.holdout_start}) must be after dev_end ({cfg.dates.dev_end})"
+        )
+    if cfg.dates.holdout_end <= cfg.dates.holdout_start:
+        raise ConfigError(
+            f"holdout_end ({cfg.dates.holdout_end}) must be after "
+            f"holdout_start ({cfg.dates.holdout_start})"
         )
     return cfg
