@@ -13,6 +13,7 @@ that stamp against the fill time and refuses any order whose information was not
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from bisect import bisect_left
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -21,21 +22,80 @@ import polars as pl
 from src.common.exceptions import PointInTimeError
 
 
+class PanelIndex:
+    """Row offsets of each trading session within a date-sorted panel.
+
+    Built once per panel and shared by every :class:`MarketView` over it. Its whole purpose is to
+    turn "the rows before ``as_of``" from a scan of the entire panel into a contiguous slice.
+
+    Requires the panel to be sorted by ``session_date`` and **verifies it**, because a silently
+    unsorted panel would make every slice below return the wrong rows — the kind of failure that
+    produces plausible numbers rather than an error.
+    """
+
+    def __init__(self, panel: pl.DataFrame, date_column: str = "session_date") -> None:
+        dates = panel[date_column].to_list()
+        if any(dates[i] > dates[i + 1] for i in range(len(dates) - 1)):
+            raise ValueError(
+                "panel must be sorted by session_date to be indexed; "
+                "sort it before constructing the engine"
+            )
+        self.panel = panel
+        # Start offset of each distinct session, plus a terminal offset so every session's rows are
+        # `starts[i] : starts[i+1]`.
+        self.sessions: list[date] = []
+        self.starts: list[int] = []
+        previous: date | None = None
+        for position, day in enumerate(dates):
+            if day != previous:
+                self.sessions.append(day)
+                self.starts.append(position)
+                previous = day
+        self.starts.append(len(dates))
+
+    def rows_before(self, as_of: date) -> int:
+        """Number of leading rows stamped strictly before ``as_of``."""
+        return self.starts[bisect_left(self.sessions, as_of)]
+
+    def session_position(self, as_of: date) -> int:
+        """Index into :attr:`sessions` of the first session at or after ``as_of``."""
+        return bisect_left(self.sessions, as_of)
+
+
 class MarketView:
     """Read-only window onto the panel, hard-limited to one decision date.
 
     Every accessor refuses data stamped on or after ``as_of``. A strategy forms its decision at
     the close of ``as_of``'s previous session and may not see ``as_of`` itself, because the engine
     fills at that session's open — reading its close would be trading on tomorrow's news.
+
+    **On the optimisation.** The original implementation materialised the visible window in
+    ``__init__`` by filtering the whole panel. Measured on the development window that cost 6.34 s
+    of every 6.53 s run — the engine's own loop is 0.20 s — because a 2.29-million-row panel was
+    rescanned once per session to serve a strategy that usually wanted the last twenty days.
+
+    This version keeps every returned frame **byte-identical** and changes only how it is reached:
+    the visible window is computed lazily, and the lookback accessors slice a contiguous range of
+    sessions instead of scanning. ``src/backtest/_reference.py`` holds the original verbatim and
+    ``tests/backtest/test_optimisation_equivalence.py`` asserts the two agree exactly, per the
+    PI's ruling that no P2 result may come from an engine whose equivalence is undemonstrated.
     """
 
-    def __init__(self, panel: pl.DataFrame, as_of: date, symbols: tuple[str, ...]) -> None:
+    def __init__(
+        self,
+        panel: pl.DataFrame,
+        as_of: date,
+        symbols: tuple[str, ...],
+        index: PanelIndex | None = None,
+    ) -> None:
         self._as_of = as_of
         self._symbols = symbols
-        # Truncation happens once, here. Nothing downstream can widen it back out.
-        self._visible = panel.filter(
-            (pl.col("session_date") < as_of) & (pl.col("symbol").is_in(list(symbols)))
-        )
+        self._panel = panel
+        # Building an index costs a pass over the panel, so the engine builds one and passes it in.
+        # Constructing a view standalone (tests, notebooks) still works, just without the sharing.
+        self._index = index if index is not None else PanelIndex(panel)
+        self._symbol_list = list(symbols)
+        self._visible_cache: pl.DataFrame | None = None
 
     @property
     def as_of(self) -> date:
@@ -47,12 +107,45 @@ class MarketView:
         """The investable universe on this date, point-in-time."""
         return self._symbols
 
+    @property
+    def _visible(self) -> pl.DataFrame:
+        """The full visible window, materialised on first use and then cached.
+
+        Identical to the original eager computation; only the timing differs. Kept as a property
+        under the original name so any code that reached for ``view._visible`` still works.
+        """
+        if self._visible_cache is None:
+            prefix = self._panel.head(self._index.rows_before(self._as_of))
+            self._visible_cache = prefix.filter(pl.col("symbol").is_in(self._symbol_list))
+        return self._visible_cache
+
     def history(self, lookback: int | None = None) -> pl.DataFrame:
         """Visible history, optionally limited to the most recent ``lookback`` sessions."""
         if lookback is None:
             return self._visible
-        sessions = sorted(self._visible["session_date"].unique().to_list())[-lookback:]
-        return self._visible.filter(pl.col("session_date").is_in(sessions))
+        if lookback <= 0:
+            # `sorted(...)[-0:]` is the whole list, not an empty one. Preserving that quirk
+            # deliberately: it is what the reference implementation does.
+            return self._visible
+
+        # The sessions wanted are the last `lookback` distinct dates present *after* symbol
+        # filtering — not the last `lookback` calendar sessions. Those differ whenever none of the
+        # held names traded on a day. Widen the slice until enough qualifying sessions are found,
+        # which in practice succeeds on the first attempt.
+        available = self._index.session_position(self._as_of)
+        window = lookback
+        while True:
+            first = max(0, available - window)
+            candidate = self._panel.slice(
+                self._index.starts[first], self._index.starts[available] - self._index.starts[first]
+            ).filter(pl.col("symbol").is_in(self._symbol_list))
+            distinct = candidate["session_date"].n_unique()
+            if distinct >= lookback or first == 0:
+                break
+            window *= 2
+
+        sessions = sorted(candidate["session_date"].unique().to_list())[-lookback:]
+        return candidate.filter(pl.col("session_date").is_in(sessions))
 
     def closes(self, lookback: int | None = None) -> pl.DataFrame:
         """Adjusted closes as a symbol-by-date frame, ready for cross-sectional work."""

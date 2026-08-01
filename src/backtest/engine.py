@@ -17,7 +17,7 @@ from datetime import date
 
 import polars as pl
 
-from src.backtest.strategy import MarketView, Signal, Strategy
+from src.backtest.strategy import MarketView, PanelIndex, Signal, Strategy
 from src.common.exceptions import PointInTimeError
 from src.common.log import get_logger
 from src.costs.india import CostModel
@@ -78,7 +78,20 @@ class BacktestEngine:
         artifact_register: pl.DataFrame | None = None,
         cost_model: CostModel | None = None,
     ) -> None:
-        self._panel = panel
+        # Restrict to symbols that ever enter the universe, once, before indexing.
+        #
+        # The panel carries 2,697 tickers but only 185 ever appear in any universe snapshot, so
+        # ~90% of every row scanned was for a name no strategy could ever hold. This is
+        # result-neutral by construction: MarketView filters to the date's universe anyway, and
+        # the engine only ever prices symbols in `target`, which `_clamp` restricts to that same
+        # universe. It is done here rather than by callers so a strategy handed the full panel
+        # directly (the leaky fixtures do exactly that) is unaffected.
+        tradable = universe["symbol"].unique().to_list()
+        self._panel = panel.filter(pl.col("symbol").is_in(tradable))
+        # Session row-offsets, built once and shared by every MarketView this engine creates.
+        # Constructing a view was 6.34s of a 6.53s run before this existed, because each of the
+        # 1,232 sessions rescanned the whole panel. The engine loop itself is 0.20s.
+        self._index = PanelIndex(self._panel)
         self._calendar = calendar
         self._universe = universe
         self._max_gross = max_gross_exposure
@@ -100,6 +113,15 @@ class BacktestEngine:
             self._close[key] = row["adj_close"]
             if has_turnover:
                 self._traded_value[key] = row["turnover_inr"] or 0.0
+
+    def _make_view(self, as_of: date, symbols: tuple[str, ...]) -> MarketView:
+        """Build the point-in-time view for one session.
+
+        A single seam, so the equivalence test can substitute the pre-optimisation view and
+        compare whole runs. Production has exactly one implementation; nothing selects between
+        them at runtime.
+        """
+        return MarketView(self._panel, as_of=as_of, symbols=symbols, index=self._index)
 
     def _universe_on(self, day: date) -> tuple[str, ...]:
         """Constituents effective on ``day``: the most recent rebalance at or before it."""
@@ -153,7 +175,7 @@ class BacktestEngine:
             if not symbols:
                 continue
 
-            view = MarketView(self._panel, as_of=fill_session, symbols=symbols)
+            view = self._make_view(fill_session, symbols)
             signal = strategy.generate(view)
             self._validate(signal, decision_session, fill_session, strategy)
 
