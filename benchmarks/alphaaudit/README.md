@@ -39,11 +39,14 @@ what auditing can achieve in general.
 | Generator | `qwen2.5:7b-instruct-q4_K_M`, temperature 0.8, local via Ollama |
 | Prompt digest | `f307433c7bda8595` |
 | Corpus | 1,550 candidates |
-| Executed | 626 (40.4%) |
-| Flat — executed, never traded | 405 (64.7% of executed) |
-| Rankable | 221 (14.3% of corpus) |
+| Executed | 631 (40.7%) |
+| Flat — executed, never traded | 406 (64.3% of executed) |
+| Rankable | 225 (14.5% of corpus) |
 | Trial count `N` | 1,887 |
 | Auditor layers | static (AST), semantic (local LLM), statistical (DSR + PBO) |
+| Performance basis | **net of Indian transaction costs**, Rs. 10,00,000 book, retail depository mode |
+| Best holdout AUAP | **-1.1441** (semantic alone) vs random 95% interval **[-1.2208, -0.8600]** |
+| Configurations beating random | **0 of 7** |
 
 ### Two conditions that travel with this number permanently
 
@@ -51,9 +54,8 @@ what auditing can achieve in general.
 one specific weak generator. It is not a generator-independent property of the auditor, and it must
 never be quoted as "the AlphaAudit result" — only as the result for this reference implementation.
 
-**2. A null result here is confounded with corpus degeneracy.** The 221 rankable strategies are
-tightly clustered (median Sharpe 0.70, p25 0.098, p75 0.924) with little dispersion for any ranking
-to exploit. **A null AUAP therefore cannot distinguish "the auditor is uninformative" from "this
+**2. A null result here is confounded with corpus degeneracy.** The 225 rankable strategies are
+tightly clustered and mostly weak, with little dispersion for any ranking to exploit. **A null AUAP therefore cannot distinguish "the auditor is uninformative" from "this
 corpus is too weak to test the auditor."** Both explanations survive the data.
 
 That confound is the motivation for other entrants rather than a defect in the benchmark. A stronger
@@ -66,7 +68,8 @@ generator producing genuinely dispersed strategy quality is exactly what would l
 
 | Path | What it is |
 |---|---|
-| `survivors/` | 172 strategies cleared by the static and semantic layers — the P1 → P2 bridge set |
+| `RESULTS.md` | **every number in the project, with its sample size** — start here |
+| `survivors/` | 174 strategies cleared by the static and semantic layers — the P1 → P2 bridge set |
 | `../../tests/fixtures/leaky/` | deliberately-cheating strategies; positive controls for the auditor |
 | `../../tests/fixtures/clean/` | honest strategies; measure the false-positive rate |
 | `../../tests/fixtures/locked/` | held-out fixture set, scored exactly once |
