@@ -180,13 +180,14 @@ candidates attain a deflated Sharpe probability above 0.95}; the corpus maximum 
 $4.4\times10^{-8}$.
 
 \paragraph{The null.} Sweeping coverage from 1.0 to 0.05 over all seven layer combinations, scored
-on a holdout evaluated exactly twice under logged authorisation and now permanently closed,
-\textbf{no configuration beats random rejection at matched coverage} (AUAP $-1.14$ to $-1.43$
-against a random 95\% interval of $[-1.22, -0.86]$; two fall below it). The one configuration that
+on a holdout evaluated three times under logged authorisation and now permanently closed,
+\textbf{no configuration beats random rejection at matched coverage} (AUAP $-1.20$ to $-1.43$
+against a random 95\% interval of $[-1.22, -0.86]$; six fall below it). The one configuration that
 beat random in sample was the one that provably cannot---its ranking signal is a monotone function
 of the quantity it was scored against---and out of sample it fails with the rest. We report the
-null rather than tune past it, and note that it survived a subsequent correction of the entire
-cost implementation: \emph{the magnitudes moved, the conclusion did not}. It remains confounded
+null rather than tune past it, and note that it survived two subsequent corrections of our own
+pipeline---the entire cost implementation, and a sign error in the ranking itself: \emph{the
+magnitudes moved, the conclusion did not}. It remains confounded
 with corpus degeneracy and cannot separate \textit{``the auditor is uninformative''} from
 \textit{``this corpus is too weak to test it''}.
 
@@ -269,8 +270,8 @@ first entry. It is a low bar, and it is deliberately published as one.
 \item \textbf{A pre-registered null, published as the benchmark's reference entry.} The auditor
   does not beat random rejection at matched coverage, in any of seven layer configurations, on a
   holdout evaluated under logged authorisation and now permanently closed. We report it, and we
-  report that it survived a full correction of our own cost implementation
-  (\S\ref{sec:negative}).
+  report that it survived two full corrections of our own pipeline---the cost implementation, and
+  a sign error in the ranking (\S\ref{sec:correction}, \S\ref{sec:negative}).
 \end{enumerate}
 
 % =====================================================================================
@@ -554,12 +555,20 @@ place we chose the definition that produces a non-empty answer, and we flag it a
 
 \paragraph{Holdout discipline.} The 2025 calendar year was frozen before any holdout data was
 fetched, set to a calendar boundary rather than to the latest available session so that
-window length could not become a researcher degree of freedom. It has been evaluated exactly
-twice, both under written authorisation logged with timestamps: once on a gross-of-costs
-pipeline, and once after that pipeline was found defective and rebuilt. The first evaluation
-is retired and its artifacts are frozen under a directory whose README forbids quoting them
-without the word ``gross''. \textbf{The holdout is now permanently closed. No third
-evaluation is available to this project under any circumstance.}
+window length could not become a researcher degree of freedom. It has been evaluated three times,
+each under written authorisation logged with a timestamp: once on a gross-of-costs pipeline, once
+after that pipeline was found defective and rebuilt, and once after the ranking defect described
+in \S\ref{sec:correction}. The first evaluation is retired and its artifacts are frozen under a
+directory whose README forbids quoting them without the word ``gross''; the second is superseded
+and retained beside the third.
+
+\textbf{Every one of the three was authorised in advance to repair a defect, and no parameter,
+threshold, prompt or model was changed after any of them.} That is the property that matters, and
+it is a different property from the count. A holdout is contaminated by iterative optimisation
+against it, not by arithmetic being performed on it correctly more than once; but we recognise that
+``we re-ran it and the conclusion held'' is exactly what a researcher would say in both the honest
+and the dishonest case, so we publish the full before/after of each correction and the diffs that
+produced them rather than asking to be believed. \textbf{The holdout is now permanently closed.}
 
 % =====================================================================================
 \section{Results}
@@ -775,11 +784,12 @@ at some ratio the test rejects everything regardless of merit. A 100\% rejection
 consistent with an honest correction \emph{and} with a saturated one, and no measurement in this
 study separates them.}
 
-\noindent This bears directly on the ablation in \S\ref{sec:auap}. A layer that rejects its
-entire input carries no ordering information beyond the continuous confidence score underlying
-the binary verdict, and the two configurations containing it are the two that fall below the
-random band. The rejection rate and the ranking failure are plausibly the same fact observed
-twice. Establishing which requires evaluating the layer across trial-count regimes, which this
+\noindent This bears directly on the ablation in \S\ref{sec:auap}, and more sharply than we first
+realised. The layer rejects all 631 strategies it scores, at a recorded confidence of exactly
+$1.0$ in every case, so it carries \emph{no} ordering information whatever among the candidates it
+scored: they all tie. Its only discrimination is between scored and unscored. The four
+configurations containing it are the four with the steepest fall at tight coverage. The rejection
+rate and the ranking failure are plausibly the same fact observed twice. Establishing which requires evaluating the layer across trial-count regimes, which this
 corpus cannot support because $N$ is a property of the experiment rather than a free parameter.
 
 The Probability of Backtest Overfitting could not be computed on the pooled corpus: the
@@ -801,12 +811,12 @@ $[-1.2208, -0.8600]$; population mean $P(1.0) = -1.0351$.}
 \toprule
 \textbf{Layers} & \textbf{AUAP} & \textbf{$P(0.05)$} & \textbf{Beats random} \\
 \midrule
-semantic                     & $-1.1441$ & $-0.5147$ & no \\
-static + semantic            & $-1.2249$ & $-0.8660$ & no \\
-semantic + statistical       & $-1.2344$ & $-0.5147$ & no \\
+semantic                     & $-1.1967$ & $-1.1347$ & no \\
 static                       & $-1.2529$ & $-1.1176$ & no --- \emph{below the interval} \\
-static + semantic + statistical & $-1.2849$ & $-0.8660$ & no \\
-statistical                  & $-1.3497$ & $-3.0643$ & no \\
+static + semantic            & $-1.2782$ & $-1.1805$ & no --- \emph{below the interval} \\
+statistical                  & $-1.3497$ & $-3.0643$ & no --- \emph{below the interval} \\
+semantic + statistical       & $-1.3777$ & $-3.2931$ & no --- \emph{below the interval} \\
+static + semantic + statistical & $-1.4184$ & $-3.2931$ & no --- \emph{below the interval} \\
 static + statistical         & $-1.4339$ & $-3.2931$ & no --- \emph{below the interval} \\
 \bottomrule
 \end{tabular}
@@ -816,7 +826,7 @@ static + statistical         & $-1.4339$ & $-3.2931$ & no --- \emph{below the in
 \includegraphics[width=\linewidth]{figures/abstention_holdout.png}
 \caption{The abstention--performance curve, holdout, $n=225$. An informative auditor produces
 curves that \emph{rise} to the left: the more selective the system, the better what it keeps.
-Five of seven configurations fall instead, and the two containing the statistical layer fall
+Every configuration falls instead, and the four containing the statistical layer fall
 steeply---at 5\% coverage they select an average holdout Sharpe near $-3$ against a population
 mean of $-1.04$. The grey band is random rejection at matched coverage, and it widens to the
 left because 5\% of 225 is eleven strategies.}
@@ -824,11 +834,11 @@ left because 5\% of 225 is eleven strategies.}
 \end{figure}
 
 \textbf{No configuration beats random rejection at matched coverage}
-(Table~\ref{tab:ablation}, Figure~\ref{fig:auap}). Five sit inside the random interval; two sit
+(Table~\ref{tab:ablation}, Figure~\ref{fig:auap}). One sits inside the random interval; six sit
 below it, meaning they order strategies \emph{worse} than chance. The null is not rejected.
 
 Figure~\ref{fig:auap} makes a point the table cannot. The curves do not merely fail to rise as
-coverage tightens---most of them \emph{fall}. Concentrating on the candidates the auditor trusts
+coverage tightens---all of them \emph{fall}. Concentrating on the candidates the auditor trusts
 most selects a worse portfolio than taking everything. Whatever the layers are ranking on, it is
 not out-of-sample performance, and at high confidence it is mildly anti-correlated with it.
 
@@ -837,8 +847,9 @@ was the only configuration to beat random---and it provably cannot be evidence, 
 confidence is $1 - \mathrm{DSR}$ and DSR is a monotone function of the very development
 Sharpe that $P(c)$ measures. Ranking by a quantity and then scoring on that same quantity
 beats random by construction. Out of sample the comparison becomes legitimate, and the layer
-fails with the rest, landing second-worst of seven. \textbf{The circularity diagnosis was
-made by argument in advance and confirmed by experiment afterwards.}
+fails with the rest, landing fourth of seven and below the random interval, with the worst
+$P(0.05)$ of any single layer. \textbf{The circularity diagnosis was made by argument in advance
+and confirmed by experiment afterwards.}
 
 The corpus also collapses wholesale from development to holdout: mean Sharpe $+{\sim}0.40$
 gross in sample against $-1.0351$ net out of sample, with 216/221 positive in sample and
@@ -847,6 +858,60 @@ development Sharpe of $-1.6696$. \textbf{The single best out-of-sample strategy 
 sane process would have discarded in sample.} That is not a finding about the strategy. It is
 multiple testing appearing inside our own results, which is the most direct evidence we can
 offer that the phenomenon we set out to measure is real.
+
+\subsection{A sign error in our own ranking, and what it cost}
+\label{sec:correction}
+
+The numbers in Table~\ref{tab:ablation} are the second version. The first inverted the semantic
+layer's contribution, and we describe the defect in full because a paper about detecting false
+results that concealed one of its own would be self-refuting.
+
+Each auditor layer records a \texttt{confidence} alongside its verdict. The code that turned those
+into a ranking negated the confidence, on the assumption that it meant \emph{confidence that
+something is wrong}. For the static layer it does---the field holds a finding count. For the
+statistical layer it does vacuously, since that layer rejects every candidate it scores at
+confidence $1.0$. For the semantic layer it does not: the language model reports confidence in
+\emph{its own label}, around $0.95$ for a confident \texttt{consistent} and $0.85$ for a confident
+defect. Negating it ranked the strategies that layer had condemned above the ones it had cleared.
+The Spearman correlation between the two rankings is $-0.972$, and the set retained at 5\% coverage
+went from eleven of eleven semantically rejected to zero of eleven.
+
+Four of the seven configurations were affected. The other three are provably untouched: under the
+corrected rule the static and statistical layers produce numerically identical scores on this
+corpus, and the recomputed AUAP for all three agrees to every printed digit. Nothing else was
+changed---not the corpus, the labels, the backtests, the cost model, the trial counter, or the
+holdout contents.
+
+\paragraph{What the defect did not do.} It did not change the conclusion, and it did not flatter
+us. Every affected AUAP moved \emph{down}---the best configuration went from $-1.1441$ to
+$-1.1967$---and the identity of the best configuration did not change. The inverted ranking had
+been the more favourable one.
+
+\paragraph{A second error, found while checking the first.} An earlier draft of this section
+reported that the correction raised the number of configurations ordering strategies worse than
+chance from two to six. It did not. Six of the seven AUAPs were already below the random
+interval before the correction; the sentence counting them in the previous version of this paper
+said ``two'', and its table annotated \texttt{static} at $-1.2529$ as below the interval while
+leaving \texttt{statistical} at $-1.3497$ unmarked. That was a transcription error in the prose,
+not in the measurement, and it is corrected here rather than folded into the ranking correction it
+did not belong to. The count is six of seven in both versions.
+
+\paragraph{What it did do, and why it belongs in the results.} On development data the correction
+raises $P(0.05)$ for the semantic layer from $-0.1088$ to $+0.2910$, and for
+\texttt{static + semantic} from $-0.0918$ to $+0.3142$, against a population mean of $-0.1896$. A
+correctly-oriented semantic layer visibly concentrates the better strategies at tight coverage
+\emph{on the data it was developed against}. The identical ranking on the holdout gives $-1.1347$
+and $-1.1805$. The gap between an in-sample selectivity that looks real and an out-of-sample one
+that is absent is this paper's subject, and it appeared here by accident, in our own pipeline,
+while we were measuring it in someone else's.
+
+\paragraph{Why no test caught it.} Each layer's tests check its labels, which were right. The
+abstention tests check that a curve is computed correctly from a ranking, which it was. The defect
+lived only in the join: a ranking computed correctly from a quantity that meant the opposite of
+what the calling code believed. It was found not by testing but by attempting to reuse the ranking
+for a different purpose in a subsequent project---which is a general lesson about where this class
+of defect hides, and a limitation of static and unit-level checking that our own static layer
+shares. A regression test now asserts the join directly.
 
 % =====================================================================================
 \section{Negative results}
@@ -857,15 +922,17 @@ that reports only what worked is the artifact this paper is about.
 
 \begin{enumerate}\setlength\itemsep{0.35em}
 \item \textbf{$\mathrm{AUAP}$ does not beat random rejection}, in seven of seven
-  configurations, out of sample, under a pre-registered protocol. Two configurations are
+  configurations, out of sample, under a pre-registered protocol. Six configurations are
   worse than chance.
-\item \textbf{The null survived a full correction of our own pipeline.} The first evaluation
-  was gross of costs because no cost model existed. We built one, wired it in, re-ran
-  everything downstream, and spent the second and final holdout authorisation. The
-  magnitudes moved substantially---holdout mean from $-0.2755$ to $-1.0351$---and the
-  conclusion did not move at all. We consider this the most informative single fact in the
-  paper, because it distinguishes ``we found a null'' from ``we found a null and then checked
-  whether it was an artifact of our own defect.''
+\item \textbf{The null survived two full corrections of our own pipeline.} The first
+  evaluation was gross of costs because no cost model existed. We built one, wired it in, and
+  re-ran everything downstream. The magnitudes moved substantially---holdout mean from
+  $-0.2755$ to $-1.0351$---and the conclusion did not move at all. The second correction is
+  described in \S\ref{sec:correction}: a sign error that had inverted the semantic layer's
+  contribution to the ranking. Every affected number moved, and the conclusion again did not.
+  We consider this the most informative single fact in the paper, because it distinguishes
+  ``we found a null'' from ``we found a null and then twice checked whether it was an artifact
+  of our own defect.''
 \item \textbf{This null is confounded with corpus degeneracy}, and we cannot resolve the
   confound. The 225 rankable strategies are tightly clustered and mostly weak. A null
   therefore cannot distinguish \emph{``the auditor is uninformative''} from \emph{``this
@@ -876,11 +943,16 @@ that reports only what worked is the artifact this paper is about.
   out at 0.1152 and 0.1463---each exceeding the total they were meant to partition. The
   traded-value proxy does not stand in for capitalisation weighting. Only the total is
   reported. Nothing was adjusted to make the numbers add up.
-\item \textbf{One layer showed a suggestive signal that we decline to build on.} The semantic
-  layer alone reaches $P(0.05) = -0.5147$ against a population mean of $-1.0351$: its most
-  confident 5\% did roughly twice as well as average. Five per cent of 225 is eleven
-  strategies, and the random interval's width says that is noise. It appears in the
-  pre-specified ablation table and nowhere else in our argument.
+\item \textbf{The one suggestive signal we reported did not survive our own correction, and we
+  record that it existed.} Before the ranking defect of \S\ref{sec:correction} was found, the
+  semantic layer alone reached $P(0.05) = -0.5147$ against a population mean of $-1.0351$---its
+  most confident 5\% appearing to do roughly twice as well as average. We declined to build on it
+  at the time, on the grounds that five per cent of 225 is eleven strategies and the random
+  interval's width said it was noise. It was worse than noise: it was the inverted ranking, and
+  those eleven strategies were the ones the layer had \emph{rejected}. Corrected, the same figure
+  is $-1.1347$, slightly \emph{below} the population mean. \textbf{The suggestive signal is gone
+  and nothing replaced it.} We report the episode rather than the corrected number alone, because
+  the useful part is that a caveat stated in the right direction still understated the problem.
 \end{enumerate}
 
 \begin{selfreport}[title={A process failure we are obliged to report}]
@@ -971,7 +1043,7 @@ paper. Start at \texttt{benchmarks/alphaaudit/RESULTS.md}, which carries every n
 study with its sample size, including the ones we could not compute and the reason why.
 
 \paragraph{What a submission must beat.} The reference entry is the seven-configuration table in
-\S\ref{sec:auap}: best AUAP $-1.1441$, against a random-rejection interval of $[-1.2208,
+\S\ref{sec:auap}: best AUAP $-1.1967$, against a random-rejection interval of $[-1.2208,
 -0.8600]$, on a corpus generated by \texttt{qwen2.5:7b-instruct-q4\_K\_M} at $N = 1{,}887$. This
 is a low bar. We publish it as one.
 

@@ -1,5 +1,12 @@
 # AlphaAudit — RESULTS
 
+**Benchmark version 1.1**, 2026-08-01. Version 1.0 contained a sign error in the abstention
+ranking that inverted the semantic layer's contribution; the four semantic-inclusive configurations
+in §9 were rerun with the PI's explicit authorisation and are the numbers shown here. Everything
+else — corpus, audit labels, backtests, holdout contents, and the three non-semantic
+configurations, which are bit-identical — is unchanged from v1.0. Full before/after in
+[`CORRECTIONS.md`](CORRECTIONS.md). **The conclusions are unchanged: the null is not rejected.**
+
 **Reference implementation, frozen 2026-08-01.** Every number below is transcribed from a
 committed artifact; none was regenerated for this document. Where a number is unavailable it
 says so and gives the reason, rather than being omitted.
@@ -369,10 +376,15 @@ statistical correction or saturation of the test cannot be determined from these
 deflation term grows with N while sample length is fixed, so at some ratio the test rejects
 everything regardless of merit.
 
-This bears on §9: a layer that rejects its entire input carries no ordering information beyond
-the continuous confidence underlying the binary verdict, and the two configurations containing it
-are the two that fall below the random band. The rejection rate and the ranking failure are
-plausibly the same fact observed twice. Separating them requires evaluating the layer across
+This bears on §9, and more sharply than first reported. The layer rejects all 631 it scores at a
+recorded confidence of exactly 1.0, so it carries **no ordering information at all** among scored
+candidates — every one ties, and its only discrimination is between scored and unscored. The four
+configurations containing it are the four with the steepest fall at tight coverage. The rejection
+rate and the ranking failure are plausibly the same fact observed twice.
+
+**Recorded as an observed property of this implementation, not repaired.** Per the PI's ruling of
+2026-08-01, the layer is not modified in this project and no further holdout evaluation is
+authorised for it. A genuinely continuous statistical confidence measure is future work. Separating them requires evaluating the layer across
 trial-count regimes, which this corpus cannot support because N is a property of the experiment
 rather than a free parameter.
 
@@ -438,15 +450,15 @@ evaluation collapsing them into one "flagged by something" signal would obscure 
 
 | Layers | AUAP | P(0.05) | P(1.0) | Beats random |
 |---|---|---|---|---|
-| semantic | −1.1441 | −0.5147 | −1.0351 | no |
-| static + semantic | −1.2249 | −0.8660 | −1.0351 | no |
-| semantic + statistical | −1.2344 | −0.5147 | −1.0351 | no |
+| semantic | −1.1967 | −1.1347 | −1.0351 | no |
 | static | −1.2529 | −1.1176 | −1.0351 | no — **below the interval** |
-| static + semantic + statistical | −1.2849 | −0.8660 | −1.0351 | no |
-| statistical | −1.3497 | −3.0643 | −1.0351 | no |
+| static + semantic | −1.2782 | −1.1805 | −1.0351 | no — **below the interval** |
+| statistical | −1.3497 | −3.0643 | −1.0351 | no — **below the interval** |
+| semantic + statistical | −1.3777 | −3.2931 | −1.0351 | no — **below the interval** |
+| static + semantic + statistical | −1.4184 | −3.2931 | −1.0351 | no — **below the interval** |
 | static + statistical | −1.4339 | −3.2931 | −1.0351 | no — **below the interval** |
 
-**THE NULL IS NOT REJECTED.** Five configurations sit inside the random interval; two sit below
+**THE NULL IS NOT REJECTED.** One configuration sits inside the random interval; six sit below
 it, ordering strategies *worse* than chance.
 
 Most curves **fall** as coverage tightens. Concentrating on the candidates the auditor trusts
@@ -458,13 +470,19 @@ Random band [−0.3706, −0.0270]; population mean −0.1896.
 
 | Layers | AUAP | P(0.05) | Beats random |
 |---|---|---|---|
-| semantic | −0.2712 | −0.1088 | no |
-| static + semantic | −0.3055 | −0.0918 | no |
-| semantic + statistical | −0.3290 | −0.1088 | no |
+| semantic | −0.2917 | +0.2910 | no |
+| static + semantic | −0.3310 | +0.3142 | no |
 | static | −0.3327 | +0.2073 | no |
-| static + semantic + statistical | −0.3514 | −0.0918 | no |
 | statistical | −0.3995 | −1.3599 | no |
+| semantic + statistical | −0.4124 | −1.3494 | no |
+| static + semantic + statistical | −0.4374 | −1.3494 | no |
 | static + statistical | −0.4550 | −1.3494 | no |
+
+A correctly-oriented semantic layer does concentrate the better strategies at tight coverage
+**in sample** — `P(0.05)` of +0.2910 alone and +0.3142 with the static layer, against a population
+mean of −0.1896. None of that selectivity survives to the holdout, where the same two rankings give
+−1.1347 and −1.1805. That gap is this paper's subject, and under v1.0's inverted ranking it was
+invisible: see [`CORRECTIONS.md`](CORRECTIONS.md).
 
 ### The circularity diagnosis
 
@@ -473,8 +491,11 @@ to beat random. This was predicted in advance to be an artifact: its confidence 
 DSR is a monotone function of the very development Sharpe that `P(c)` measures. Ranking by a
 quantity and scoring on that same quantity beats random by construction.
 
-Out of sample the comparison is legitimate, and the layer lands **second-worst of seven**. The
-diagnosis was made by argument beforehand and confirmed by experiment afterwards.
+Out of sample the comparison is legitimate, and the layer lands **fourth of seven, below the random
+interval**, with the worst `P(0.05)` of any single layer (−3.0643). The diagnosis was made by
+argument beforehand and confirmed by experiment afterwards. (Under v1.0 it ranked second-worst;
+the change is an artifact of the four semantic-inclusive configurations moving down past it, not of
+any change to this layer, whose numbers are bit-identical across versions.)
 
 ### The in-sample to out-of-sample collapse
 
@@ -494,10 +515,16 @@ is a coin landing well. This is the multiple-testing phenomenon appearing inside
 | # | Date | Window | Pipeline | Authorisation | Status |
 |---|---|---|---|---|---|
 | 1 | 2026-07-31 | 2025 | gross of costs (no cost model existed) | PI, Checkpoint 1.4 Q1 | **retired**, frozen at `runs/superseded_gross/` |
-| 2 | 2026-07-31 | 2025 | net of costs, corrected | PI, Checkpoint 1.1 Q8 | **final** |
+| 2 | 2026-07-31 | 2025 | net of costs, corrected | PI, Checkpoint 1.1 Q8 | **superseded**, retained at `runs/pooled/ablation_holdout_v1.0_superseded.json` |
+| 3 | 2026-08-01 | 2025 | net of costs, corrected semantic ranking | PI, 2026-08-01, quoted in `CORRECTIONS.md` | **final** |
 
-**The holdout is permanently closed. No third evaluation is available to this project under any
-circumstance, including the discovery of a future defect.**
+**The holdout is permanently closed.**
+
+Evaluation 3 was authorised in advance to repair a verified implementation bug (`CORRECTIONS.md`),
+not in response to a disappointing number. **The previous version of this section stated that no
+third evaluation was available under any circumstance; that sentence was overtaken by the PI's
+ruling and is replaced here rather than quietly dropped.** No parameter, threshold, prompt or model
+was changed after any of the three.
 
 The holdout window was frozen in `config.yaml` **before any holdout data was fetched**, and set
 to a calendar boundary rather than to the latest available session, so that window length could
@@ -542,7 +569,8 @@ it is flagged as such.**
 4. **Two reporting imprecisions corrected during write-up.** The corpus maximum DSR probability
    was reported as `0.0000` in `reports/checkpoint_1.1_net_rerun.md` §3i; the true value is
    `4.37 × 10⁻⁸`. And the claim that all seven holdout configurations sat *inside* the random
-   band was wrong — two fall below it.
+   band was wrong — six fall below it. That correction was itself misstated as "two" when first
+   written up, and stood wrong through v1.0; see `CORRECTIONS.md`, "A second error".
 
 ---
 

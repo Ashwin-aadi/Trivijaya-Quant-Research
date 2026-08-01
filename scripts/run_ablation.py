@@ -50,14 +50,28 @@ FLAT_TOLERANCE = 1e-9
 def soundness(audit: dict[str, Any], layer: str, name: str) -> float:
     """How strongly ``layer`` believes ``name`` is sound. Higher is kept first.
 
-    Each layer reports confidence that something is *wrong*, so this is its negation. A candidate a
+    A layer's ``confidence`` is its confidence in **its own verdict**, not its confidence that
+    something is wrong. The sign therefore has to come from ``rejected``: a rejection contributes
+    negative soundness proportional to how sure the layer was, an acceptance positive. A candidate a
     layer never scored - it crashed, or the model errored - contributes 0.0: neither evidence for
-    nor against, which keeps an unscored candidate from being ranked top merely by absence.
+    nor against, which keeps an unscored candidate from being ranked top merely by absence, and
+    places it between a confident acceptance and a confident rejection.
+
+    **Corrected in benchmark v1.1.** The original returned ``-confidence`` unconditionally, on the
+    assumption that every layer's confidence meant "confidence something is wrong". That holds for
+    the static layer, whose confidence is a finding count, and vacuously for the statistical layer,
+    which rejects everything it scores at confidence 1.0 - for both, this function returns the same
+    values it always did, so their rankings are unchanged and provably so
+    (``tests/eval/test_soundness_sign.py``). It is false for the semantic layer, which records
+    confidence *in its label*: ~0.95 for a confident "consistent" and ~0.85 for a confident
+    rejection. Negating that ranked the rejections above the acceptances, i.e. exactly backwards.
+    See DECISIONS.md, 2026-08-01.
     """
     record = audit.get(layer, {}).get(name)
     if not record:
         return 0.0
-    return -float(record.get("confidence", 0.0))
+    confidence = float(record.get("confidence", 0.0))
+    return -confidence if record.get("rejected", True) else confidence
 
 
 def combined(audit: dict[str, Any], layers: tuple[str, ...], names: list[str]) -> dict[str, float]:

@@ -27,6 +27,24 @@ rather than assumed so that "results are comparable" is a real claim and not an 
 **Report every AUAP with its trial count `N` and its generator.** An AUAP without the trial count
 that produced its corpus is not interpretable.
 
+### The one exception, declared rather than buried
+
+The reference implementation below has been scored on the holdout **twice**: once at v1.0, and once
+at v1.1 after a sign error was found in the code that turned auditor confidence into a ranking. It
+is stated here, in the protocol section, because a benchmark whose own reference entry quietly broke
+rule 2 would not be worth much.
+
+The distinction that makes the rerun admissible is rule 3, not rule 2: **nothing was adjusted in
+response to a holdout number.** The bug was found while reusing the ranking for a different project
+entirely, it was diagnosed and its direction established on development data before the holdout was
+read again, the correction was authorised by the PI in advance, and no tuning of any kind followed
+the second evaluation. The v1.0 numbers are retained beside the v1.1 numbers rather than replaced.
+
+An entrant who finds an implementation bug in their own submission may do the same, and must
+disclose it the same way: what was wrong, what changed, what did not, and the before/after in full.
+An entrant who reruns because the first number disappointed them has violated rule 3, and no
+disclosure repairs that.
+
 ---
 
 ## Reference implementation: Qwen-7B
@@ -45,8 +63,9 @@ what auditing can achieve in general.
 | Trial count `N` | 1,887 |
 | Auditor layers | static (AST), semantic (local LLM), statistical (DSR + PBO) |
 | Performance basis | **net of Indian transaction costs**, Rs. 10,00,000 book, retail depository mode |
-| Best holdout AUAP | **-1.1441** (semantic alone) vs random 95% interval **[-1.2208, -0.8600]** |
-| Configurations beating random | **0 of 7** |
+| Best holdout AUAP | **-1.1967** (semantic alone) vs random 95% interval **[-1.2208, -0.8600]** |
+| Configurations beating random | **0 of 7** (6 of 7 fall *below* the interval) |
+| Benchmark version | **1.1** — see [`CORRECTIONS.md`](CORRECTIONS.md) |
 
 ### Two conditions that travel with this number permanently
 
@@ -69,6 +88,7 @@ generator producing genuinely dispersed strategy quality is exactly what would l
 | Path | What it is |
 |---|---|
 | `RESULTS.md` | **every number in the project, with its sample size** — start here |
+| `CORRECTIONS.md` | every post-freeze correction, with before/after and what was *not* rerun |
 | `survivors/` | 174 strategies cleared by the static and semantic layers — the P1 → P2 bridge set |
 | `../../tests/fixtures/leaky/` | deliberately-cheating strategies; positive controls for the auditor |
 | `../../tests/fixtures/clean/` | honest strategies; measure the false-positive rate |
