@@ -43,7 +43,7 @@ files = ["src", "tests"]
 exclude = ["^tests/fixtures/locked/"]
 # Third-party data libraries ship without stubs; don't fail the whole run on them.
 [[tool.mypy.overrides]]
-module = ["yfinance.*", "jugaad_data.*", "nsepython.*"]
+module = ["yfinance.*", "jugaad_data.*", "nsepython.*", "hmmlearn.*"]
 ignore_missing_imports = true
 
 # The locked evaluation corpus is exempt from type checking, for two reasons.

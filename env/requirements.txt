@@ -17,6 +17,15 @@ yfinance>=0.2.40       # cross-check source, .NS tickers
 jugaad-data>=0.26      # NSE bhavcopy archives + corporate actions
 nsepython>=2.9         # index membership / fallback lookups
 
+# --- Regime labelling (Phase 2.0) ---
+# Gaussian HMM. NOTE: only the *fitting* half of this library is used. `predict` (Viterbi over the
+# whole sequence) and `predict_proba` (smoothed posteriors) both decide the state at session t using
+# observations after t, which is exactly the leakage P2 is built to avoid. Labels come from a
+# forward-only recursion implemented in src/stress/regimes.py. See DECISIONS.md, Phase 2.0.
+hmmlearn>=0.3,<0.4
+scikit-learn>=1.4        # hmmlearn dependency; pinned here so it appears in the manifest
+scipy>=1.11              # triangular solve in the filtered decode; imported directly, so pinned
+
 # --- Dev tooling ---
 ruff>=0.6
 mypy>=1.10
