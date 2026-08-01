@@ -339,9 +339,18 @@ deflation uses 1,887; the discrepancy is deliberate.
 and the common-length matrix loses too many columns. It was **not** repaired by dropping them —
 that restriction was not part of the intended protocol.
 
-**Open weakness:** deflation may be saturated. The deflation term grows with N while sample
-length is fixed at 1,232 sessions. That 631/631 are rejected is consistent with an honest
-correction *and* with a saturated one, and this data cannot separate them.
+**RESULT, not caveat — the rejection rate is uninterpretable at this trial count.** At N=1,887
+over 1,232 sessions every evaluated strategy is rejected. **Whether this reflects appropriate
+statistical correction or saturation of the test cannot be determined from these data.** The
+deflation term grows with N while sample length is fixed, so at some ratio the test rejects
+everything regardless of merit.
+
+This bears on §9: a layer that rejects its entire input carries no ordering information beyond
+the continuous confidence underlying the binary verdict, and the two configurations containing it
+are the two that fall below the random band. The rejection rate and the ranking failure are
+plausibly the same fact observed twice. Separating them requires evaluating the layer across
+trial-count regimes, which this corpus cannot support because N is a property of the experiment
+rather than a free parameter.
 
 ### A_sem — semantic
 

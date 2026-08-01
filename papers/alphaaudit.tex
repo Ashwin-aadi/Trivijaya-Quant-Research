@@ -36,8 +36,7 @@
 \definecolor{mist}{HTML}{F2F6FB}   % the single tinted panel
 
 \hypersetup{linkcolor=steel, citecolor=steel, urlcolor=steel,
-            pdftitle={AlphaAudit: Abstention-Calibrated Agentic Strategy Research
-                      with Adversarial Self-Audit on Indian Equities},
+            pdftitle={AlphaAudit: A Benchmark for Auditing AI-Generated Trading Strategies},
             pdfauthor={Ashwin Jain}}
 
 \titleformat{\section}{\normalfont\large\bfseries\color{navy}}{\thesection}{0.6em}{}
@@ -51,8 +50,8 @@
 
 % =====================================================================================
 \title{\color{navy}\bfseries AlphaAudit:\\[0.3em]
-  \large Abstention-Calibrated Agentic Strategy Research with\\
-  Adversarial Self-Audit on Indian Equities}
+  \large A Benchmark for Auditing AI-Generated Trading Strategies,\\
+  with a Reference Implementation and Negative Result on Indian Equities}
 
 \author[ ]{Ashwin Jain}
 \affil[ ]{\small\itshape Department of Computer Science and Engineering\\
@@ -68,8 +67,12 @@
 \noindent
 A language model that writes trading strategies is a machine for manufacturing plausible
 backtests, and the two failure modes that make those backtests worthless---lookahead bias
-and multiple testing---are precisely the two a naive evaluation cannot see. We build the
-apparatus that measures them, and we run it end to end on Indian equities.
+and multiple testing---are precisely the two a naive evaluation cannot see. \textbf{We release
+AlphaAudit: a benchmark for measuring whether an auditor can tell, in advance and out of
+sample, which machine-generated strategies are worth acting on.} It comprises a
+survivorship-free Indian equity environment, a verified transaction-cost model, leaky and
+clean fixture suites, an audited 1,550-candidate corpus, a frozen one-shot evaluation
+protocol, and the reference implementation reported below.
 
 A local 7B model (\texttt{qwen2.5:7b-instruct-q4\_K\_M}, one fixed prompt, temperature
 0.8) generated $N=1{,}550$ candidate strategies over a survivorship-free, point-in-time
@@ -118,9 +121,10 @@ the conclusion did not. The null is confounded with corpus degeneracy and cannot
 it''}; both explanations survive the data, and that caveat travels with the number
 permanently.
 
-We release the leaky and clean fixture suites, the audited 1,550-candidate corpus, the
-Indian cost model, and a frozen one-shot benchmark protocol, so that the second claim can
-be contested with a stronger generator than ours.
+We report the reference implementation's failure as the benchmark's first entry rather than as
+a result to be improved upon. The environment, the protocol and the fixtures are independent of
+whether our particular auditor worked; a stronger generator, or a better auditor, can be scored
+against exactly the same apparatus and contest the second claim directly.
 \end{abstract}
 
 \vspace{0.5em}
@@ -167,8 +171,20 @@ between buy and sell legs, and include a per-scrip depository charge that does n
 with trade size. A cost model that treats them as a flat basis-point haircut is not a
 simplification; it is a different experiment.
 
+\paragraph{What this paper is primarily offering.} The auditor we build fails its own headline
+test. We nonetheless regard the paper's central artifact as the \emph{benchmark}, not the
+auditor, and we have written it that way. The reason is structural: an auditor is a method and
+methods are superseded, but the environment a method must be tested in---a survivorship-free
+universe, an honest cost model, a fixed holdout, known-leaky positive controls, and a protocol
+that prevents the test set from being optimised against---is infrastructure, and in this area it
+does not currently exist openly for any market, let alone for India. Our null is the benchmark's
+first entry. It is a low bar, and it is deliberately published as one.
+
 \subsection*{Contributions}
 \begin{enumerate}\setlength\itemsep{0.2em}
+\item \textbf{AlphaAudit, a frozen benchmark for strategy auditing}: environment, fixtures,
+  audited corpus, one-shot evaluation protocol, and the AUAP metric with its random-rejection
+  baseline (\S\ref{sec:release}).
 \item \textbf{A negative result about LLM strategy generation that is not about leakage.}
   Of 1,550 candidates, all 1,550 parsed and conformed to the engine interface; 631 executed
   against real data; 406 of those never traded. The auditor is not the binding
@@ -180,12 +196,11 @@ simplification; it is a different experiment.
 \item \textbf{An honest trial counter}, hash-chained and append-only, outside the
   generator's write path, and the demonstration that at $N=1{,}887$ nothing in the corpus
   survives deflation (\S\ref{sec:deflation}).
-\item \textbf{A pre-registered null.} The auditor does not beat random rejection at matched
-  coverage, in any of seven layer configurations, on a holdout evaluated under logged
-  authorisation and now permanently closed. We report it, and we report that it survived a
-  full correction of our own cost implementation (\S\ref{sec:negative}).
-\item \textbf{A frozen benchmark}: leaky and clean fixture suites, the audited corpus, and a
-  one-shot evaluation protocol (\S\ref{sec:release}).
+\item \textbf{A pre-registered null, published as the benchmark's reference entry.} The auditor
+  does not beat random rejection at matched coverage, in any of seven layer configurations, on a
+  holdout evaluated under logged authorisation and now permanently closed. We report it, and we
+  report that it survived a full correction of our own cost implementation
+  (\S\ref{sec:negative}).
 \end{enumerate}
 
 % =====================================================================================
@@ -635,11 +650,23 @@ Those two numbers should feel violently inconsistent, and the inconsistency is t
 apparent skill and statistical significance are different quantities, and the gap between
 them is exactly what a trial count of 1,887 buys.
 
-\textbf{We cannot rule out that the test is saturated.} The deflation term grows with $N$
-while sample length is fixed at 1,232 sessions; at some ratio the test rejects everything
-regardless of merit. That 631/631 are rejected is consistent with an honest correction
-\emph{and} with a saturated one, and this data alone cannot separate them. We state this as
-an open weakness rather than as a robustness claim.
+\paragraph{Result: the statistical layer's rejection rate is uninterpretable at this trial
+count.} We state this as a finding rather than a caveat, because it is an empirical observation
+about the instrument and not a hedge about the data.
+
+\keyfinding{\textbf{At $N = 1{,}887$ over 1,232 sessions, every evaluated strategy is rejected.
+Whether this reflects appropriate statistical correction or saturation of the test cannot be
+determined from these data.} The deflation term grows with $N$ while sample length is fixed, so
+at some ratio the test rejects everything regardless of merit. A 100\% rejection rate is
+consistent with an honest correction \emph{and} with a saturated one, and no measurement in this
+study separates them.}
+
+\noindent This bears directly on the ablation in \S\ref{sec:auap}. A layer that rejects its
+entire input carries no ordering information beyond the continuous confidence score underlying
+the binary verdict, and the two configurations containing it are the two that fall below the
+random band. The rejection rate and the ranking failure are plausibly the same fact observed
+twice. Establishing which requires evaluating the layer across trial-count regimes, which this
+corpus cannot support because $N$ is a property of the experiment rather than a free parameter.
 
 The Probability of Backtest Overfitting could not be computed on the pooled corpus: the
 eleven ruined strategies produce short series and the common-length matrix loses too many
@@ -777,8 +804,9 @@ would be self-refuting.
   point-in-time index membership could not be obtained. It is survivorship-free by
   construction, which was the binding requirement, but it is not the index and is never
   described as such.
-\item \textbf{Deflation may be saturated at $N = 1{,}887$} over 1,232 sessions
-  (\S\ref{sec:deflation}).
+\item \textbf{The statistical layer was evaluated at a single trial count.} Future work should
+  evaluate it across different trial-count regimes; the result at $N = 1{,}887$ is reported in
+  \S\ref{sec:deflation} rather than here, because it is an observation and not a caveat.
 \item \textbf{PBO is unavailable} on the pooled corpus, for the reason in
   \S\ref{sec:deflation}.
 \item \textbf{Flat candidates are excluded from the ranking population} rather than ranked
@@ -788,19 +816,50 @@ would be self-refuting.
 \end{enumerate}
 
 % =====================================================================================
-\section{Release}
+\section{The AlphaAudit benchmark}
 \label{sec:release}
 
-We release the fixture suites---three leaky strategies with documented cheats and thirty
-honest ones---the audited 1,550-candidate corpus with per-layer verdicts, the 174 survivors
-under the $A_{\mathrm{static}} \wedge A_{\mathrm{sem}}$ definition, the Indian transaction
-cost model with its verification test, and the evaluation harness.
+\begin{table}[h]\centering\small
+\caption{What is released. Each component is usable independently of the others and of whether
+our reference auditor worked.}
+\label{tab:benchmark}
+\begin{tabular}{ll}
+\toprule
+\textbf{Component} & \textbf{Contents} \\
+\midrule
+Environment & survivorship-free liquidity universe, 20 quarterly rebalances, \\
+            & 185 distinct constituents; point-in-time engine raising on stale signals \\
+Cost model & Indian statutory schedule, three epochs, verified to the paisa; \\
+           & participation slippage and square-root impact, coefficients exposed \\
+Positive controls & 3 leaky fixtures with documented cheats (Sharpe 12{,}098 / 2.33 / 1.23) \\
+Negative controls & 30 honest fixtures, for false-positive rate \\
+Corpus & 1,550 candidates, per-layer verdicts, outcomes, and return series \\
+Human labels & 50 hand-labelled rationale--code pairs ($\kappa$ reference standard) \\
+Metric & AUAP over the coverage grid, with a bootstrap random-rejection baseline \\
+Protocol & fixed shared holdout, one evaluation per submission \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-The benchmark protocol is deliberately restrictive: a fixed shared holdout, \textbf{one
-evaluation per submission}, no tuning on holdout results, and no revision of the benchmark in
-response to submissions. Independent one-shot evaluations do not contaminate a frozen test
-set; iterative optimisation against it does, and a benchmark that permits the latter measures
-nothing after its first few users.
+The protocol is deliberately restrictive: a fixed shared holdout, \textbf{one evaluation per
+submission}, no tuning on holdout results, and no revision of the benchmark in response to
+submissions. Independent one-shot evaluations do not contaminate a frozen test set; iterative
+optimisation against it does, and a benchmark that permits the latter measures nothing after its
+first few users. Every reported AUAP must carry its trial count $N$ and its generator, because
+an AUAP without the trial count that produced its corpus is not interpretable.
+
+\paragraph{What a submission must beat.} The reference entry is the seven-configuration table in
+\S\ref{sec:auap}: best AUAP $-1.1441$, against a random-rejection interval of $[-1.2208,
+-0.8600]$, on a corpus generated by \texttt{qwen2.5:7b-instruct-q4\_K\_M} at $N = 1{,}887$. This
+is a low bar. We publish it as one.
+
+\paragraph{The honest reason a benchmark is the right artifact here.} Our null is confounded
+with corpus degeneracy and we cannot resolve the confound (\S\ref{sec:negative}). A single group
+with a single 7B generator cannot. What can resolve it is a second entry using a stronger
+generator on the identical environment: if a capable generator produces a corpus on which some
+auditor beats random, the degeneracy explanation is settled and our null is correctly read as a
+statement about weak corpora. The benchmark exists because that is the experiment we cannot run
+alone.
 
 % =====================================================================================
 \section{Conclusion}
@@ -818,11 +877,16 @@ six and reduce the momentum premium on a liquid universe to the width of the noi
 honest trial count of 1,887 removes every trace of statistical significance from a corpus
 whose best member has a superficially respectable Sharpe of 1.28.
 
-The instrument works. It reported no signal because, on this evidence, there was none to
-report---and it reported the same thing after we corrected our own most serious
-implementation error, which is the closest thing to a control that a null result admits. We
-release the apparatus so that a stronger generator can be pointed at it, and so that our
-second claim can be contested by someone who disagrees with it.
+The infrastructure functions as designed, and it behaved consistently under repeated
+evaluation: it reported no signal because none was detectable in this corpus, and it reported
+the same thing after we corrected our own most serious implementation error. That invariance
+is the closest thing to a control a null result admits.
+
+What we are left holding is therefore not a method but a measuring apparatus, and that is what
+we release. A benchmark whose reference implementation fails its own headline test is an
+unusual object to publish, but it is the honest one: the protocol, the fixtures, the corpus and
+the cost model are all independent of whether our particular auditor worked, and they are what
+another group would otherwise have to rebuild before disagreeing with us.
 
 % =====================================================================================
 \small
