@@ -8,6 +8,17 @@ requires-python = ">=3.11"
 line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
+# Frozen research artifacts, exempt from linting because linting them would destroy them.
+#
+# These directories hold machine-generated strategy source exactly as the model emitted it. The
+# static auditor parsed these bytes, and every leak-class count in the paper describes them. Running
+# `ruff --fix` here would rewrite the very source the published numbers are a measurement of — the
+# result would no longer be reproducible from the artifact, and the artifact would no longer be
+# evidence of what the generator produced. They are data, not code we maintain.
+exclude = [
+    "benchmarks/alphaaudit/survivors/",
+    "tests/fixtures/locked/",
+]
 
 [tool.ruff.lint]
 # E/F: pyflakes+pycodestyle, I: isort, B: bugbear, UP: pyupgrade,

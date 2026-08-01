@@ -1,9 +1,8 @@
 % =====================================================================================
-% AlphaAudit — Abstention-Calibrated Agentic Strategy Research with Adversarial
-% Self-Audit on Indian Equities
+% AlphaAudit — A Benchmark for Auditing AI-Generated Trading Strategies,
+% with a Reference Implementation and Negative Result on Indian Equities
 %
-% STATUS: ABSTRACT ONLY. The body is deliberately not written. Per the PI's standing
-% instruction at the release of Phase 1.5, drafting halts here for review.
+% Build:  pdflatex alphaaudit.tex   (twice, for cross-references)
 %
 % Every number in this file is transcribed from a committed report under reports/ or a
 % committed artifact under runs/pooled/. Nothing was regenerated for the write-up, and
@@ -14,13 +13,19 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[margin=1in]{geometry}
+\usepackage[scaled=0.92]{helvet}          % sans face, for headings only
+\usepackage[margin=1.05in,top=1.15in,bottom=1.1in]{geometry}
 \usepackage{microtype}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{graphicx}
 \usepackage{xcolor}
+\usepackage[most]{tcolorbox}
 \usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage[font=small,labelfont={bf,color=navy},labelsep=period]{caption}
+\usepackage{fancyhdr}
 \usepackage{authblk}
 \usepackage{natbib}
 \usepackage[colorlinks=true]{hyperref}   % loaded last, as hyperref requires
@@ -30,37 +35,102 @@
 % before they could compile the paper that asks them to check our numbers.
 \providecommand{\rupee}{\textrm{Rs.}\,}
 
-% ---- Palette: white ground, two blues. Nothing else. -------------------------------
-\definecolor{navy}{HTML}{102A54}   % headings, rules, title
-\definecolor{steel}{HTML}{2C6BA8}  % links, secondary emphasis
-\definecolor{mist}{HTML}{F2F6FB}   % the single tinted panel
+% ---- Palette: white ground, blues, one warm accent for cautions ---------------------
+\definecolor{navy}{HTML}{0E2E5C}    % headings, rules, title
+\definecolor{steel}{HTML}{2C6BA8}   % links, secondary emphasis
+\definecolor{sky}{HTML}{5B93C7}     % light rules, table headers
+\definecolor{mist}{HTML}{F0F5FB}    % finding panels
+\definecolor{ash}{HTML}{F6F7F9}     % neutral panels
+\definecolor{ink}{HTML}{1A1A1A}     % body text
+\definecolor{rust}{HTML}{9C4221}    % the "we got this wrong" panels only
 
+\color{ink}
 \hypersetup{linkcolor=steel, citecolor=steel, urlcolor=steel,
             pdftitle={AlphaAudit: A Benchmark for Auditing AI-Generated Trading Strategies},
             pdfauthor={Ashwin Jain}}
 
-\titleformat{\section}{\normalfont\large\bfseries\color{navy}}{\thesection}{0.6em}{}
-\titleformat{\subsection}{\normalfont\normalsize\bfseries\color{navy}}{\thesubsection}{0.6em}{}
+% ---- Headings: sans, navy, with a hairline rule under each section ------------------
+\newcommand{\sectionrule}{{\color{sky}\rule{\linewidth}{0.5pt}}\vspace{-0.9em}}
+\titleformat{\section}[block]
+  {\sffamily\large\bfseries\color{navy}}
+  {\colorbox{navy}{\textcolor{white}{\sffamily\bfseries\ \thesection\ }}}{0.7em}{}
+  [\vspace{0.25em}\sectionrule]
+\titleformat{\subsection}[block]
+  {\sffamily\normalsize\bfseries\color{navy}}{\thesubsection}{0.6em}{}
+\titleformat{\paragraph}[runin]
+  {\sffamily\bfseries\color{navy}}{}{0em}{}[\;]
+\titlespacing*{\section}{0pt}{1.6em}{0.8em}
+\titlespacing*{\subsection}{0pt}{1.2em}{0.5em}
 
-% A quiet panel for the one paragraph that must not be skimmed past.
-\newcommand{\keyfinding}[1]{%
-  \begingroup\color{navy}%
-  \fcolorbox{steel}{mist}{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{#1}}%
-  \endgroup\par\medskip}
+% ---- Running head -------------------------------------------------------------------
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{{\color{sky}\hrule height 0.4pt}}
+\fancyhead[L]{\sffamily\scriptsize\color{navy}ALPHAAUDIT}
+\fancyhead[R]{\sffamily\scriptsize\color{navy}A benchmark for auditing AI-generated strategies}
+\fancyfoot[C]{\sffamily\scriptsize\color{navy}\thepage}
+\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+  \fancyfoot[C]{\sffamily\scriptsize\color{navy}\thepage}}
+
+% ---- Panels -------------------------------------------------------------------------
+% A finding the reader must not skim past.
+\newtcolorbox{finding}[1][]{
+  enhanced, breakable, colback=mist, colframe=steel, boxrule=0pt,
+  leftrule=2.5pt, arc=1pt, left=9pt, right=9pt, top=7pt, bottom=7pt,
+  coltext=navy, fonttitle=\sffamily\bfseries\small, #1}
+
+% A place where we report our own error. Deliberately a different colour from the findings,
+% so a reader flipping through can see at a glance that the paper contains both.
+\newtcolorbox{selfreport}[1][]{
+  enhanced, breakable, colback=ash, colframe=rust, boxrule=0pt,
+  leftrule=2.5pt, arc=1pt, left=9pt, right=9pt, top=7pt, bottom=7pt,
+  fonttitle=\sffamily\bfseries\small, #1}
+
+% Legacy one-argument form, kept so existing \keyfinding{...} calls still typeset.
+\newcommand{\keyfinding}[1]{\begin{finding}#1\end{finding}}
+
+% ---- Tables: sans headers, no vertical rules ----------------------------------------
+\newcommand{\thead}[1]{{\sffamily\bfseries\color{navy}#1}}
+\renewcommand{\arraystretch}{1.15}
+
+\setlist[itemize]{leftmargin=1.3em, itemsep=0.25em, topsep=0.4em}
+\setlist[enumerate]{leftmargin=1.6em, itemsep=0.35em, topsep=0.4em}
 
 % =====================================================================================
-\title{\color{navy}\bfseries AlphaAudit:\\[0.3em]
-  \large A Benchmark for Auditing AI-Generated Trading Strategies,\\
-  with a Reference Implementation and Negative Result on Indian Equities}
+\title{\vspace{-1.5em}{\color{navy}\sffamily\bfseries\Huge AlphaAudit}\\[0.55em]
+  {\color{navy}\sffamily\large A Benchmark for Auditing AI-Generated Trading Strategies}\\[0.3em]
+  {\color{steel}\sffamily\normalsize with a reference implementation and negative result
+   on Indian equities}\\[0.4em]
+  {\color{sky}\rule{0.34\linewidth}{1.2pt}}}
 
-\author[ ]{Ashwin Jain}
-\affil[ ]{\small\itshape Department of Computer Science and Engineering\\
+\author[ ]{\sffamily Ashwin Jain}
+\affil[ ]{\small\rmfamily Department of Computer Science and Engineering\\
   Motilal Nehru National Institute of Technology Allahabad, Prayagraj, India\\
   \texttt{ashwinaadi2007@gmail.com}}
-\date{\small 1 August 2026}
+\date{\sffamily\small 1 August 2026}
 
 \begin{document}
 \maketitle
+\thispagestyle{plain}
+
+\vspace{-1.2em}
+\begin{tcolorbox}[enhanced, colback=white, colframe=navy, boxrule=0.8pt, arc=2pt,
+  left=10pt, right=10pt, top=7pt, bottom=7pt,
+  title={\sffamily\bfseries The paper in eight numbers},
+  colbacktitle=navy, coltitle=white, fonttitle=\sffamily\bfseries\small]
+\small\raggedright\hyphenpenalty=10000\exhyphenpenalty=10000
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.105\linewidth}@{\hspace{0.6em}}>{\raggedright\arraybackslash}p{0.325\linewidth}@{\hspace{1.1em}}>{\raggedright\arraybackslash}p{0.105\linewidth}@{\hspace{0.6em}}>{\raggedright\arraybackslash}p{0.315\linewidth}@{}}
+{\sffamily\bfseries\color{navy}\large 1{,}550} & candidates generated by one local 7B model &
+{\sffamily\bfseries\color{navy}\large 15.6\%} & of profitable strategies reverse sign once
+  costs are charged \\[0.45em]
+{\sffamily\bfseries\color{navy}\large 40.7\%} & survive contact with real data &
+{\sffamily\bfseries\color{navy}\large 11} & are bankrupted outright by costs \\[0.45em]
+{\sffamily\bfseries\color{navy}\large 14.5\%} & both execute \emph{and} trade &
+{\sffamily\bfseries\color{navy}\large 0 / 631} & clear deflation at $N=1{,}887$ trials \\[0.45em]
+{\sffamily\bfseries\color{navy}\large 28 / 222} & leak flags land on code that actually trades &
+{\sffamily\bfseries\color{navy}\large 0 / 7} & auditor configurations beat random rejection \\
+\end{tabular}
+\end{tcolorbox}
 
 % -------------------------------------------------------------------------------------
 \begin{abstract}
@@ -74,20 +144,17 @@ survivorship-free Indian equity environment, a verified transaction-cost model, 
 clean fixture suites, an audited 1,550-candidate corpus, a frozen one-shot evaluation
 protocol, and the reference implementation reported below.
 
-A local 7B model (\texttt{qwen2.5:7b-instruct-q4\_K\_M}, one fixed prompt, temperature
-0.8) generated $N=1{,}550$ candidate strategies over a survivorship-free, point-in-time
-universe of the 100 most liquid NSE equities, rebuilt quarterly from exchange bhavcopy
-archives using only prior sessions (185 distinct constituents across 20 rebalances; 41 of
-the first cohort had left by the last). Each
-candidate was executed by a point-in-time backtester that raises rather than warns on a
-stale signal, and priced by a transaction-cost model built for the Indian statutory
-regime---STT, exchange and IPFT charges, SEBI turnover fee, stamp duty, GST, and a
-per-scrip depository charge---applied at the rates in force on each trade's own date,
-with volume-participation slippage and square-root impact. Three independently ablatable
-auditors judge each candidate: an AST-based leakage detector, a statistical layer
-computing the Deflated Sharpe Ratio against a hash-chained, append-only trial ledger the
-generator cannot write to, and a local-LLM semantic layer reading each stated rationale
-against its own implementation ($\kappa = 0.589$ against 50 human labels).
+\paragraph{Setup.} A local 7B model (\texttt{qwen2.5:7b-instruct-q4\_K\_M}, one fixed prompt,
+temperature 0.8) generated $N=1{,}550$ candidate strategies over a survivorship-free,
+point-in-time universe of the 100 most liquid NSE equities, rebuilt quarterly from exchange
+bhavcopy archives using only prior sessions. Each candidate was executed by a backtester that
+raises rather than warns on a stale signal, and priced by a cost model built for the Indian
+statutory regime---STT, exchange and IPFT charges, SEBI turnover fee, stamp duty, GST, and a
+per-scrip depository charge---applied at the rates in force on each trade's own date. Three
+independently ablatable auditors judge each candidate: an AST-based leakage detector, a
+statistical layer computing the Deflated Sharpe Ratio against a hash-chained trial ledger the
+generator cannot write to, and a local-LLM semantic layer reading each stated rationale against
+its own implementation ($\kappa = 0.589$ against 50 human labels).
 
 \keyfinding{\textbf{The dominant failure mode of an LLM strategy researcher is not that it
 cheats---it is that it does not run.} All 1,550 draws returned parseable,
@@ -95,41 +162,37 @@ interface-conforming code; 631 (40.7\%) survived contact with real data; 406 of 
 (64.3\%) never took a position. \textbf{14.5\% of the corpus produced a strategy that both
 executes and trades.} The auditor is rarely the binding constraint.}
 
-\noindent
-Net of costs, the best of 225 rankable strategies falls from a gross Sharpe of 1.3049 to
-1.2807---and it survives only because it barely trades. The median strategy loses 0.194 of
-Sharpe and 4.4\% of annual return; the mean loses 0.587 and 58.1\%, the gap between the two
-being a tail of candidates churning at over 80$\times$ annual turnover. \textbf{35 of 225
-(15.6\%) reverse the sign of their Sharpe once costs are charged, and 11 are bankrupted
-outright.} None reverse in the opposite direction, as none can. Two of eleven standard
-academic factors also flip from profitable to unprofitable, and momentum, at a net Sharpe
-of 0.966, no longer beats equal-weighting the same universe. Against an honest trial count
-of $N=1{,}887$, \textbf{zero of 631 evaluated candidates attain a deflated Sharpe
-probability above 0.95}; the corpus maximum is $4.4\times10^{-8}$.
+\paragraph{Costs.} Net of costs, the best of 225 rankable strategies falls from a gross Sharpe of
+1.3049 to 1.2807---and survives only because it barely trades. The median strategy loses 0.194 of
+Sharpe and 4.4\% of annual return; the mean loses 0.587 and 58.1\%, the gap being a tail churning
+above 80$\times$ annual turnover. \textbf{35 of 225 (15.6\%) reverse the sign of their Sharpe, and
+11 are bankrupted outright.} None reverse the other way, as none can. Two of eleven standard
+academic factors also flip, and momentum, at a net Sharpe of 0.966, no longer beats
+equal-weighting the same universe. At an honest trial count of $N=1{,}887$, \textbf{zero of 631
+candidates attain a deflated Sharpe probability above 0.95}; the corpus maximum is
+$4.4\times10^{-8}$.
 
-The abstention experiment returns a null. Sweeping coverage from 1.0 to 0.05 over all seven
-layer combinations and scoring on a holdout that was evaluated exactly twice under logged
-authorisation and is now permanently closed, \textbf{no configuration of the auditor beats
-random rejection at matched coverage} (holdout AUAP $-1.14$ to $-1.43$ against a random
-95\% interval of $[-1.22, -0.86]$; two configurations fall below it). The single
-configuration that beat random in sample was the one that provably cannot---its ranking
-signal is a monotone function of the quantity it was scored against---and out of sample it
-fails with the others. We report this null rather than tune past it, and note that it
-survived a subsequent correction of the entire cost implementation: the magnitudes moved,
-the conclusion did not. The null is confounded with corpus degeneracy and cannot separate
-\textit{``the auditor is uninformative''} from \textit{``this corpus is too weak to test
-it''}; both explanations survive the data, and that caveat travels with the number
-permanently.
+\paragraph{The null.} Sweeping coverage from 1.0 to 0.05 over all seven layer combinations, scored
+on a holdout evaluated exactly twice under logged authorisation and now permanently closed,
+\textbf{no configuration beats random rejection at matched coverage} (AUAP $-1.14$ to $-1.43$
+against a random 95\% interval of $[-1.22, -0.86]$; two fall below it). The one configuration that
+beat random in sample was the one that provably cannot---its ranking signal is a monotone function
+of the quantity it was scored against---and out of sample it fails with the rest. We report the
+null rather than tune past it, and note that it survived a subsequent correction of the entire
+cost implementation: \emph{the magnitudes moved, the conclusion did not}. It remains confounded
+with corpus degeneracy and cannot separate \textit{``the auditor is uninformative''} from
+\textit{``this corpus is too weak to test it''}.
 
-We report the reference implementation's failure as the benchmark's first entry rather than as
-a result to be improved upon. The environment, the protocol and the fixtures are independent of
-whether our particular auditor worked; a stronger generator, or a better auditor, can be scored
-against exactly the same apparatus and contest the second claim directly.
+\paragraph{Disposition.} We report the reference implementation's failure as the benchmark's first
+entry rather than as a result to be improved upon. The environment, protocol and fixtures are
+independent of whether our auditor worked; a stronger generator can be scored against exactly the
+same apparatus and contest the second claim directly.
 \end{abstract}
 
-\vspace{0.5em}
-\noindent{\small\color{navy}\textbf{Keywords:} backtest overfitting, deflated Sharpe ratio,
-lookahead bias, selective prediction, LLM agents, transaction costs, Indian equities.}
+\vspace{0.4em}
+\noindent{\small\sffamily\color{navy}\textbf{Keywords:} backtest overfitting \textbullet\
+deflated Sharpe ratio \textbullet\ lookahead bias \textbullet\ selective prediction \textbullet\
+LLM agents \textbullet\ transaction costs \textbullet\ Indian equities}
 
 % =====================================================================================
 \section{Introduction}
@@ -343,7 +406,7 @@ the first total is therefore the directly comparable figure.}
 \label{tab:cost}
 \begin{tabular}{lr}
 \toprule
-\textbf{Component} & \textbf{Amount (\rupee)} \\
+\textbf{Component} & \textbf{Amount (Rs.)} \\
 \midrule
 Securities Transaction Tax, both legs & 200.00 \\
 Exchange transaction charge + IPFT, both legs & 6.14 \\
@@ -417,13 +480,13 @@ generator's write path. Every draw increments it---including syntax errors, runt
 failures, and retries. Verification walks the chain and raises on any broken link, naming
 the edited entry. Nothing under \texttt{src/generate/} opens the file.
 
-\begin{quote}\small\color{navy}
-One deliberate imperfection: the ledger holds 1,877 entries but the true draw count is
-1,887, because an early run recorded one entry per candidate rather than one per draw. We
-did \textbf{not} retroactively edit the chain to insert the missing ten. An append-only
-ledger that gets rewritten when found wrong is not tamper-evident. The correction is applied
-at the point of use, and the discrepancy is deliberate.
-\end{quote}
+\begin{selfreport}[title={One deliberate imperfection in the ledger}]
+The ledger holds 1,877 entries but the true draw count is 1,887, because an early run recorded
+one entry per candidate rather than one per draw. We did \textbf{not} retroactively edit the
+chain to insert the missing ten. An append-only ledger that gets rewritten when found wrong is
+not tamper-evident. The correction is applied at the point of use, and the discrepancy is
+deliberate.
+\end{selfreport}
 
 \subsection{$A_{\mathrm{sem}}$: does the story match the code?}
 
@@ -813,15 +876,17 @@ that reports only what worked is the artifact this paper is about.
   pre-specified ablation table and nowhere else in our argument.
 \end{enumerate}
 
-\paragraph{A process failure we are obliged to report.} During the cost re-run, six
-candidates were silently reclassified as runtime errors by a type-inference defect: summing
-over an empty book returns integer zero, which caused a column to be inferred as integer and
-raise on the first genuine float. The exit code was zero. Among the six was the candidate
-holding the highest holdout Sharpe in the previous evaluation. It was caught only by
-comparing funnel counts against the retired gross run---a check imposed by review, not by the
-code. \textbf{Without that comparison this paper would have been wrong and would have looked
-fine.} We report it because a paper about detecting silent failure that concealed its own
-would be self-refuting.
+\begin{selfreport}[title={A process failure we are obliged to report}]
+During the cost re-run, six candidates were silently reclassified as runtime errors by a
+type-inference defect: summing over an empty book returns integer zero, which caused a column to
+be inferred as integer and raise on the first genuine float. \textbf{The exit code was zero.}
+Among the six was the candidate holding the highest holdout Sharpe in the previous evaluation.
+
+It was caught only by comparing funnel counts against the retired gross run---a check imposed by
+review, not by the code. \textbf{Without that comparison this paper would have been wrong and
+would have looked fine.} We report it because a paper about detecting silent failure that
+concealed its own would be self-refuting.
+\end{selfreport}
 
 % =====================================================================================
 \section{Limitations}
