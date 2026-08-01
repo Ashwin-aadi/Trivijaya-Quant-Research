@@ -429,8 +429,10 @@ at the point of use, and the discrepancy is deliberate.
 
 The semantic layer presents \texttt{qwen2.5:7b-instruct-q4\_K\_M} with a candidate's stated
 rationale and its implementation, and asks for one of four labels: \texttt{consistent},
-\texttt{rationale\_implementation\_mismatch}, \texttt{unfalsifiable\_mechanism}, or
-\texttt{unacknowledged\_known\_anomaly}. Validation is against 50 human-labelled items,
+\texttt{rationale\_\allowbreak implementation\_\allowbreak mismatch},
+\texttt{unfalsifiable\_\allowbreak mechanism}, or
+\texttt{unacknowledged\_\allowbreak known\_\allowbreak anomaly}. Validation is against 50
+human-labelled items,
 labelled before the model was run.
 
 \textbf{Cohen's $\kappa = 0.589$} \citep{cohen1960}, raw agreement 38/50, at the top of the
@@ -535,9 +537,16 @@ candidates never reach.}}
 
 Static analysis needs no execution, so it ran over all 1,550 sources: 222 rejected (14.3\%),
 of which 195 carried one class, 26 two, and one three. By class:
-\texttt{snooped\_parameter} 166, \texttt{future\_indexing} 58, \texttt{target\_in\_features}
-23, \texttt{boundary\_crossing\_window} 2, \texttt{survivorship\_selection} 1, and
-\texttt{full\_sample\_statistic} \textbf{0}.
+
+\begin{center}\small
+\begin{tabular}{lr@{\hspace{2.5em}}lr}
+\toprule
+\texttt{snooped\_parameter} & 166 & \texttt{boundary\_crossing\_window} & 2 \\
+\texttt{future\_indexing} & 58 & \texttt{survivorship\_selection} & 1 \\
+\texttt{target\_in\_features} & 23 & \texttt{full\_sample\_statistic} & \textbf{0} \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 \textbf{We do not believe the zero.} Full-sample statistics are the most common leak class in
 hand-written quantitative code, and a corpus of 1,550 candidates containing none of it is not
