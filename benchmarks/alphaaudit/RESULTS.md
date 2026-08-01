@@ -314,6 +314,30 @@ fixtures that motivated them — closer to training accuracy than to a test.
 222 of 1,550 rejected (14.3%); 195 carried one class, 26 two, 1 three. Of the 225 rankable
 candidates, 26 (11.6%) were static-rejected.
 
+### Where the leak flags land — added 2026-08-01
+
+| Fate of the 222 static-rejected candidates | Count | Share |
+|---|---|---|
+| Runtime error — never ran | 114 | 51.4% |
+| Evaluated but flat — ran, never traded | 79 | 35.6% |
+| Timeout | 1 | 0.5% |
+| **Evaluated and traded** | **28** | **12.6%** |
+
+**Only 28 leak findings in the corpus attach to a strategy that took a position.**
+
+Worked example, `candidate_053` — flagged `future_indexing` at confidence 1.0 for a `shift(-1)`
+filtered onto a past session date. The verdict is correct. The block is also **unreachable**: the
+preceding guard requires 21 rows from `view.closes(lookback=20)`, which returns at most 20, so it
+is false on every session. Had it executed it would have raised twice — invalid `date(days=1)`
+construction, and `adj_close` absent from the pivoted wide frame.
+
+**A leakage prevalence rate over generated source is not a deployment risk rate.** "14.3% of
+candidates leak" and "28 of 1,550 leak *and* trade" are both true; only the second is
+decision-relevant.
+
+*Provenance: this measurement did not exist until the PI's Checkpoint 1.5 Q5 answer prompted the
+question. It is not a repackaging of an earlier number.*
+
 **The zero is not credible and is reported as an instrument blind spot.** The prompt advises
 plain Python over polars expression chains to raise the executable rate, and expression chains
 are where this class arises. The distribution describes *this prompt*, not LLM-generated

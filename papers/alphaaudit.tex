@@ -557,6 +557,41 @@ The class distribution above therefore describes \emph{this prompt}, not LLM-gen
 strategies in general, and the zero should be read as evidence that the instrument is blind
 here---not as evidence the defect is absent.
 
+\paragraph{Most leak flags land on code that never produced a result.} Static analysis is a
+statement about source, not about realised PnL, and the two are correctly independent: a leak is
+a leak whether or not the strategy went on to trade. But the \emph{distribution} of where flags
+land is itself a measurement, and on this corpus it is stark.
+
+\begin{center}\small
+\begin{tabular}{lrr}
+\toprule
+\textbf{Fate of the 222 static-rejected candidates} & \textbf{Count} & \textbf{Share} \\
+\midrule
+Runtime error --- never ran & 114 & 51.4\% \\
+Evaluated but flat --- ran, never traded & 79 & 35.6\% \\
+Timeout & 1 & 0.5\% \\
+\textbf{Evaluated and traded} & \textbf{28} & \textbf{12.6\%} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent \textbf{Only 28 leak findings in the entire corpus attach to a strategy that took a
+position.} A worked example makes the mechanism concrete. Candidate 053 is flagged
+\texttt{future\_indexing} at confidence 1.0 for a \texttt{shift(-1)} whose result is then filtered
+onto a past session date---textbook future indexing, and correctly caught. But the block is
+unreachable: the guard preceding it requires 21 rows from a view that returns at most 20, so it is
+false on every session and the function exits before the leak executes. Had it been reached it
+would have raised twice over, on an invalid \texttt{date} construction and on a column absent from
+the pivoted frame.
+
+The verdict and the flat return series are compatible, not contradictory. What the pairing shows
+is that \textbf{a leakage prevalence rate measured over generated source is not a deployment risk
+rate}. Reported as ``14.3\% of candidates leak'', the static layer sounds like it is intercepting
+a substantial hazard; reported as ``28 of 1,550 candidates leak \emph{and} trade'', the same
+measurement says the hazard is rare because the population is inert. Both numbers are true. Only
+the second is decision-relevant, and we are not aware of prior work that separates them.
+
+\medskip
 The semantic layer labelled 90.1\% of the corpus \texttt{consistent}, rejecting 154 (9.9\%):
 119 rationale--implementation mismatches, 21 unacknowledged known anomalies, 14 unfalsifiable
 mechanisms. It is not a detector that fires indiscriminately. Whether the 154 are the
