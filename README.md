@@ -12,6 +12,9 @@ artifacts, applied to a market where it does not currently exist openly.
 A negative result is a successful outcome here. *"The signal did not survive"* is the honest
 majority case, and the repository is built to report it rather than to avoid it.
 
+Three projects run in sequence. [`PROJECTS.md`](PROJECTS.md) maps which paths belong to which,
+and which are shared infrastructure that all three reuse.
+
 ---
 
 ## Project 1 — AlphaAudit: complete
@@ -50,7 +53,19 @@ permanently closed.
    moved, the conclusion did not. It remains confounded with corpus degeneracy, and that caveat
    travels with it permanently.
 
-Projects 2 (RegimeStress) and 3 (FlowState) are not yet started.
+## Project 2 — RegimeStress: released, not started
+
+> **When does a surviving strategy break?**
+> [`benchmarks/regimestress/README.md`](benchmarks/regimestress/README.md)
+
+Released at Checkpoint 1.5. Its input set is P1's 174 survivors **plus** an eleven-strategy
+standard academic factor panel — a PI override of the original handoff, on the grounds that
+stressing only strategies already indistinguishable from noise would measure the robustness of
+noise. Phase 2.0 halts on an unresolved regime-label leakage question before any code is written.
+
+## Project 3 — FlowState: not started
+
+Not released. Blocked until the PI releases P2 at Checkpoint 2.3.
 
 ---
 
