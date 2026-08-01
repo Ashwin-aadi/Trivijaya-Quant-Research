@@ -671,9 +671,25 @@ static + statistical         & $-1.4339$ & $-3.2931$ & no --- \emph{below the in
 \end{tabular}
 \end{table}
 
-\textbf{No configuration beats random rejection at matched coverage} (Table~\ref{tab:ablation}).
-Five sit inside the random interval; two sit below it, meaning they order strategies
-\emph{worse} than chance. The null is not rejected.
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/abstention_holdout.png}
+\caption{The abstention--performance curve, holdout, $n=225$. An informative auditor produces
+curves that \emph{rise} to the left: the more selective the system, the better what it keeps.
+Five of seven configurations fall instead, and the two containing the statistical layer fall
+steeply---at 5\% coverage they select an average holdout Sharpe near $-3$ against a population
+mean of $-1.04$. The grey band is random rejection at matched coverage, and it widens to the
+left because 5\% of 225 is eleven strategies.}
+\label{fig:auap}
+\end{figure}
+
+\textbf{No configuration beats random rejection at matched coverage}
+(Table~\ref{tab:ablation}, Figure~\ref{fig:auap}). Five sit inside the random interval; two sit
+below it, meaning they order strategies \emph{worse} than chance. The null is not rejected.
+
+Figure~\ref{fig:auap} makes a point the table cannot. The curves do not merely fail to rise as
+coverage tightens---most of them \emph{fall}. Concentrating on the candidates the auditor trusts
+most selects a worse portfolio than taking everything. Whatever the layers are ranking on, it is
+not out-of-sample performance, and at high confidence it is mildly anti-correlated with it.
 
 One diagnostic is worth the space. On development data, the \texttt{statistical} layer alone
 was the only configuration to beat random---and it provably cannot be evidence, because its
