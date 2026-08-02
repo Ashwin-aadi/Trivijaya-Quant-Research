@@ -222,6 +222,7 @@ def build_engine(
     max_gross_exposure: float = 1.0,
     artifact_register: pl.DataFrame | None = None,
     daily_gain: float = DAILY_GAIN,
+    record_positions: bool = False,
 ) -> BacktestEngine:
     """An engine wired to the synthetic panel, with the full symbol set live from session zero."""
     panel = make_panel(sessions, daily_gain=daily_gain)
@@ -233,6 +234,7 @@ def build_engine(
         universe,
         max_gross_exposure=max_gross_exposure,
         artifact_register=artifact_register,
+        record_positions=record_positions,
     )
 
 
@@ -571,3 +573,60 @@ def test_result_frame_has_one_row_per_recorded_session() -> None:
         "gross_return",
     ]
     assert frame["session_date"].to_list() == sessions[1:]
+
+
+# --- position recording (Phase 2.2 instrumentation) -----------------------------
+
+
+def test_positions_are_not_recorded_unless_asked() -> None:
+    """The default must stay exactly as Phase 1.2 was approved: no positions, no extra memory."""
+    sessions = make_sessions()
+    result = build_engine(sessions).run(EqualWeightHold(), sessions[0], sessions[-1])
+    assert result.positions == []
+
+
+def test_recording_positions_changes_no_number_the_engine_reports() -> None:
+    """Instrumentation must be inert. If turning it on moves the equity curve, it is not
+    instrumentation — it is a change to the model, and Phase 1.2's approval would no longer cover
+    the results. Asserted with ``==`` on the whole series rather than a tolerance.
+    """
+    sessions = make_sessions()
+    plain = build_engine(sessions).run(EqualWeightHold(), sessions[0], sessions[-1])
+    instrumented = build_engine(sessions, record_positions=True).run(
+        EqualWeightHold(), sessions[0], sessions[-1]
+    )
+
+    assert instrumented.dates == plain.dates
+    assert instrumented.equity == plain.equity
+    assert instrumented.returns == plain.returns
+    assert instrumented.gross_returns == plain.gross_returns
+    assert instrumented.turnover == plain.turnover
+    assert instrumented.costs == plain.costs
+    assert instrumented.gross_exposure == plain.gross_exposure
+
+
+def test_a_recorded_book_matches_the_exposure_reported_for_the_same_session() -> None:
+    """The recorded weights are the ones the engine actually traded, not a parallel bookkeeping.
+
+    Checked against ``gross_exposure``, which is computed from the same target inside the loop: if
+    the recorded book were the previous session's, or a copy taken at the wrong point, the two
+    would disagree on the first session the book changes.
+    """
+    sessions = make_sessions()
+    result = build_engine(sessions, record_positions=True).run(
+        EqualWeightHold(), sessions[0], sessions[-1]
+    )
+
+    assert len(result.positions) == len(result.dates)
+    for book, exposure in zip(result.positions, result.gross_exposure, strict=True):
+        assert sum(abs(weight) for weight in book.values()) == pytest.approx(exposure, rel=1e-12)
+
+
+def test_a_cash_only_book_is_recorded_as_empty_rather_than_omitted() -> None:
+    """Holding nothing is a position. Skipping the append would misalign every later session."""
+    sessions = make_sessions()
+    result = build_engine(sessions, record_positions=True).run(
+        CashOnly(), sessions[0], sessions[-1]
+    )
+    assert len(result.positions) == len(result.dates)
+    assert all(book == {} for book in result.positions)

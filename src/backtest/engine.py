@@ -50,6 +50,11 @@ class BacktestResult:
     # Sessions where a held name sat inside a known-artifacts window. Not an error: a marker so an
     # apparent edge that depends on flagged data can be recognised instead of trusted.
     flagged_sessions: list[date] = field(default_factory=list)
+    # Target book per session, symbol -> fraction of equity. Empty unless the engine was built with
+    # ``record_positions=True``: Phase 2.2 needs holding period and concentration, which cannot be
+    # recovered from returns, but a corpus-wide run holds one dict per session per strategy in
+    # memory and nothing before Phase 2.2 needed them. Opt-in keeps every earlier run untouched.
+    positions: list[dict[str, float]] = field(default_factory=list)
 
     def to_frame(self) -> pl.DataFrame:
         return pl.DataFrame(
@@ -77,6 +82,7 @@ class BacktestEngine:
         max_gross_exposure: float = 1.0,
         artifact_register: pl.DataFrame | None = None,
         cost_model: CostModel | None = None,
+        record_positions: bool = False,
     ) -> None:
         # Restrict to symbols that ever enter the universe, once, before indexing.
         #
@@ -97,6 +103,9 @@ class BacktestEngine:
         self._max_gross = max_gross_exposure
         self._register = artifact_register
         self._costs = cost_model
+        # Pure instrumentation: it appends to the result and is read by nothing inside the loop, so
+        # a run with it on produces the same equity curve as a run with it off.
+        self._record_positions = record_positions
 
         # Opens, closes and traded values are pulled into dicts once. Per-session dataframe
         # filtering inside the loop dominated runtime and bought nothing in clarity.
@@ -224,6 +233,10 @@ class BacktestEngine:
             net_return = period_return - cost
             equity *= 1.0 + net_return
             holdings = target
+
+            if self._record_positions:
+                # A copy: `target` is reassigned to `holdings` above and would otherwise alias.
+                result.positions.append(dict(target))
 
             result.dates.append(fill_session)
             result.equity.append(equity)
