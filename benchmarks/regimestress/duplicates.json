@@ -1,0 +1,210 @@
+{
+  "clusters": [
+    [
+      "candidate_036",
+      "candidate_348",
+      "candidate_468"
+    ],
+    [
+      "candidate_063",
+      "candidate_519"
+    ],
+    [
+      "candidate_084",
+      "candidate_1266",
+      "candidate_204",
+      "candidate_996"
+    ],
+    [
+      "candidate_1287",
+      "candidate_231",
+      "candidate_399"
+    ],
+    [
+      "candidate_1383",
+      "candidate_718"
+    ],
+    [
+      "candidate_1407",
+      "candidate_807"
+    ],
+    [
+      "candidate_1443",
+      "candidate_915",
+      "candidate_955"
+    ],
+    [
+      "candidate_1467",
+      "candidate_639"
+    ],
+    [
+      "candidate_344",
+      "equal_weight_universe"
+    ],
+    [
+      "candidate_459",
+      "candidate_483"
+    ],
+    [
+      "candidate_507",
+      "candidate_939"
+    ]
+  ],
+  "exact_tolerance": 1e-12,
+  "n_clusters": 11,
+  "n_compared": 150,
+  "n_near_duplicate_pairs_not_merged": 20,
+  "n_removed": 16,
+  "n_strategies_in_clusters": 27,
+  "n_uncompared_short_series": 6,
+  "near_correlation_threshold": 0.9999,
+  "near_duplicate_pairs_not_merged": [
+    {
+      "a": "candidate_159",
+      "b": "candidate_344",
+      "correlation": 0.9999900782290965,
+      "max_abs_difference": 0.001503425614523695
+    },
+    {
+      "a": "candidate_159",
+      "b": "equal_weight_universe",
+      "correlation": 0.9999900782290965,
+      "max_abs_difference": 0.001503425614523695
+    },
+    {
+      "a": "candidate_1023",
+      "b": "candidate_159",
+      "correlation": 0.9999899506333922,
+      "max_abs_difference": 0.00154434399910539
+    },
+    {
+      "a": "candidate_1023",
+      "b": "candidate_344",
+      "correlation": 0.9999893825999745,
+      "max_abs_difference": 0.0015443439991053875
+    },
+    {
+      "a": "candidate_1023",
+      "b": "equal_weight_universe",
+      "correlation": 0.9999893825999745,
+      "max_abs_difference": 0.0015443439991053875
+    },
+    {
+      "a": "candidate_344",
+      "b": "candidate_777",
+      "correlation": 0.999982414723912,
+      "max_abs_difference": 0.0011665864802239611
+    },
+    {
+      "a": "candidate_777",
+      "b": "equal_weight_universe",
+      "correlation": 0.999982414723912,
+      "max_abs_difference": 0.0011665864802239611
+    },
+    {
+      "a": "candidate_159",
+      "b": "candidate_777",
+      "correlation": 0.9999723193831933,
+      "max_abs_difference": 0.001503425614523629
+    },
+    {
+      "a": "candidate_1023",
+      "b": "candidate_777",
+      "correlation": 0.9999716612688655,
+      "max_abs_difference": 0.0015443439991053838
+    },
+    {
+      "a": "candidate_777",
+      "b": "candidate_955",
+      "correlation": 0.9999523544091743,
+      "max_abs_difference": 0.0018646104846617821
+    },
+    {
+      "a": "candidate_1443",
+      "b": "candidate_777",
+      "correlation": 0.9999523544091741,
+      "max_abs_difference": 0.001864610484661789
+    },
+    {
+      "a": "candidate_777",
+      "b": "candidate_915",
+      "correlation": 0.9999523544091741,
+      "max_abs_difference": 0.001864610484661789
+    },
+    {
+      "a": "candidate_1443",
+      "b": "candidate_159",
+      "correlation": 0.9999359249452179,
+      "max_abs_difference": 0.00186461048466173
+    },
+    {
+      "a": "candidate_159",
+      "b": "candidate_915",
+      "correlation": 0.9999359249452179,
+      "max_abs_difference": 0.00186461048466173
+    },
+    {
+      "a": "candidate_159",
+      "b": "candidate_955",
+      "correlation": 0.9999359249452178,
+      "max_abs_difference": 0.0018646104846617231
+    },
+    {
+      "a": "candidate_1023",
+      "b": "candidate_955",
+      "correlation": 0.9999358251040195,
+      "max_abs_difference": 0.0018646104846617266
+    },
+    {
+      "a": "candidate_1023",
+      "b": "candidate_1443",
+      "correlation": 0.9999358251040193,
+      "max_abs_difference": 0.0018646104846617335
+    },
+    {
+      "a": "candidate_1023",
+      "b": "candidate_915",
+      "correlation": 0.9999358251040193,
+      "max_abs_difference": 0.0018646104846617335
+    },
+    {
+      "a": "candidate_1407",
+      "b": "candidate_987",
+      "correlation": 0.9999201306049086,
+      "max_abs_difference": 0.004337706153406326
+    },
+    {
+      "a": "candidate_807",
+      "b": "candidate_987",
+      "correlation": 0.9999201306049086,
+      "max_abs_difference": 0.004337706153406326
+    }
+  ],
+  "purpose": "Strategies whose realised net return series are identical to within 1e-12 on every session. Within each cluster the alphabetically first name is retained and the rest are removed before feature importances and cross-validation, so a duplicate cannot sit in a training fold while its twin is scored in the test fold.",
+  "removed": [
+    "candidate_1266",
+    "candidate_204",
+    "candidate_231",
+    "candidate_348",
+    "candidate_399",
+    "candidate_468",
+    "candidate_483",
+    "candidate_519",
+    "candidate_639",
+    "candidate_718",
+    "candidate_807",
+    "candidate_915",
+    "candidate_939",
+    "candidate_955",
+    "candidate_996",
+    "equal_weight_universe"
+  ],
+  "uncompared_short_series": [
+    "candidate_1150",
+    "candidate_1349",
+    "candidate_1486",
+    "candidate_361",
+    "candidate_869",
+    "random_walk_baseline"
+  ]
+}

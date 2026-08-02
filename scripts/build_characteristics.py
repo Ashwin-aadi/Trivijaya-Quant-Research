@@ -7,9 +7,14 @@ strategy in ``data/processed/characteristics.parquet``.
 Nothing here touches a synthetic path or the fragility target, so no feature can leak the quantity
 the predictor is asked to estimate.
 
-Factor exposures are univariate betas against the standard-factor strategy return series — the only
-Indian factor proxies this repository has. Two exclusions apply, both for reasons that would
-otherwise corrupt the feature rather than merely weaken it:
+Factor exposures are **joint** betas — one multiple regression per strategy against all usable
+factor proxies at once, per the PI ruling of 2026-08-02. Univariate betas are computed alongside
+and stored with a ``uni_`` prefix as a reported sensitivity, so the effect of the specification
+choice is a measured quantity rather than an argument. The design's condition number is written
+to the run manifest and to ``data/processed/factor_design.json``.
+
+Two exclusions apply, both for reasons that would otherwise corrupt the feature rather than merely
+weaken it:
 
 * a knife-edge factor is not used as a regressor, because its own return series is not a stable
   function of its inputs, so a beta against it would inherit that instability;
@@ -38,7 +43,9 @@ from src.common.manifest import RunManifest  # noqa: E402
 from src.stress.characteristics import (  # noqa: E402
     book_autocorrelation,
     concentration,
+    design_diagnostics,
     holding_period,
+    joint_betas,
     turnover_profile,
     univariate_betas,
 )
@@ -47,6 +54,7 @@ _log = get_logger(__name__)
 
 POSITIONS = Path("data/interim/positions")
 KNIFE_EDGE = Path("benchmarks/regimestress/knife_edge.json")
+DUPLICATES = Path("benchmarks/regimestress/duplicates.json")
 
 
 def _books(name: str, sessions: list[object]) -> list[dict[str, float]]:
@@ -86,6 +94,7 @@ def main() -> int:
         r["name"] for r in
         json.loads(KNIFE_EDGE.read_text(encoding="utf-8"))["knife_edge"]
     }
+    duplicate = set(json.loads(DUPLICATES.read_text(encoding="utf-8"))["removed"])
     factors = _factor_series(returns, knife)
     factor_dates = returns.filter(
         pl.col("name") == next(iter(factors))
@@ -103,6 +112,7 @@ def main() -> int:
             books = _books(name, sessions)
 
             record: dict[str, object] = {"name": name, "knife_edge": name in knife,
+                                         "duplicate": name in duplicate,
                                          "n_sessions": len(sessions)}
             record.update(concentration(books))
             record.update(holding_period(books))
@@ -117,12 +127,31 @@ def main() -> int:
             shared = min(len(sessions), len(factor_dates))
             own_returns = own["net_return"].to_numpy()[:shared]
             aligned = {f: series[:shared] for f, series in factors.items()}
-            betas = univariate_betas(own_returns, aligned)
+            betas = joint_betas(own_returns, aligned)
+            univariate = {
+                f"uni_{key}": value
+                for key, value in univariate_betas(own_returns, aligned).items()
+            }
             if name in factors:
-                betas[f"beta_{name}"] = float("nan")   # a beta of exactly 1.0 against itself
+                # A strategy regressed on itself returns a coefficient of exactly 1.0 and zeros
+                # elsewhere. That is an identifier for one row, not a characteristic.
+                betas = {key: float("nan") for key in betas}
+                univariate[f"uni_beta_{name}"] = float("nan")
             record.update(betas)
+            record.update(univariate)
             record["n_beta_sessions"] = shared
             rows.append(record)
+
+        design = design_diagnostics(factors)
+        (processed / "factor_design.json").write_text(
+            json.dumps(design, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        _log.info(
+            "factor design: %d regressors, condition number %.1f, max pairwise |corr| %.3f",
+            int(design["n_factors"]), design["condition_number"],
+            design["max_abs_pairwise_correlation"],
+        )
+        run.note("factor_condition_number", design["condition_number"])
 
         table = pl.DataFrame(rows).sort("name")
         out = processed / "characteristics.parquet"
@@ -132,7 +161,8 @@ def main() -> int:
 
     feature_columns = [c for c in table.columns if c not in {"name", "knife_edge"}]
     _log.info("%d strategies x %d features -> %s", table.height, len(feature_columns), out)
-    _log.info("  knife-edge flagged: %d", int(table["knife_edge"].sum()))
+    _log.info("  knife-edge flagged: %d   duplicate flagged: %d",
+              int(table["knife_edge"].sum()), int(table["duplicate"].sum()))
     for column in ("mean_holding_period", "effective_holdings", "mean_turnover",
                    "book_similarity_21d"):
         values = table[column].drop_nulls().drop_nans().to_numpy()

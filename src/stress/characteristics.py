@@ -167,17 +167,75 @@ def turnover_profile(turnover: Sequence[float]) -> dict[str, float]:
     }
 
 
+def joint_betas(
+    returns: np.ndarray, factors: dict[str, np.ndarray]
+) -> dict[str, float]:
+    """One multiple regression of the strategy on all factors at once, with an intercept.
+
+    This is the primary specification, per the PI ruling of 2026-08-02. A joint fit gives the
+    *marginal* exposure to each factor holding the others fixed, which is what "factor exposure"
+    means in the literature; univariate betas answer a different and weaker question, since a
+    strategy with no independent momentum exposure will still show a large univariate momentum beta
+    if momentum correlates with something it does hold.
+
+    Solved by least squares on the design matrix rather than by normal equations: ``lstsq`` uses an
+    SVD and returns a minimum-norm solution when the design is rank-deficient, instead of failing or
+    — worse — returning enormous offsetting coefficients from an ill-conditioned inverse. The
+    condition number is reported by :func:`design_diagnostics` so the reader can see how much to
+    trust the individual coefficients, and ``r_squared`` records how much of the strategy the factor
+    set explains in total, which is stable even where the split between factors is not.
+    """
+    names = sorted(factors)
+    columns = [factors[name] for name in names]
+    ok = np.isfinite(returns)
+    for column in columns:
+        ok &= np.isfinite(column)
+    if int(ok.sum()) <= len(names) + 1:
+        return {f"beta_{name}": float("nan") for name in names} | {"factor_r_squared": float("nan")}
+
+    design = np.column_stack([np.ones(int(ok.sum()))] + [column[ok] for column in columns])
+    target = returns[ok]
+    coefficients, *_ = np.linalg.lstsq(design, target, rcond=None)
+    residual = target - design @ coefficients
+    total = float(np.square(target - target.mean()).sum())
+    out = {f"beta_{name}": float(coefficients[position + 1]) for position, name in enumerate(names)}
+    out["factor_r_squared"] = (
+        1.0 - float(np.square(residual).sum()) / total if total > 0 else float("nan")
+    )
+    return out
+
+
+def design_diagnostics(factors: dict[str, np.ndarray]) -> dict[str, float]:
+    """How ill-conditioned the joint regression's design is, reported rather than assumed.
+
+    The condition number is the ratio of largest to smallest singular value of the standardised
+    factor matrix. Above roughly 30 the individual coefficients are unstable even though the fitted
+    values are not — which is exactly the caveat a joint specification needs to carry.
+    """
+    names = sorted(factors)
+    matrix = np.column_stack([factors[name] for name in names])
+    finite = matrix[np.isfinite(matrix).all(axis=1)]
+    standardised = (finite - finite.mean(axis=0)) / finite.std(axis=0, ddof=1)
+    singular = np.linalg.svd(standardised, compute_uv=False)
+    correlation = np.corrcoef(standardised, rowvar=False)
+    off_diagonal = correlation[~np.eye(len(names), dtype=bool)]
+    return {
+        "n_factors": float(len(names)),
+        "condition_number": float(singular.max() / singular.min()),
+        "max_abs_pairwise_correlation": float(np.abs(off_diagonal).max()),
+        "mean_abs_pairwise_correlation": float(np.abs(off_diagonal).mean()),
+    }
+
+
 def univariate_betas(
     returns: np.ndarray, factors: dict[str, np.ndarray]
 ) -> dict[str, float]:
     """One simple regression per factor: ``beta_f = Cov(r, f) / Var(f)``.
 
-    Univariate rather than a joint fit. The factor proxies here are themselves strategy return
-    series and are strongly collinear — momentum and relative strength trade nearly the same book —
-    so a joint OLS distributes the same exposure differently on tiny changes in the sample and its
-    coefficients would be measuring the collinearity, not the strategy. Univariate betas are stable
-    and individually interpretable at the cost of not being additive. This is a modelling choice,
-    not a result, and it is raised for the PI at Checkpoint 2.2.
+    Retained as a reported sensitivity, not as the primary specification. It is stable under
+    collinearity — each coefficient depends on one factor only — at the cost of answering a weaker
+    question: a strategy with no independent exposure to a factor still shows a large univariate
+    beta to it whenever that factor correlates with something the strategy does hold.
     """
     out: dict[str, float] = {}
     for name, series in sorted(factors.items()):

@@ -12,7 +12,11 @@ Two targets are scored, both reported:
 * ``fragility_across_regimes`` — the charter's definition, computed on the realised series.
 
 Knife-edge strategies are excluded from training per the same ruling and scored separately, so
-their exclusion is visible as a number rather than as an absence.
+their exclusion is visible as a number rather than as an absence. **Exact duplicates are also
+excluded**, per the PI ruling of 2026-08-02: the corpus contains 11 clusters of strategies with
+identical realised return series, and leaving them in lets a row sit in a training fold while its
+twin is scored in the test fold. On the primary target that leakage was worth **+0.238 of R^2**
+(+0.262 with duplicates against +0.024 without, identical features and folds).
 
 Two variants of each target are run because fragility is a heavy-tailed ratio and a log transform is
 a real modelling fork, not a detail: the raw target and ``log1p`` of it. Both are reported. Neither
@@ -58,13 +62,14 @@ DROP_TOP = (1, 2, 5, 10)
 #: Columns that are bookkeeping rather than characteristics. The ``_n`` columns are the sample sizes
 #: behind the similarity features and are near-duplicates of ``n_sessions``; they stay in the table
 #: for reporting but are not offered to the model as evidence.
-NOT_FEATURES = {"name", "knife_edge"}
+NOT_FEATURES = {"name", "knife_edge", "duplicate", "n_beta_sessions"}
 
 
 def _feature_columns(table: pl.DataFrame) -> list[str]:
     return [
         c for c in table.columns
-        if c not in NOT_FEATURES and not c.endswith("_n") and table[c].dtype.is_numeric()
+        if c not in NOT_FEATURES and not c.endswith("_n")
+        and not c.startswith("uni_") and table[c].dtype.is_numeric()
     ]
 
 
@@ -109,18 +114,19 @@ def main() -> int:
     joined = features_table.join(
         _targets(processed).drop("knife_edge"), on="name", how="inner"
     ).sort("name")
-    training = joined.filter(~pl.col("knife_edge"))
-    held_out = joined.filter(pl.col("knife_edge"))
+    training = joined.filter(~pl.col("knife_edge") & ~pl.col("duplicate"))
+    held_out = joined.filter(pl.col("knife_edge") | pl.col("duplicate"))
     columns = _feature_columns(training.drop(list(TARGETS) + ["mean_is_near_zero"]))
     _log.info(
-        "%d strategies (%d knife-edge excluded), %d features",
+        "%d strategies (%d excluded as knife-edge or duplicate), %d features",
         training.height, held_out.height, len(columns),
     )
 
     matrix = training.select(columns).to_numpy().astype(float)
     report: dict[str, object] = {
         "n_training": training.height,
-        "n_knife_edge_excluded": held_out.height,
+        "n_excluded_knife_edge": int(joined["knife_edge"].sum()),
+        "n_excluded_duplicate": int((joined["duplicate"] & ~joined["knife_edge"]).sum()),
         "n_features": len(columns),
         "features": columns,
         "seed": SEED,
