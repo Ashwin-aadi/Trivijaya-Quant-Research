@@ -1,0 +1,234 @@
+{
+  "criterion": "Deterministic by the excluded_nondeterministic.json test (stable across a replicate at fixed PYTHONHASHSEED and across two hash seeds), yet net Sharpe differs by more than 1e-9 between the real panel and its identity reconstruction.",
+  "frozen_on": "2026-08-02",
+  "knife_edge": [
+    {
+      "abs_sharpe_swing": 2.5143418408524987,
+      "is_standard_factor": false,
+      "name": "candidate_361",
+      "sharpe_identity_panel": -3.1384443330904346,
+      "sharpe_real_panel": -0.6241024922379361
+    },
+    {
+      "abs_sharpe_swing": 1.228253794809503,
+      "is_standard_factor": false,
+      "name": "candidate_1150",
+      "sharpe_identity_panel": -1.4374833876009132,
+      "sharpe_real_panel": -2.665737182410416
+    },
+    {
+      "abs_sharpe_swing": 0.8732338498667724,
+      "is_standard_factor": false,
+      "name": "candidate_869",
+      "sharpe_identity_panel": -0.7865890122628363,
+      "sharpe_real_panel": -1.6598228621296087
+    },
+    {
+      "abs_sharpe_swing": 0.7375180067689717,
+      "is_standard_factor": false,
+      "name": "candidate_1349",
+      "sharpe_identity_panel": -2.2664648833537684,
+      "sharpe_real_panel": -3.00398289012274
+    },
+    {
+      "abs_sharpe_swing": 0.2118774298287276,
+      "is_standard_factor": false,
+      "name": "candidate_1416",
+      "sharpe_identity_panel": -3.2502844870495458,
+      "sharpe_real_panel": -3.4621619168782733
+    },
+    {
+      "abs_sharpe_swing": 0.03789343093193365,
+      "is_standard_factor": false,
+      "name": "candidate_1259",
+      "sharpe_identity_panel": -3.495398571533759,
+      "sharpe_real_panel": -3.533292002465693
+    },
+    {
+      "abs_sharpe_swing": 0.0276688844925283,
+      "is_standard_factor": true,
+      "name": "dual_momentum_21_126",
+      "sharpe_identity_panel": -0.4949780095231008,
+      "sharpe_real_panel": -0.4673091250305725
+    },
+    {
+      "abs_sharpe_swing": 0.027409734974742684,
+      "is_standard_factor": false,
+      "name": "candidate_458",
+      "sharpe_identity_panel": -0.026697253738368672,
+      "sharpe_real_panel": -0.054106988713111356
+    },
+    {
+      "abs_sharpe_swing": 0.02319029087771529,
+      "is_standard_factor": false,
+      "name": "candidate_1212",
+      "sharpe_identity_panel": -2.2650912110232024,
+      "sharpe_real_panel": -2.2882815019009177
+    },
+    {
+      "abs_sharpe_swing": 0.01887029672038132,
+      "is_standard_factor": false,
+      "name": "candidate_860",
+      "sharpe_identity_panel": -2.1057866274333534,
+      "sharpe_real_panel": -2.086916330712972
+    },
+    {
+      "abs_sharpe_swing": 0.016223876266632242,
+      "is_standard_factor": false,
+      "name": "candidate_281",
+      "sharpe_identity_panel": -2.01468019895171,
+      "sharpe_real_panel": -2.0309040752183423
+    },
+    {
+      "abs_sharpe_swing": 0.012432510834415308,
+      "is_standard_factor": false,
+      "name": "candidate_895",
+      "sharpe_identity_panel": 0.10719342498758862,
+      "sharpe_real_panel": 0.09476091415317331
+    },
+    {
+      "abs_sharpe_swing": 0.01147835545649975,
+      "is_standard_factor": false,
+      "name": "candidate_187",
+      "sharpe_identity_panel": 0.002952445863134364,
+      "sharpe_real_panel": 0.014430801319634114
+    },
+    {
+      "abs_sharpe_swing": 0.00995244618233082,
+      "is_standard_factor": false,
+      "name": "candidate_1277",
+      "sharpe_identity_panel": -3.1976555309845147,
+      "sharpe_real_panel": -3.2076079771668455
+    },
+    {
+      "abs_sharpe_swing": 0.009933563320279393,
+      "is_standard_factor": false,
+      "name": "candidate_799",
+      "sharpe_identity_panel": 0.162242882908667,
+      "sharpe_real_panel": 0.15230931958838761
+    },
+    {
+      "abs_sharpe_swing": 0.008804800332306906,
+      "is_standard_factor": false,
+      "name": "candidate_1258",
+      "sharpe_identity_panel": -0.4441878293319822,
+      "sharpe_real_panel": -0.4353830289996753
+    },
+    {
+      "abs_sharpe_swing": 0.008764564966831756,
+      "is_standard_factor": false,
+      "name": "candidate_754",
+      "sharpe_identity_panel": -3.2068899113730067,
+      "sharpe_real_panel": -3.2156544763398385
+    },
+    {
+      "abs_sharpe_swing": 0.008466461282582882,
+      "is_standard_factor": false,
+      "name": "candidate_929",
+      "sharpe_identity_panel": -1.5146399878547587,
+      "sharpe_real_panel": -1.5231064491373416
+    },
+    {
+      "abs_sharpe_swing": 0.008013965180849958,
+      "is_standard_factor": false,
+      "name": "candidate_1522",
+      "sharpe_identity_panel": -2.8237459459917753,
+      "sharpe_real_panel": -2.8157319808109254
+    },
+    {
+      "abs_sharpe_swing": 0.00781802497728279,
+      "is_standard_factor": false,
+      "name": "candidate_330",
+      "sharpe_identity_panel": -2.788403671145876,
+      "sharpe_real_panel": -2.7962216961231587
+    },
+    {
+      "abs_sharpe_swing": 0.007598916123535471,
+      "is_standard_factor": false,
+      "name": "candidate_1195",
+      "sharpe_identity_panel": -0.5692772501138621,
+      "sharpe_real_panel": -0.5768761662373976
+    },
+    {
+      "abs_sharpe_swing": 0.007500214209525957,
+      "is_standard_factor": false,
+      "name": "candidate_248",
+      "sharpe_identity_panel": -0.882765586459379,
+      "sharpe_real_panel": -0.8902658006689049
+    },
+    {
+      "abs_sharpe_swing": 0.003671985799673344,
+      "is_standard_factor": false,
+      "name": "candidate_485",
+      "sharpe_identity_panel": -0.15089014228264705,
+      "sharpe_real_panel": -0.1545621280823204
+    },
+    {
+      "abs_sharpe_swing": 0.0034961051299497448,
+      "is_standard_factor": false,
+      "name": "candidate_763",
+      "sharpe_identity_panel": -0.27299174056371106,
+      "sharpe_real_panel": -0.2764878456936608
+    },
+    {
+      "abs_sharpe_swing": 0.002437499863988446,
+      "is_standard_factor": false,
+      "name": "candidate_1504",
+      "sharpe_identity_panel": -2.114868864196134,
+      "sharpe_real_panel": -2.1124313643321457
+    },
+    {
+      "abs_sharpe_swing": 0.002193017863475255,
+      "is_standard_factor": false,
+      "name": "candidate_1426",
+      "sharpe_identity_panel": -1.2912679167699739,
+      "sharpe_real_panel": -1.2890748989064986
+    },
+    {
+      "abs_sharpe_swing": 0.0015914325851356104,
+      "is_standard_factor": false,
+      "name": "candidate_1373",
+      "sharpe_identity_panel": -3.9595625805013586,
+      "sharpe_real_panel": -3.961154013086494
+    },
+    {
+      "abs_sharpe_swing": 0.0015643437434262886,
+      "is_standard_factor": false,
+      "name": "candidate_953",
+      "sharpe_identity_panel": -1.5610774416973583,
+      "sharpe_real_panel": -1.5626417854407846
+    },
+    {
+      "abs_sharpe_swing": 0.0009995391165418255,
+      "is_standard_factor": false,
+      "name": "candidate_1495",
+      "sharpe_identity_panel": 1.0015903113666305,
+      "sharpe_real_panel": 1.0005907722500886
+    },
+    {
+      "abs_sharpe_swing": 0.0005895054351981455,
+      "is_standard_factor": false,
+      "name": "candidate_1207",
+      "sharpe_identity_panel": 0.14001131485841448,
+      "sharpe_real_panel": 0.14060082029361262
+    },
+    {
+      "abs_sharpe_swing": 1.9874741779779548e-05,
+      "is_standard_factor": false,
+      "name": "candidate_1138",
+      "sharpe_identity_panel": -0.6140641648608699,
+      "sharpe_real_panel": -0.6140442901190901
+    }
+  ],
+  "largest_swing": 2.5143418408524987,
+  "measured_by": "scripts/calibrate_tier1.py, groups A and C",
+  "measured_on": "2026-08-02",
+  "n_knife_edge": 31,
+  "n_nondeterministic_separately_excluded": 27,
+  "n_standard_factors_affected": 1,
+  "purpose": "Strategies excluded from RegimeStress fragility and from the Phase 2.2 predictor training set because their Sharpe is not stable under a 9e-15 relative change in their inputs. Reported separately per PI ruling of 2026-08-02, not discarded.",
+  "smallest_swing": 1.9874741779779548e-05,
+  "standard_factors_affected": [
+    "dual_momentum_21_126"
+  ]
+}
