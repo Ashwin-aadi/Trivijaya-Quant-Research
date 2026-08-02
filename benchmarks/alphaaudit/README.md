@@ -65,9 +65,10 @@ what auditing can achieve in general.
 | Performance basis | **net of Indian transaction costs**, Rs. 10,00,000 book, retail depository mode |
 | Best holdout AUAP | **-1.1967** (semantic alone) vs random 95% interval **[-1.2208, -0.8600]** |
 | Configurations beating random | **0 of 7** (6 of 7 fall *below* the interval) |
-| Benchmark version | **1.1** — see [`CORRECTIONS.md`](CORRECTIONS.md) |
+| Deterministic survivors | **147 of 174** — 27 return a different Sharpe on a repeat run |
+| Benchmark version | **1.2** — see [`CORRECTIONS.md`](CORRECTIONS.md) |
 
-### Two conditions that travel with this number permanently
+### Three conditions that travel with this number permanently
 
 **1. AUAP is generator-dependent.** It is computed over a ranked corpus, and that corpus came from
 one specific weak generator. It is not a generator-independent property of the auditor, and it must
@@ -80,6 +81,15 @@ corpus is too weak to test the auditor."** Both explanations survive the data.
 That confound is the motivation for other entrants rather than a defect in the benchmark. A stronger
 generator producing genuinely dispersed strategy quality is exactly what would let AUAP discriminate
 — which is the case for running this harness against better models.
+
+**3. 27 of the 174 survivors are not deterministic functions of their inputs.** Run them again and
+the Sharpe changes — by up to 2.5352. Two mechanisms: unseeded randomness (26 of the 27) and `set`
+iteration order, which Python randomises per process (`candidate_002` line 42 keeps an arbitrary ten
+symbols). `PYTHONHASHSEED` was unset when the corpus was backtested, a charter RULE 6 failure
+recorded in `CORRECTIONS.md` v1.2. Survivor membership and the headline null are unaffected — the
+auditors read code, and noise cannot manufacture an ordering — but the AUAP figures are computed
+from these Sharpes and their trailing digits are not exact. **An entrant submitting to this
+benchmark should pin `PYTHONHASHSEED` and verify its strategies are repeatable before submitting.**
 
 ---
 

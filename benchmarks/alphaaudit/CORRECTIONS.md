@@ -8,7 +8,121 @@ superseded artifacts are retained beside their replacements under `runs/pooled/`
 | Version | Date | Nature |
 |---|---|---|
 | 1.0 | 2026-08-01 | First freeze. |
-| **1.1** | **2026-08-01** | **Implementation bug in the abstention ranking. Semantic-inclusive configurations rerun.** |
+| 1.1 | 2026-08-01 | Implementation bug in the abstention ranking. Semantic-inclusive configurations rerun. |
+| **1.2** | **2026-08-02** | **Disclosure only, nothing rerun. 27 of the 174 survivors are not deterministic functions of their inputs.** |
+
+---
+
+## v1.2 — 27 survivors are not deterministic functions of their inputs
+
+**Nothing was rerun and no number in this benchmark changed.** This entry exists because a
+property of the corpus was discovered after the freeze which a reader is entitled to know, and
+which the benchmark's own reproducibility claim does not survive without it.
+
+### What was found
+
+Run one of these strategies twice, on the same panel, with the same code, and it returns a
+different Sharpe ratio. Measured across the whole 185-strategy population — the 174 survivors plus
+the 11 standard factors — by `scripts/calibrate_tier1.py`, which writes
+`data/processed/tier1_calibration.json`. That artifact is **not** committed: `/data/` is gitignored
+repository-wide, so the file is regenerable rather than tracked, and the command that regenerates it
+is given at the end of this section.
+
+| Population | Deterministic | Not |
+|---|---|---|
+| Survivors | **147 of 174** | 27 |
+| Standard factors | **11 of 11** | 0 |
+| Total | **158 of 185** | 27 |
+
+Every affected strategy is generator output. The hand-written fixtures are all clean, which is
+itself informative: this is a property of what the model wrote, not of the engine or the harness.
+
+### The two mechanisms, both confirmed in source
+
+**Unseeded randomness — 26 of the 27.** These differ between two runs that are identical in every
+respect including the hash seed. `candidate_1011` returned Sharpe −3.4386, −4.2835 and −1.6182 on
+three consecutive runs *inside a single process*.
+
+**Hash-order dependence — 27 of the 27**, overlapping heavily with the above, since anything with
+an unseeded RNG also moves when re-run. The clearest instance is `candidate_002` line 42:
+
+```python
+volatility_factors = list(set(volatility_factors))[:10]
+```
+
+It selects an arbitrary ten of the qualifying symbols. Python randomises `set` iteration order per
+process, so the strategy holds a different portfolio on every run. Its Sharpe was observed at
+0.7652, 0.4566 and 0.6825 under `PYTHONHASHSEED` 0, 1 and 2.
+
+The largest swing observed between two seeds is `candidate_1011` at **|Δ| = 2.5352**, followed by
+`candidate_219` at 1.2663.
+
+### Why the harness did not prevent it
+
+`PYTHONHASHSEED` is set **nowhere in this repository**, so the corpus backtests ran with hash
+randomisation active and a different seed in every worker process. `src/common/seeding.py` seeds
+Python's `random` and NumPy, but neither reaches a strategy that constructs its own RNG, and
+neither can affect hash order — that must be fixed before the interpreter starts. Charter RULE 6
+requires that no stochastic operation be unseeded; for these 27 strategies that requirement was
+not met, and the failure was in the harness's coverage rather than in any single script.
+
+### What this does and does not invalidate
+
+**Affected.** The recorded net Sharpe of each of the 27 is **one draw from a distribution, not a
+fixed quantity**. Because the abstention curves are computed from those Sharpes, the AUAP figures
+in `RESULTS.md` §9 carry that noise too, and their trailing digits should not be read as exact.
+
+**Not affected.**
+
+* **Survivor membership.** A survivor is a candidate no auditor layer rejected, and the auditors
+  read source code, not performance. The single performance touch in `scripts/tag_survivors.py` is
+  a flatness gate at `FLAT_TOLERANCE = 1e-9`; the smallest absolute Sharpe among the 27 is
+  **0.0111**, seven orders of magnitude clear of it. No membership decision is close.
+* **The headline conclusion.** The finding is that no auditor configuration beats random rejection.
+  Additional noise in the performance figures makes an ordering *harder* to detect, not easier; it
+  cannot manufacture the result "the auditor works". The null stands.
+* Leak-class rates, the funnel, Cohen's κ, the deflation figures and the cost model. None reads a
+  strategy's realised performance.
+
+### Why nothing was rerun
+
+The holdout is permanently closed (§10 of `RESULTS.md`) and the PI declined to reopen it. A rerun
+is therefore unavailable, and it is also unwarranted: the conclusion does not turn on the affected
+quantities, and re-running under a pinned seed would replace one arbitrary draw with another
+arbitrary draw rather than with a correct value. **The defect is in the strategies, not in the
+measurement of them.** Pinning the seed would make the benchmark reproducible without making those
+27 strategies well-defined.
+
+### The consequence for anything downstream
+
+Fragility, the quantity Project 2 measures, is a variance across counterfactual histories. A
+strategy whose score already varies for no reason contributes variance that is arithmetically
+indistinguishable from the regime response being measured. **These 27 are therefore excluded from
+Project 2's population** (PI decision, 2026-08-02), which is recorded here rather than only in P2
+because it changes what the survivor set means downstream.
+
+That exclusion is **not performance-neutral, and must never be reported as though it were**:
+
+| Group | n | Mean net Sharpe |
+|---|---|---|
+| Excluded (nondeterministic) | 27 | **−0.6722** |
+| Retained (deterministic) | 147 | **−0.1320** |
+| All survivors | 174 | −0.2158 |
+
+Dropping them raises the population's mean Sharpe by 0.08 and its median to +0.4612. The exclusion
+rule is mechanistic — a strategy must be a deterministic function of its inputs — and was not
+chosen on performance, but it correlates with performance, plausibly because arbitrary symbol
+selection produces near-random portfolios with high turnover and therefore heavy cost drag. Any
+downstream figure computed on the 147 must be accompanied by this table.
+
+### How to check this yourself
+
+```bash
+python scripts/calibrate_tier1.py --workers 24     # ~17 minutes, 740 backtests
+```
+
+Group 0 is the decisive one: the same panel, the same hash seed, two independent runs. Anything
+that moves there is nondeterministic and no argument about floating point can explain it.
 
 ---
 

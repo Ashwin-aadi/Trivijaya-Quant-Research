@@ -1,10 +1,12 @@
 # AlphaAudit — RESULTS
 
-**Benchmark version 1.1**, 2026-08-01. Version 1.0 contained a sign error in the abstention
+**Benchmark version 1.2**, 2026-08-02. Version 1.0 contained a sign error in the abstention
 ranking that inverted the semantic layer's contribution; the four semantic-inclusive configurations
 in §9 were rerun with the PI's explicit authorisation and are the numbers shown here. Everything
 else — corpus, audit labels, backtests, holdout contents, and the three non-semantic
-configurations, which are bit-identical — is unchanged from v1.0. Full before/after in
+configurations, which are bit-identical — is unchanged from v1.0. Version 1.2 changed no number at
+all: it discloses that **27 of the 174 survivors are not deterministic functions of their inputs**,
+so their recorded Sharpe is one draw rather than a fixed quantity (§11.1). Full detail for both in
 [`CORRECTIONS.md`](CORRECTIONS.md). **The conclusions are unchanged: the null is not rejected.**
 
 **Reference implementation, frozen 2026-08-01.** Every number below is transcribed from a
@@ -546,6 +548,45 @@ rejects the entire corpus. Reproduce with `--layers static semantic statistical`
 **This is the one place where a definition was chosen because it produces a non-empty answer, and
 it is flagged as such.**
 
+### 11.1 Determinism of the survivor set — added 2026-08-02
+
+Run one of these strategies twice on the same panel with the same code and 27 of them return a
+different Sharpe. Measured by `scripts/calibrate_tier1.py`, n = 185 (174 survivors + 11 standard
+factors). Unlike every other number in this document these are **regenerated, not transcribed from
+a committed artifact**: the run writes `data/processed/tier1_calibration.json`, and `/data/` is
+gitignored, so the command below is the record rather than the file.
+
+| Population | Deterministic | Not | Sample size |
+|---|---|---|---|
+| Survivors | **147** | 27 | 174 |
+| Standard factors | **11** | 0 | 11 |
+| Total | **158** | 27 | 185 |
+
+Two mechanisms, both confirmed in source. **Unseeded randomness** in 26 of the 27 — `candidate_1011`
+returned −3.4386, −4.2835 and −1.6182 on three consecutive runs in one process. **Hash-order
+dependence** in 27 of 27, e.g. `candidate_002` line 42, `list(set(volatility_factors))[:10]`, which
+selects an arbitrary ten symbols; its Sharpe was 0.7652 / 0.4566 / 0.6825 under `PYTHONHASHSEED`
+0 / 1 / 2. Largest swing between seeds: `candidate_1011`, |Δ| = **2.5352**.
+
+`PYTHONHASHSEED` is set nowhere in this repository, so the corpus was backtested with hash
+randomisation active. **This is a charter RULE 6 failure in the harness's coverage**, and it is
+recorded as one.
+
+**What it does not touch.** Survivor membership: the auditors read code, and the only performance
+gate is `FLAT_TOLERANCE = 1e-9` against a smallest absolute Sharpe of 0.0111 among the 27. The
+headline null: extra noise makes an ordering harder to detect, never easier. **What it does touch:**
+the §9 AUAP figures are computed from these Sharpes and carry the noise, so their trailing digits
+are not exact.
+
+These 27 are excluded from Project 2, whose fragility metric is a variance and cannot separate a
+strategy's own noise from its regime response. **That exclusion is not performance-neutral** —
+excluded mean −0.6722, retained mean −0.1320, all 174 −0.2158 — and no figure computed on the 147
+may be quoted without it. See [`CORRECTIONS.md`](CORRECTIONS.md) v1.2.
+
+```bash
+python scripts/calibrate_tier1.py --workers 24     # ~17 min, 740 backtests, prints the table above
+```
+
 ---
 
 ## 12. Process failures, reported
@@ -571,6 +612,13 @@ it is flagged as such.**
    `4.37 × 10⁻⁸`. And the claim that all seven holdout configurations sat *inside* the random
    band was wrong — six fall below it. That correction was itself misstated as "two" when first
    written up, and stood wrong through v1.0; see `CORRECTIONS.md`, "A second error".
+
+5. **The harness never pinned `PYTHONHASHSEED`, and nothing checked that a backtest was
+   repeatable.** Every layer had tests; no test ran the same strategy twice and compared. The gap
+   went unnoticed through the whole of Phase 1 and was found only when Project 2 needed a variance
+   to mean something. Charter RULE 6 forbids unseeded randomness, and the harness had no way to
+   detect a violation of it — the check that would have caught this is one line, and it was the
+   absence of that check, not any individual script, that failed. See §11.1.
 
 ---
 

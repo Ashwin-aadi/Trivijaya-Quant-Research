@@ -953,6 +953,21 @@ that reports only what worked is the artifact this paper is about.
   is $-1.1347$, slightly \emph{below} the population mean. \textbf{The suggestive signal is gone
   and nothing replaced it.} We report the episode rather than the corrected number alone, because
   the useful part is that a caveat stated in the right direction still understated the problem.
+\item \textbf{27 of the 174 surviving strategies are not deterministic functions of their
+  inputs.} Run one again, on the same panel with the same code, and its Sharpe changes---by up to
+  $2.5352$. Two mechanisms, both confirmed in source: unseeded randomness in 26 of the 27, and
+  \texttt{set} iteration order, which Python randomises per process, in 27 of 27. The clearest
+  instance keeps an arbitrary ten of its qualifying symbols via
+  \texttt{list(set(\ldots))[:10]}, giving Sharpe $0.7652$, $0.4566$ and $0.6825$ under three hash
+  seeds. All 27 are generator output; all eleven hand-written factor fixtures are deterministic,
+  which locates the defect in what the model wrote rather than in the harness that ran it.
+  Survivor membership is unaffected---the auditors read source, and the only performance gate is a
+  flatness threshold seven orders of magnitude away---and the null is unaffected, because noise
+  makes an ordering harder to detect and cannot manufacture one. The $\mathrm{AUAP}$ figures are
+  computed from these Sharpe ratios and carry the noise, so their trailing digits are not exact.
+  \textbf{We report this as a property of LLM-generated strategies that the literature does not
+  discuss: a generated strategy may not define a portfolio as a function of data at all}, and no
+  auditor layer we built detects it, because it is invisible in a single execution.
 \end{enumerate}
 
 \begin{selfreport}[title={A process failure we are obliged to report}]
@@ -965,6 +980,20 @@ It was caught only by comparing funnel counts against the retired gross run---a 
 review, not by the code. \textbf{Without that comparison this paper would have been wrong and
 would have looked fine.} We report it because a paper about detecting silent failure that
 concealed its own would be self-refuting.
+\end{selfreport}
+
+\begin{selfreport}[title={A second one, found after the benchmark was frozen}]
+\texttt{PYTHONHASHSEED} is set nowhere in our repository, so the entire corpus was backtested with
+hash randomisation active and a different seed in every worker process. Our seeding module seeds
+Python's \texttt{random} and NumPy; neither reaches a strategy that constructs its own generator,
+and neither can affect hash order, which must be fixed before the interpreter starts. Every auditor
+layer had tests. \textbf{No test ran the same strategy twice and compared the results.}
+
+The gap survived all of Phase~1 and was found only when the follow-on project needed a variance
+across resampled histories to mean something---at which point a strategy whose score already varies
+for no reason becomes arithmetically indistinguishable from the quantity being measured. The check
+that would have caught it is one line. It was the absence of the check, rather than any individual
+script, that failed, and the charter we wrote for ourselves forbids exactly this.
 \end{selfreport}
 
 % =====================================================================================
@@ -1001,6 +1030,12 @@ concealed its own would be self-refuting.
   last; the alternative is defensible and would lower the curve.
 \item \textbf{The holdout is a single calendar year} (246 sessions) of one market. Out-of-sample
   evidence of this length supports a direction, not a magnitude.
+\item \textbf{Reported performance for 27 survivors is one draw, not a fixed quantity}, for the
+  reason in \S\ref{sec:negative}. We did not re-run under a pinned seed, and would not: pinning
+  replaces one arbitrary draw with another rather than with a correct value, because the defect is
+  in the strategies and not in our measurement of them. Any downstream use of the surviving set
+  should exclude them---and must report that doing so is not performance-neutral, since the
+  excluded 27 average $-0.6722$ against the retained 147's $-0.1320$.
 \end{enumerate}
 
 % =====================================================================================
