@@ -10,6 +10,7 @@ superseded artifacts are retained beside their replacements under `runs/pooled/`
 | 1.0 | 2026-08-01 | First freeze. |
 | 1.1 | 2026-08-01 | Implementation bug in the abstention ranking. Semantic-inclusive configurations rerun. |
 | **1.2** | **2026-08-02** | **Disclosure only, nothing rerun. 27 of the 174 survivors are not deterministic functions of their inputs.** |
+| **1.3** | **2026-08-02** | **Disclosure only, nothing rerun. The corpus contains 11 clusters of behaviourally identical strategies, and one candidate is the equal-weight baseline.** |
 
 ---
 
@@ -281,3 +282,78 @@ The holdout authorisation recorded in `runs/pooled/ablation_holdout.json` is the
 2026-08-01. Under Rule 7 the holdout is otherwise closed; this evaluation was authorised
 explicitly as the repair of an erroneous evaluation pipeline, and no tuning of any kind followed
 it.
+
+---
+
+## v1.3 — the generated corpus is substantially redundant, and one candidate is the baseline
+
+**Disclosure only. Nothing was rerun and no number in this benchmark changed.** This entry records
+a property of the AlphaAudit *corpus* that was discovered while building RegimeStress, where it
+had a measurable consequence. It says something about the generator, so it belongs here rather
+than in the downstream benchmark that happened to find it.
+
+### What was found
+
+Of 150 comparable strategies drawn from this corpus, **11 clusters contain strategies whose
+realised net return series are identical on every session**, to within 1e-12. Different source
+code, different stated rationale, identical behaviour.
+
+| Quantity | Value |
+|---|---|
+| Strategies compared | 150 |
+| Clusters of identical series | 11 |
+| Strategies inside a cluster | 27 |
+| Largest cluster | 4 (`candidate_084`, `candidate_1266`, `candidate_204`, `candidate_996`) |
+| Near-duplicate pairs (r >= 0.9999) not merged | 20 |
+
+The generator does not merely produce weak strategies. **It produces the same weak strategies
+repeatedly, under different rationales**, and the audit layers do not detect this because no layer
+compares candidates against each other. A rationale–implementation check reads one strategy at a
+time; a corpus of near-clones passes it individually.
+
+### One cluster is the positive control
+
+```
+['candidate_344', 'equal_weight_universe']
+```
+
+**An AI-generated candidate is identical, in realised returns on every session, to the equal-weight
+baseline it was supposed to beat.** The model rediscovered equal-weighting and presented it as a
+novel strategy with its own economic rationale. `A_sem`, the semantic layer, is specified to flag
+"unacknowledged known anomaly" — rediscovering a standard result and presenting it as new. It did
+not flag this one.
+
+That is a concrete, checkable miss by the semantic auditor, and it is recorded as such. It is one
+case, found incidentally rather than by systematic search, so it is not a measured false-negative
+rate and must not be read as one.
+
+### Why it matters to this benchmark's headline null
+
+The AlphaAudit paper reports that no auditor configuration beats random rejection at matched
+coverage, and states that the null "remains confounded with corpus degeneracy and cannot separate
+*'the auditor is uninformative'* from *'this corpus is too weak to test it'*."
+
+**This finding is direct quantitative evidence for that confound.** A corpus in which 27 of 150
+strategies are exact behavioural duplicates has fewer effective candidates than its count suggests,
+and an abstention curve computed over it is ranking fewer distinct objects than the coverage axis
+implies. The null result stands as reported; the confound is now measured rather than merely
+suspected.
+
+### Consequences downstream, disclosed
+
+In RegimeStress the duplicates had to be removed before cross-validation, because a strategy in a
+training fold with its twin in a test fold inflated out-of-fold R-squared by 0.238. The removal rule
+retains the alphabetically first name in each cluster, chosen in advance so that the choice could
+not be made on the outcome. **A consequence of that rule is that `equal_weight_universe` was
+removed and `candidate_344` retained**, so any analysis splitting that population by name prefix
+will count the equal-weight baseline as an AI-generated candidate. Stated here so it cannot
+mislead.
+
+### Reproduction
+
+```bash
+python scripts/deduplicate_corpus.py     # writes benchmarks/regimestress/duplicates.json
+```
+
+The clusters, the removals and the 20 detected-but-retained near-duplicate pairs are all in that
+artifact, which is committed.

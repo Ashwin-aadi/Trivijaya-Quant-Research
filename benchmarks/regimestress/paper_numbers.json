@@ -1,0 +1,1318 @@
+{
+  "rsBlockBandwidth": {
+    "value": "14",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsBlockLength": {
+    "value": "11.07",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsBurninBeyondTolerance": {
+    "value": "0",
+    "source": "data/processed/burnin_cross_check.json"
+  },
+  "rsBurninCompared": {
+    "value": "55",
+    "source": "data/processed/burnin_cross_check.json"
+  },
+  "rsBurninWorstRelative": {
+    "value": "4.7\\times10^{-8}",
+    "source": "data/processed/burnin_cross_check.json"
+  },
+  "rsCalibrationProjectedMinutes": {
+    "value": "365",
+    "source": "data/processed/tier1_calibration.json"
+  },
+  "rsCalibrationSecondsPerBacktest": {
+    "value": "28.4",
+    "source": "data/processed/tier1_calibration.json"
+  },
+  "rsConditioningEffectPaths": {
+    "value": "0.991",
+    "source": "data/processed/tier_comparison.json"
+  },
+  "rsConditioningEffectRegimes": {
+    "value": "0.976",
+    "source": "data/processed/tier_comparison.json"
+  },
+  "rsConvergenceAtHundred": {
+    "value": "0.952",
+    "source": "data/processed/rerun_decision.json"
+  },
+  "rsConvergenceHigh": {
+    "value": "0.984",
+    "source": "data/processed/rerun_decision.json"
+  },
+  "rsConvergenceHighPaths": {
+    "value": "500",
+    "source": "data/processed/rerun_decision.json"
+  },
+  "rsConvergenceLow": {
+    "value": "0.817",
+    "source": "data/processed/rerun_decision.json"
+  },
+  "rsConvergenceLowPaths": {
+    "value": "10",
+    "source": "data/processed/rerun_decision.json"
+  },
+  "rsCrrDrawSeconds": {
+    "value": "0.026",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsCrrPaths": {
+    "value": "1{,}000",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsCrrSessions": {
+    "value": "1{,}232",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsCrrWindowEnd": {
+    "value": "2024-12-31",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsCrrWindowStart": {
+    "value": "2020-01-02",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsCurveSizeAtEighty": {
+    "value": "80",
+    "source": "data/processed/predictor_diagnosis.json :: learning curve sizes"
+  },
+  "rsCurveSizeAtForty": {
+    "value": "40",
+    "source": "data/processed/predictor_diagnosis.json :: learning curve sizes"
+  },
+  "rsCurveSizeAtHundred": {
+    "value": "100",
+    "source": "data/processed/predictor_diagnosis.json :: learning curve sizes"
+  },
+  "rsCurveSizeAtSixty": {
+    "value": "60",
+    "source": "data/processed/predictor_diagnosis.json :: learning curve sizes"
+  },
+  "rsDefinitionAgreement": {
+    "value": "0.550",
+    "source": "data/processed/tier_comparison.json"
+  },
+  "rsDuplicateClusters": {
+    "value": "11",
+    "source": "benchmarks/regimestress/duplicates.json"
+  },
+  "rsDuplicateCompared": {
+    "value": "150",
+    "source": "benchmarks/regimestress/duplicates.json"
+  },
+  "rsDuplicateMembers": {
+    "value": "27",
+    "source": "benchmarks/regimestress/duplicates.json"
+  },
+  "rsDuplicateRemoved": {
+    "value": "16",
+    "source": "benchmarks/regimestress/duplicates.json"
+  },
+  "rsDuplicateUncompared": {
+    "value": "6",
+    "source": "benchmarks/regimestress/duplicates.json"
+  },
+  "rsFactorCondition": {
+    "value": "12.0",
+    "source": "data/processed/factor_design.json"
+  },
+  "rsFactorCount": {
+    "value": "10",
+    "source": "data/processed/factor_design.json"
+  },
+  "rsFactorWorstPair": {
+    "value": "0.946",
+    "source": "data/processed/factor_design.json"
+  },
+  "rsFailingMomentPercentile": {
+    "value": "97.8",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsFeatureCondition": {
+    "value": "253.2",
+    "source": "data/processed/predictor_diagnosis.json"
+  },
+  "rsFeatureWorstPairA": {
+    "value": "mean\\_herfindahl",
+    "source": "data/processed/predictor_diagnosis.json"
+  },
+  "rsFeatureWorstPairB": {
+    "value": "mean\\_largest\\_weight\\_share",
+    "source": "data/processed/predictor_diagnosis.json"
+  },
+  "rsFeatureWorstPairR": {
+    "value": "0.995",
+    "source": "data/processed/predictor_diagnosis.json"
+  },
+  "rsImportanceFifthName": {
+    "value": "beta\\_inverse\\_volatility\\_weighted",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsImportanceFifthValue": {
+    "value": "$+$0.148",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsImportanceFirstName": {
+    "value": "beta\\_long\\_term\\_reversal\\_756d",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsImportanceFirstValue": {
+    "value": "$+$0.408",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsImportanceFourthName": {
+    "value": "mean\\_holding\\_period",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsImportanceFourthValue": {
+    "value": "$+$0.176",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsImportanceSecondName": {
+    "value": "factor\\_r\\_squared",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsImportanceSecondValue": {
+    "value": "$+$0.280",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsImportanceThirdName": {
+    "value": "trading\\_session\\_rate",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsImportanceThirdValue": {
+    "value": "$+$0.187",
+    "source": "data/processed/fragility_predictor.json"
+  },
+  "rsIqrFragilityRegimesHigh": {
+    "value": "1.377",
+    "source": "data/processed/fragility.json"
+  },
+  "rsIqrFragilityRegimesLow": {
+    "value": "0.491",
+    "source": "data/processed/fragility.json"
+  },
+  "rsKnifeEdgeExcluded": {
+    "value": "31",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeFactors": {
+    "value": "1",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeHoldingExcluded": {
+    "value": "2.0",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeHoldingRetained": {
+    "value": "37.1",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeHoldingsExcluded": {
+    "value": "5.000",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeHoldingsRetained": {
+    "value": "5.000",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeRetained": {
+    "value": "125",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeSwingAboveHalf": {
+    "value": "4",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeSwingMax": {
+    "value": "2.514",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeSwingMedian": {
+    "value": "0.0088",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeTurnoverExcluded": {
+    "value": "0.887",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsKnifeEdgeTurnoverRetained": {
+    "value": "0.044",
+    "source": "benchmarks/regimestress/knife_edge_stability.json"
+  },
+  "rsLargestDuplicateCluster": {
+    "value": "4",
+    "source": "benchmarks/regimestress/duplicates.json"
+  },
+  "rsLeakageDelta": {
+    "value": "0.238",
+    "source": "computed by scripts/build_paper_numbers.py from characteristics.parquet"
+  },
+  "rsLeakageNWith": {
+    "value": "125",
+    "source": "computed by scripts/build_paper_numbers.py from characteristics.parquet"
+  },
+  "rsLeakageNWithout": {
+    "value": "109",
+    "source": "computed by scripts/build_paper_numbers.py from characteristics.parquet"
+  },
+  "rsLeakageWithDuplicates": {
+    "value": "$+$0.262",
+    "source": "computed by scripts/build_paper_numbers.py from characteristics.parquet"
+  },
+  "rsLeakageWithoutDuplicates": {
+    "value": "$+$0.024",
+    "source": "computed by scripts/build_paper_numbers.py from characteristics.parquet"
+  },
+  "rsMedianFragilityRegimes": {
+    "value": "0.618",
+    "source": "data/processed/fragility.json"
+  },
+  "rsMomentsFailedConditional": {
+    "value": "0",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsMomentsFailedUnconditional": {
+    "value": "1",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsNCalibrated": {
+    "value": "185",
+    "source": "data/processed/tier1_calibration.json"
+  },
+  "rsNDeterministic": {
+    "value": "158",
+    "source": "data/processed/tier1_calibration.json"
+  },
+  "rsNExcludedNondeterministic": {
+    "value": "27",
+    "source": "benchmarks/regimestress/excluded_nondeterministic.json"
+  },
+  "rsNKnifeEdge": {
+    "value": "31",
+    "source": "data/processed/fragility.json"
+  },
+  "rsNLabelledSessions": {
+    "value": "1{,}233",
+    "source": "data/processed/regime_diagnostics.json"
+  },
+  "rsNMoments": {
+    "value": "9",
+    "source": "data/processed/crr_calibration.json"
+  },
+  "rsNNearZeroMean": {
+    "value": "3",
+    "source": "data/processed/fragility.json"
+  },
+  "rsNNondeterministic": {
+    "value": "27",
+    "source": "data/processed/tier1_calibration.json"
+  },
+  "rsNNondeterministicFactors": {
+    "value": "0",
+    "source": "benchmarks/regimestress/excluded_nondeterministic.json"
+  },
+  "rsNPrimary": {
+    "value": "125",
+    "source": "data/processed/fragility.json"
+  },
+  "rsNRegimeRefits": {
+    "value": "20",
+    "source": "data/processed/regime_diagnostics.json"
+  },
+  "rsNRetainedSurvivors": {
+    "value": "147",
+    "source": "benchmarks/regimestress/excluded_nondeterministic.json"
+  },
+  "rsNRuntimeFailures": {
+    "value": "2",
+    "source": "data/processed/tier1_calibration.json"
+  },
+  "rsNSebiEvents": {
+    "value": "18",
+    "source": "benchmarks/regimestress/sebi_events.csv"
+  },
+  "rsNStressed": {
+    "value": "156",
+    "source": "data/processed/fragility.json"
+  },
+  "rsNarrativeCount": {
+    "value": "12",
+    "source": "data/processed/stress_narratives.json"
+  },
+  "rsNarrativeModel": {
+    "value": "qwen2.5:7b-instruct-q4\\_K\\_M",
+    "source": "data/processed/stress_narratives.json"
+  },
+  "rsNarrativeSeconds": {
+    "value": "5.5",
+    "source": "data/processed/stress_narratives.json"
+  },
+  "rsNearDuplicatePairs": {
+    "value": "20",
+    "source": "benchmarks/regimestress/duplicates.json"
+  },
+  "rsNearDuplicateThreshold": {
+    "value": "0.9999",
+    "source": "benchmarks/regimestress/duplicates.json"
+  },
+  "rsPathsLogBaselineMae": {
+    "value": "0.359",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBestModel": {
+    "value": "lasso",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBestRsquared": {
+    "value": "$+$0.092",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBestRsquaredModel": {
+    "value": "random forest",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBoostingDropFive": {
+    "value": "$-$1.119",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBoostingDropTen": {
+    "value": "$-$3.064",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBoostingGap": {
+    "value": "0.678",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBoostingMae": {
+    "value": "0.378",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBoostingRsquared": {
+    "value": "$+$0.045",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBoostingSpearman": {
+    "value": "$+$0.253",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogBoostingTrainRsquared": {
+    "value": "$+$0.723",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogCurveAtEighty": {
+    "value": "$+$0.355",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogCurveAtForty": {
+    "value": "$+$0.210",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogCurveAtHundred": {
+    "value": "$+$0.408",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogCurveAtSixty": {
+    "value": "$+$0.311",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogElasticNetDropFive": {
+    "value": "$-$4.498",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogElasticNetDropTen": {
+    "value": "$-$10.702",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogElasticNetGap": {
+    "value": "0.977",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogElasticNetMae": {
+    "value": "0.412",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogElasticNetRsquared": {
+    "value": "$-$0.473",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogElasticNetSpearman": {
+    "value": "$+$0.409",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogElasticNetTrainRsquared": {
+    "value": "$+$0.504",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogForestDropFive": {
+    "value": "$-$0.735",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogForestDropTen": {
+    "value": "$-$2.240",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogForestGap": {
+    "value": "0.364",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogForestMae": {
+    "value": "0.342",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogForestRsquared": {
+    "value": "$+$0.092",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogForestSpearman": {
+    "value": "$+$0.320",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogForestTrainRsquared": {
+    "value": "$+$0.456",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogInfluenceLargest": {
+    "value": "$+$0.390",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogInfluenceWorst": {
+    "value": "candidate\\_1005",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogKurtosis": {
+    "value": "14.7",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogLassoDropFive": {
+    "value": "$-$3.187",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogLassoDropTen": {
+    "value": "$-$7.872",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogLassoGap": {
+    "value": "0.757",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogLassoMae": {
+    "value": "0.389",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogLassoRsquared": {
+    "value": "$-$0.270",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogLassoSpearman": {
+    "value": "$+$0.420",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogLassoTrainRsquared": {
+    "value": "$+$0.487",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogPermNullSpearman": {
+    "value": "0.209",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogPermPRsquared": {
+    "value": "0.507",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogPermPSpearman": {
+    "value": "0.005",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogPermSpearman": {
+    "value": "$+$0.420",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogRidgeDropFive": {
+    "value": "$-$6.293",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogRidgeDropTen": {
+    "value": "$-$14.629",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogRidgeGap": {
+    "value": "1.266",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogRidgeMae": {
+    "value": "0.444",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogRidgeRsquared": {
+    "value": "$-$0.749",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogRidgeSpearman": {
+    "value": "$+$0.391",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogRidgeTrainRsquared": {
+    "value": "$+$0.517",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogSkew": {
+    "value": "3.70",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogTailShareFive": {
+    "value": "79.1",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsLogTailShareTen": {
+    "value": "85.8",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[log1p]"
+  },
+  "rsPathsRawBaselineMae": {
+    "value": "2.424",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBestModel": {
+    "value": "ridge",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBestRsquared": {
+    "value": "$+$0.024",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBestRsquaredModel": {
+    "value": "gradient boosting",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBoostingDropFive": {
+    "value": "$-$35.864",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBoostingDropTen": {
+    "value": "$-$124.861",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBoostingGap": {
+    "value": "0.629",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBoostingMae": {
+    "value": "3.107",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBoostingRsquared": {
+    "value": "$+$0.024",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBoostingSpearman": {
+    "value": "$+$0.108",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawBoostingTrainRsquared": {
+    "value": "$+$0.653",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawCurveAtEighty": {
+    "value": "$+$0.213",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawCurveAtForty": {
+    "value": "$+$0.138",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawCurveAtHundred": {
+    "value": "$+$0.247",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawCurveAtSixty": {
+    "value": "$+$0.192",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawElasticNetDropFive": {
+    "value": "$-$302.146",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawElasticNetDropTen": {
+    "value": "$-$1008.650",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawElasticNetGap": {
+    "value": "2.375",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawElasticNetMae": {
+    "value": "5.150",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawElasticNetRsquared": {
+    "value": "$-$1.961",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawElasticNetSpearman": {
+    "value": "$+$0.250",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawElasticNetTrainRsquared": {
+    "value": "$+$0.415",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawForestDropFive": {
+    "value": "$-$22.049",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawForestDropTen": {
+    "value": "$-$77.312",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawForestGap": {
+    "value": "0.329",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawForestMae": {
+    "value": "2.544",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawForestRsquared": {
+    "value": "$-$0.036",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawForestSpearman": {
+    "value": "$+$0.225",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawForestTrainRsquared": {
+    "value": "$+$0.292",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawInfluenceLargest": {
+    "value": "$-$1.859",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawInfluenceWorst": {
+    "value": "candidate\\_116",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawKurtosis": {
+    "value": "32.1",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawLassoDropFive": {
+    "value": "$-$343.653",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawLassoDropTen": {
+    "value": "$-$1139.670",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawLassoGap": {
+    "value": "2.683",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawLassoMae": {
+    "value": "5.620",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawLassoRsquared": {
+    "value": "$-$2.259",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawLassoSpearman": {
+    "value": "$+$0.220",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawLassoTrainRsquared": {
+    "value": "$+$0.424",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawPermNullSpearman": {
+    "value": "0.200",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawPermPRsquared": {
+    "value": "0.861",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawPermPSpearman": {
+    "value": "0.020",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawPermSpearman": {
+    "value": "$+$0.275",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawRidgeDropFive": {
+    "value": "$-$271.396",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawRidgeDropTen": {
+    "value": "$-$907.383",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawRidgeGap": {
+    "value": "2.146",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawRidgeMae": {
+    "value": "4.887",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawRidgeRsquared": {
+    "value": "$-$1.742",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawRidgeSpearman": {
+    "value": "$+$0.275",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawRidgeTrainRsquared": {
+    "value": "$+$0.404",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawSkew": {
+    "value": "5.72",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawTailShareFive": {
+    "value": "96.1",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPathsRawTailShareTen": {
+    "value": "96.4",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_paths[raw]"
+  },
+  "rsPermutations": {
+    "value": "200",
+    "source": "data/processed/predictor_diagnosis.json"
+  },
+  "rsPredictorFeatures": {
+    "value": "26",
+    "source": "data/processed/predictor_diagnosis.json"
+  },
+  "rsPredictorRows": {
+    "value": "109",
+    "source": "data/processed/predictor_diagnosis.json"
+  },
+  "rsRegimeK": {
+    "value": "4",
+    "source": "data/processed/regime_k_selection.json"
+  },
+  "rsRegimeOccupancyMax": {
+    "value": "362",
+    "source": "data/processed/regime_diagnostics.json"
+  },
+  "rsRegimeOccupancyMin": {
+    "value": "237",
+    "source": "data/processed/regime_diagnostics.json"
+  },
+  "rsRegimeRevisionRate": {
+    "value": "9.5",
+    "source": "data/processed/regime_diagnostics.json"
+  },
+  "rsRegimeSelectionEnd": {
+    "value": "2019-12-31",
+    "source": "data/processed/regime_k_selection.json"
+  },
+  "rsRegimeSelectionSessions": {
+    "value": "1{,}207",
+    "source": "data/processed/regime_k_selection.json"
+  },
+  "rsRegimeTerminalDisagreement": {
+    "value": "21.8",
+    "source": "data/processed/regime_diagnostics.json"
+  },
+  "rsRegimeTrainingSessionsFirst": {
+    "value": "1{,}207",
+    "source": "data/processed/regime_diagnostics.json"
+  },
+  "rsRegimeTrainingSessionsLast": {
+    "value": "2{,}378",
+    "source": "data/processed/regime_diagnostics.json"
+  },
+  "rsRegimesLogBaselineMae": {
+    "value": "0.422",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBestModel": {
+    "value": "ridge",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBestRsquared": {
+    "value": "$+$0.212",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBestRsquaredModel": {
+    "value": "random forest",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBoostingDropFive": {
+    "value": "$-$0.135",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBoostingDropTen": {
+    "value": "$-$0.805",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBoostingGap": {
+    "value": "0.537",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBoostingMae": {
+    "value": "0.378",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBoostingRsquared": {
+    "value": "$+$0.198",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBoostingSpearman": {
+    "value": "$+$0.331",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogBoostingTrainRsquared": {
+    "value": "$+$0.734",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogCurveAtEighty": {
+    "value": "$+$0.246",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogCurveAtForty": {
+    "value": "$+$0.244",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogCurveAtHundred": {
+    "value": "$+$0.290",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogCurveAtSixty": {
+    "value": "$+$0.205",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogElasticNetDropFive": {
+    "value": "$-$0.536",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogElasticNetDropTen": {
+    "value": "$-$1.352",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogElasticNetGap": {
+    "value": "0.393",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogElasticNetMae": {
+    "value": "0.407",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogElasticNetRsquared": {
+    "value": "$+$0.054",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogElasticNetSpearman": {
+    "value": "$+$0.348",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogElasticNetTrainRsquared": {
+    "value": "$+$0.447",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogForestDropFive": {
+    "value": "$-$0.002",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogForestDropTen": {
+    "value": "$-$0.539",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogForestGap": {
+    "value": "0.325",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogForestMae": {
+    "value": "0.350",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogForestRsquared": {
+    "value": "$+$0.212",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogForestSpearman": {
+    "value": "$+$0.320",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogForestTrainRsquared": {
+    "value": "$+$0.537",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogInfluenceLargest": {
+    "value": "$-$0.246",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogInfluenceWorst": {
+    "value": "candidate\\_274",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogKurtosis": {
+    "value": "22.1",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogLassoDropFive": {
+    "value": "$-$0.444",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogLassoDropTen": {
+    "value": "$-$1.166",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogLassoGap": {
+    "value": "0.358",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogLassoMae": {
+    "value": "0.399",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogLassoRsquared": {
+    "value": "$+$0.075",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogLassoSpearman": {
+    "value": "$+$0.340",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogLassoTrainRsquared": {
+    "value": "$+$0.433",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogPermNullSpearman": {
+    "value": "0.259",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogPermPRsquared": {
+    "value": "0.005",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogPermPSpearman": {
+    "value": "0.005",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogPermSpearman": {
+    "value": "$+$0.405",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogRidgeDropFive": {
+    "value": "$-$0.595",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogRidgeDropTen": {
+    "value": "$-$1.471",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogRidgeGap": {
+    "value": "0.420",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogRidgeMae": {
+    "value": "0.409",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogRidgeRsquared": {
+    "value": "$+$0.039",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogRidgeSpearman": {
+    "value": "$+$0.405",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogRidgeTrainRsquared": {
+    "value": "$+$0.459",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogSkew": {
+    "value": "3.85",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogTailShareFive": {
+    "value": "65.9",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesLogTailShareTen": {
+    "value": "76.1",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[log1p]"
+  },
+  "rsRegimesRawBaselineMae": {
+    "value": "4.938",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBestModel": {
+    "value": "lasso",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBestRsquared": {
+    "value": "$-$0.067",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBestRsquaredModel": {
+    "value": "random forest",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBoostingDropFive": {
+    "value": "$-$48.835",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBoostingDropTen": {
+    "value": "$-$121.306",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBoostingGap": {
+    "value": "0.594",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBoostingMae": {
+    "value": "6.822",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBoostingRsquared": {
+    "value": "$-$0.083",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBoostingSpearman": {
+    "value": "$+$0.286",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawBoostingTrainRsquared": {
+    "value": "$+$0.511",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawCurveAtEighty": {
+    "value": "$+$0.171",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawCurveAtForty": {
+    "value": "$+$0.113",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawCurveAtHundred": {
+    "value": "$+$0.239",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawCurveAtSixty": {
+    "value": "$+$0.122",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawElasticNetDropFive": {
+    "value": "$-$313.492",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawElasticNetDropTen": {
+    "value": "$-$773.489",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawElasticNetGap": {
+    "value": "0.791",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawElasticNetMae": {
+    "value": "10.883",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawElasticNetRsquared": {
+    "value": "$-$0.554",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawElasticNetSpearman": {
+    "value": "$+$0.321",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawElasticNetTrainRsquared": {
+    "value": "$+$0.237",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawForestDropFive": {
+    "value": "$-$40.280",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawForestDropTen": {
+    "value": "$-$90.573",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawForestGap": {
+    "value": "0.343",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawForestMae": {
+    "value": "5.694",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawForestRsquared": {
+    "value": "$-$0.067",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawForestSpearman": {
+    "value": "$+$0.231",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawForestTrainRsquared": {
+    "value": "$+$0.276",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawInfluenceLargest": {
+    "value": "$-$3.439",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawInfluenceWorst": {
+    "value": "candidate\\_490",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawKurtosis": {
+    "value": "102.8",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawLassoDropFive": {
+    "value": "$-$432.688",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawLassoDropTen": {
+    "value": "$-$1095.241",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawLassoGap": {
+    "value": "1.014",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawLassoMae": {
+    "value": "11.847",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawLassoRsquared": {
+    "value": "$-$0.770",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawLassoSpearman": {
+    "value": "$+$0.324",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawLassoTrainRsquared": {
+    "value": "$+$0.244",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawPermNullSpearman": {
+    "value": "0.215",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawPermPRsquared": {
+    "value": "0.572",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawPermPSpearman": {
+    "value": "0.005",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawPermSpearman": {
+    "value": "$+$0.324",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawRidgeDropFive": {
+    "value": "$-$274.472",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawRidgeDropTen": {
+    "value": "$-$671.127",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawRidgeGap": {
+    "value": "0.719",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawRidgeMae": {
+    "value": "10.444",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawRidgeRsquared": {
+    "value": "$-$0.483",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawRidgeSpearman": {
+    "value": "$+$0.323",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawRidgeTrainRsquared": {
+    "value": "$+$0.236",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawSkew": {
+    "value": "10.21",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawTailShareFive": {
+    "value": "98.7",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsRegimesRawTailShareTen": {
+    "value": "98.8",
+    "source": "data/processed/predictor_diagnosis.json :: fragility_across_regimes[raw]"
+  },
+  "rsShortcutMedianBootstrap": {
+    "value": "0.551",
+    "source": "data/processed/rerun_decision.json"
+  },
+  "rsShortcutMedianReal": {
+    "value": "0.618",
+    "source": "data/processed/rerun_decision.json"
+  },
+  "rsShortcutN": {
+    "value": "125",
+    "source": "data/processed/rerun_decision.json"
+  },
+  "rsShortcutSpearman": {
+    "value": "0.963",
+    "source": "data/processed/rerun_decision.json"
+  },
+  "rsTierAgreementFragility": {
+    "value": "0.620",
+    "source": "data/processed/tier_comparison.json"
+  },
+  "rsTierAgreementMeanSharpe": {
+    "value": "0.897",
+    "source": "data/processed/tier_comparison.json"
+  },
+  "rsTierAgreementN": {
+    "value": "125",
+    "source": "data/processed/tier_comparison.json"
+  },
+  "rsTierMedianOne": {
+    "value": "0.360",
+    "source": "data/processed/tier_comparison.json"
+  },
+  "rsTierMedianTwo": {
+    "value": "0.311",
+    "source": "data/processed/tier_comparison.json"
+  },
+  "rsTierOneCpuHours": {
+    "value": "124.5",
+    "source": "runs/tier1/path_*.json"
+  },
+  "rsTierOnePaths": {
+    "value": "100",
+    "source": "runs/tier1/path_*.json"
+  },
+  "rsTierOneSecondsPerPath": {
+    "value": "4617",
+    "source": "runs/tier1/path_*.json"
+  },
+  "rsTierTwoPaths": {
+    "value": "1{,}000",
+    "source": "data/processed/tier2_fragility.json"
+  },
+  "rsTierTwoSeconds": {
+    "value": "23.1",
+    "source": "data/processed/tier2_fragility.json"
+  },
+  "rsWorstNondeterministicSwing": {
+    "value": "1.561",
+    "source": "benchmarks/regimestress/excluded_nondeterministic.json"
+  }
+}

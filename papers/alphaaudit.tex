@@ -996,6 +996,27 @@ that would have caught it is one line. It was the absence of the check, rather t
 script, that failed, and the charter we wrote for ourselves forbids exactly this.
 \end{selfreport}
 
+\begin{selfreport}[title={A third, and the one that bears on the null}]
+Of 150 corpus strategies compared in follow-on work, \textbf{11 clusters contain strategies whose
+realised net return series are identical on every session} to within $10^{-12}$: different code,
+different stated rationale, identical behaviour. 27 strategies sit in a cluster; the largest holds
+four. A further 20 pairs correlate above 0.9999.
+
+\textbf{One cluster pairs a generated candidate with the equal-weight baseline it was meant to
+beat.} The model rediscovered equal-weighting and presented it as novel with its own economic
+rationale. $A_{\mathrm{sem}}$ is specified to flag exactly this---``unacknowledged known
+anomaly''---and did not. That is one checkable miss found incidentally, not a measured
+false-negative rate, and we do not present it as one.
+
+The generator's failure mode is therefore not only that its strategies are weak but that
+\textbf{it writes the same weak strategy repeatedly}, and no auditor layer can see this, because
+every layer reads one candidate at a time. This is direct evidence for the corpus-degeneracy
+confound we flag against our own null in \S\ref{sec:auap}: a corpus with 27 behavioural
+duplicates in 150 has fewer effective candidates than its count implies, so an abstention curve
+computed over it ranks fewer distinct objects than the coverage axis suggests. The null stands as
+reported. The confound is now measured rather than suspected.
+\end{selfreport}
+
 % =====================================================================================
 \section{Limitations}
 \label{sec:limitations}
@@ -1007,6 +1028,11 @@ script, that failed, and the charter we wrote for ourselves forbids exactly this
   generator would plausibly change the funnel and might change the null.
 \item \textbf{The prompt steers implementation style}, which biases the leak-class
   distribution downward in at least one class (\S\ref{sec:leakclasses}).
+\item \textbf{The corpus is smaller than its count.} 27 of 150 compared strategies are exact
+  behavioural duplicates of another, so the effective number of distinct candidates the abstention
+  curve ranks is lower than the coverage axis implies, by an amount we have not corrected for. No
+  auditor layer detects this, because each reads one candidate in isolation. Cross-candidate
+  redundancy detection is an obvious addition to the auditor and we did not build it.
 \item \textbf{The static layer's perfect fixture score is provisional}, for the reason given
   in \S\ref{sec:auditor}: its decisive rules were written after seeing it fail.
 \item \textbf{Slippage and impact coefficients are uncalibrated.} They account for roughly
