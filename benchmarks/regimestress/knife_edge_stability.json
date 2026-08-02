@@ -1,0 +1,103 @@
+{
+  "agreement_between_definitions_within_excluded": 0.6370967741935484,
+  "agreement_between_definitions_within_retained": 0.46674039938556067,
+  "comparison": {
+    "book_similarity_21d": {
+      "excluded": {
+        "median": 0.21137226104705945,
+        "n": 31.0,
+        "p25": 0.08963564173486074,
+        "p75": 0.48697744696992784
+      },
+      "retained": {
+        "median": 0.7743928207120998,
+        "n": 122.0,
+        "p25": 0.3418052730544717,
+        "p75": 0.952
+      }
+    },
+    "effective_holdings": {
+      "excluded": {
+        "median": 5.0,
+        "n": 31.0,
+        "p25": 3.6188385462312853,
+        "p75": 12.171920570325021
+      },
+      "retained": {
+        "median": 5.0,
+        "n": 125.0,
+        "p25": 5.0,
+        "p75": 30.0
+      }
+    },
+    "fragility_across_paths": {
+      "excluded": {
+        "median": 0.42794932834732885,
+        "n": 31.0,
+        "p25": 0.209424455494917,
+        "p75": 0.7262925024863546
+      },
+      "retained": {
+        "median": 0.3598350542803521,
+        "n": 125.0,
+        "p25": 0.3205437173359291,
+        "p75": 0.7531759589999117
+      }
+    },
+    "fragility_across_regimes": {
+      "excluded": {
+        "median": 0.48942909295698867,
+        "n": 31.0,
+        "p25": 0.2920573100747922,
+        "p75": 1.3025605420472364
+      },
+      "retained": {
+        "median": 0.6178031364089204,
+        "n": 125.0,
+        "p25": 0.4914770941305244,
+        "p75": 1.3770674540197008
+      }
+    },
+    "mean_holding_period": {
+      "excluded": {
+        "median": 2.0400129073894804,
+        "n": 31.0,
+        "p25": 1.6840937926872366,
+        "p75": 10.391884236453201
+      },
+      "retained": {
+        "median": 37.10843373493976,
+        "n": 125.0,
+        "p25": 5.993083003952569,
+        "p75": 176.0
+      }
+    },
+    "mean_turnover": {
+      "excluded": {
+        "median": 0.8871753246753247,
+        "n": 31.0,
+        "p25": 0.17301265203050917,
+        "p75": 1.1763902143760419
+      },
+      "retained": {
+        "median": 0.04350649350649351,
+        "n": 125.0,
+        "p25": 0.00827922077922078,
+        "p75": 0.1602988689705294
+      }
+    }
+  },
+  "n_excluded": 31,
+  "n_retained": 125,
+  "n_standard_factors_excluded": 1,
+  "purpose": "The cost of the knife-edge exclusion, quantified. These 31 strategies are excluded from primary fragility statistics and from the Phase 2.2 predictor training set because their Sharpe ratio is not stable under a ~9e-15 relative change in their inputs, per the PI ruling of 2026-08-02. They are reported here, not discarded.",
+  "sharpe_swing": {
+    "max": 2.5143418408524987,
+    "median": 0.008804800332306906,
+    "min": 1.9874741779779548e-05,
+    "n_above_0_5": 4
+  },
+  "standard_factors_excluded": [
+    "dual_momentum_21_126"
+  ]
+}
