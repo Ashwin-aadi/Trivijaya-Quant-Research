@@ -1,0 +1,200 @@
+{
+  "criterion": "A strategy is excluded if its net Sharpe changes across either (a) a replicate run on the identical panel at an identical PYTHONHASHSEED, or (b) two different hash seeds. Tolerance 1e-9.",
+  "excluded": [
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.3086394175328042,
+      "name": "candidate_002",
+      "recorded_sharpe": 0.8525574841686435,
+      "unseeded_randomness": false
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.4996360629546377,
+      "name": "candidate_1011",
+      "recorded_sharpe": -2.006588260910287,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.004688043438068001,
+      "name": "candidate_1113",
+      "recorded_sharpe": 0.3595170561657377,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.21427712194740184,
+      "name": "candidate_1119",
+      "recorded_sharpe": -3.63961183022422,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.003220407703758643,
+      "name": "candidate_1173",
+      "recorded_sharpe": 0.2969817742901942,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.05059834931922866,
+      "name": "candidate_1221",
+      "recorded_sharpe": 0.2623867297317302,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.10496451340737789,
+      "name": "candidate_1299",
+      "recorded_sharpe": -1.6736084487011074,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.012402387447810817,
+      "name": "candidate_1303",
+      "recorded_sharpe": -0.04159429020572702,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.05966638939449486,
+      "name": "candidate_1305",
+      "recorded_sharpe": -0.5229409848903951,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.011573762654439046,
+      "name": "candidate_1312",
+      "recorded_sharpe": -0.21866928059138782,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.002186321698335103,
+      "name": "candidate_1425",
+      "recorded_sharpe": 0.9013395747081376,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.7627245798770423,
+      "name": "candidate_219",
+      "recorded_sharpe": -2.8453657746454346,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.0031870516054299802,
+      "name": "candidate_357",
+      "recorded_sharpe": 0.7002804159260625,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.4879969094662,
+      "name": "candidate_384",
+      "recorded_sharpe": -4.5528273045884795,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.009487027310741025,
+      "name": "candidate_410",
+      "recorded_sharpe": 0.2765311146253701,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.0122564590238566,
+      "name": "candidate_444",
+      "recorded_sharpe": 0.011107655746530663,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.021086821794807642,
+      "name": "candidate_535",
+      "recorded_sharpe": 0.346028571507862,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.001263744385888943,
+      "name": "candidate_555",
+      "recorded_sharpe": 0.8989131724334016,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.6767241168133162,
+      "name": "candidate_588",
+      "recorded_sharpe": -0.7851921233082321,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.016089874264156978,
+      "name": "candidate_636",
+      "recorded_sharpe": 0.4602613483978083,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.00471324392011082,
+      "name": "candidate_681",
+      "recorded_sharpe": -0.0315967023539026,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 1.5609349170360494,
+      "name": "candidate_687",
+      "recorded_sharpe": -2.867556726932666,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.0023333343943361395,
+      "name": "candidate_765",
+      "recorded_sharpe": 0.7428495110545597,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.014748500787518881,
+      "name": "candidate_813",
+      "recorded_sharpe": 0.36453284111975465,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.004488047259207536,
+      "name": "candidate_837",
+      "recorded_sharpe": -0.0315967023539026,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.014426717351228913,
+      "name": "candidate_884",
+      "recorded_sharpe": -2.479030238993756,
+      "unseeded_randomness": true
+    },
+    {
+      "hash_order_dependent": true,
+      "max_abs_sharpe_swing": 0.1951172149881657,
+      "name": "candidate_960",
+      "recorded_sharpe": -2.9272514580866913,
+      "unseeded_randomness": true
+    }
+  ],
+  "measured_by": "scripts/calibrate_tier1.py (4 groups x 185 backtests)",
+  "measured_on": "2026-08-02",
+  "n_excluded": 27,
+  "n_retained_survivors": 147,
+  "n_standard_factors_excluded": 0,
+  "purpose": "Strategies excluded from the RegimeStress population because they are not deterministic functions of their inputs. Frozen 2026-08-02 before any stress path was run."
+}

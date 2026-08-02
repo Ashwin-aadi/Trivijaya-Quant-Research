@@ -6,14 +6,18 @@ through the unmodified Phase 1.2 engine against it — so a strategy *re-forms i
 counterfactual history rather than having its realised returns reshuffled. That is what makes the
 resulting fragility a property of the strategy and not of its return series.
 
-**Population: the census, 185 strategies.** All 174 AlphaAudit survivors plus the 11 standard
-academic factors. The PI's sample-size analysis put the minimum defensible sample at 50; the census
-was chosen instead once the runtime was measured, which removes sampling error from every downstream
-number and makes the Phase 2.2 predictor's training set 185 rows rather than 61.
+**Population: 158 strategies** — the 147 AlphaAudit survivors that are deterministic functions of
+their inputs, plus the 11 standard academic factors. The census was preferred to a sample once the
+runtime was measured, which removes sampling error from every downstream number; the 27
+nondeterministic survivors are then excluded because fragility is a variance and their own noise is
+indistinguishable from it (PI, 2026-08-02, see ``benchmarks/regimestress/``). The factor set is
+deliberately **not** expanded: adding parameter variants would inflate the Phase 2.2 training set
+with observations whose effective sample size is far below their count, after the benchmark was
+already defined.
 
 **Parallel over paths, not over backtests.** A worker builds one synthetic panel and one engine,
-then runs all 185 strategies against it. The alternative — one task per (strategy, path) — would
-rebuild the panel and re-index the engine 18,500 times instead of 100.
+then runs all 158 strategies against it. The alternative — one task per (strategy, path) — would
+rebuild the panel and re-index the engine 15,800 times instead of 100.
 
 ``POLARS_MAX_THREADS=1`` is set for the workers deliberately. Measured on this machine, one polars
 thread per worker is 17% *faster* per backtest than the default (mean 8.83s to 7.35s, slowest
@@ -60,6 +64,8 @@ from src.stress.panel import SyntheticPanelBuilder  # noqa: E402
 _log = get_logger(__name__)
 
 SURVIVORS = Path("benchmarks/alphaaudit/survivors")
+#: Frozen before any stress path was run. See its own `purpose` field.
+EXCLUSIONS = Path("benchmarks/regimestress/excluded_nondeterministic.json")
 #: The 11-factor positive control, named in scripts/run_positive_control.py and fixed before any
 #: member was run. Referenced by name rather than by globbing tests/fixtures/clean, which holds 32
 #: fixtures — 21 of which were never part of the control set.
@@ -124,11 +130,40 @@ def draw_paths(cfg: Config, sessions: list[date], n_paths: int) -> tuple[np.ndar
     return paths, block_length
 
 
-def strategy_paths(limit: int | None) -> list[tuple[str, str]]:
-    """``(name, source)`` for the 185-strategy census, survivors first then the 11 factors."""
+def excluded_names() -> set[str]:
+    """Strategies barred from the population for not being deterministic functions of their inputs.
+
+    Read from a committed file rather than recomputed, so the population is fixed by an artifact a
+    reviewer can inspect. The calibration that produced it writes to ``data/``, which is gitignored;
+    a population defined by an untracked file would not be reproducible.
+    """
+    if not EXCLUSIONS.exists():
+        raise FileNotFoundError(
+            f"{EXCLUSIONS} is missing; run scripts/calibrate_tier1.py and freeze its result "
+            "before running the stress suite. Refusing to guess the population."
+        )
+    payload = json.loads(EXCLUSIONS.read_text(encoding="utf-8"))
+    return {record["name"] for record in payload["excluded"]}
+
+
+def strategy_paths(limit: int | None, *, apply_exclusions: bool = True) -> list[tuple[str, str]]:
+    """``(name, source)`` for the study population: deterministic survivors, then the 11 factors.
+
+    Fragility is a variance across counterfactual histories, so a strategy whose score varies for
+    no reason contributes variance indistinguishable from the regime response being measured. The
+    27 that do are excluded (PI, 2026-08-02). The exclusion is mechanistic rather than
+    performance-based, but it is **not** performance-neutral — the excluded average −0.6722 against
+    the retained −0.1320 — and every figure computed over this population must carry that fact.
+
+    ``apply_exclusions=False`` is for the calibration harness, which has to measure the strategies
+    the exclusion list is derived from and would otherwise be unable to reproduce it.
+    """
     survivors = sorted(p for p in SURVIVORS.glob("*.py") if p.stem != "__init__")
     entries = [(p.stem, str(p)) for p in survivors]
     entries += [(name, f"tests.fixtures.clean.{name}") for name in FACTORS]
+    if apply_exclusions:
+        barred = excluded_names()
+        entries = [entry for entry in entries if entry[0] not in barred]
     return entries[:limit] if limit else entries
 
 
@@ -265,6 +300,10 @@ def main() -> int:
 
     # One polars thread per worker: measured 17% faster than the default at this width.
     os.environ["POLARS_MAX_THREADS"] = "1"
+    # Pinned so the run is reproducible. The population is already restricted to strategies whose
+    # result does not depend on hash order, so this changes no number — it removes the possibility
+    # that a future one does, which is the failure this project just spent two days disclosing.
+    os.environ["PYTHONHASHSEED"] = "0"
 
     cfg = load_config()
     panel, _ = load_dev_panel(cfg)

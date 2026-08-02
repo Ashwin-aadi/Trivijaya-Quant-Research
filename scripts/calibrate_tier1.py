@@ -144,7 +144,7 @@ def main() -> int:
     args = parser.parse_args()
 
     cfg = load_config()
-    entries = strategy_paths(args.strategies)
+    entries = strategy_paths(args.strategies, apply_exclusions=False)
     _log.info("calibrating on %d strategies, %d workers", len(entries), args.workers)
 
     with RunManifest(cfg, script="calibrate_tier1.py") as run:
