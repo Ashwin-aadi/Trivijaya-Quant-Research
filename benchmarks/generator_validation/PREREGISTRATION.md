@@ -204,3 +204,62 @@ reported as one-armed or two-armed rather than silently trimmed.
 §7 trial-counter ruling and the §9 holdout scope. Consequently **no Deflated Sharpe Ratio is
 computed and the holdout is not touched** until both are ruled. H6 is therefore untestable today and
 remains open. H1–H5 are answered entirely on development data and need neither ruling.
+
+---
+
+## AMENDMENT 2 — the two open rulings, settled 2026-08-03, before any strategy was generated
+
+Both blanks in §7 and §9 are now filled by PI ruling. The draft status at the head of this file is
+discharged: **no [PI RULING REQUIRED] blank remains, and generation is cleared to begin.**
+
+### §7 settled — per-arm deflation, plus a matched-N comparison
+
+> **PI, 2026-08-03:** *"Use per-arm DSR for each generator, plus the matched-N comparison against
+> M₀ using random subsampling repeated with a fixed seed. Report both."*
+
+**Primary.** Each arm is deflated at its own trial count. For the GPT arm that is N = 5.
+
+**The comparison, which is what H6 is actually tested on.** Deflating GPT at N = 5 and M₀ at
+N = 1,887 compares two different search intensities, not two generators. The hurdles are not close:
+computed before any frontier strategy existed, a raw Sharpe of **0.648** clears DSR ≥ 0.95 at N = 5,
+against **1.791** at N = 1,887. A strategy landing between those two numbers clears under one rule
+and fails under the other, which is precisely why this was fixed in advance.
+
+The matched comparison, fully specified so it cannot drift:
+
+1. Draw a random subsample of M₀'s **rankable** strategies — those that executed *and* took a
+   position, n = 225 — of the same size as the frontier arm under comparison.
+2. Deflate every drawn strategy at the **same N as the frontier arm**, not at 1,887.
+3. Record whether at least one strategy in the subsample reaches DSR ≥ 0.95.
+4. Repeat **1,000 times at seed 42**, fixed here and not re-drawn.
+5. The empirical p-value is the fraction of subsamples reaching that bar. The frontier arm's own
+   result is read against that distribution.
+
+Rankable is the sampling frame because a strategy that never traded has no return series to deflate.
+
+**Both figures are reported wherever either appears**, and no sentence may quote the per-arm DSR
+without the matched-N result beside it.
+
+**H6 is hereby restated** in terms of the settled rule, without changing its content or direction:
+*no frontier strategy clears DSR ≥ 0.95 at its own arm's N, and the frontier arm does not clear the
+matched-N comparison more often than M₀ subsamples do.* The matched comparison is primary.
+*Falsified if* either fails.
+
+### §9 settled — the holdout is reserved for H6 and spent once
+
+> **PI, 2026-08-03:** *"Reserve it only for H6, evaluate it once after GPT, Claude and Gemini have
+> all been collected, and never use it during development or methodology decisions."*
+
+Binding consequences, all of which constrain work already scheduled:
+
+1. **One evaluation for the whole study**, after all three arms are collected — not one per arm.
+   RULE 7's amendment would have permitted one per subject; the PI has elected to spend less than
+   the rule allows.
+2. **H1 through H5 are answered entirely on development data** and no holdout figure may appear in
+   any of them.
+3. **The holdout informs no development or methodology decision**, including any choice about
+   parsing, exclusion, stage ordering or presentation. Any such decision made after the evaluation
+   is contamination and must be reported as such.
+4. **After the evaluation, no tuning of anything follows.** If the result is disappointing, that is
+   the result.
+5. The evaluation is logged in `DECISIONS.md` with its timestamp and this authorisation.
