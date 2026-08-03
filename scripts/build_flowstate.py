@@ -100,7 +100,9 @@ def main() -> int:
         # --- RQ1: constraint-based capacity ----------------------------------------------
         measured = add_daily_measures(panel, adv_window=cfg.constraints.adv_window_sessions)
         liquidity = measured.select(["session_date", "symbol", "adv_inr"])
-        traded = turnover_by_session(weights)
+        traded = turnover_by_session(
+            weights, min_traded_fraction=cfg.constraints.min_traded_fraction
+        )
         per_session = session_capacity(
             traded, liquidity, participation_limit=cfg.constraints.max_participation_rate
         )

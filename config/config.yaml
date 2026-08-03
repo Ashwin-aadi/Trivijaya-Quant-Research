@@ -280,6 +280,13 @@ constraints:
   min_adv_rupees: 10000000.0        # 1 crore minimum average daily traded value
   adv_window_sessions: 21
   circuit_band: 0.20                # +/-20% price band; no fill outside it
+  # Below this share of the book, a weight change is floating-point residue rather than a trade.
+  # Added 2026-08-03 by PI ruling at Checkpoint 3.3. A strategy holding 100 names at 0.01 each and
+  # never rebalancing produced weight changes of 1.7e-18 from recomputing 0.01, and dividing a
+  # participation limit by that noise reported its deployable capacity as 4.5e23 crore. The five
+  # standard factor strategies the benchmark was validated on rebalance substantially every session,
+  # so none of them ever exercised this path.
+  min_traded_fraction: 1.0e-9
 
 data:
   prices:

@@ -103,6 +103,7 @@ constraints:
   min_adv_rupees: 10000000.0
   adv_window_sessions: 21
   circuit_band: 0.20
+  min_traded_fraction: 1.0e-9
 data:
   prices:
     authoritative_source: bhavcopy

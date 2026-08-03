@@ -168,6 +168,68 @@ def test_summary_flags_a_session_whose_capacity_rests_on_one_position() -> None:
     assert summary.n_rebalance_sessions == 2
 
 
+def test_the_headline_capacity_is_the_session_that_binds_not_the_typical_one() -> None:
+    """A strategy must be executable on every rebalance it makes, not on a median one.
+
+    This is the Checkpoint 3.3 defect. A near-static book has near-zero turnover on almost every
+    session, so its median session capacity is enormous while the session that builds the position
+    is tightly constrained — and the tight one is what actually caps the money it can run.
+    """
+    per_session = pl.DataFrame(
+        {
+            "factor": ["f"] * 3,
+            "session_date": [DAY + timedelta(days=i) for i in range(3)],
+            # Entry is tight; the two later sessions barely trade and so look enormous.
+            "capacity_inr": [2e6, 5e9, 9e9],
+            "binding_symbol": ["AAA", "BBB", "CCC"],
+            "n_names": [10, 10, 10],
+            "second_capacity": [3e6, 6e9, 1e10],
+        }
+    )
+    summary = summarise_capacity(per_session, participation_limit=0.01)[0]
+    assert summary.binding_capacity_inr == pytest.approx(2e6)
+    assert summary.entry_capacity_inr == pytest.approx(2e6)
+    # The median is retained as a typical-session statistic and is wildly larger. That gap is the
+    # measurement error the fix removes, so the test pins it rather than ignoring it.
+    assert summary.median_capacity_inr == pytest.approx(5e9)
+    assert summary.median_capacity_inr / summary.binding_capacity_inr > 1000
+
+
+def test_entry_capacity_is_the_first_session_even_when_a_later_one_binds() -> None:
+    """The two are separate facts: acquiring the book, versus the worst rebalance after it."""
+    per_session = pl.DataFrame(
+        {
+            "factor": ["f"] * 2,
+            "session_date": [DAY, DAY + timedelta(days=1)],
+            "capacity_inr": [8e6, 1e6],
+            "binding_symbol": ["AAA", "BBB"],
+            "n_names": [10, 10],
+            "second_capacity": [9e6, 2e6],
+        }
+    )
+    summary = summarise_capacity(per_session, participation_limit=0.01)[0]
+    assert summary.entry_capacity_inr == pytest.approx(8e6)
+    assert summary.binding_capacity_inr == pytest.approx(1e6)
+
+
+def test_floating_point_residue_is_not_counted_as_a_trade() -> None:
+    """A recomputed but unchanged weight produced 1e-18 differences and a capacity of 1e23 crore."""
+    weights = pl.DataFrame(
+        {
+            "session_date": [DAY, DAY + timedelta(days=1)],
+            "factor": ["f", "f"],
+            "symbol": ["AAA", "AAA"],
+            "weight": [0.5, 0.5 + 1e-12],
+        }
+    )
+    kept = turnover_by_session(weights, min_traded_fraction=1e-9)
+    # Only the entry survives; the 1e-12 "trade" is residue.
+    assert kept.height == 1
+    assert kept["traded_fraction"][0] == pytest.approx(0.5)
+    # Without a tolerance the residue is counted, which is the defect being guarded.
+    assert turnover_by_session(weights).height == 2
+
+
 def test_relaxed_capacity_reports_what_dropping_the_tightest_name_would_buy() -> None:
     """A robustness check, never a replacement: it says whether the number is about one holding."""
     per_session = pl.DataFrame(

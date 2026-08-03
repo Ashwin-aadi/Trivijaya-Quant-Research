@@ -37,12 +37,30 @@ from src.common.exceptions import DataIntegrityError
 class CapacitySummary:
     """A factor's deployable AUM in rupees, summarised across the sessions it rebalanced on.
 
-    The median is the headline. The 5th percentile is reported beside it because a strategy that is
-    deployable at a billion rupees on a typical day and ten million on a bad one has a capacity of
-    ten million for any desk that cannot skip its bad days.
+    **The median was the headline until Checkpoint 3.3 and should not have been.** A strategy that
+    holds a constant book has near-zero rebalancing turnover on almost every session, so its median
+    session capacity is enormous — while the one session that builds the position is tightly
+    constrained and is the session that actually determines how much money the strategy can run.
+    Taking the median discarded exactly the binding constraint. The machine-generated corpus is full
+    of such strategies; the five standard factor strategies, which rebalance substantially every
+    session, contained none, so the defect was invisible until the benchmark met its intended
+    population.
+
+    ``binding_capacity_inr`` is therefore the headline and ``median_capacity_inr`` is retained as a
+    typical-session statistic. The 5th percentile sits between them: a strategy deployable at a
+    billion rupees on a typical day and ten million on a bad one has a capacity of ten million for
+    any desk that cannot skip its bad days.
     """
 
     factor: str
+    #: **The headline figure.** The largest AUM at which *every* session the strategy trades stays
+    #: inside the participation limit, including the session that builds the opening position. A
+    #: strategy must be executable on all of its rebalances, not on a typical one, so this is the
+    #: capacity a desk could actually run. It also makes initial construction binding for a
+    #: near-static strategy, which is what the median could not do — see the class note below.
+    binding_capacity_inr: float
+    #: Capacity on the strategy's first session: the cost of acquiring the book at all.
+    entry_capacity_inr: float
     median_capacity_inr: float
     p05_capacity_inr: float
     p95_capacity_inr: float
@@ -61,12 +79,22 @@ class CapacitySummary:
     relaxed_over_constrained: float
 
 
-def turnover_by_session(weights: pl.DataFrame) -> pl.DataFrame:
+def turnover_by_session(
+    weights: pl.DataFrame, *, min_traded_fraction: float = 0.0
+) -> pl.DataFrame:
     """Per name and session, the fraction of the book that must trade to reach the target weights.
 
-    A name entering the book trades its full weight; a name leaving it trades its full previous
-    weight, which the outer join is there to catch. Dropping departures would understate turnover
-    and therefore overstate capacity, and it would do so invisibly.
+    A name entering the book trades its full weight — **the strategy's first session therefore
+    counts as the full acquisition of its opening position**, which is what makes initial portfolio
+    construction part of deployment capacity rather than a cost the measure ignores. A name leaving
+    the book trades its full previous weight, which the outer join is there to catch; dropping
+    departures would understate turnover and so overstate capacity, invisibly.
+
+    ``min_traded_fraction`` discards weight changes too small to be trades. Without it, a strategy
+    that recomputes an unchanged weight each session produces differences of order 1e-18, and
+    dividing a participation limit by those reports a capacity of 1e23 crore. Added by PI ruling at
+    Checkpoint 3.3, after the machine-generated corpus exercised a path the five standard factor
+    strategies never reached.
     """
     required = {"session_date", "factor", "symbol", "weight"}
     missing = required - set(weights.columns)
@@ -92,7 +120,7 @@ def turnover_by_session(weights: pl.DataFrame) -> pl.DataFrame:
             prev_weight=pl.col("prev_weight").fill_null(0.0),
         )
         .with_columns(traded_fraction=(pl.col("weight") - pl.col("prev_weight")).abs())
-        .filter(pl.col("traded_fraction") > 0)
+        .filter(pl.col("traded_fraction") > max(min_traded_fraction, 0.0))
         .select(["session_date", "factor", "symbol", "traded_fraction"])
     )
 
@@ -157,10 +185,13 @@ def summarise_capacity(
         # given an infinite one.
         relaxed = group["second_capacity"].drop_nulls().to_numpy()
         median = float(np.median(capacities))
+        first_session = group.sort("session_date").head(1)
         median_relaxed = float(np.median(relaxed)) if relaxed.size else float("nan")
         summaries.append(
             CapacitySummary(
                 factor=str(factor),
+                binding_capacity_inr=float(capacities.min()),
+                entry_capacity_inr=float(first_session["capacity_inr"][0]),
                 median_capacity_inr=median,
                 p05_capacity_inr=float(np.quantile(capacities, 0.05)),
                 p95_capacity_inr=float(np.quantile(capacities, 0.95)),

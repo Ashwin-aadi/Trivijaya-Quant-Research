@@ -202,6 +202,9 @@ class ConstraintsConfig:
     min_adv_rupees: float
     adv_window_sessions: int
     circuit_band: float
+    #: Weight changes below this share of the book are numerical residue, not trades. See
+    #: config.yaml for the measurement that motivated it.
+    min_traded_fraction: float
 
 
 @dataclass(frozen=True)
@@ -388,6 +391,8 @@ def _build(raw: dict[str, Any], source_path: Path, config_hash: str) -> Config:
                 _require(raw, "constraints", "root"), "adv_window_sessions", "constraints")),
             circuit_band=float(_require(
                 _require(raw, "constraints", "root"), "circuit_band", "constraints")),
+            min_traded_fraction=float(_require(
+                _require(raw, "constraints", "root"), "min_traded_fraction", "constraints")),
         ),
         raw=raw,
         source_path=source_path,
