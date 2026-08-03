@@ -1,0 +1,124 @@
+You are a quantitative researcher proposing systematic equity strategies for the Indian market
+(NIFTY 100 constituents, daily bars, 2020-2024).
+
+Produce a single Markdown file containing FIVE strategies, one for each of these themes:
+
+  1. cross-sectional momentum
+  2. short-horizon mean reversion
+  3. volatility-scaled trend following
+  4. liquidity-screened equal weighting
+  5. price-level reversion against a trailing reference
+
+Format: for each strategy, a `## ` heading naming the theme, then one ```python fenced block
+containing a complete, executable file. Give each class a distinct name. Nothing else.
+
+Each Python class must conform exactly to this interface:
+
+    from __future__ import annotations
+    from datetime import date
+    import polars as pl
+    from src.backtest.strategy import MarketView, Signal, Strategy
+
+    class MyStrategy(Strategy):
+        rationale = "..."        # 3-4 sentences of economic reasoning
+        def __init__(self, ...) -> None: ...
+        def generate(self, view: MarketView) -> Signal: ...
+
+MarketView gives you these accessors and no others:
+    view.symbols                 -> tuple[str, ...]   the investable universe on this date
+    view.history(lookback=None)  -> pl.DataFrame      columns: symbol, session_date, open, high,
+                                                      low, close, adj_close, volume
+    view.closes(lookback=None)   -> pl.DataFrame      wide: session_date x symbol of adj_close
+    view.latest_close()          -> dict[str, float]  most recent close per symbol
+    view.as_of                   -> date              the session being decided for
+
+Signal(information_available_at=<date>, weights={symbol: fraction}).
+Weights are fractions of portfolio value and need not sum to one; the remainder is cash.
+`information_available_at` is REQUIRED and must be the latest session actually present in
+view.history() - never view.as_of, which is the session being filled and has not printed yet.
+
+You are writing against polars 1.43. These are the mistakes that break this code most often:
+    frame.with_columns(...)        NOT with_column
+    frame.group_by(...)            NOT groupby
+    frame.sort("c", descending=True)   NOT sort(..., reverse=True)
+    there is no pl.isnan; use pl.col("c").is_null() or is_nan()
+    there is no .collect() on a DataFrame; only a LazyFrame has one, and you do not need lazy
+    Expr.rank() takes method= and descending=, nothing else
+Correct in 1.43:
+    frame.group_by("symbol").agg(pl.col("adj_close").mean().alias("m"))
+    frame.with_columns((pl.col("adj_close") / pl.col("adj_close").shift(1) - 1.0).alias("r"))
+    frame.sort("session_date").tail(20)
+    frame["column"].to_list()    /    frame.height    /    frame.is_empty()
+
+**The simplest way to avoid all of this is to work in plain Python**, as the example below does:
+pull a column out with `frame["SYMBOL"].to_list()`, convert with `float(...)`, and compute with
+`sum`, `max`, `min` and comprehensions. Strategies written that way almost always run; strategies
+built from long chains of polars expressions usually do not.
+
+Requirements:
+- Use polars as pl. Python 3.11. Type hints on every function. No function over 50 lines.
+- EVERY __init__ parameter must have a default value, so the class can be built as MyStrategy().
+- Handle the case where history is too short to compute your signal: return an empty Signal.
+- Each block must be one complete, executable file: imports, the class, and any helpers.
+
+Here is a complete, working example. Follow its structure and its use of the API exactly; only
+the signal itself should differ in your answers.
+
+```python
+from __future__ import annotations
+
+from datetime import date
+
+import polars as pl
+from src.backtest.strategy import MarketView, Signal, Strategy
+
+
+class Breakout20d(Strategy):
+    rationale = (
+        "A close at the top of its recent range means every holder from that period is in "
+        "profit, so the supply of sellers waiting to break even is exhausted. That is the "
+        "standard argument for entering on a breakout."
+    )
+
+    def __init__(self, window: int = 20, top_n: int = 5) -> None:
+        self._window = window
+        self._top_n = top_n
+
+    def generate(self, view: MarketView) -> Signal:
+        stamp = _latest_visible(view)
+        closes = view.closes(lookback=self._window)
+        if closes.height < self._window:
+            return Signal(information_available_at=stamp, weights={})
+
+        picks: list[str] = []
+        for symbol in view.symbols:
+            if symbol not in closes.columns:
+                continue
+            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]
+            if len(values) < self._window:
+                continue
+            if values[-1] >= max(values):
+                picks.append(symbol)
+
+        picks = picks[: self._top_n]
+        if not picks:
+            return Signal(information_available_at=stamp, weights={})
+        weight = 1.0 / len(picks)
+        return Signal(
+            information_available_at=stamp, weights={s: weight for s in picks}
+        )
+
+
+def _latest_visible(view: MarketView) -> date:
+    visible = view.history()
+    if visible.is_empty():
+        return date(1900, 1, 1)
+    newest = visible["session_date"].max()
+    assert isinstance(newest, date)
+    return newest
+```
+
+Note in particular: `view.closes()` is WIDE - one column per symbol, plus `session_date`. It has
+no `symbol` column. `view.history()` is LONG and does have one.
+
+Use a different signal from the example in all five strategies.
