@@ -263,3 +263,48 @@ Binding consequences, all of which constrain work already scheduled:
 4. **After the evaluation, no tuning of anything follows.** If the result is disappointing, that is
    the result.
 5. The evaluation is logged in `DECISIONS.md` with its timestamp and this authorisation.
+
+---
+
+## AMENDMENT 3 — n raised to 20 per arm, 2026-08-03, before any reply was parsed
+
+§4 fixed n = 5 per arm and required any increase to be declared here **before the additional
+generation**. The PI has elected four requests per arm rather than one.
+
+**n = 20 per frontier arm**, as four independent requests of five strategies each.
+
+**The timing, which is the only thing that makes this legitimate.** The first reply
+(`gpt_001.md`) had been received, saved and hashed when the decision was taken, but **nothing had
+been parsed**: no parse rate, no audit verdict, no backtest, no rate of any kind existed. The
+increase was therefore chosen against the width of a confidence interval, not against a result. Had
+the extractor been run first, this amendment would not have been available, and the arm would have
+stood at five.
+
+At n = 20 an observed 12/20 carries a 95% interval of roughly 36–81%, against roughly 15–95% for
+3/5. Still wide. It is the difference between a rate that can be written down and one the interval
+swallows whole.
+
+**Applies to every arm.** Claude and Gemini are collected at four requests each, so the arms remain
+comparable. If an arm is collected at a different size the reason is recorded here.
+
+**Within-request non-independence now has a second layer.** Five strategies inside one reply are
+not independent of each other, as `PROMPT.md` records. Four replies are independent of each other.
+The arm is therefore **four independent clusters of five**, not twenty independent draws, and any
+interval computed as though n = 20 were independent will be too narrow. Where a clustered
+calculation is not performed, the figure is reported with this caveat attached.
+
+### Raw replies, hashed before parsing
+
+| File | Bytes | SHA256 |
+|---|---|---|
+| `gpt_001.md` | 11,154 | `c06c7ebc099b1ad2c54e403a5fe8450f9f7d902ac074ed6893dd5aeac3e6a5ea` |
+| `gpt_002.md` | 10,738 | `8861f3880ec0c5a75cbffb70bba804f624280576655ea9265efa0e78022eac58` |
+| `gpt_003.md` | 11,323 | `9b2c1f385a45c051f42ae92aed86e1082d69672b82dcf163253f4c0971646609` |
+| `gpt_004.md` | 10,578 | `862eae10c9913e623ceb4beaeb95b8d5d8474bce3cfc1962926cee588bf8d385` |
+
+**Provenance limitation, recorded because it cannot be repaired retrospectively.** All four replies
+reached the repository by being pasted into a conversation rather than saved directly from the
+browser. The content was transcribed faithfully, but chat transport can normalise whitespace and
+unicode, so these bytes are **not certified identical to what the product emitted**. The model is
+recorded as the PI reported it --- *"ChatGPT base core model"* --- which is not a version string and
+does not pin the arm to a specific model release.
