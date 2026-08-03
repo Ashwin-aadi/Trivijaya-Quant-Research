@@ -1311,6 +1311,30 @@
     "value": "23.1",
     "source": "data/processed/tier2_fragility.json"
   },
+  "rsUniformlyBadBestSharpe": {
+    "value": "$-$1.486",
+    "source": "data/processed/fragility.json"
+  },
+  "rsUniformlyBadCount": {
+    "value": "16",
+    "source": "data/processed/fragility.json"
+  },
+  "rsUniformlyBadFragility": {
+    "value": "0.093",
+    "source": "data/processed/fragility.json"
+  },
+  "rsUniformlyBadName": {
+    "value": "candidate\\_244",
+    "source": "data/processed/fragility.json"
+  },
+  "rsUniformlyBadRank": {
+    "value": "5",
+    "source": "data/processed/fragility.json"
+  },
+  "rsUniformlyBadWorstSharpe": {
+    "value": "$-$2.501",
+    "source": "data/processed/fragility.json"
+  },
   "rsWorstNondeterministicSwing": {
     "value": "1.561",
     "source": "benchmarks/regimestress/excluded_nondeterministic.json"

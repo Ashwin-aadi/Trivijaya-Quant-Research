@@ -163,10 +163,11 @@ number in this paper is generated from the committed artifacts rather than trans
 \keyfinding{\textbf{The cheap stress tier reproduces performance well and fragility poorly.}
 Resampling a strategy's \emph{realised} returns agrees with full counterfactual re-simulation at
 Spearman \rsTierAgreementMeanSharpe\ on mean performance but only \rsTierAgreementFragility\ on
-fragility (n\;=\;\rsTierAgreementN). Fragility is generated substantially by strategies
-\emph{responding} to the path they are given, and a shortcut that holds the decisions fixed
-discards the mechanism. We report this as an empirical methodological result: the expensive tier
-is not optional.}
+fragility (n\;=\;\rsTierAgreementN). The divergence is \emph{consistent with} strategy re-decision
+contributing materially to measured fragility: the two tiers differ in whether a strategy may
+respond to the path it is given, and it is fragility rather than performance that the cheap tier
+loses. We do not claim causation from a rank correlation. We report the divergence as an empirical
+methodological result with a practical consequence: the expensive tier is not optional.}
 
 \paragraph{A shortcut that does hold.} Not every shortcut fails, and the benchmark distinguishes
 them by measurement rather than by assertion. Across-regime fragility computed directly from a
@@ -423,6 +424,16 @@ alongside it; the paper body contains macros only. This is deliberately stricter
 work, where numbers were transcribed from committed reports --- correct in practice, but a
 transcription error would have been indistinguishable from a result.
 
+\textbf{The guarantee is enforced rather than asserted, and the enforcement was itself tested.} A
+checker strips structural \LaTeX{} from the body and fails the build if any numeric literal
+survives outside a short allowlist of protocol constants --- seeds, exponents, years, the nominal
+confidence level --- each of which carries a written reason for not being a measurement. Because a
+gate nobody has seen fail is indistinguishable from a gate that cannot fail, we ran the negative
+control: a figure was typed into a claim sentence in place of its macro, and the checker rejected
+the paper and named the offending line. It was then reverted. That control now runs on the real
+paper source as part of the test suite, in both directions --- the committed paper must pass, and a
+tampered copy of it must fail --- so the guarantee cannot quietly lapse.
+
 % =====================================================================================
 \section{Results}
 
@@ -447,11 +458,22 @@ performance almost as well as full re-simulation (\rsTierAgreementMeanSharpe) an
 fragility considerably worse (\rsTierAgreementFragility). Median fragility differs as well:
 \rsTierMedianOne\ under Tier 1 against \rsTierMedianTwo\ under Tier 2.
 
-The interpretation is mechanical rather than statistical. Tier 2 varies the \emph{order} of
-outcomes a strategy already produced; Tier 1 varies the \emph{world} and lets the strategy respond.
-That a shortcut preserving decisions loses most of the fragility signal is direct evidence that
-fragility is generated substantially by strategies responding to conditions --- which is what one
-would hope, and what makes the expensive tier necessary.
+The two tiers differ in exactly one respect: Tier 2 varies the \emph{order} of outcomes a strategy
+already produced, while Tier 1 varies the \emph{world} and lets the strategy respond to it. That a
+shortcut preserving decisions loses most of the fragility signal while preserving most of the
+performance signal is \emph{consistent with} strategy re-decision contributing materially to
+measured fragility.
+
+\textbf{We stop short of claiming that as a cause.} Two rank correlations computed on one corpus
+cannot establish a mechanism, and at least one alternative explanation survives: fragility is a
+variance-like quantity and therefore a noisier statistic than mean performance, so a lower
+correlation is partly expected on estimation grounds alone. Separating the two would require an
+experiment we did not run --- for instance a Tier 1 variant in which the panel is resampled but
+each strategy's positions are frozen to its real-history book. We name it here as the obvious next
+measurement rather than assert the conclusion it would test.
+
+What does not depend on the interpretation is the practical consequence: whatever produces the
+gap, Tier 2 cannot be substituted for Tier 1 when fragility is the quantity of interest.
 \end{finding}
 
 We expected Tier 2 to be an adequate approximation and built it as the default. It is not, and the
@@ -493,7 +515,31 @@ afterwards. Taken together with \S\ref{sec:tiers}, the benchmark's position on c
 shortcuts is that whether one is safe is an empirical question with a measurable answer, and that
 the answer differs between shortcuts that look equally reasonable beforehand.
 
-\subsection{What the exclusions remove}\label{sec:knifeedge}
+\subsection{Three properties of the population, reported as findings}\label{sec:knifeedge}
+
+The next three results are facts about the strategies and about the fragility metric itself. They
+also appear in Threats to Validity, because each limits what the rest of the paper can claim. They
+are stated here as well because a reader who meets them only among the caveats would reasonably
+conclude we had tried to keep them quiet.
+
+\subsubsection*{A large minority of machine-generated strategies are not deterministic}
+
+\rsNNondeterministic\ of \rsNCalibrated\ strategies return a different result when run twice on the
+same data with the same code, with a worst-case Sharpe swing of \rsWorstNondeterministicSwing.
+
+\begin{finding}
+\textbf{Every affected strategy is generator output. Every standard academic factor is
+deterministic.} This is a property of what the model wrote, not of the engine or the harness, and
+it has a direct consequence for the whole enterprise: a strategy whose score already varies for no
+reason is arithmetically indistinguishable from one whose score varies because the market changed.
+Nondeterminism and fragility are the same measurement until the first is excluded.
+
+We report the exclusion as a non-random one. The benchmark measures fragility on the subset of
+machine-generated strategies that happen to be reproducible, and reproducibility may correlate with
+the simplicity that also drives fragility. The census was frozen before any stress path was run.
+\end{finding}
+
+\subsubsection*{The stability filter removes the fast end of the corpus}
 
 A strategy is \emph{knife-edge} if its Sharpe ratio is not stable under a numerically negligible
 change to its inputs --- a relative perturbation on the order of $10^{-15}$, which no economic
@@ -521,6 +567,28 @@ fragility. Sharpe swing among the excluded has a median of \rsKnifeEdgeSwingMedi
 of \rsKnifeEdgeSwingMax, with \rsKnifeEdgeSwingAboveHalf\ above 0.5 --- so for most of them the
 instability is small, and for a few it is not.
 \end{selfreport}
+
+\subsubsection*{A strategy that is uniformly bad is measured as stable}
+
+Fragility is a ratio with a mean in its denominator, and it scores \emph{consistency}, not quality.
+Nothing prevents a strategy that loses money in every regime from being uniformly consistent about
+it.
+
+\begin{finding}
+\textbf{This is not hypothetical, and it is not rare.} \rsUniformlyBadCount\ of \rsNPrimary\
+strategies have a negative Sharpe ratio in \emph{every} labelled regime. The most extreme,
+\texttt{\rsUniformlyBadName}, ranges from \rsUniformlyBadWorstSharpe\ to
+\rsUniformlyBadBestSharpe\ across the four regimes --- and with a fragility of
+\rsUniformlyBadFragility\ it ranks \rsUniformlyBadRank\ of \rsNPrimary\ on the low-fragility end of
+the corpus. It is among the most robust strategies we measured, and it never makes money.
+
+\textbf{A fragility score is therefore uninterpretable without a performance figure beside it}, and
+must never be used as a standalone ranking. Our narrative layer does not enforce this and describes
+one such strategy as most reliable in a regime in which it loses money. A further \rsNNearZeroMean\
+strategies are flagged because a near-zero mean in the denominator inflates the ratio for
+arithmetic reasons; how many sit close enough to that boundary for the flag to miss them is
+unknown.
+\end{finding}
 
 \subsection{Fragility prediction, and its diagnosis}\label{sec:prediction}
 
@@ -720,15 +788,17 @@ design means label definitions drift over the sample
 (\rsRegimeTerminalDisagreement\% terminal disagreement), so a ``regime'' is not a fixed
 conditioning event.
 
-\paragraph{T4 --- Excluding nondeterministic strategies removes a non-random group.} All
+\paragraph{T4 --- Excluding nondeterministic strategies removes a non-random group.}
+\textbf{Reported as a finding in \S\ref{sec:knifeedge}; repeated here as a limitation.} All
 \rsNNondeterministic\ excluded strategies are generator output and none are standard factors. The
 benchmark therefore measures fragility on the subset of machine-generated strategies that happen to
 be reproducible, and reproducibility may correlate with the simplicity that also drives fragility.
 
-\paragraph{T5 --- Excluding knife-edge strategies removes the fast end of the corpus.} As
-\S\ref{sec:knifeedge} shows, the \rsKnifeEdgeExcluded\ excluded strategies have roughly twenty
-times the turnover and a twentieth of the holding period of those retained. The predictor is
-trained on a restricted range of the characteristic most likely to matter.
+\paragraph{T5 --- Excluding knife-edge strategies removes the fast end of the corpus.}
+\textbf{Reported as a finding in \S\ref{sec:knifeedge}; repeated here as a limitation.} The
+\rsKnifeEdgeExcluded\ excluded strategies have roughly twenty times the turnover and a twentieth of
+the holding period of those retained, so the predictor is trained on a restricted range of the
+characteristic most likely to matter.
 
 \paragraph{T6 --- Tier 2 does not measure what it was built to measure.} It is retained in the
 benchmark and reported honestly, but any future use of it as a fragility proxy is unsupported by
@@ -740,12 +810,14 @@ purge --- rows are strategies, not periods --- but the cross-validation still tr
 observations that share one realisation of the market. Every confidence interval here is narrower
 than the truth. The learning curve has not saturated.
 
-\paragraph{T8 --- Fragility is a ratio with a mean in its denominator.} Strategies whose mean
-performance is near zero carry a large fragility for an arithmetic rather than an economic reason.
-\rsNNearZeroMean\ are flagged and reported rather than dropped, and how many sit close enough to
-the boundary for the flag to miss them is unknown. Relatedly, \textbf{a uniformly bad strategy
-scores as stable}: low fragility is consistency, not quality, and nothing in the benchmark enforces
-that distinction.
+\paragraph{T8 --- Fragility is a ratio with a mean in its denominator, and it scores
+consistency rather than quality.} \textbf{Reported as a finding in \S\ref{sec:knifeedge}; repeated
+here as a limitation.} \rsUniformlyBadCount\ of \rsNPrimary\ strategies lose money in every regime
+and are scored as among the least fragile in the corpus. Separately, strategies whose mean
+performance is near zero carry a large fragility for an arithmetic rather than an economic reason;
+\rsNNearZeroMean\ are flagged rather than dropped, and how many sit close enough to the boundary for
+the flag to miss them is unknown. \textbf{A fragility score must never be read without a
+performance figure beside it.}
 
 \paragraph{T9 --- The signal-decay characteristic is a proxy.} The engine stores the book a
 strategy produced, not the alpha forecast behind it, so book-similarity decay measures how fast the
@@ -822,7 +894,12 @@ What we release is therefore an environment, a resampler with a validation suite
 with a measured account of when each is adequate, a frozen population with exclusion rules fixed in
 advance, and a pipeline in which every number in this paper is generated from the artifacts rather
 than transcribed. All of it is independent of whether our fragility predictor worked, which is
-fortunate, because it did not. It is available at
+fortunate, because it did not.
+
+\textbf{RegimeStress is intended as benchmark infrastructure rather than a completed scientific
+result.} Future strategy generators, stress-generation methods and fragility predictors should be
+evaluated against the same frozen protocol, so that progress is measured against a common standard
+rather than against each new author's own apparatus. It is available at
 \href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}%
 {\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}.
 

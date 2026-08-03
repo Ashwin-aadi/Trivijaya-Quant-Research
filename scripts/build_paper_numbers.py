@@ -138,6 +138,37 @@ def _population(processed: Path) -> Macros:
     return macros
 
 
+def _pathology(processed: Path) -> Macros:
+    """Strategies that lose money in every regime and score as among the *least* fragile.
+
+    Fragility measures consistency, not quality. A strategy that is uniformly bad is uniformly
+    consistent, so the metric rewards it. This was noticed as an anecdote in one generated
+    narrative; it is quantified here because a named example is an anecdote and a count is a
+    finding.
+    """
+    payload = _read(processed / "fragility.json")
+    rows = payload["primary"]
+    uniformly_bad = [
+        r for r in rows
+        if r.get("regime_sharpe") and all(v < 0.0 for v in r["regime_sharpe"].values())
+    ]
+    ranked = sorted(rows, key=lambda r: r["fragility_across_regimes"])
+    worst = min(uniformly_bad, key=lambda r: r["fragility_across_regimes"])
+    sharpes = list(worst["regime_sharpe"].values())
+    macros: Macros = {}
+    _put(
+        macros, "data/processed/fragility.json",
+        rsUniformlyBadCount=integer(len(uniformly_bad)),
+        rsUniformlyBadName=worst["name"].replace("_", r"\_"),
+        rsUniformlyBadFragility=fixed(worst["fragility_across_regimes"], 3),
+        # Rank among all primary strategies, ascending: 1 is the least fragile in the corpus.
+        rsUniformlyBadRank=integer(ranked.index(worst) + 1),
+        rsUniformlyBadWorstSharpe=signed(min(sharpes), 3),
+        rsUniformlyBadBestSharpe=signed(max(sharpes), 3),
+    )
+    return macros
+
+
 def _regimes(processed: Path) -> Macros:
     """The causal labelling layer: how K was chosen, how much it moves, and what it agrees with."""
     macros: Macros = {}
@@ -524,7 +555,8 @@ def _collect(cfg: Config) -> Macros:
     processed = cfg.paths.data_processed
     macros: Macros = {}
     for part in (
-        _population(processed), _regimes(processed), _resampler(processed), _tiers(processed),
+        _population(processed), _pathology(processed), _regimes(processed),
+        _resampler(processed), _tiers(processed),
         _shortcut(processed), _exclusions(), _diagnosis(processed), _models(processed),
         _importances(processed), _leakage(processed),
     ):

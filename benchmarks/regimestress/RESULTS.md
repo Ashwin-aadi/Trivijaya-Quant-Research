@@ -111,9 +111,18 @@ series, which is far cheaper but cannot let a strategy respond to the path it is
 strategy do?"* and inadequate for the question *"how much does its performance move?"* — which is
 the question the benchmark exists to ask.
 
-This is an empirical methodological finding, not a failure of Tier 2. It says something specific:
-fragility is generated substantially by strategies *responding* to the path they are given, and a
-resampling scheme that holds the decisions fixed discards the mechanism.
+This is an empirical methodological finding, not a failure of Tier 2.
+
+The divergence is **consistent with** strategy re-decision contributing materially to measured
+fragility — the two tiers differ in whether a strategy may respond to the path it is given, and it
+is fragility rather than performance that the cheap tier loses. **We do not claim that as a cause.**
+Fragility is a variance-like quantity and therefore a noisier statistic than mean performance, so
+some of the gap is expected on estimation grounds alone. Separating the two needs an experiment we
+did not run: a Tier 1 variant that resamples the panel while freezing each strategy's book to its
+real-history positions.
+
+What holds regardless of the interpretation: Tier 2 cannot be substituted for Tier 1 when fragility
+is the quantity of interest.
 
 ### Conditioning is close to free
 

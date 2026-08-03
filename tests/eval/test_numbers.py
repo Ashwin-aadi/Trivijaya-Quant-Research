@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 
 import pytest
-from scripts.check_paper_numbers import ALLOWED, _bare_numerals
+from scripts.check_paper_numbers import ALLOWED, PAPER, _bare_numerals, _body
 
 from src.eval.numbers import fixed, integer, macro_name, percent, plain, scientific, signed
 
@@ -103,3 +103,24 @@ def test_the_checker_ignores_structural_latex() -> None:
 def test_every_allowed_literal_carries_a_written_reason() -> None:
     """A number admitted to the allowlist without a justification is an unaudited claim."""
     assert all(isinstance(why, str) and len(why) > 20 for why in ALLOWED.values())
+
+
+# --- the negative control, run against the real paper -----------------------------------
+#
+# The PI ran this by hand before authorising the freeze: type a figure into a claim sentence and
+# confirm the checker rejects it. A gate nobody has seen fail is indistinguishable from a gate that
+# cannot fail, so the control is kept here rather than left as a one-time manual act.
+
+
+def test_the_committed_paper_states_no_figure_of_its_own() -> None:
+    assert _bare_numerals(_body(PAPER.read_text(encoding="utf-8"))) == []
+
+
+def test_a_figure_typed_into_the_real_paper_is_rejected() -> None:
+    """The other direction, and the one that matters: tampering must not pass."""
+    body = _body(PAPER.read_text(encoding="utf-8"))
+    # Substitute a macro in a claim sentence for the value it renders to, exactly as a careless
+    # edit would. The paper must stop being clean the moment it states a number itself.
+    tampered = body.replace(r"\rsShortcutSpearman", "0.963", 1)
+    assert tampered != body, "the macro this control depends on is no longer used in the paper"
+    assert "0.963" in [token for _, token, _ in _bare_numerals(tampered)]
