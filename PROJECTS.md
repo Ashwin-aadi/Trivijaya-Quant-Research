@@ -4,12 +4,15 @@ This lab is one repository holding three projects that run in sequence. Each ans
 the previous one raises.
 
 ```
-P1  ALPHAAUDIT     Is this signal real, or is it leakage and luck?      COMPLETE
+P1  ALPHAAUDIT     Is this signal real, or is it leakage and luck?      RELEASED
         |  survivors + a standard factor panel pass to
-P2  REGIMESTRESS   When does it break?                                  RELEASED, NOT STARTED
-        |  robust strategies pass to
-P3  FLOWSTATE      How much money can it absorb?                        NOT STARTED
+P2  REGIMESTRESS   When does it break?                                  RELEASED, regimestress-v1
+        |  deterministic strategies pass to
+P3  FLOWSTATE      How much money can it absorb?                        RELEASED, flowstate-v1
 ```
+
+All three are frozen. 125 strategies carry an audit verdict, a fragility score and a deployment
+capacity apiece.
 
 This file exists because the repository is **not** laid out as three sibling folders, and that is
 deliberate. Roughly half of what P1 built is shared infrastructure that P2 and P3 are *required* to

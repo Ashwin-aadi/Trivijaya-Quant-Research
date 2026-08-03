@@ -151,8 +151,9 @@ Benchmark, artifacts, corrections and evaluation protocol:\\
 \noindent
 The first question a portfolio manager asks about a strategy is how much money it can take. The
 standard answer is a capacity curve, and building one requires knowing how far a given order moves
-the price. \textbf{We measure whether daily bars can supply that knowledge, and report that they
-cannot---not for want of precision, but because the quantity is not identified.} Two equally
+the price. \textbf{We measure whether daily bars can supply that knowledge, and report that within
+the estimators and information available from daily OHLCV the obstruction is one of identification
+rather than statistical precision.} Two equally
 defensible weighting schemes applied to the same reversal regression disagree about the
 \emph{sign} of transient impact at \fsSignDisagreements\ of \fsHorizonsTested\ horizons, and nothing
 in the data adjudicates between them. Amihud illiquidity, computed on the same panel as a control,
@@ -587,6 +588,19 @@ results it reports. Repairing an objective omission in a definition is not the s
 a threshold until a result improves, and the sign of the change is the cheapest available evidence
 of which one happened.
 
+We state the obvious objection rather than leave it to the reader to raise. \emph{Both defects were
+found by data the benchmark was about to be applied to, and repaired before it was frozen}---the
+corrections are, in the literal sense, post-hoc. Our argument that they are repairs and not tuning
+rests on three things: each defect is demonstrable without reference to any result, in one case as
+a dimensional absurdity and in the other as a statistic that provably omits a constraint the
+definition already contained; the ordering was fixed in advance, so the corpus run was scheduled
+before the freeze rather than reached for after a disappointing number; and every correction moved
+every published figure downward. None of that is proof, and a reader is entitled to weigh it
+themselves. We report it here, in the result, rather than in a list of caveats, because the
+alternative---discovering the defects after publication, or not at all---is the outcome this
+ordering exists to prevent, and a paper that buried the episode would be recommending a process it
+declined to display.
+
 \begin{finding}
 The general form: \textbf{a benchmark's soundness cannot be established on the population that
 motivated it.} Defects concentrate in the tails of the population a benchmark is applied to, and a
@@ -629,11 +643,6 @@ would give different capacities for the same signals.
 \item \textbf{One market, one window.} 2020--2024 in Indian equities contains one pandemic
 drawdown and one recovery. Every negative result here may be a property of that window.
 
-\item \textbf{The corrections were made after seeing the corpus.} Both defects in
-Section~\ref{sec:validation} were found by data the benchmark was about to be applied to, and
-repaired before freezing. We argue this repairs objective omissions rather than tuning, and note the
-corrections all moved results downward, but a reader is entitled to weigh that themselves.
-
 \item \textbf{Intraday data would change the identification result.} We established that no free
 source reaches this window at intraday resolution, and that commercially available sources at a
 retail price point reach only part of it. With minute bars the extrapolation gap closes and the
@@ -653,8 +662,9 @@ when foreign participation reverses, though that null is conditional on a proxy 
 have needed.
 
 The result we expect to outlast the others is the one about instruments rather than about markets.
-Daily OHLCV cannot identify a transient-impact coefficient---not for want of precision, but because
-two equally defensible estimators disagree about its sign and the data cannot arbitrate. A great many
+Within the estimators and information daily OHLCV affords, a transient-impact coefficient is not
+identified---the obstruction is not statistical precision, but that two equally defensible estimators
+disagree about its sign and the data cannot arbitrate. A great many
 published backtests price market impact from daily data. This is a measurement of what that
 assumption is worth, and it comes with a control showing that the same data supports a stable
 liquidity measure perfectly well.
