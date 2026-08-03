@@ -109,6 +109,7 @@ _STRUCTURAL = (
     re.compile(r"p\{[0-9.]*\\linewidth\}"),                 # ...and their widths
     re.compile(r"\\(?:hspace|vspace|rule|multicolumn)\*?\{[^}]*\}(?:\{[^}]*\})?"),
     re.compile(r"\\cmidrule(?:\([lr]+\))?\{[0-9-]+\}"),      # partial rules span column numbers
+    re.compile(r"\\setlength\{[^}]*\}\{[^}]*\}"),            # column padding and other lengths
     re.compile(r"\$h\{=\}\d+\$"),                            # holding-horizon column labels
     re.compile(r"\\begin\{(?:table|figure|tcolorbox|finding|selfreport)\}(?:\[[^\]]*\])?"),
     re.compile(r"\\(?:S)?ref\{[^}]*\}"),                    # cross-references
