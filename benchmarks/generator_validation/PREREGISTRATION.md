@@ -186,3 +186,21 @@ Recorded so it can be checked against afterwards:
 - An arm reported as a win despite §2.
 - A rate reported without its sample size.
 - Any analysis in the write-up not appearing above, presented as confirmatory.
+
+---
+
+## AMENDMENT 1 — sequential collection, 2026-08-03, before any strategy was generated
+
+Arms are collected **one at a time**, beginning with GPT, rather than all three at once. This is a
+scheduling decision and changes nothing about §4's committed sample size.
+
+**The commitment it requires, made here before any result is seen:** all three arms will be
+collected and analysed regardless of what any earlier arm shows. Stopping after an arm that produced
+a striking result, or adding arms until one does, is optional stopping and would void this
+pre-registration. If an arm is ever *not* collected, the reason is recorded here and the study is
+reported as one-armed or two-armed rather than silently trimmed.
+
+**Deferred, and permitted to be deferred because they bear on no measurement taken today:** the
+§7 trial-counter ruling and the §9 holdout scope. Consequently **no Deflated Sharpe Ratio is
+computed and the holdout is not touched** until both are ruled. H6 is therefore untestable today and
+remains open. H1–H5 are answered entirely on development data and need neither ruling.
