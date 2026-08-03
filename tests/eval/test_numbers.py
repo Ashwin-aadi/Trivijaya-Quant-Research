@@ -124,3 +124,46 @@ def test_a_figure_typed_into_the_real_paper_is_rejected() -> None:
     tampered = body.replace(r"\rsShortcutSpearman", "0.963", 1)
     assert tampered != body, "the macro this control depends on is no longer used in the paper"
     assert "0.963" in [token for _, token, _ in _bare_numerals(tampered)]
+
+
+# --- the FlowState paper, held to the same guarantee ----------------------------------------
+
+
+def test_the_flowstate_paper_states_no_figure_of_its_own() -> None:
+    from scripts.check_paper_numbers import PAPERS, _bare_numerals, _body
+
+    flowstate = next(p for p in PAPERS if p.name == "flowstate")
+    assert flowstate.paper.exists(), "the FlowState paper has gone missing"
+    assert _bare_numerals(_body(flowstate.paper.read_text(encoding="utf-8"))) == []
+
+
+def test_a_figure_typed_into_the_flowstate_paper_is_rejected() -> None:
+    """The negative control, run against the real file: tampering must not pass."""
+    from scripts.check_paper_numbers import PAPERS, _bare_numerals, _body
+
+    flowstate = next(p for p in PAPERS if p.name == "flowstate")
+    body = _body(flowstate.paper.read_text(encoding="utf-8"))
+    tampered = body.replace(r"\fsAmihudSpearman", "0.836", 1)
+    assert tampered != body, "the macro this control depends on is no longer used in the paper"
+    assert "0.836" in [token for _, token, _ in _bare_numerals(tampered)]
+
+
+def test_each_paper_owns_its_macro_namespace() -> None:
+    """A RegimeStress macro must never silently satisfy a FlowState reference, or vice versa.
+
+    The two papers would then share a number without sharing an artifact, which is precisely the
+    failure the whole generate-and-check apparatus exists to prevent.
+    """
+    from scripts.check_paper_numbers import PAPERS, _defined
+
+    prefixes = {p.prefix for p in PAPERS}
+    assert len(prefixes) == len(PAPERS), "two papers share a macro prefix"
+    for subject in PAPERS:
+        if not subject.numbers.exists():
+            continue
+        defined = _defined(subject.numbers.read_text(encoding="utf-8"), subject.prefix)
+        assert defined, f"{subject.name} defines no macros"
+        for other in PAPERS:
+            if other.prefix == subject.prefix:
+                continue
+            assert not _defined(subject.numbers.read_text(encoding="utf-8"), other.prefix)

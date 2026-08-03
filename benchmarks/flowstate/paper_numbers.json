@@ -1,0 +1,594 @@
+{
+  "fsAmihudN": {
+    "source": "impact_identifiability.json",
+    "value": "166"
+  },
+  "fsAmihudSpearman": {
+    "source": "impact_identifiability.json",
+    "value": "0.836"
+  },
+  "fsAmihudSpearmanP": {
+    "source": "impact_identifiability.json",
+    "value": "1.7\\times10^{-44}"
+  },
+  "fsCorpusAllThree": {
+    "source": "corpus_capacity.json",
+    "value": "125"
+  },
+  "fsCorpusBindingMax": {
+    "source": "corpus_capacity.json",
+    "value": "66.4"
+  },
+  "fsCorpusBindingMedian": {
+    "source": "corpus_capacity.json",
+    "value": "2.60"
+  },
+  "fsCorpusBindingPFive": {
+    "source": "corpus_capacity.json",
+    "value": "0.35"
+  },
+  "fsCorpusBindingPNinetyFive": {
+    "source": "corpus_capacity.json",
+    "value": "10.8"
+  },
+  "fsCorpusKnifeEdge": {
+    "source": "corpus_capacity.json",
+    "value": "31"
+  },
+  "fsCorpusMedianOverBinding": {
+    "source": "corpus_capacity.json",
+    "value": "10.6"
+  },
+  "fsCorpusN": {
+    "source": "corpus_capacity.json",
+    "value": "156"
+  },
+  "fsCorpusSpan": {
+    "source": "corpus_capacity.json",
+    "value": "30.9"
+  },
+  "fsCorpusWithCapacity": {
+    "source": "corpus_capacity.json",
+    "value": "156"
+  },
+  "fsCorpusWithFragility": {
+    "source": "corpus_capacity.json",
+    "value": "125"
+  },
+  "fsDecayMaxAbsTstat": {
+    "source": "flowstate.json",
+    "value": "2.40"
+  },
+  "fsDecayMaxAbsTstatShortest": {
+    "source": "flowstate.json",
+    "value": "1.79"
+  },
+  "fsDeltaMedian": {
+    "source": "impact_identifiability.json",
+    "value": "0.689"
+  },
+  "fsDeltaN": {
+    "source": "impact_identifiability.json",
+    "value": "179"
+  },
+  "fsDeltaPNinety": {
+    "source": "impact_identifiability.json",
+    "value": "0.859"
+  },
+  "fsDeltaPTen": {
+    "source": "impact_identifiability.json",
+    "value": "0.521"
+  },
+  "fsDeltaSpearman": {
+    "source": "impact_identifiability.json",
+    "value": "0.374"
+  },
+  "fsDeltaSpearmanN": {
+    "source": "impact_identifiability.json",
+    "value": "166"
+  },
+  "fsEntryBindsCount": {
+    "source": "corpus_capacity.json",
+    "value": "32"
+  },
+  "fsEntryBindsShare": {
+    "source": "corpus_capacity.json",
+    "value": "20.5"
+  },
+  "fsFactorBindingMax": {
+    "source": "flowstate.json",
+    "value": "7.91"
+  },
+  "fsFactorBindingMin": {
+    "source": "flowstate.json",
+    "value": "0.81"
+  },
+  "fsFactorSpan": {
+    "source": "flowstate.json",
+    "value": "9.8"
+  },
+  "fsFitRsquared": {
+    "source": "impact_identifiability.json",
+    "value": "0.126"
+  },
+  "fsFlowNFactors": {
+    "source": "flowstate.json",
+    "value": "5"
+  },
+  "fsFlowRatioMax": {
+    "source": "flowstate.json",
+    "value": "1.24"
+  },
+  "fsFlowRatioMedian": {
+    "source": "flowstate.json",
+    "value": "0.96"
+  },
+  "fsFlowRatioMin": {
+    "source": "flowstate.json",
+    "value": "0.94"
+  },
+  "fsFlowSessionsMax": {
+    "source": "flowstate.json",
+    "value": "234"
+  },
+  "fsFlowSessionsMin": {
+    "source": "flowstate.json",
+    "value": "76"
+  },
+  "fsHorizonMax": {
+    "source": "flowstate.json",
+    "value": "63"
+  },
+  "fsHorizonMin": {
+    "source": "flowstate.json",
+    "value": "1"
+  },
+  "fsHorizonsTested": {
+    "source": "impact_identifiability.json",
+    "value": "4"
+  },
+  "fsIdentNSymbols": {
+    "source": "impact_identifiability.json",
+    "value": "177"
+  },
+  "fsIdentSymbolDays": {
+    "source": "impact_identifiability.json",
+    "value": "208{,}042"
+  },
+  "fsIlliquidityBinding": {
+    "source": "flowstate.json",
+    "value": "7.22"
+  },
+  "fsIlliquidityBpsFive": {
+    "source": "flowstate.json",
+    "value": "$+$4.96"
+  },
+  "fsIlliquidityBpsOne": {
+    "source": "flowstate.json",
+    "value": "$+$4.86"
+  },
+  "fsIlliquidityBpsSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$+$6.82"
+  },
+  "fsIlliquidityBpsTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$+$5.62"
+  },
+  "fsIlliquidityEntry": {
+    "source": "flowstate.json",
+    "value": "10.75"
+  },
+  "fsIlliquidityMedian": {
+    "source": "flowstate.json",
+    "value": "32.0"
+  },
+  "fsIlliquidityMedianOverBinding": {
+    "source": "flowstate.json",
+    "value": "4.4"
+  },
+  "fsIlliquidityNonOverlappingOne": {
+    "source": "flowstate.json",
+    "value": "1{,}167"
+  },
+  "fsIlliquidityOneName": {
+    "source": "flowstate.json",
+    "value": "24.1"
+  },
+  "fsIlliquidityRelaxed": {
+    "source": "flowstate.json",
+    "value": "1.66"
+  },
+  "fsIlliquiditySessions": {
+    "source": "flowstate.json",
+    "value": "377"
+  },
+  "fsIlliquidityTstatFive": {
+    "source": "flowstate.json",
+    "value": "$+$1.75"
+  },
+  "fsIlliquidityTstatOne": {
+    "source": "flowstate.json",
+    "value": "$+$1.79"
+  },
+  "fsIlliquidityTstatSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$+$2.40"
+  },
+  "fsIlliquidityTstatTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$+$2.07"
+  },
+  "fsLowVolBinding": {
+    "source": "flowstate.json",
+    "value": "6.78"
+  },
+  "fsLowVolBpsFive": {
+    "source": "flowstate.json",
+    "value": "$-$3.79"
+  },
+  "fsLowVolBpsOne": {
+    "source": "flowstate.json",
+    "value": "$-$3.02"
+  },
+  "fsLowVolBpsSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$-$5.33"
+  },
+  "fsLowVolBpsTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$-$4.92"
+  },
+  "fsLowVolEntry": {
+    "source": "flowstate.json",
+    "value": "8.31"
+  },
+  "fsLowVolMedian": {
+    "source": "flowstate.json",
+    "value": "32.9"
+  },
+  "fsLowVolMedianOverBinding": {
+    "source": "flowstate.json",
+    "value": "4.8"
+  },
+  "fsLowVolNonOverlappingOne": {
+    "source": "flowstate.json",
+    "value": "1{,}104"
+  },
+  "fsLowVolOneName": {
+    "source": "flowstate.json",
+    "value": "40.1"
+  },
+  "fsLowVolRelaxed": {
+    "source": "flowstate.json",
+    "value": "1.85"
+  },
+  "fsLowVolSessions": {
+    "source": "flowstate.json",
+    "value": "661"
+  },
+  "fsLowVolTstatFive": {
+    "source": "flowstate.json",
+    "value": "$-$0.93"
+  },
+  "fsLowVolTstatOne": {
+    "source": "flowstate.json",
+    "value": "$-$0.73"
+  },
+  "fsLowVolTstatSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$-$1.39"
+  },
+  "fsLowVolTstatTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$-$1.28"
+  },
+  "fsMdePooledFive": {
+    "source": "impact_identifiability.json",
+    "value": "0.0267"
+  },
+  "fsMdePooledOne": {
+    "source": "impact_identifiability.json",
+    "value": "0.0135"
+  },
+  "fsMdePooledTen": {
+    "source": "impact_identifiability.json",
+    "value": "0.0350"
+  },
+  "fsMdePooledTwentyOne": {
+    "source": "impact_identifiability.json",
+    "value": "0.0477"
+  },
+  "fsMdeSymbolFive": {
+    "source": "impact_identifiability.json",
+    "value": "0.368"
+  },
+  "fsMdeSymbolOne": {
+    "source": "impact_identifiability.json",
+    "value": "0.182"
+  },
+  "fsMdeSymbolTen": {
+    "source": "impact_identifiability.json",
+    "value": "0.497"
+  },
+  "fsMdeSymbolTwentyOne": {
+    "source": "impact_identifiability.json",
+    "value": "0.699"
+  },
+  "fsMinTradedFraction": {
+    "source": "config.yaml",
+    "value": "1.0\\times10^{-9}"
+  },
+  "fsMomentumBinding": {
+    "source": "flowstate.json",
+    "value": "6.94"
+  },
+  "fsMomentumBpsFive": {
+    "source": "flowstate.json",
+    "value": "$+$3.83"
+  },
+  "fsMomentumBpsOne": {
+    "source": "flowstate.json",
+    "value": "$+$3.96"
+  },
+  "fsMomentumBpsSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$+$5.94"
+  },
+  "fsMomentumBpsTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$+$5.15"
+  },
+  "fsMomentumEntry": {
+    "source": "flowstate.json",
+    "value": "28.61"
+  },
+  "fsMomentumMedian": {
+    "source": "flowstate.json",
+    "value": "31.4"
+  },
+  "fsMomentumMedianOverBinding": {
+    "source": "flowstate.json",
+    "value": "4.5"
+  },
+  "fsMomentumNonOverlappingOne": {
+    "source": "flowstate.json",
+    "value": "979"
+  },
+  "fsMomentumOneName": {
+    "source": "flowstate.json",
+    "value": "27.4"
+  },
+  "fsMomentumRelaxed": {
+    "source": "flowstate.json",
+    "value": "1.54"
+  },
+  "fsMomentumSessions": {
+    "source": "flowstate.json",
+    "value": "887"
+  },
+  "fsMomentumTstatFive": {
+    "source": "flowstate.json",
+    "value": "$+$1.08"
+  },
+  "fsMomentumTstatOne": {
+    "source": "flowstate.json",
+    "value": "$+$1.12"
+  },
+  "fsMomentumTstatSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$+$1.95"
+  },
+  "fsMomentumTstatTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$+$1.50"
+  },
+  "fsNFactors": {
+    "source": "flowstate.json",
+    "value": "5"
+  },
+  "fsNFactorsWithHalfLife": {
+    "source": "flowstate.json",
+    "value": "0"
+  },
+  "fsNFormationDates": {
+    "source": "flowstate.json",
+    "value": "1{,}233"
+  },
+  "fsNInvestableSymbolDays": {
+    "source": "flowstate.json",
+    "value": "122{,}464"
+  },
+  "fsNSymbols": {
+    "source": "flowstate.json",
+    "value": "184"
+  },
+  "fsObservedMedianRelValue": {
+    "source": "impact_identifiability.json",
+    "value": "0.821"
+  },
+  "fsOrdersOfMagnitude": {
+    "source": "impact_identifiability.json",
+    "value": "1.91"
+  },
+  "fsParticipationLimit": {
+    "source": "flowstate.json",
+    "value": "1.0"
+  },
+  "fsPooledBetaFive": {
+    "source": "impact_identifiability.json",
+    "value": "$-$0.0395"
+  },
+  "fsPooledBetaOne": {
+    "source": "impact_identifiability.json",
+    "value": "$-$0.0180"
+  },
+  "fsPooledBetaTen": {
+    "source": "impact_identifiability.json",
+    "value": "$-$0.0588"
+  },
+  "fsPooledBetaTwentyOne": {
+    "source": "impact_identifiability.json",
+    "value": "$-$0.0996"
+  },
+  "fsReversalBinding": {
+    "source": "flowstate.json",
+    "value": "0.81"
+  },
+  "fsReversalBpsFive": {
+    "source": "flowstate.json",
+    "value": "$-$6.59"
+  },
+  "fsReversalBpsOne": {
+    "source": "flowstate.json",
+    "value": "$-$6.22"
+  },
+  "fsReversalBpsSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$-$1.74"
+  },
+  "fsReversalBpsTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$-$3.40"
+  },
+  "fsReversalEntry": {
+    "source": "flowstate.json",
+    "value": "9.89"
+  },
+  "fsReversalMedian": {
+    "source": "flowstate.json",
+    "value": "21.2"
+  },
+  "fsReversalMedianOverBinding": {
+    "source": "flowstate.json",
+    "value": "26.2"
+  },
+  "fsReversalNonOverlappingOne": {
+    "source": "flowstate.json",
+    "value": "1{,}210"
+  },
+  "fsReversalOneName": {
+    "source": "flowstate.json",
+    "value": "7.7"
+  },
+  "fsReversalRelaxed": {
+    "source": "flowstate.json",
+    "value": "1.25"
+  },
+  "fsReversalSessions": {
+    "source": "flowstate.json",
+    "value": "1{,}212"
+  },
+  "fsReversalTstatFive": {
+    "source": "flowstate.json",
+    "value": "$-$2.04"
+  },
+  "fsReversalTstatOne": {
+    "source": "flowstate.json",
+    "value": "$-$1.79"
+  },
+  "fsReversalTstatSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$-$0.50"
+  },
+  "fsReversalTstatTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$-$1.05"
+  },
+  "fsSignDisagreements": {
+    "source": "impact_identifiability.json",
+    "value": "3"
+  },
+  "fsSizeProxyBinding": {
+    "source": "flowstate.json",
+    "value": "7.91"
+  },
+  "fsSizeProxyBpsFive": {
+    "source": "flowstate.json",
+    "value": "$+$2.44"
+  },
+  "fsSizeProxyBpsOne": {
+    "source": "flowstate.json",
+    "value": "$+$2.57"
+  },
+  "fsSizeProxyBpsSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$+$3.88"
+  },
+  "fsSizeProxyBpsTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$+$3.02"
+  },
+  "fsSizeProxyEntry": {
+    "source": "flowstate.json",
+    "value": "16.02"
+  },
+  "fsSizeProxyMedian": {
+    "source": "flowstate.json",
+    "value": "33.9"
+  },
+  "fsSizeProxyMedianOverBinding": {
+    "source": "flowstate.json",
+    "value": "4.3"
+  },
+  "fsSizeProxyNonOverlappingOne": {
+    "source": "flowstate.json",
+    "value": "1{,}105"
+  },
+  "fsSizeProxyOneName": {
+    "source": "flowstate.json",
+    "value": "18.8"
+  },
+  "fsSizeProxyRelaxed": {
+    "source": "flowstate.json",
+    "value": "1.56"
+  },
+  "fsSizeProxySessions": {
+    "source": "flowstate.json",
+    "value": "383"
+  },
+  "fsSizeProxyTstatFive": {
+    "source": "flowstate.json",
+    "value": "$+$1.14"
+  },
+  "fsSizeProxyTstatOne": {
+    "source": "flowstate.json",
+    "value": "$+$1.22"
+  },
+  "fsSizeProxyTstatSixtyThree": {
+    "source": "flowstate.json",
+    "value": "$+$2.12"
+  },
+  "fsSizeProxyTstatTwentyOne": {
+    "source": "flowstate.json",
+    "value": "$+$1.49"
+  },
+  "fsSpanRatio": {
+    "source": "corpus_capacity.json",
+    "value": "3.2"
+  },
+  "fsSymbolDaysBelowTarget": {
+    "source": "impact_identifiability.json",
+    "value": "2"
+  },
+  "fsTargetParticipation": {
+    "source": "impact_identifiability.json",
+    "value": "1.0"
+  },
+  "fsUnweightedBetaFive": {
+    "source": "impact_identifiability.json",
+    "value": "$+$0.0205"
+  },
+  "fsUnweightedBetaOne": {
+    "source": "impact_identifiability.json",
+    "value": "$-$0.0114"
+  },
+  "fsUnweightedBetaTen": {
+    "source": "impact_identifiability.json",
+    "value": "$+$0.0370"
+  },
+  "fsUnweightedBetaTwentyOne": {
+    "source": "impact_identifiability.json",
+    "value": "$+$0.0867"
+  }
+}
