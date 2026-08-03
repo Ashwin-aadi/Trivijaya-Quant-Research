@@ -190,3 +190,47 @@ def test_extrapolation_gap_counts_the_sessions_inside_the_region_of_interest() -
     frame = pl.DataFrame({"rel_value": [0.001] * 25 + [1.0] * 75})
     gap = extrapolation_gap(frame, target_participation=0.01)
     assert gap.fraction_below_target == pytest.approx(0.25)
+
+
+# --- the detectability bound, which is what makes the null a finding ------------------------
+
+
+def test_a_precise_estimate_can_rule_out_smaller_effects_than_a_noisy_one() -> None:
+    """The minimum detectable effect must fall as the standard errors do."""
+    from src.capacity.impact import ReversalFit, minimum_detectable_beta
+
+    noisy = [ReversalFit(f"S{i}", 0.0, 0.10, 0.0, 200) for i in range(20)]
+    precise = [ReversalFit(f"S{i}", 0.0, 0.01, 0.0, 200) for i in range(20)]
+    assert (
+        minimum_detectable_beta(precise).median_minimum_detectable_beta
+        < minimum_detectable_beta(noisy).median_minimum_detectable_beta
+    )
+
+
+def test_pooling_is_sharper_than_any_single_symbol() -> None:
+    from src.capacity.impact import ReversalFit, minimum_detectable_beta
+
+    fits = [ReversalFit(f"S{i}", 0.02, 0.05, 0.0, 200) for i in range(100)]
+    bound = minimum_detectable_beta(fits)
+    assert bound.pooled_minimum_detectable_beta < bound.median_minimum_detectable_beta
+    assert bound.pooled_beta == pytest.approx(0.02)
+
+
+def test_a_sign_disagreement_between_weightings_is_reported_not_hidden() -> None:
+    """When precision weighting and equal weighting disagree, that disagreement is the finding."""
+    from src.capacity.impact import ReversalFit, minimum_detectable_beta
+
+    # One very precisely estimated negative symbol against many noisy positive ones.
+    fits = [ReversalFit("PRECISE", -1.0, 0.001, 0.0, 200)]
+    fits += [ReversalFit(f"S{i}", 0.5, 1.0, 0.0, 200) for i in range(50)]
+    bound = minimum_detectable_beta(fits)
+    assert bound.pooled_beta < 0 < bound.unweighted_mean_beta
+    assert bound.estimates_disagree
+
+
+def test_an_unconventional_power_is_refused_rather_than_approximated() -> None:
+    from src.capacity.impact import ReversalFit, minimum_detectable_beta
+
+    fits = [ReversalFit("A", 0.0, 0.01, 0.0, 200)]
+    with pytest.raises(DataIntegrityError):
+        minimum_detectable_beta(fits, power=0.9)

@@ -215,10 +215,15 @@ class ReversalFit:
     is therefore evidence of impact and a ``beta`` near zero is evidence that what the daily
     volume-return relation measures is news. This is the test that decides whether a daily-bar
     impact estimate means what its name says.
+
+    ``standard_error`` is carried because a null is not a result without it. "We found no reversal"
+    and "we could not have found one" are different claims, and only :func:`minimum_detectable_beta`
+    can tell them apart.
     """
 
     symbol: str
     beta: float
+    standard_error: float
     r_squared: float
     n_sessions: int
 
@@ -265,11 +270,112 @@ def reversal_betas(
             ReversalFit(
                 symbol=str(symbol),
                 beta=float(coefficients[1]),
+                standard_error=_slope_standard_error(x, residual),
                 r_squared=explained,
                 n_sessions=usable.height,
             )
         )
     return fits
+
+
+def _slope_standard_error(x: np.ndarray, residual: np.ndarray) -> float:
+    """Textbook OLS slope standard error, ``s / sqrt(sum (x - xbar)^2)``, with 2 parameters fit."""
+    degrees_of_freedom = x.size - 2
+    spread = float(((x - x.mean()) ** 2).sum())
+    if degrees_of_freedom <= 0 or spread <= 0:
+        return float("nan")
+    residual_variance = float(residual @ residual) / degrees_of_freedom
+    return math.sqrt(residual_variance / spread)
+
+
+@dataclass(frozen=True)
+class Detectability:
+    """How large a reversal the data could have found, against how large a one it did find.
+
+    **A null result without this is not a result.** "No reversal was detected" is compatible with
+    two very different worlds: one where the test was sharp and there is genuinely nothing there,
+    and one where the test could not have seen a reversal of any plausible size. Reporting the
+    minimum detectable effect distinguishes them, and it is the difference between a publishable
+    negative finding and an absence of evidence dressed up as evidence of absence.
+
+    ``pooled_beta`` combines every symbol by inverse-variance weighting, which is the right summary
+    when the per-symbol estimates share a target and differ only in precision.
+    """
+
+    #: Smallest |beta| the median symbol could reject the null against, at the stated power.
+    median_minimum_detectable_beta: float
+    #: The same for the pooled estimate, which is far sharper because it uses every symbol.
+    pooled_minimum_detectable_beta: float
+    pooled_beta: float
+    pooled_standard_error: float
+    #: Every symbol counted once, regardless of how precisely it was estimated. Reported alongside
+    #: the pooled figure because the two answer different questions, and when they disagree that
+    #: disagreement is itself the finding: inverse-variance weighting concentrates on whichever
+    #: symbols happen to be most precisely estimated, so a pooled estimate can describe a handful of
+    #: names while the unweighted one describes the population. Neither is "the" answer.
+    unweighted_mean_beta: float
+    unweighted_standard_error: float
+    power: float
+    alpha: float
+    n_symbols: int
+
+    @property
+    def estimates_disagree(self) -> bool:
+        """True when pooling and equal weighting do not even agree on the sign of the effect."""
+        return self.pooled_beta * self.unweighted_mean_beta < 0
+
+
+def minimum_detectable_beta(
+    fits: list[ReversalFit],
+    *,
+    power: float = 0.80,
+    alpha: float = 0.05,
+) -> Detectability:
+    """Bound the reversal that would have been found had one been there.
+
+    The minimum detectable effect for a two-sided test is ``(z_{1-alpha/2} + z_{power}) * se``.
+    Both critical values are hard-coded for the conventional 5%/80% pair rather than computed, so
+    this function has no dependency on a statistics package and the arithmetic is inspectable; any
+    other pair raises rather than silently using the wrong multiplier.
+    """
+    if (power, alpha) != (0.80, 0.05):
+        raise DataIntegrityError(
+            f"only the conventional power=0.80, alpha=0.05 pair is implemented; got "
+            f"power={power}, alpha={alpha}. Add the critical values explicitly rather than "
+            "approximating them."
+        )
+    multiplier = 1.959964 + 0.841621  # z_{0.975} + z_{0.80}
+
+    errors = np.array([f.standard_error for f in fits], dtype=float)
+    betas = np.array([f.beta for f in fits], dtype=float)
+    usable = np.isfinite(errors) & (errors > 0) & np.isfinite(betas)
+    if not usable.any():
+        raise DataIntegrityError("no fit carries a usable standard error; detectability undefined")
+    errors, betas = errors[usable], betas[usable]
+
+    # Inverse-variance (fixed-effect) pooling: weight each symbol by its precision.
+    weights = 1.0 / errors**2
+    pooled = float((weights * betas).sum() / weights.sum())
+    pooled_error = float(math.sqrt(1.0 / weights.sum()))
+
+    # Equal weighting, treating each symbol as one observation of a population of betas. Its
+    # standard error is the spread across symbols, not the precision within any one of them.
+    unweighted = float(betas.mean())
+    unweighted_error = (
+        float(betas.std(ddof=1) / math.sqrt(betas.size)) if betas.size > 1 else float("nan")
+    )
+
+    return Detectability(
+        median_minimum_detectable_beta=float(multiplier * np.median(errors)),
+        pooled_minimum_detectable_beta=multiplier * pooled_error,
+        pooled_beta=pooled,
+        pooled_standard_error=pooled_error,
+        unweighted_mean_beta=unweighted,
+        unweighted_standard_error=unweighted_error,
+        power=power,
+        alpha=alpha,
+        n_symbols=int(usable.sum()),
+    )
 
 
 @dataclass(frozen=True)

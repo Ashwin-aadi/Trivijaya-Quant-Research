@@ -48,6 +48,7 @@ from src.capacity.impact import (
     add_daily_measures,
     extrapolation_gap,
     fit_elasticity,
+    minimum_detectable_beta,
     reversal_betas,
 )
 from src.common.config import Config, load_config
@@ -189,6 +190,8 @@ def main() -> int:
                 measured, horizon=horizon, min_sessions=MIN_SESSIONS,
                 high_participation_quantile=None,
             )
+            # The detectability bound is what makes the null a finding rather than a shrug.
+            bound = minimum_detectable_beta(heavy_h)
             sweep[str(horizon)] = {
                 "heavy_volume_decile": _describe(
                     [f.beta for f in heavy_h], f"reversal beta, heavy, h={horizon}"
@@ -199,6 +202,20 @@ def main() -> int:
                 "fraction_of_symbols_negative_heavy": float(
                     np.mean([f.beta < 0 for f in heavy_h])
                 ),
+                "detectability_heavy": {
+                    "pooled_beta": bound.pooled_beta,
+                    "pooled_standard_error": bound.pooled_standard_error,
+                    "pooled_minimum_detectable_beta": bound.pooled_minimum_detectable_beta,
+                    "median_symbol_minimum_detectable_beta": (
+                        bound.median_minimum_detectable_beta
+                    ),
+                    "unweighted_mean_beta": bound.unweighted_mean_beta,
+                    "unweighted_standard_error": bound.unweighted_standard_error,
+                    "estimates_disagree_on_sign": bound.estimates_disagree,
+                    "power": bound.power,
+                    "alpha": bound.alpha,
+                    "n_symbols": bound.n_symbols,
+                },
             }
 
         # D3
