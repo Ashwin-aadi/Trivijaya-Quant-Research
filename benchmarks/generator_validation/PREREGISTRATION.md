@@ -308,3 +308,60 @@ browser. The content was transcribed faithfully, but chat transport can normalis
 unicode, so these bytes are **not certified identical to what the product emitted**. The model is
 recorded as the PI reported it --- *"ChatGPT base core model"* --- which is not a version string and
 does not pin the arm to a specific model release.
+
+---
+
+## AMENDMENT 3 — model identity, the N reading, and full publication
+
+Recorded 2026-08-04, **after all three arms were collected and their development-window results
+were seen.** That timing is stated plainly: nothing below alters a hypothesis, a threshold or a
+metric, and the one open question it settles was raised in writing before any arm's result was
+known. But it is an amendment made with results in hand, and a reader is entitled to weigh it as
+such.
+
+### The subjects, as the PI identified them
+
+| Arm | Model, as the interface reported it |
+|---|---|
+| `gpt` | GPT, base model |
+| `claude` | Claude Opus, high effort |
+| `gemini` | Gemini Pro |
+
+None of these is a version string, and none pins an arm to a specific model release. The arms are
+reproducible as *procedures* and not as *subjects*: re-running this study in six months would issue
+the same prompt to different weights under the same product names. This is a genuine limitation of
+collecting frontier arms through consumer chat interfaces, and it is not fixable within the ₹0
+budget that RULE 5 and the market-data ruling impose.
+
+The `claude` arm additionally carries the transport caveat already recorded for `gpt`: replies
+reached the repository by being pasted into a conversation. The `gemini` arm carries it too.
+
+### §7's N, settled by reporting both
+
+> **PI, 2026-08-04:** *"the amendment fork do what you feel like i think we should report both"*
+
+Amendment 2 fixed per-arm deflation and illustrated it with **N = 5**, the arm size expected when it
+was written; the arms as collected are four requests of five, so *"its own trial count"* now reads
+**N = 20**. Both are computed and **both are published in every table where either appears**. No
+choice between them is made, because the choice would change nothing: **0 of 60 frontier strategies
+clear DSR ≥ 0.95 under either reading**, and the matched-M₀ comparison rejects at both.
+
+Had the two readings disagreed, this amendment would have had to choose, and choosing after seeing
+results would have been indefensible. They do not disagree, and that is the only reason reporting
+both is adequate rather than evasive.
+
+### Publication scope
+
+> **PI, 2026-08-04:** *"just publish all the results dont hide anyting whther negative positive
+> bell or above the threshold"*
+
+`RESULTS.md` is generated from run artifacts by a single script and contains every measured
+quantity, including:
+
+- **H2 falsified** — the static auditor raised one finding across 60 frontier strategies.
+- **H3 not supported** — that finding was `snooped_parameter`, not the predicted class.
+- **H5 falsified on one arm** — Gemini Pro's median deployment capacity is **0.31×** the local
+  corpus, outside the pre-registered 2× band, in the opposite direction from the one being watched.
+- The auditor layers that flagged **nothing**, reported as prominently as the ones that did.
+
+No result is omitted, and no failed hypothesis is relegated to a limitation.
