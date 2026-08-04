@@ -39,11 +39,15 @@ BANNED: Final[tuple[str, ...]] = (
     "backtest overfitting",
 )
 
+#: The six arms P4 runs, plus the two retired on 2026-08-04. The retired pair stays under the check
+#: because it stays on disk: a module nobody checks is a module somebody eventually reinstates.
 MODULES: Final[tuple[str, ...]] = (
     "plain",
     "cot",
     "planning",
     "reflection",
+    "graph_of_thoughts",
+    "mcts",
     "multi_agent",
     "evolutionary",
 )

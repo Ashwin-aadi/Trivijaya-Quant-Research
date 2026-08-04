@@ -1,4 +1,14 @@
-"""G6 — multi-agent: an economist, a statistician, a quant and a reviewer, then an implementer.
+"""G6 — multi-agent: economist, statistician, quant, reviewer, then implementer. **RETIRED.**
+
+**This arm is not run in P4.** It was built, tested and costed, and then replaced by
+:mod:`src.generate.paradigms.graph_of_thoughts` under the PI ruling of 2026-08-04 — before a single
+strategy had been generated, which is the only point at which dropping an arm is honest. The module
+is kept rather than deleted so the retired design is inspectable and so the swap is a visible
+decision rather than an absence.
+
+The substantive difference: this arm is a **chain**, in which each role sees only the previous
+role's output and can therefore only elaborate it. The arm that replaces it aggregates *independent*
+proposals, which is an operation this structure cannot express.
 
 Five calls, each with a different stated role, the later ones seeing the earlier ones. This is the
 most expensive arm per strategy and therefore the one RULE 11 most easily flatters: it makes five

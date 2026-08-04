@@ -1,16 +1,20 @@
-"""G7 — evolutionary: generate a population, score it, breed from the best, repeat.
+"""G7 — evolutionary: generate a population, score it, breed from the best, repeat. **RETIRED.**
 
-The only arm that closes a loop, and the reason RQ4 exists. It produces one strategy by making and
-discarding many, so under an honest trial ledger it is charged for every individual it ever bred,
-not for the one it returns. Whether the search gains survive that charge is the question; a version
-of this arm that counted one trial per returned strategy would answer it dishonestly and by
-construction.
+**This arm is not run in P4.** It was built, tested and costed, and then replaced by
+:mod:`src.generate.paradigms.mcts` under the PI ruling of 2026-08-04 — before a single strategy had
+been generated, which is the only point at which dropping an arm is honest. The module is kept
+rather than deleted so the retired design is inspectable and so the swap is a visible decision
+rather than an absence.
 
-**The fitness function is injected, and it must be backtest-only.** Nothing in the frozen
-evaluation stack may be consulted during breeding. An arm that selected on the auditor would be
-optimising against the instrument that later measures it, and its audit pass rate would be a
-statement about the search, not about the paradigm. :func:`sharpe_fitness_factory` is provided so
-the wiring in Phase 4.1 is a single documented place rather than an ad-hoc lambda.
+Monte Carlo tree search inherits the property this arm existed to supply: it closes a loop with a
+fitness signal, so RQ4 — whether an honest trial ledger erases the gains of iterating — survives the
+swap unchanged. What it adds is a budget that is linear in one parameter, where this arm's cost is
+``population x generations`` and the two interact.
+
+**The fitness function is injected, and it must be backtest-only.** Nothing in the frozen evaluation
+stack may be consulted during breeding. An arm that selected on the auditor would be optimising
+against the instrument that later measures it. The concrete implementation lives in
+:mod:`src.generate.paradigms.fitness`.
 
 The fitness window is the development period. The holdout is not reachable from here, and must
 never be made reachable.
@@ -18,17 +22,15 @@ never be made reachable.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Final
 
 from src.audit.semantic import MODEL_TAG, OLLAMA_HOST
 from src.generate.paradigms.base import CallRecorder, Draw, ParadigmError, attempt_code
+from src.generate.paradigms.fitness import Fitness
 from src.generate.prompts import build_prompt, theme_for
 from src.generate.tokens import TokenAccount
 
-#: Scores one strategy's source. None means it could not be evaluated at all — unusable code, or a
-#: strategy that never took a position. Higher is fitter.
-Fitness = Callable[[str], float | None]
+__all__ = ["Evolutionary", "Fitness", "MUTATE_SUFFIX"]
 
 MUTATE_SUFFIX: Final[str] = """
 
