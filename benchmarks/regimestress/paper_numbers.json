@@ -147,6 +147,222 @@
     "value": "0.995",
     "source": "data/processed/predictor_diagnosis.json"
   },
+  "rsGvArms": {
+    "value": "3",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeDupClusters": {
+    "value": "3",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeDupCompared": {
+    "value": "20",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeDupCovered": {
+    "value": "6",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeFragMax": {
+    "value": "1.373",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeFragMedian": {
+    "value": "0.355",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeFragMin": {
+    "value": "0.169",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeKnifeEdge": {
+    "value": "7",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvClaudeN": {
+    "value": "20",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeNearPairs": {
+    "value": "3",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeNearZero": {
+    "value": "0",
+    "source": "generator_validation.json"
+  },
+  "rsGvClaudeNondeterministic": {
+    "value": "0",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvClaudePredSpearman": {
+    "value": "+0.540",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvClaudeRegimeMax": {
+    "value": "1.094",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvClaudeRegimeMedian": {
+    "value": "0.624",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvClaudeRegimeMin": {
+    "value": "0.043",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGeminiDupClusters": {
+    "value": "2",
+    "source": "generator_validation.json"
+  },
+  "rsGvGeminiDupCompared": {
+    "value": "19",
+    "source": "generator_validation.json"
+  },
+  "rsGvGeminiDupCovered": {
+    "value": "5",
+    "source": "generator_validation.json"
+  },
+  "rsGvGeminiFragMax": {
+    "value": "2.703",
+    "source": "generator_validation.json"
+  },
+  "rsGvGeminiFragMedian": {
+    "value": "0.334",
+    "source": "generator_validation.json"
+  },
+  "rsGvGeminiFragMin": {
+    "value": "0.164",
+    "source": "generator_validation.json"
+  },
+  "rsGvGeminiKnifeEdge": {
+    "value": "4",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGeminiN": {
+    "value": "20",
+    "source": "generator_validation.json"
+  },
+  "rsGvGeminiNearPairs": {
+    "value": "0",
+    "source": "generator_validation.json"
+  },
+  "rsGvGeminiNearZero": {
+    "value": "0",
+    "source": "generator_validation.json"
+  },
+  "rsGvGeminiNondeterministic": {
+    "value": "0",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGeminiPredSpearman": {
+    "value": "+0.556",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGeminiRegimeMax": {
+    "value": "2.332",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGeminiRegimeMedian": {
+    "value": "0.696",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGeminiRegimeMin": {
+    "value": "0.048",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGptDupClusters": {
+    "value": "4",
+    "source": "generator_validation.json"
+  },
+  "rsGvGptDupCompared": {
+    "value": "19",
+    "source": "generator_validation.json"
+  },
+  "rsGvGptDupCovered": {
+    "value": "11",
+    "source": "generator_validation.json"
+  },
+  "rsGvGptFragMax": {
+    "value": "32.785",
+    "source": "generator_validation.json"
+  },
+  "rsGvGptFragMedian": {
+    "value": "0.418",
+    "source": "generator_validation.json"
+  },
+  "rsGvGptFragMin": {
+    "value": "0.189",
+    "source": "generator_validation.json"
+  },
+  "rsGvGptKnifeEdge": {
+    "value": "3",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGptN": {
+    "value": "20",
+    "source": "generator_validation.json"
+  },
+  "rsGvGptNearPairs": {
+    "value": "0",
+    "source": "generator_validation.json"
+  },
+  "rsGvGptNearZero": {
+    "value": "1",
+    "source": "generator_validation.json"
+  },
+  "rsGvGptNondeterministic": {
+    "value": "0",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGptPredSpearman": {
+    "value": "+0.717",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGptRegimeMax": {
+    "value": "3.202",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGptRegimeMedian": {
+    "value": "0.566",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvGptRegimeMin": {
+    "value": "0.189",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvLocalRegimeMedian": {
+    "value": "0.618",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvLocalRegimeN": {
+    "value": "125",
+    "source": "frontier_gap_measures.json"
+  },
+  "rsGvPredPooledN": {
+    "value": "60",
+    "source": "frontier_fragility_prediction.json"
+  },
+  "rsGvPredPooledRsq": {
+    "value": "-0.004",
+    "source": "frontier_fragility_prediction.json"
+  },
+  "rsGvPredPooledSpearman": {
+    "value": "+0.555",
+    "source": "frontier_fragility_prediction.json"
+  },
+  "rsGvPredTrainN": {
+    "value": "109",
+    "source": "frontier_fragility_prediction.json"
+  },
+  "rsGvRequestsPerArm": {
+    "value": "4",
+    "source": "generator_validation.json"
+  },
+  "rsGvTotal": {
+    "value": "60",
+    "source": "generator_validation.json"
+  },
   "rsImportanceFifthName": {
     "value": "beta\\_inverse\\_volatility\\_weighted",
     "source": "data/processed/fragility_predictor.json"

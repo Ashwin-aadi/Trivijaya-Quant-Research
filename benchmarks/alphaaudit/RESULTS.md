@@ -321,7 +321,11 @@ fixtures that motivated them — closer to training accuracy than to a test.
 | `full_sample_statistic` | **0** |
 
 222 of 1,550 rejected (14.3%); 195 carried one class, 26 two, 1 three. Of the 225 rankable
-candidates, 26 (11.6%) were static-rejected.
+candidates, **28 (12.4%)** were static-rejected.
+
+> **Corrected 2026-08-04.** This sentence previously read "26 (11.6%)", which contradicted the
+> fate table immediately below it — that table has always said 28, and it is right. The error was
+> confined to this file; the paper never stated the figure. See `CORRECTIONS.md`.
 
 ### Where the leak flags land — added 2026-08-01
 

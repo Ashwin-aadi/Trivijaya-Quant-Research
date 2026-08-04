@@ -551,6 +551,76 @@ def _render_results(macros: Macros, template: Path, out: Path) -> int:
     return len(text.splitlines())
 
 
+#: Arm key -> the letters used in macro names. LaTeX control sequences may not contain digits, so
+#: the product names are reduced to bare words and spelled out in the prose instead.
+ARM_WORD = {"gpt": "Gpt", "claude": "Claude", "gemini": "Gemini"}
+
+
+def _frontier(processed: Path) -> Macros:
+    """Fragility and redundancy for each frontier arm, from the generator-validation study.
+
+    RegimeStress claims fragility is a property of the strategy's interaction with the market
+    rather than of its author, and that duplicate clustering is endemic to machine generation.
+    Both claims are testable against a change of generator, and both are reported here whatever
+    they show.
+
+    Macros carry this paper's ``rs`` prefix so ``check_paper_numbers.py`` covers them; a separate
+    namespace would be defined but never verified.
+    """
+    gv = _read(processed / "generator_validation.json")
+    macros: Macros = {}
+    source = "generator_validation.json"
+    _put(macros, source,
+         rsGvArms=str(gv["n_arms"]),
+         rsGvTotal=str(gv["n_total"]),
+         rsGvRequestsPerArm=str(gv["requests_per_arm"]))
+    for arm, word in ARM_WORD.items():
+        row = gv["arms"][arm]
+        _put(
+            macros, source,
+            **{
+                f"rsGv{word}N": str(row["n"]),
+                f"rsGv{word}FragMedian": f"{row['frag_median']:.3f}",
+                f"rsGv{word}FragMin": f"{row['frag_min']:.3f}",
+                f"rsGv{word}FragMax": f"{row['frag_max']:.3f}",
+                f"rsGv{word}NearZero": str(row["frag_near_zero"]),
+                f"rsGv{word}DupClusters": str(row["dup_clusters"]),
+                f"rsGv{word}DupCovered": str(row["dup_covered"]),
+                f"rsGv{word}DupCompared": str(row["dup_compared"]),
+                f"rsGv{word}NearPairs": str(row["near_pairs"]),
+            },
+        )
+
+    # The primary fragility definition, the calibration pathologies, and the predictor applied
+    # out of population. All added after the 2026-08-04 coverage audit.
+    gaps = _read(processed / "frontier_gap_measures.json")
+    pred = _read(processed / "frontier_fragility_prediction.json")
+    gsource = "frontier_gap_measures.json"
+    _put(macros, gsource,
+         rsGvLocalRegimeMedian=f"{gaps['local_regime_fragility_median']:.3f}",
+         rsGvLocalRegimeN=str(gaps["local_n_primary"]))
+    for arm, word in ARM_WORD.items():
+        regime = gaps["arms"][arm]["regime_fragility"]
+        calib = _read(ROOT / "runs" / f"frontier_{arm}" / "calibration.json")
+        _put(
+            macros, gsource,
+            **{
+                f"rsGv{word}RegimeMedian": f"{regime['median']:.3f}",
+                f"rsGv{word}RegimeMin": f"{regime['min']:.3f}",
+                f"rsGv{word}RegimeMax": f"{regime['max']:.3f}",
+                f"rsGv{word}KnifeEdge": str(calib["n_knife_edge"]),
+                f"rsGv{word}Nondeterministic": str(calib["n_nondeterministic"]),
+                f"rsGv{word}PredSpearman": f"{pred['arms'][arm]['spearman']:+.3f}",
+            },
+        )
+    _put(macros, "frontier_fragility_prediction.json",
+         rsGvPredPooledRsq=f"{pred['pooled']['r2_vs_training_mean']:+.3f}",
+         rsGvPredPooledSpearman=f"{pred['pooled']['spearman']:+.3f}",
+         rsGvPredPooledN=str(pred["pooled"]["n"]),
+         rsGvPredTrainN=str(pred["n_training"]))
+    return macros
+
+
 def _collect(cfg: Config) -> Macros:
     processed = cfg.paths.data_processed
     macros: Macros = {}
@@ -558,6 +628,7 @@ def _collect(cfg: Config) -> Macros:
         _population(processed), _pathology(processed), _regimes(processed),
         _resampler(processed), _tiers(processed),
         _shortcut(processed), _exclusions(), _diagnosis(processed), _models(processed),
+        _frontier(processed),
         _importances(processed), _leakage(processed),
     ):
         for name, value in part.items():

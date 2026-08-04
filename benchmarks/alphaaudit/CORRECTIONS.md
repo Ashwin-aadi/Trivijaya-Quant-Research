@@ -357,3 +357,55 @@ python scripts/deduplicate_corpus.py     # writes benchmarks/regimestress/duplic
 
 The clusters, the removals and the 20 detected-but-retained near-duplicate pairs are all in that
 artifact, which is committed.
+
+---
+
+## 2026-08-04 — `RESULTS.md` stated 26 static-rejected among the rankable; the figure is 28
+
+**Severity: presentational, confined to one sentence in `RESULTS.md`. The paper is unaffected and
+no downstream result changes.**
+
+### What was wrong
+
+`RESULTS.md` §"A_static — corpus" read:
+
+> Of the 225 rankable candidates, 26 (11.6%) were static-rejected.
+
+The correct figure is **28 (12.4%)**. The file contradicted itself: the fate table added on
+2026-08-01, four lines below, has always reported **28** rankable among the 222 static-rejected
+candidates, and that table is correct.
+
+### How it was found
+
+While building the generator-validation section's macros, the intersection of static-rejected and
+rankable was recomputed from `runs/pooled/audit_results.json` and `backtest_results.json` and came
+out 28. Rather than take the released prose as ground truth, the whole fate decomposition was
+recomputed and reproduced the published table exactly — 114 runtime error, 79 evaluated but flat,
+1 timeout, 28 rankable, summing to 222. Only the earlier sentence disagreed.
+
+### Probable cause
+
+The adjacent clause in the same sentence reads "195 carried one class, **26** two, 1 three". The
+two 26s are almost certainly the same digit pair typed twice, with the percentage then derived from
+the wrong one — 26/225 = 11.6% is internally consistent, which is why it did not look wrong.
+
+### Why the paper is unaffected
+
+`papers/alphaaudit.tex` never states this intersection. It states the class decomposition
+(195/26/1, correct) and the rankable count (225, correct), but not their overlap. Grep for
+`rankable` in the paper confirms three mentions, none of them this figure.
+
+### The general lesson, which is the reason this is logged rather than quietly fixed
+
+**The figure was hand-typed into prose rather than generated from an artifact.** AlphaAudit predates
+the macro pipeline that RegimeStress and FlowState use, and this is exactly the class of error that
+pipeline exists to make impossible — a number that no longer matches its source, sitting next to a
+table that does. The generator-validation section added to the paper on 2026-08-04 is macro-backed
+via `scripts/build_alphaaudit_numbers.py`; the rest of the paper's inline figures are not, and that
+gap is now stated in the paper's own limitations.
+
+### Reproduction
+
+```bash
+python scripts/build_alphaaudit_numbers.py   # writes \aaLocalStaticRankable{28}
+```

@@ -135,6 +135,126 @@
     "source": "flowstate.json",
     "value": "76"
   },
+  "fsGvArms": {
+    "source": "generator_validation.json",
+    "value": "3"
+  },
+  "fsGvClaudeCapMax": {
+    "source": "generator_validation.json",
+    "value": "26.33"
+  },
+  "fsGvClaudeCapMedian": {
+    "source": "generator_validation.json",
+    "value": "5.12"
+  },
+  "fsGvClaudeCapMin": {
+    "source": "generator_validation.json",
+    "value": "0.38"
+  },
+  "fsGvClaudeCapRatio": {
+    "source": "generator_validation.json",
+    "value": "1.97"
+  },
+  "fsGvClaudeCapSpan": {
+    "source": "generator_validation.json",
+    "value": "68.4"
+  },
+  "fsGvClaudeFlowMax": {
+    "source": "frontier_gap_measures.json",
+    "value": "1.116"
+  },
+  "fsGvClaudeFlowMedian": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.868"
+  },
+  "fsGvClaudeFlowMin": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.700"
+  },
+  "fsGvClaudeN": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "fsGvGeminiCapMax": {
+    "source": "generator_validation.json",
+    "value": "67.31"
+  },
+  "fsGvGeminiCapMedian": {
+    "source": "generator_validation.json",
+    "value": "0.80"
+  },
+  "fsGvGeminiCapMin": {
+    "source": "generator_validation.json",
+    "value": "0.19"
+  },
+  "fsGvGeminiCapRatio": {
+    "source": "generator_validation.json",
+    "value": "0.31"
+  },
+  "fsGvGeminiCapSpan": {
+    "source": "generator_validation.json",
+    "value": "349.7"
+  },
+  "fsGvGeminiFlowMax": {
+    "source": "frontier_gap_measures.json",
+    "value": "1.414"
+  },
+  "fsGvGeminiFlowMedian": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.905"
+  },
+  "fsGvGeminiFlowMin": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.615"
+  },
+  "fsGvGeminiN": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "fsGvGptCapMax": {
+    "source": "generator_validation.json",
+    "value": "64.28"
+  },
+  "fsGvGptCapMedian": {
+    "source": "generator_validation.json",
+    "value": "2.99"
+  },
+  "fsGvGptCapMin": {
+    "source": "generator_validation.json",
+    "value": "0.38"
+  },
+  "fsGvGptCapRatio": {
+    "source": "generator_validation.json",
+    "value": "1.15"
+  },
+  "fsGvGptCapSpan": {
+    "source": "generator_validation.json",
+    "value": "167.0"
+  },
+  "fsGvGptFlowMax": {
+    "source": "frontier_gap_measures.json",
+    "value": "1.041"
+  },
+  "fsGvGptFlowMedian": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.952"
+  },
+  "fsGvGptFlowMin": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.770"
+  },
+  "fsGvGptN": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "fsGvRequestsPerArm": {
+    "source": "generator_validation.json",
+    "value": "4"
+  },
+  "fsGvTotal": {
+    "source": "generator_validation.json",
+    "value": "60"
+  },
   "fsHorizonMax": {
     "source": "flowstate.json",
     "value": "63"

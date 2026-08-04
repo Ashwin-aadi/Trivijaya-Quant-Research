@@ -765,6 +765,98 @@ explainability layer against our own impression of it.
 \end{selfreport}
 
 % =====================================================================================
+\subsection{Do these findings depend on who wrote the strategies?}
+\label{sec:generators}
+
+Every result above was measured on a corpus written by one local seven-billion-parameter model. The
+objection is obvious and we think it is the right one to raise: this paper may be describing that
+model rather than machine-written strategies in general.
+
+The identical frozen task specification was therefore issued to \rsGvArms{} frontier models through
+their consumer interfaces --- \rsGvRequestsPerArm{} independent requests of five strategies each ---
+and all \rsGvTotal{} were passed through this benchmark with no parameter altered and no line of
+measurement code added. The pre-registration, the arms and the full results, including those
+belonging to the companion benchmarks, are in the study's own report; what follows is the part that
+bears on fragility.
+
+\begin{table}[t]
+\centering
+\caption{RegimeStress measurements by generator. Fragility across regimes is the charter's primary
+definition. Each arm is twenty strategies; the local corpus is \rsGvLocalRegimeN{} for fragility and
+\rsNStressed{} for the calibration counts.}
+\label{tab:generators}
+\begin{tabular}{lrrrr}
+\toprule
+\thead{Quantity} & \thead{Local 7B} & \thead{GPT} & \thead{Claude} & \thead{Gemini} \\
+\midrule
+Fragility across regimes, median & \rsGvLocalRegimeMedian{} & \rsGvGptRegimeMedian{}
+  & \rsGvClaudeRegimeMedian{} & \rsGvGeminiRegimeMedian{} \\
+\quad range & --- & \rsGvGptRegimeMin{}--\rsGvGptRegimeMax{}
+  & \rsGvClaudeRegimeMin{}--\rsGvClaudeRegimeMax{}
+  & \rsGvGeminiRegimeMin{}--\rsGvGeminiRegimeMax{} \\
+Fragility across paths, median & --- & \rsGvGptFragMedian{}
+  & \rsGvClaudeFragMedian{} & \rsGvGeminiFragMedian{} \\
+\quad range & --- & \rsGvGptFragMin{}--\rsGvGptFragMax{}
+  & \rsGvClaudeFragMin{}--\rsGvClaudeFragMax{}
+  & \rsGvGeminiFragMin{}--\rsGvGeminiFragMax{} \\
+Mean regime Sharpe near zero & \rsNNearZeroMean{} & \rsGvGptNearZero{}
+  & \rsGvClaudeNearZero{} & \rsGvGeminiNearZero{} \\
+Knife-edge strategies & \rsNKnifeEdge{} of \rsNStressed{} & \rsGvGptKnifeEdge{} of \rsGvGptN{}
+  & \rsGvClaudeKnifeEdge{} of \rsGvClaudeN{} & \rsGvGeminiKnifeEdge{} of \rsGvGeminiN{} \\
+Nondeterministic strategies & \rsNExcludedNondeterministic{} of \rsNStressed{}
+  & \textbf{\rsGvGptNondeterministic{}} & \textbf{\rsGvClaudeNondeterministic{}}
+  & \textbf{\rsGvGeminiNondeterministic{}} \\
+Exact duplicate clusters & \rsDuplicateClusters{} & \rsGvGptDupClusters{}
+  & \rsGvClaudeDupClusters{} & \rsGvGeminiDupClusters{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Fragility is a property of the market, not of the author.} The primary measure is
+\rsGvLocalRegimeMedian{} on the local corpus and \rsGvGptRegimeMedian{},
+\rsGvClaudeRegimeMedian{} and \rsGvGeminiRegimeMedian{} on the three frontier arms. Every arm lands
+within a sixth of the local median. This is the result the benchmark most needed and did not have:
+what it measures survives a change of generator, so the fragility numbers in this paper are not an
+artefact of one small model's habits.
+
+\paragraph{The knife edge recurs, and one pathology does not.} Between fifteen and thirty-five per
+cent of each arm sits on a knife edge --- a strategy whose net Sharpe moves visibly when its input
+panel is perturbed at the fifteenth decimal place --- against \rsNKnifeEdge{} of one hundred and
+fifty-six locally. The worst frontier case moves by more than two Sharpe units. Section~\ref{sec:knifeedge}
+argued that this is a property of how strategies are written rather than of any one writer, and the
+frontier arms support that.
+
+\emph{Nondeterminism does not recur.} Not one of the \rsGvTotal{} frontier strategies changes its
+result across two hash seeds or across a replicate at a fixed seed, against
+\rsNExcludedNondeterministic{} of one hundred and fifty-six locally. Iterating an unordered
+container is a habit the frontier models do not have, and it is the one measured pathology in this
+paper that is genuinely a property of the generator.
+
+\paragraph{The predictor's failure is not local either.} Section~\ref{sec:prediction} reported that
+fragility cannot be predicted from strategy characteristics. Trained unchanged on the same
+\rsGvPredTrainN{} local strategies and applied to the \rsGvPredPooledN{} frontier strategies as
+held-out data, the model reaches a pooled out-of-sample $R^2$ of \rsGvPredPooledRsq{} against its
+training mean: no better than a constant. The negative result is a property of the problem.
+
+One caveat we did not expect and report as \emph{exploratory}, since it appears in no
+pre-registration: while the level predictions are worthless, the rank ordering is not. Spearman
+correlation between predicted and measured fragility is \rsGvGptPredSpearman{},
+\rsGvClaudePredSpearman{} and \rsGvGeminiPredSpearman{} on the three arms and
+\rsGvPredPooledSpearman{} pooled. The model cannot say how fragile a strategy is; it partially
+orders which of two is more fragile. At twenty strategies per arm this is a direction worth testing
+properly, not a finding.
+
+\paragraph{What did change.} Duplicate clustering persists on every arm, so the redundancy finding
+holds: \rsGvGptDupCovered{} of \rsGvGptDupCompared{} comparable GPT strategies sit inside an
+exact-duplicate cluster, \rsGvClaudeDupCovered{} of \rsGvClaudeDupCompared{} on Claude and
+\rsGvGeminiDupCovered{} of \rsGvGeminiDupCompared{} on Gemini, across requests issued in
+independent sessions. The near-duplicate rule that the exact criterion does not merge fires
+\rsGvClaudeNearPairs{} times on Claude and \rsGvGptNearPairs{} and \rsGvGeminiNearPairs{} times on
+the other two, so the Claude arm trades diversity below the exact threshold for diversity above it.
+
+Executability does change: every frontier strategy ran, against a minority of the local corpus.
+That belongs to the companion audit benchmark and is reported there.
+
 \section{Threats to validity}\label{sec:threats}
 
 These are the reasons a reader should discount what is above. They are a section rather than a
@@ -870,6 +962,41 @@ corpus turned out to have in quantity.
 \end{itemize}
 
 % =====================================================================================
+% =====================================================================================
+\section{The companion benchmarks}
+\label{sec:companions}
+
+This benchmark is one of three built on a shared point-in-time universe, a shared Indian
+transaction-cost model and a shared backtest engine, released from a single repository. A
+strategy can therefore carry an audit verdict, a fragility score and a deployment capacity
+measured on the same data under the same assumptions, which is what makes the
+cross-benchmark statements in this paper possible.
+
+\begin{itemize}
+\item \textbf{AlphaAudit} --- whether a generated strategy is real, or an artifact of leakage and multiple testing. It supplies the strategy corpus the other two measure.\\
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit.pdf}%
+{\texttt{papers/alphaaudit.pdf}} \quad$\cdot$\quad
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/alphaaudit}%
+{\texttt{benchmarks/alphaaudit}}
+
+\item \textbf{FlowState} --- how much capital a strategy can absorb before it can no longer be traded within its own participation limit. It supplies the deployment-capacity figures.\\
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate.pdf}%
+{\texttt{papers/flowstate.pdf}} \quad$\cdot$\quad
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/flowstate}%
+{\texttt{benchmarks/flowstate}}
+\item \textbf{Generator validation} --- the study of Section~\ref{sec:generators}:
+the identical frozen task specification issued to three frontier models and passed
+through all three benchmarks unchanged, with its pre-registration, its falsified
+hypotheses and its full results.\\
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/generator_validation}%
+{\texttt{benchmarks/generator\_validation}}
+\end{itemize}
+
+The three were designed to be read in order --- is it real, when does it break, how much
+can it take --- and each answers a question the previous one raises. Every artifact,
+correction log and evaluation protocol is in the repository:
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}{\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}.
+
 \section{Conclusion}
 
 We set out to measure when trading strategies break, and the durable output is the measuring

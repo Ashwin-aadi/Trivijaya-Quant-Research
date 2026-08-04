@@ -109,6 +109,10 @@
   \texttt{ashwinaadi2007@gmail.com}}
 \date{\sffamily\small 1 August 2026}
 
+% Generated figures, covering the generator-validation section only. The rest of this paper
+% predates the macro pipeline and states its figures inline; that gap is stated in Limitations.
+\input{alphaaudit_numbers}
+
 \begin{document}
 \maketitle
 \thispagestyle{plain}
@@ -914,6 +918,125 @@ of defect hides, and a limitation of static and unit-level checking that our own
 shares. A regression test now asserts the join directly.
 
 % =====================================================================================
+\section{Do these conclusions depend on who wrote the strategies?}
+\label{sec:generators}
+
+Every number above was measured on a corpus written by one local seven-billion-parameter model. The
+first objection a referee raises is that this paper measures that model rather than machine-written
+strategies in general, and nothing in the preceding sections distinguishes the two.
+
+The frozen task specification of Section~\ref{sec:design} was therefore issued verbatim to
+\aaGvArms{} frontier models through their consumer chat interfaces --- \aaGvRequestsPerArm{}
+independent requests of five strategies each --- and all \aaGvTotal{} were passed through the
+identical funnel with no auditor parameter altered and no line of measurement code added. The
+auditor has been read-only since the release of the companion stress benchmark, which is what makes
+this comparison possible at all. Design, hypotheses and predicted directions were pre-registered
+before any strategy was generated.
+
+\subsection{What changed, and what did not}
+
+\begin{table}[t]
+\centering
+\caption{AlphaAudit measurements by generator. Each arm is \aaGvGptN{} strategies; the local corpus
+is \aaLocalDraws{} draws, of which \aaLocalRankable{} executed and traded.}
+\label{tab:generators}
+\begin{tabular}{lrrrr}
+\toprule
+\thead{Quantity} & \thead{Local 7B} & \thead{GPT} & \thead{Claude} & \thead{Gemini} \\
+\midrule
+Executed and took a position & \aaLocalRankablePct{}\% & 100\% & 100\% & 100\% \\
+Static findings & \aaLocalStaticRankable{} of \aaLocalRankable{}
+  & \textbf{\aaGvGptStatic{}} & \textbf{\aaGvClaudeStatic{}} & \textbf{\aaGvGeminiStatic{}} \\
+Semantic rejections & --- & \aaGvGptSemantic{} & \aaGvClaudeSemantic{}
+  & \aaGvGeminiSemantic{} \\
+Deflation rejections & --- & \aaGvGptStatistical{} of \aaGvGptN{}
+  & \aaGvClaudeStatistical{} of \aaGvClaudeN{} & \aaGvGeminiStatistical{} of \aaGvGeminiN{} \\
+Mean Sharpe lost to costs & \aaLocalCostDrop{} & \aaGvGptCostDrop{} & \aaGvClaudeCostDrop{}
+  & \aaGvGeminiCostDrop{} \\
+Profitable gross, unprofitable net & \aaLocalFlipsPct{}\% & \aaGvGptFlips{} of \aaGvGptN{}
+  & \aaGvClaudeFlips{} of \aaGvClaudeN{} & \aaGvGeminiFlips{} of \aaGvGeminiN{} \\
+Mean holdout Sharpe & \aaLocalHoldoutSharpe{} & \aaGvGptHoldSharpe{} & \aaGvClaudeHoldSharpe{}
+  & \aaGvGeminiHoldSharpe{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Executability rises to saturation.} Every one of the \aaGvTotal{} frontier strategies
+parsed, executed over the full window and took a position, against \aaLocalRankablePct{} per cent of
+the local corpus. The dominant failure mode of Section~\ref{sec:corpus} --- strategies that fail as
+programs rather than as research --- is a property of the small local model and disappears entirely.
+
+\paragraph{The static auditor almost stops firing.} It raised \aaGvStaticTotal{} finding across all
+\aaGvTotal{} frontier strategies, against \aaLocalStaticRankable{} of \aaLocalRankable{} rankable
+local candidates. We had pre-registered the opposite --- that a more capable generator would leak
+just as often, in subtler ways --- and that prediction is falsified. The single finding was a
+snooped parameter, not the class we predicted would dominate.
+
+\begin{selfreport}
+\textbf{We cannot distinguish a robust detector from an inert one on this evidence.} One finding in
+\aaGvTotal{} is consistent with frontier models genuinely not leaking, and equally consistent with a
+detector whose patterns do not match how they write. Distinguishing the two needs deliberately leaky
+frontier-authored fixtures, which we do not have. Reported as an open question rather than as a
+result in either direction.
+\end{selfreport}
+
+\paragraph{Costs bite regardless of author.} The cost model removes \aaGvGptCostDrop{} to
+\aaGvGeminiCostDrop{} of Sharpe per arm, against \aaLocalCostDrop{} locally, and turns
+\aaGvFlipsTotal{} of \aaGvTotal{} frontier strategies from profitable before costs into
+unprofitable after --- a rate comparable to the \aaLocalFlipsPct{} per cent measured on the local
+corpus. The best gross Sharpe on any arm, \aaGvGeminiBestGross{}, becomes \aaGvGeminiBestNet{} net.
+
+\subsection{Deflation, and the holdout}
+
+Not one of the \aaGvTotal{} frontier strategies clears a Deflated Sharpe of \aaGvBar{} at its own
+arm's trial count, on development data or on the holdout. Neither does a single one of
+\aaGvSubsamples{} size-matched subsamples of the local corpus when scored on the holdout, against
+\aaGvMatchedDevSmall{} in \aaGvSubsamples{} on development data. The bar is not merely uncleared by
+the frontier arms; out of sample it is uncleared by everything.
+
+Mean holdout Sharpe is \aaGvGptHoldSharpe{}, \aaGvClaudeHoldSharpe{} and
+\aaGvGeminiHoldSharpe{} across the three arms, against \aaLocalHoldoutSharpe{} for the
+\aaLocalHoldoutN{} local rankable strategies. Every arm loses ground between the development window
+and the holdout, which is the ordinary out-of-sample decay this apparatus exists to measure.
+
+\subsection{The abstention frontier, as an exploratory analysis}
+
+\emph{The following is exploratory: AUAP appears nowhere in the generator-validation
+pre-registration, and was computed only after the fact, from holdout return series already spent.}
+Coverage granularity is one strategy in twenty against one in \aaLocalRankable{} locally, so the
+curves are correspondingly coarse.
+
+\emph{No auditor combination beats random rejection on any arm} --- \aaGvAuapBeats{} of
+\aaGvAuapCells{} arm-by-combination cells. The best combination is
+\aaGvGptAuapLayers{} at \aaGvGptAuapBest{} on the GPT arm against a random interval of
+[\aaGvGptRandomLow{}, \aaGvGptRandomHigh{}], \aaGvClaudeAuapBest{} on Claude against
+[\aaGvClaudeRandomLow{}, \aaGvClaudeRandomHigh{}], and \aaGvGeminiAuapBest{} on Gemini against
+[\aaGvGeminiRandomLow{}, \aaGvGeminiRandomHigh{}]. Locally the best was \aaLocalAuapLayers{} at
+\aaLocalAuapBest{} against [\aaLocalRandomLow{}, \aaLocalRandomHigh{}]. \emph{The central null of
+this paper replicates on all three frontier populations}, which is a stronger statement than the
+paper could make on its own corpus.
+
+Two structures recur in every population, both exploratory. Adding the statistical layer to the
+ranking makes selectivity actively harmful: the single most-trusted strategy is worse than the
+average one, on the local corpus and on every arm. And the static layer contributes no ordering
+information at all --- on one arm every combination containing it is identical, to four decimal
+places, to the same combination without it. A detector that flags almost nothing cannot reorder
+anything, which is the ablation restating the finding above.
+
+\subsection{What this does and does not license}
+
+The measurements that describe \emph{the market} --- what costs remove, what deflation rejects, what
+survives out of sample, whether abstention helps --- are unchanged by a change of generator. The
+measurements that describe \emph{the programs} --- whether they run, whether they leak detectably
+--- change substantially. Frontier models write better programs and, on this evidence, no better
+strategies.
+
+The arms are identified by product name and effort setting as their interfaces reported them, not by
+version string. This study is reproducible as a procedure and not as a set of subjects: the same
+prompt issued in six months would reach different weights under the same names. That is a real limit
+of collecting frontier arms through consumer interfaces on a zero-rupee budget, and it is why the
+claims here are about a dated observation rather than about vendors.
+
 \section{Negative results}
 \label{sec:negative}
 
@@ -1117,6 +1240,41 @@ statement about weak corpora. The benchmark exists because that is the experimen
 alone.
 
 % =====================================================================================
+% =====================================================================================
+\section{The companion benchmarks}
+\label{sec:companions}
+
+This benchmark is one of three built on a shared point-in-time universe, a shared Indian
+transaction-cost model and a shared backtest engine, released from a single repository. A
+strategy can therefore carry an audit verdict, a fragility score and a deployment capacity
+measured on the same data under the same assumptions, which is what makes the
+cross-benchmark statements in this paper possible.
+
+\begin{itemize}
+\item \textbf{RegimeStress} --- when a surviving strategy breaks, measured across counterfactual regime paths. It supplies the fragility scores and the duplicate criterion.\\
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress.pdf}%
+{\texttt{papers/regimestress.pdf}} \quad$\cdot$\quad
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/regimestress}%
+{\texttt{benchmarks/regimestress}}
+
+\item \textbf{FlowState} --- how much capital a strategy can absorb before it can no longer be traded within its own participation limit. It supplies the deployment-capacity figures.\\
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate.pdf}%
+{\texttt{papers/flowstate.pdf}} \quad$\cdot$\quad
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/flowstate}%
+{\texttt{benchmarks/flowstate}}
+\item \textbf{Generator validation} --- the study of Section~\ref{sec:generators}:
+the identical frozen task specification issued to three frontier models and passed
+through all three benchmarks unchanged, with its pre-registration, its falsified
+hypotheses and its full results.\\
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/generator_validation}%
+{\texttt{benchmarks/generator\_validation}}
+\end{itemize}
+
+The three were designed to be read in order --- is it real, when does it break, how much
+can it take --- and each answers a question the previous one raises. Every artifact,
+correction log and evaluation protocol is in the repository:
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}{\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}.
+
 \section{Conclusion}
 
 We set out to determine whether an adversarial auditor can tell real trading signals from

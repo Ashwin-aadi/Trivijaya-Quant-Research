@@ -32,6 +32,11 @@ _log = get_logger(__name__)
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "benchmarks" / "generator_validation" / "RESULTS.md"
 
+#: A single summary artifact the three paper-number generators read. Without it each paper would
+#: have to reach into ``runs/frontier_*/`` itself and re-derive the same medians, which is exactly
+#: how two papers come to state slightly different values for one measurement.
+SUMMARY = ROOT / "data" / "processed" / "generator_validation.json"
+
 #: Product name exactly as the PI reported the interface showed it. Recorded because a study whose
 #: subjects are models is not reproducible without knowing which model, and "Claude" alone does not
 #: identify one. The effort setting is part of the subject's identity for the same reason.
@@ -61,6 +66,14 @@ def reference() -> Row:
     rankable = [
         r for r in pooled if r["outcome"] == "evaluated" and (r.get("mean_turnover") or 0) > 0
     ]
+    # Computed, not quoted. An earlier draft of this file carried "26/225 = 11.6%" copied from P1's
+    # RESULTS.md prose, which was itself wrong: the correct intersection is 28. See
+    # benchmarks/alphaaudit/CORRECTIONS.md, 2026-08-04.
+    audit = json.loads(
+        (ROOT / "runs" / "pooled" / "audit_results.json").read_text(encoding="utf-8")
+    )
+    static_rejected = {n for n, v in audit["static"].items() if v["rejected"]}
+    names = {r["name"] for r in rankable}
 
     def value(key: str) -> str:
         """``paper_numbers`` stores ``{source, value}``; the value is a formatted string."""
@@ -70,11 +83,18 @@ def reference() -> Row:
         "draws": len(pooled),
         "rankable": len(rankable),
         "rankable_rate": len(rankable) / len(pooled),
+        "static_all": len(static_rejected),
+        "static_all_pct": 100 * len(static_rejected) / len(pooled),
+        "static_rankable": len(names & static_rejected),
+        "static_rankable_pct": 100 * len(names & static_rejected) / len(names),
         "capacity_median_cr": float(value("fsCorpusBindingMedian")),
         "capacity_n": value("fsCorpusN"),
         "fragility_n": value("fsCorpusWithFragility"),
         "capacity_span": value("fsCorpusSpan"),
         "knife_edge": value("fsCorpusKnifeEdge"),
+        "near_zero": json.loads(
+            (ROOT / "data" / "processed" / "fragility.json").read_text(encoding="utf-8")
+        )["n_flagged_near_zero_mean"],
     }
 
 
@@ -118,6 +138,8 @@ def arm_row(arm: str) -> Row:
         "cap_span": crores[-1] / crores[0],
         "deflation": _load(arm, "deflation.json"),
         "deflation_holdout": _load(arm, "deflation_holdout.json"),
+        "calibration": _load(arm, "calibration.json"),
+        "ablation": _load(arm, "ablation_holdout.json"),
     }
 
 
@@ -140,7 +162,8 @@ def _table(rows: list[Row], ref: Row) -> list[str]:
     line("Ruined mid-window", "—", lambda r: f"{len(r['ruined'])}")
     line(
         "Static rejected",
-        "222/1,550 = 14.3%; 26/225 rankable = 11.6%",
+        f"{ref['static_all']}/{ref['draws']:,} = {ref['static_all_pct']:.1f}%; "
+        f"{ref['static_rankable']}/{ref['rankable']} rankable = {ref['static_rankable_pct']:.1f}%",
         lambda r: f"**{r['static_rejected']}/{r['n']}**",
     )
     line("Semantic rejected", "—", lambda r: f"{r['semantic_rejected']}/{r['n']}")
@@ -158,9 +181,11 @@ def _table(rows: list[Row], ref: Row) -> list[str]:
         lambda r: f"{r['frag_median']:.3f}",
     )
     line("Fragility, min–max", "—", lambda r: f"{r['frag_min']:.3f}–{r['frag_max']:.3f}")
+    # Was previously paired against the knife-edge count, a different test entirely. The
+    # comparator is the local corpus's own near-zero-mean count.
     line(
-        "Mean-near-zero flagged",
-        f"{ref['knife_edge']} knife-edge of 156",
+        "Mean regime Sharpe near zero",
+        f"{ref['near_zero']} of {ref['fragility_n']}",
         lambda r: f"{r['frag_near_zero']}",
     )
     line(
@@ -242,6 +267,205 @@ def _holdout_section(rows: list[Row]) -> list[str]:
     return out
 
 
+
+def _gaps() -> dict[str, Any]:
+    """The five measurements added after the 2026-08-04 coverage audit, plus AUAP."""
+    processed = ROOT / "data" / "processed"
+    return {
+        "measures": json.loads(
+            (processed / "frontier_gap_measures.json").read_text(encoding="utf-8")
+        ),
+        "prediction": json.loads(
+            (processed / "frontier_fragility_prediction.json").read_text(encoding="utf-8")
+        ),
+        "local_costs": json.loads(
+            (ROOT / "runs" / "pooled" / "gross_vs_net.json").read_text(encoding="utf-8")
+        ),
+        "local_knife": json.loads(
+            (ROOT / "benchmarks" / "regimestress" / "knife_edge.json").read_text(encoding="utf-8")
+        ),
+        "local_nondet": json.loads(
+            (ROOT / "benchmarks" / "regimestress" / "excluded_nondeterministic.json")
+            .read_text(encoding="utf-8")
+        ),
+        "local_ablation": json.loads(
+            (ROOT / "runs" / "pooled" / "ablation_holdout.json").read_text(encoding="utf-8")
+        ),
+    }
+
+
+def _gap_section(rows: list[Row], gaps: dict[str, Any]) -> list[str]:
+    """Everything the first pass of this study measured on one arm but never on the others."""
+    measures = gaps["measures"]
+    costs = gaps["local_costs"]
+    models = [r["model"] for r in rows]
+    header = "| Quantity | Local M0 | " + " | ".join(models) + " |"
+    rule = "|---|---|" + "---|" * len(rows)
+
+    def arm(key: str) -> list[dict[str, Any]]:
+        return [measures["arms"][r["arm"]][key] for r in rows]
+
+    out = [
+        "",
+        "## The five measurements added after a coverage audit",
+        "",
+        "Every benchmark makes more than one measurement, and the first pass of this study put the",
+        "arms through each benchmark's *headline* only. The audit that found this was prompted by",
+        "the PI, not by us. All five are reported below, including the two that correct figures",
+        "stated earlier in this study's own history.",
+        "",
+        header,
+        rule,
+    ]
+    reg = arm("regime_fragility")
+    out.append(
+        f"| Fragility across regimes, median (P2 **primary**) | "
+        f"{measures['local_regime_fragility_median']:.3f} (n = {measures['local_n_primary']}) | "
+        + " | ".join(f"{r['median']:.3f}" for r in reg) + " |"
+    )
+    out.append(
+        "| Fragility across regimes, range | --- | "
+        + " | ".join(f"{r['min']:.3f}--{r['max']:.3f}" for r in reg) + " |"
+    )
+    flow = arm("flow_capacity")
+    out.append(
+        "| Capacity, outflow / inflow, median | 0.96 (5 factors) | "
+        + " | ".join(f"{r['ratio_median']:.3f}" for r in flow) + " |"
+    )
+    out.append(
+        "| Capacity ratio, range | 0.94--1.24 | "
+        + " | ".join(f"{r['ratio_min']:.3f}--{r['ratio_max']:.3f}" for r in flow) + " |"
+    )
+    knife_local = gaps["local_knife"]["n_knife_edge"]
+    out.append(
+        f"| Knife-edge under a 9e-15 panel change | {knife_local}/156 = "
+        f"{100 * knife_local / 156:.1f}% | "
+        + " | ".join(f"**{r['calibration']['n_knife_edge']}/{r['n']}**" for r in rows) + " |"
+    )
+    nondet_local = gaps["local_nondet"]["n_excluded"]
+    out.append(
+        f"| Nondeterministic across hash seeds | {nondet_local}/156 = "
+        f"{100 * nondet_local / 156:.1f}% | "
+        + " | ".join(f"**{r['calibration']['n_nondeterministic']}/{r['n']}**" for r in rows) + " |"
+    )
+    gross = arm("gross_vs_net")
+    out.append(
+        f"| Mean Sharpe lost to costs | {costs['mean_sharpe_drop']:.4f} | "
+        + " | ".join(f"{r['mean_sharpe_drop']:.4f}" for r in gross) + " |"
+    )
+    out.append(
+        f"| Profitable gross, unprofitable net | {costs['n_sign_positive_to_negative']}/"
+        f"{costs['n_traded']} = {100 * costs['share_sign_positive_to_negative']:.1f}% | "
+        + " | ".join(
+            f"{r['n_sign_positive_to_negative']}/{r['n_evaluated']}" for r in gross
+        ) + " |"
+    )
+    out += [
+        "",
+        "**Two of these correct earlier statements in this study.** The knife-edge row was",
+        "previously reported as zero for two arms; that figure came from reading",
+        "`mean_is_near_zero`, which is a different test. Run properly, the pathology recurs on",
+        "every arm at a rate comparable to the local corpus. Determinism was asserted before it",
+        "was tested; the assertion held, but it was untested when made.",
+        "",
+    ]
+    return out
+
+
+def _auap_section(rows: list[Row], gaps: dict[str, Any]) -> list[str]:
+    """The abstention frontier, P1's primary metric, absent from the pre-registration."""
+    local = gaps["local_ablation"]
+    out = [
+        "",
+        "## The abstention frontier --- exploratory",
+        "",
+        "AUAP is AlphaAudit's primary metric and appears nowhere in this study's",
+        "pre-registration. It was computed only after the PI asked for it, from holdout return",
+        "series already spent, and **every figure here is exploratory**. Coverage granularity is",
+        "one strategy in twenty, against one in 225 locally.",
+        "",
+        "| Auditor layers | Local M0 (n = 225) | " + " | ".join(r["model"] for r in rows) + " |",
+        "|---|---|" + "---|" * len(rows),
+    ]
+    combos = [tuple(c["layers"]) for c in sorted(local["combinations"], key=lambda c: c["layers"])]
+    for combo in combos:
+        cells = []
+        for row in rows:
+            match = next(
+                c for c in row["ablation"]["combinations"] if tuple(c["layers"]) == combo
+            )
+            cells.append(f"{match['auap']:+.4f}")
+        here = next(c for c in local["combinations"] if tuple(c["layers"]) == combo)
+        out.append(
+            f"| {' + '.join(combo)} | {here['auap']:+.4f} | " + " | ".join(cells) + " |"
+        )
+    lo, hi = local["random_baseline_auap_interval"]
+    intervals = " | ".join(
+        f"[{r['ablation']['random_baseline_auap_interval'][0]:+.3f}, "
+        f"{r['ablation']['random_baseline_auap_interval'][1]:+.3f}]" for r in rows
+    )
+    out.append(f"| *random 95% interval* | *[{lo:+.3f}, {hi:+.3f}]* | {intervals} |")
+    beat = sum(
+        1 for r in rows for c in r["ablation"]["combinations"] if c["beats_random"]
+    )
+    out += [
+        "",
+        f"**No layer combination beats random rejection on any arm** --- {beat} of "
+        f"{len(rows) * len(combos)} cells. The null AlphaAudit published on its own corpus",
+        "replicates on all three frontier populations.",
+        "",
+        "Two structures carry across every population. Adding the statistical layer makes",
+        "selectivity *harmful*: the most-trusted single strategy is worse than the average one.",
+        "And the static layer contributes no ordering at all --- on the Claude arm, every",
+        "combination containing it is identical to the same combination without it, to four",
+        "decimal places, because it flags almost nothing and so cannot reorder anything.",
+        "",
+    ]
+    return out
+
+
+def _predictor_section(gaps: dict[str, Any]) -> list[str]:
+    """P2's fragility predictor applied out of population."""
+    p = gaps["prediction"]
+    out = [
+        "",
+        "## The fragility predictor, out of population --- exploratory",
+        "",
+        "RegimeStress trained a model mapping strategy characteristics onto fragility and",
+        "reported that it does not work: an out-of-sample R-squared of +0.024 against a mean",
+        "baseline. The model, its features and its seed are unchanged here; the frontier arms are",
+        "pure held-out data. **Not pre-registered.**",
+        "",
+        "| Arm | n | R2 vs training mean | Spearman rho | MAE model / baseline |",
+        "|---|---|---|---|---|",
+    ]
+    for arm, row in p["arms"].items():
+        out.append(
+            f"| {arm} | {row['n']} | {row['r2_vs_training_mean']:+.3f} | "
+            f"{row['spearman']:+.3f} | {row['mae_model']:.3f} / {row['mae_baseline']:.3f} |"
+        )
+    pooled = p["pooled"]
+    out.append(
+        f"| **pooled** | {pooled['n']} | **{pooled['r2_vs_training_mean']:+.3f}** | "
+        f"**{pooled['spearman']:+.3f}** | {pooled['mae_model']:.3f} / "
+        f"{pooled['mae_baseline']:.3f} |"
+    )
+    out += [
+        "",
+        "**The level predictions are worthless and the negative result survives**: a pooled",
+        "R-squared of essentially zero means the model does no better than predicting its own",
+        "training mean on a population it never saw.",
+        "",
+        "**The rank ordering is not worthless**, which was not expected. Spearman is positive on",
+        "all three arms independently and 0.555 pooled. The model cannot say how fragile a",
+        "strategy is, but it partially orders which is more fragile. Pooling across arms is not",
+        "exchangeable and n = 20 per arm is thin, so this is a direction worth testing properly,",
+        "not a result.",
+        "",
+    ]
+    return out
+
+
 def _preamble(rows: list[Row]) -> list[str]:
     out = [
         "# Generator validation — results",
@@ -293,7 +517,8 @@ def _closing(rows: list[Row], ref: Row) -> list[str]:
     out += [
         "",
         f"**The static layer raised {total_static} finding across {total_n} frontier",
-        "strategies**, against 11.6% of M0's rankable candidates. A layer returning the same",
+        f"strategies**, against {ref['static_rankable_pct']:.1f}% of M0's rankable candidates. A",
+        "layer returning the same",
         "verdict regardless of who wrote the code is either robust or measuring nothing on",
         "this population, and these data do not distinguish the two. That is RQ4, and it is",
         "reported unresolved.",
@@ -304,8 +529,8 @@ def _closing(rows: list[Row], ref: Row) -> list[str]:
         "|---|---|---|",
         "| H1 | Executability rises sharply; rankable rate >= 40% | **Confirmed, 3 of 3** — "
         f"100% against M0's {ref['rankable_rate']:.1%} |",
-        "| H2 | Audit pass rate does not improve | **Falsified, 3 of 3** — 1 static finding "
-        "in 60 |",
+        f"| H2 | Audit pass rate does not improve | **Falsified, 3 of 3** — {total_static} static "
+        f"finding in {total_n} |",
         "| H3 | The blind spot is `full_sample_statistic` | **Not supported** — the single "
         "finding was `snooped_parameter` |",
         "| H4 | Diversity does not improve | **Confirmed, 3 of 3** — every arm duplicates "
@@ -327,6 +552,67 @@ def _closing(rows: list[Row], ref: Row) -> list[str]:
         "",
     ]
     return out
+
+
+def _summary(rows: list[Row], ref: Row) -> dict[str, Any]:
+    """The cross-paper summary: one value per measurement, computed once, here."""
+    ref_cap = ref["capacity_median_cr"]
+    arms = {}
+    for row in rows:
+        hold = row["deflation_holdout"]["per_arm"][str(row["n"])].values()
+        dev = row["deflation"]["per_arm"][str(row["n"])].values()
+        raw = sorted(v["raw_sharpe"] for v in hold)
+        arms[row["arm"]] = {
+            "model": row["model"],
+            "n": row["n"],
+            "executed": row["executed"],
+            "static_rejected": row["static_rejected"],
+            "static_classes": row["static_classes"],
+            "semantic_rejected": row["semantic_rejected"],
+            "statistical_rejected": row["statistical_rejected"],
+            "pbo": row["pbo"],
+            "dup_clusters": row["dup_clusters"],
+            "dup_covered": row["dup_covered"],
+            "dup_compared": row["dup_compared"],
+            "near_pairs": row["near_pairs"],
+            "frag_median": row["frag_median"],
+            "frag_min": row["frag_min"],
+            "frag_max": row["frag_max"],
+            "frag_near_zero": row["frag_near_zero"],
+            "cap_median_cr": row["cap_median"],
+            "cap_min_cr": row["cap_min"],
+            "cap_max_cr": row["cap_max"],
+            "cap_span": row["cap_span"],
+            "cap_ratio_to_local": row["cap_median"] / ref_cap,
+            "dev_sharpe_mean": st.mean([v["raw_sharpe"] for v in dev]),
+            "holdout_sharpe_mean": st.mean(raw),
+            "holdout_sharpe_best": raw[-1],
+            "holdout_best_dsr": max(v["deflated_sharpe_probability"] for v in hold),
+        }
+    first = rows[0]["deflation"]
+    return {
+        "arms": arms,
+        "n_arms": len(rows),
+        "n_total": sum(r["n"] for r in rows),
+        "requests_per_arm": rows[0]["requests"],
+        "static_total": sum(r["static_rejected"] for r in rows),
+        "local_rankable": ref["rankable"],
+        "local_draws": ref["draws"],
+        "local_rankable_rate": ref["rankable_rate"],
+        "trial_counts": first["trial_counts_reported"],
+        "dsr_bar": first["dsr_bar"],
+        "cleared_dev": 0,
+        "cleared_holdout": 0,
+        "matched_dev": {
+            str(n): first["matched_n"][str(n)]["subsamples_reaching_bar"]
+            for n in first["trial_counts_reported"]
+        },
+        "matched_holdout": {
+            str(n): rows[0]["deflation_holdout"]["matched_n"][str(n)]["subsamples_reaching_bar"]
+            for n in first["trial_counts_reported"]
+        },
+        "n_subsamples": first["matched_n"][str(first["trial_counts_reported"][0])]["n_subsamples"],
+    }
 
 
 def main() -> int:
@@ -354,10 +640,16 @@ def main() -> int:
         "correct, not a duplicated row.",
     ]
     lines += _holdout_section(rows)
+    gaps = _gaps()
+    lines += _gap_section(rows, gaps)
+    lines += _auap_section(rows, gaps)
+    lines += _predictor_section(gaps)
     lines += _closing(rows, ref)
 
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    SUMMARY.write_text(json.dumps(_summary(rows, ref), indent=2), encoding="utf-8")
     _log.info("wrote %s (%d lines)", OUT.relative_to(ROOT).as_posix(), len(lines))
+    _log.info("wrote %s", SUMMARY.relative_to(ROOT).as_posix())
     return 0
 
 

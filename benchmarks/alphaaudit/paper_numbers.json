@@ -1,0 +1,342 @@
+{
+  "aaGvArms": {
+    "source": "generator_validation.json",
+    "value": "3"
+  },
+  "aaGvAuapBeats": {
+    "source": "ablation_holdout.json",
+    "value": "0"
+  },
+  "aaGvAuapCells": {
+    "source": "ablation_holdout.json",
+    "value": "21"
+  },
+  "aaGvBar": {
+    "source": "generator_validation.json",
+    "value": "0.95"
+  },
+  "aaGvClaudeAuapBest": {
+    "source": "ablation_holdout.json",
+    "value": "-0.6083"
+  },
+  "aaGvClaudeAuapLayers": {
+    "source": "ablation_holdout.json",
+    "value": "semantic"
+  },
+  "aaGvClaudeBestGross": {
+    "source": "frontier_gap_measures.json",
+    "value": "1.0685"
+  },
+  "aaGvClaudeBestNet": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.7990"
+  },
+  "aaGvClaudeCostDrop": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.5795"
+  },
+  "aaGvClaudeDevSharpe": {
+    "source": "generator_validation.json",
+    "value": "-0.1635"
+  },
+  "aaGvClaudeExecuted": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvClaudeFlips": {
+    "source": "frontier_gap_measures.json",
+    "value": "1"
+  },
+  "aaGvClaudeHoldBest": {
+    "source": "generator_validation.json",
+    "value": "+0.4419"
+  },
+  "aaGvClaudeHoldSharpe": {
+    "source": "generator_validation.json",
+    "value": "-0.5781"
+  },
+  "aaGvClaudeN": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvClaudePbo": {
+    "source": "generator_validation.json",
+    "value": "0.0378"
+  },
+  "aaGvClaudeRandomHigh": {
+    "source": "ablation_holdout.json",
+    "value": "-0.3004"
+  },
+  "aaGvClaudeRandomLow": {
+    "source": "ablation_holdout.json",
+    "value": "-0.8711"
+  },
+  "aaGvClaudeSemantic": {
+    "source": "generator_validation.json",
+    "value": "6"
+  },
+  "aaGvClaudeStatic": {
+    "source": "generator_validation.json",
+    "value": "0"
+  },
+  "aaGvClaudeStatistical": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvClearedDev": {
+    "source": "generator_validation.json",
+    "value": "0"
+  },
+  "aaGvClearedHoldout": {
+    "source": "generator_validation.json",
+    "value": "0"
+  },
+  "aaGvFlipsTotal": {
+    "source": "frontier_gap_measures.json",
+    "value": "11"
+  },
+  "aaGvGeminiAuapBest": {
+    "source": "ablation_holdout.json",
+    "value": "-1.7411"
+  },
+  "aaGvGeminiAuapLayers": {
+    "source": "ablation_holdout.json",
+    "value": "static"
+  },
+  "aaGvGeminiBestGross": {
+    "source": "frontier_gap_measures.json",
+    "value": "1.0952"
+  },
+  "aaGvGeminiBestNet": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.9315"
+  },
+  "aaGvGeminiCostDrop": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.8120"
+  },
+  "aaGvGeminiDevSharpe": {
+    "source": "generator_validation.json",
+    "value": "-0.5854"
+  },
+  "aaGvGeminiExecuted": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvGeminiFlips": {
+    "source": "frontier_gap_measures.json",
+    "value": "4"
+  },
+  "aaGvGeminiHoldBest": {
+    "source": "generator_validation.json",
+    "value": "+0.3827"
+  },
+  "aaGvGeminiHoldSharpe": {
+    "source": "generator_validation.json",
+    "value": "-1.4768"
+  },
+  "aaGvGeminiN": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvGeminiPbo": {
+    "source": "generator_validation.json",
+    "value": "0.0037"
+  },
+  "aaGvGeminiRandomHigh": {
+    "source": "ablation_holdout.json",
+    "value": "-0.8580"
+  },
+  "aaGvGeminiRandomLow": {
+    "source": "ablation_holdout.json",
+    "value": "-2.2476"
+  },
+  "aaGvGeminiSemantic": {
+    "source": "generator_validation.json",
+    "value": "5"
+  },
+  "aaGvGeminiStatic": {
+    "source": "generator_validation.json",
+    "value": "1"
+  },
+  "aaGvGeminiStatistical": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvGptAuapBest": {
+    "source": "ablation_holdout.json",
+    "value": "-0.9717"
+  },
+  "aaGvGptAuapLayers": {
+    "source": "ablation_holdout.json",
+    "value": "semantic"
+  },
+  "aaGvGptBestGross": {
+    "source": "frontier_gap_measures.json",
+    "value": "1.0773"
+  },
+  "aaGvGptBestNet": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.8016"
+  },
+  "aaGvGptCostDrop": {
+    "source": "frontier_gap_measures.json",
+    "value": "0.5004"
+  },
+  "aaGvGptDevSharpe": {
+    "source": "generator_validation.json",
+    "value": "-0.1394"
+  },
+  "aaGvGptExecuted": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvGptFlips": {
+    "source": "frontier_gap_measures.json",
+    "value": "6"
+  },
+  "aaGvGptHoldBest": {
+    "source": "generator_validation.json",
+    "value": "+0.3376"
+  },
+  "aaGvGptHoldSharpe": {
+    "source": "generator_validation.json",
+    "value": "-0.9491"
+  },
+  "aaGvGptN": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvGptPbo": {
+    "source": "generator_validation.json",
+    "value": "0.0190"
+  },
+  "aaGvGptRandomHigh": {
+    "source": "ablation_holdout.json",
+    "value": "-0.5319"
+  },
+  "aaGvGptRandomLow": {
+    "source": "ablation_holdout.json",
+    "value": "-1.4806"
+  },
+  "aaGvGptSemantic": {
+    "source": "generator_validation.json",
+    "value": "2"
+  },
+  "aaGvGptStatic": {
+    "source": "generator_validation.json",
+    "value": "0"
+  },
+  "aaGvGptStatistical": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvMatchedDevLarge": {
+    "source": "generator_validation.json",
+    "value": "3"
+  },
+  "aaGvMatchedDevSmall": {
+    "source": "generator_validation.json",
+    "value": "41"
+  },
+  "aaGvMatchedHoldoutLarge": {
+    "source": "generator_validation.json",
+    "value": "0"
+  },
+  "aaGvMatchedHoldoutSmall": {
+    "source": "generator_validation.json",
+    "value": "0"
+  },
+  "aaGvNLarge": {
+    "source": "generator_validation.json",
+    "value": "20"
+  },
+  "aaGvNSmall": {
+    "source": "generator_validation.json",
+    "value": "5"
+  },
+  "aaGvRequestsPerArm": {
+    "source": "generator_validation.json",
+    "value": "4"
+  },
+  "aaGvStaticTotal": {
+    "source": "generator_validation.json",
+    "value": "1"
+  },
+  "aaGvSubsamples": {
+    "source": "generator_validation.json",
+    "value": "1000"
+  },
+  "aaGvTotal": {
+    "source": "generator_validation.json",
+    "value": "60"
+  },
+  "aaLocalAuapBest": {
+    "source": "runs/pooled/ablation_holdout.json",
+    "value": "-1.1967"
+  },
+  "aaLocalAuapLayers": {
+    "source": "runs/pooled/ablation_holdout.json",
+    "value": "semantic"
+  },
+  "aaLocalCostDrop": {
+    "source": "runs/pooled/gross_vs_net.json",
+    "value": "0.5867"
+  },
+  "aaLocalDraws": {
+    "source": "runs/pooled/audit_results.json",
+    "value": "1550"
+  },
+  "aaLocalFlips": {
+    "source": "runs/pooled/gross_vs_net.json",
+    "value": "35"
+  },
+  "aaLocalFlipsOf": {
+    "source": "runs/pooled/gross_vs_net.json",
+    "value": "225"
+  },
+  "aaLocalFlipsPct": {
+    "source": "runs/pooled/gross_vs_net.json",
+    "value": "15.6"
+  },
+  "aaLocalHoldoutN": {
+    "source": "runs/pooled/holdout_results.json",
+    "value": "225"
+  },
+  "aaLocalHoldoutSharpe": {
+    "source": "runs/pooled/holdout_results.json",
+    "value": "-1.0351"
+  },
+  "aaLocalRandomHigh": {
+    "source": "runs/pooled/ablation_holdout.json",
+    "value": "-0.8600"
+  },
+  "aaLocalRandomLow": {
+    "source": "runs/pooled/ablation_holdout.json",
+    "value": "-1.2208"
+  },
+  "aaLocalRankable": {
+    "source": "runs/pooled/backtest_results.json",
+    "value": "225"
+  },
+  "aaLocalRankablePct": {
+    "source": "runs/pooled/backtest_results.json",
+    "value": "14.5"
+  },
+  "aaLocalStatic": {
+    "source": "runs/pooled/audit_results.json",
+    "value": "222"
+  },
+  "aaLocalStaticPct": {
+    "source": "runs/pooled/audit_results.json",
+    "value": "14.3"
+  },
+  "aaLocalStaticRankable": {
+    "source": "runs/pooled/audit_results.json",
+    "value": "28"
+  },
+  "aaLocalStaticRankablePct": {
+    "source": "runs/pooled/audit_results.json",
+    "value": "12.4"
+  }
+}

@@ -336,6 +336,7 @@ recording git SHA, configuration hash, package versions and input file hashes.
 \section{Results}
 
 \subsection{Deployment capacity, and what sets it}
+\label{sec:capacity}
 
 \begin{table}[h]\centering\small
 \begin{tabular}{@{}lrrrrr@{}}
@@ -435,6 +436,7 @@ data that would have supported a retail analysis is freely available and was del
 collected, on the principle that the availability of data is not a reason to ask a question.
 
 \subsection{Flow-conditional capacity}
+\label{sec:flow}
 
 \begin{finding}
 Outflow-to-inflow capacity ratios lie between \fsFlowRatioMin\ and \fsFlowRatioMax\ across
@@ -613,6 +615,86 @@ The corpus run precedes the freeze and the paper. Had the original ordering held
 have shipped a capacity table containing $10^{23}$ crore.
 
 % =====================================================================================
+\subsection{Does the capacity result depend on who wrote the strategies?}
+\label{sec:generators}
+
+Every capacity figure above was measured on strategies written by one local seven-billion-parameter
+model. The objection a referee reaches for first is that this measures that model rather than
+machine-written strategies in general, and it is a fair objection: nothing in the preceding sections
+distinguishes the two.
+
+We therefore issued the identical frozen task specification to \fsGvArms{} frontier models through
+their consumer interfaces, \fsGvRequestsPerArm{} independent requests of five strategies each, and
+passed all \fsGvTotal{} through this benchmark with no parameter altered and no line of measurement
+code added. The design, the hypotheses and the predicted directions were pre-registered before any
+strategy was generated. Full results, including the measurements that belong to the other two
+benchmarks, are in the study's own report; what follows is the part that bears on capacity.
+
+\begin{table}[t]
+\centering
+\caption{Constraint-based deployment capacity by generator. The local corpus figure is the
+\fsCorpusBindingMedian{}~crore median of Section~\ref{sec:capacity}. The arms are
+\fsGvGptN{}, \fsGvClaudeN{} and \fsGvGeminiN{} strategies; the local corpus is \fsCorpusN{}.}
+\label{tab:generators}
+\begin{tabular}{lrrrr}
+\toprule
+\thead{Generator} & \thead{Median (crore)} & \thead{Ratio to local}
+  & \thead{Min--max (crore)} & \thead{Span} \\
+\midrule
+Local 7B & \fsCorpusBindingMedian{} & --- & --- & \fsCorpusSpan{}$\times$ \\
+GPT, base model & \fsGvGptCapMedian{} & \fsGvGptCapRatio{}$\times$
+  & \fsGvGptCapMin{}--\fsGvGptCapMax{} & \fsGvGptCapSpan{}$\times$ \\
+Claude Opus, high effort & \fsGvClaudeCapMedian{} & \fsGvClaudeCapRatio{}$\times$
+  & \fsGvClaudeCapMin{}--\fsGvClaudeCapMax{} & \fsGvClaudeCapSpan{}$\times$ \\
+Gemini Pro & \fsGvGeminiCapMedian{} & \textbf{\fsGvGeminiCapRatio{}$\times$}
+  & \fsGvGeminiCapMin{}--\fsGvGeminiCapMax{} & \fsGvGeminiCapSpan{}$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{The pre-registered prediction failed on one arm of three.} We predicted that median
+deployment capacity would fall within a factor of two of the local corpus for every generator, on
+the reasoning that capacity is set by the traded value of Indian large caps and by the
+participation limit, neither of which knows who wrote the code. Two arms are consistent with that:
+GPT at \fsGvGptCapRatio{}$\times$ and Claude at \fsGvClaudeCapRatio{}$\times$. Claude clears the
+stated bound by a margin far smaller than the sampling error of a twenty-strategy median, and we
+report it as not clearly failing rather than as passing. Gemini Pro is
+\fsGvGeminiCapRatio{}$\times$ --- outside the bound, and in the opposite direction from the one the
+bound was written to catch.
+
+\paragraph{The flow-conditional null holds too.} Section~\ref{sec:flow} reported that deployable
+capital does not collapse when foreign investors withdraw --- a prediction we made and then
+falsified on five factor strategies. Sixty machine-written strategies agree. The ratio of outflow
+capacity to inflow capacity has a median of \fsGvGptFlowMedian{} on the GPT arm,
+\fsGvClaudeFlowMedian{} on Claude and \fsGvGeminiFlowMedian{} on Gemini, against
+\fsFlowRatioMedian{} for the factors. No arm's median falls below
+\fsGvClaudeFlowMedian{}. Per-strategy ranges are
+\fsGvGptFlowMin{}--\fsGvGptFlowMax{} on the GPT arm,
+\fsGvClaudeFlowMin{}--\fsGvClaudeFlowMax{} on Claude and
+\fsGvGeminiFlowMin{}--\fsGvGeminiFlowMax{} on Gemini, so not one of the
+\fsGvTotal{} strategies loses even half its deployable size when flows reverse. A population that
+spans two orders of magnitude in
+capacity therefore reproduces a null established on one that spans less than ten times, which is
+the strongest evidence this benchmark has that the flow-conditional result is a property of Indian
+market liquidity rather than of the five strategies it was first measured on.
+
+\paragraph{What we do not claim.} We have not investigated why. An account of Gemini's narrower
+books would be constructed after seeing the result it explains, and would be exploratory in the
+precise sense this laboratory exists to police. We state the measurement and stop.
+
+\paragraph{What it means for this paper.} Capacity is \emph{not} generator-invariant, and any
+reading of Section~\ref{sec:capacity} as a statement about machine-written strategies in general is
+unsupported by this evidence. The figures in this paper describe the strategies this paper measured.
+That is a narrower claim than we expected to be making, and it is the claim the data supports.
+
+\paragraph{What survives, and is strengthened.} The \emph{mechanism} is unchanged across all four
+populations: capacity is set by the least liquid name a strategy insists on trading, the span within
+each arm is one to two orders of magnitude, and the frontier arms span
+\fsGvGeminiCapSpan{}$\times$ at the widest against \fsCorpusSpan{}$\times$ locally. The validation
+gap of Section~\ref{sec:validation} therefore recurs with more force than it was first reported
+with: a benchmark validated on five factor strategies spanning under ten times was, on this
+evidence, being validated on a population narrower than any generator produces.
+
 \section{Threats to validity}
 \label{sec:threats}
 
@@ -651,6 +733,40 @@ about the phenomenon.
 \end{enumerate}
 
 % =====================================================================================
+\section{The companion benchmarks}
+\label{sec:companions}
+
+This benchmark is one of three built on a shared point-in-time universe, a shared Indian
+transaction-cost model and a shared backtest engine, released from a single repository. A
+strategy can therefore carry an audit verdict, a fragility score and a deployment capacity
+measured on the same data under the same assumptions, which is what makes the
+cross-benchmark statements in this paper possible.
+
+\begin{itemize}
+\item \textbf{AlphaAudit} --- whether a generated strategy is real, or an artifact of leakage and multiple testing. It supplies the strategy corpus the other two measure.\\
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit.pdf}%
+{\texttt{papers/alphaaudit.pdf}} \quad$\cdot$\quad
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/alphaaudit}%
+{\texttt{benchmarks/alphaaudit}}
+
+\item \textbf{RegimeStress} --- when a surviving strategy breaks, measured across counterfactual regime paths. It supplies the fragility scores and the duplicate criterion.\\
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress.pdf}%
+{\texttt{papers/regimestress.pdf}} \quad$\cdot$\quad
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/regimestress}%
+{\texttt{benchmarks/regimestress}}
+\item \textbf{Generator validation} --- the study of Section~\ref{sec:generators}:
+the identical frozen task specification issued to three frontier models and passed
+through all three benchmarks unchanged, with its pre-registration, its falsified
+hypotheses and its full results.\\
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/generator_validation}%
+{\texttt{benchmarks/generator\_validation}}
+\end{itemize}
+
+The three were designed to be read in order --- is it real, when does it break, how much
+can it take --- and each answers a question the previous one raises. Every artifact,
+correction log and evaluation protocol is in the repository:
+\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}{\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}.
+
 \section{Conclusion}
 
 FlowState reports what daily bars can support and declines what they cannot. Deployment capacity for
