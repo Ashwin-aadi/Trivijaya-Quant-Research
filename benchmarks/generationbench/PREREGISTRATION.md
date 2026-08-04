@@ -1,0 +1,254 @@
+# GenerationBench — pre-registration
+
+**Committed before any strategy was generated. The git timestamp of this file is the evidence.**
+Append-only. Anything analysed that does not appear below is **exploratory** and must be labelled as
+such in the same sentence as its result, wherever it is reported.
+
+This is the second confirmatory experiment in this lab, after the generator-validation addendum. It
+inherits that study's discipline and one of its scars: the addendum's coverage audit found that its
+first pass had put the arms through each benchmark's *headline* only, and five further measurements
+had to be added afterwards. **Every measurement each benchmark makes is listed in §4 here, in
+advance, for that reason.**
+
+---
+
+## 1. The question
+
+P1 through P3 held the generator fixed and varied the scrutiny. The addendum held the scrutiny
+fixed and varied the generator, and found the benchmarks' conclusions unchanged across three
+frontier models. This study holds **both the model and the scrutiny fixed, and varies the
+methodology by which strategies are generated.**
+
+> **Does how an AI system is asked to generate a trading strategy change what survives an audit,
+> a stress test and a capacity model — once the comparison is made at equal compute?**
+
+The final clause is the study. A five-call committee that beats a one-call prompt has learned
+nothing; it thought five times as hard. RULE 11 governs, and the control is plain prompting **run
+k times and allowed to keep its best**, with k set by generated tokens.
+
+## 2. The instrument, frozen
+
+| | State | Last change |
+|---|---|---|
+| `src/audit/` | read-only permanently since P2's release | `61747ef`, 2026-07-28 |
+| `src/stress/` | frozen | `7734fee`, 2026-08-02 |
+| `src/capacity/` | frozen | `2c1b601`, 2026-08-03 |
+
+Tagged `evalstack-p4`. AlphaAudit is at benchmark v1.3, RegimeStress at `regimestress-v1`, FlowState
+at `flowstate-v1`. **A change to any of the three directories after this file is committed
+invalidates this study and, under RULE 7, the holdout with it.**
+
+The task specification is P1's frozen prompt, `src/generate/prompts.py`, digest
+`f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934`. Every arm builds its prompt from
+`build_prompt(theme_for(index))`. **Unlike the addendum, this digest matches P1's exactly**, so the
+control arm and the treatment arms answer the identical task.
+
+## 3. The arms
+
+Model held fixed at `qwen2.5:7b-instruct-q4_K_M`, temperature 0.8, local via Ollama, per RULE 5.
+
+| | Paradigm | Structure | Model calls per strategy |
+|---|---|---|---|
+| `G1` | Plain prompting | one call | 1 |
+| `G2` | Chain of thought | one call, reasoning elicited first | 1 |
+| `G4` | Planning | planner → signal → risk → implementer | 4 |
+| `G5` | Reflection | draft → critique → rewrite | 3 |
+| `G6` | Multi-agent | economist → statistician → quant → reviewer → implementer | 5 |
+| `G7` | Evolutionary | population, scored, bred over generations | 12 candidates |
+
+**`G3`, retrieval-augmented generation, is not run.** It needs a corpus of factor literature to
+retrieve from and this repository holds none — `data/raw/` contains bhavcopy prices, calendars,
+participant flows and the SEBI event timeline, and no embedding dependency is installed. Acquiring
+and indexing a literature corpus is a project, not an arm, and the data budget is Rs 0. Dropped
+here, before any data existed, rather than attempted badly. **This is a gap in coverage of the
+paradigm space and is to be reported as one, not omitted.**
+
+**`RQ5`, model scale, is not run.** It requires either a second local model or hosted access, and
+the charter states the primary claims must not depend on it. They do not.
+
+### The compute-matched control
+
+The control is **not** G1 at its natural budget. For each treatment arm `T`:
+
+1. Measure `tokens_per_accepted(T)` and `tokens_per_accepted(G1)` in **generated** tokens
+   (`eval_count`), not prompt tokens and not calls. G2 makes one call and costs more than G1;
+   a call-count ratio would hand it a free budget increase.
+2. `k = ceil(tokens_per_accepted(T) / tokens_per_accepted(G1))`, rounded **up**, so the surplus
+   goes to the control rather than the treatment.
+3. Draw `k` consecutive indices from P1's 1,550-candidate corpus and keep the best by development
+   Sharpe.
+
+**Blocks are contiguous, never a uniform random sample.** P1's corpus is stratified —
+`theme_for(index)` is `THEMES[index % 12]` — so `k` consecutive indices cover `k` consecutive themes
+exactly as `k` fresh draws would. A uniform sample draws a random theme mixture with repeats: a
+different sampling scheme, a different variance, and a confound invisible in the output.
+
+**A block containing nothing rankable is a failed control draw and counts in the control's yield
+denominator.** Only 225 of P1's 1,550 candidates executed and took a position, so for small `k` many
+blocks are barren. Discarding them would compare the control's best blocks against every one of the
+treatment's, inflating the control and manufacturing a null.
+
+**`tokens_per_accepted(G1)` cannot be read from P1's corpus**, which was generated before anything
+counted tokens. A live G1 arm is run for calibration only, at the same n as every other arm.
+
+## 4. Every measurement, named in advance
+
+**Generation**, per arm: yield `Y` (draws that execute and take a position), syntax-failure rate,
+execution-failure rate, redundancy `R` (fraction inside an exact-duplicate cluster, by P2's
+union-find over identical realised return series), near-duplicate pairs at r ≥ 0.9999, coverage `V`
+(effective dimension of the span of factor exposures), generated tokens per accepted strategy,
+wall-clock per accepted strategy.
+
+**AlphaAudit**: static rejection rate and the class distribution of findings; semantic label
+distribution; DSR at the ruled trial count; PBO; AUAP against random rejection at matched coverage,
+for all seven layer combinations.
+
+**RegimeStress**: fragility across regimes (the primary), fragility across CRR paths, knife-edge rate
+under a 9e-15 panel perturbation, nondeterminism rate across hash seeds, fragility-predictor R² and
+Spearman ρ out of population.
+
+**FlowState**: binding constraint-based deployment capacity, capacity span, outflow/inflow capacity
+ratio, alpha-decay half-life, mean Sharpe lost to costs, count profitable gross and unprofitable net.
+
+## 5. Hypotheses
+
+Each is stated so that a specific measurement falsifies it.
+
+**H1 — Scaffolding raises yield before compute matching.** Every one of G2, G4, G5, G6, G7 has a
+higher rankable rate than the live G1 arm at its natural budget. *Falsified if any treatment arm's
+yield point estimate is at or below live G1's.*
+
+**H2 — At matched compute, most of that advantage disappears.** At most two of the five treatment
+arms exceed their own compute-matched control's yield at α = 0.01 (Bonferroni across five arms).
+*Falsified if three or more clear it.*
+
+**H3 — Reasoning depth trades against diversity.** Across the six arms, redundancy `R` correlates
+positively with tokens per accepted strategy (Spearman ρ > 0), and coverage `V` correlates
+negatively. *Falsified if either correlation has the opposite sign.*
+
+**H4 — An honest trial counter erases the evolutionary arm's gains.** G7's best DSR, deflated at its
+own candidate count (12 per returned strategy, not 1), is no higher than G1's best DSR deflated at
+G1's. *Falsified if G7's best DSR exceeds G1's.*
+
+**H5 — Nothing clears the statistical layer, in any arm.** Zero strategies across all arms reach
+DSR ≥ 0.95 on development data. *Falsified by a single strategy clearing it.* This is a predicted
+zero, stated as such: P1 admitted 0 of 1,550 and the addendum 0 of 60. **RQ2, full-stack survival,
+therefore cannot carry a primary claim and is not asked to.**
+
+**H6 — The static layer does not discriminate between paradigms.** The static rejection rate does not
+differ across arms at α = 0.05. *Falsified if it does.* Note the confound stated in §7: this layer
+raised one finding in the addendum's sixty strategies, and no human has confirmed it.
+
+**H7 — No paradigm changes the published conclusions.** The AUAP null, the fragility-predictor null
+and the capacity-constraint findings hold on every arm's population. *Falsified if any arm's AUAP
+beats random rejection at matched coverage.*
+
+## 6. Primary metric, test, and direction
+
+**Primary: yield at matched compute.** For each treatment arm `T`, a two-proportion z-test of
+`Y(T)` against `Y(control_T)`, two-sided, α = 0.05 Bonferroni-corrected to **0.01** across the five
+treatment arms. Direction stated in advance: **H1 predicts the raw difference is positive; H2
+predicts the matched difference is not, for at least three of the five arms.**
+
+**Secondary, and reported whatever it shows:** every quantity in §4, per arm, with its sample size in
+the same sentence.
+
+### Sample size
+
+**n = 120 draws per arm**, six arms, plus a resampled control per treatment arm.
+
+The reason is power against the baseline this lab has already measured. At P1's rankable rate of
+14.5% (225/1,550), α = 0.01 and 80% power:
+
+| n per arm | Smallest detectable yield | Absolute difference |
+|---|---|---|
+| 60 | 42.3% | +27.8 pp |
+| 100 | 35.2% | +20.7 pp |
+| **120** | **33.2%** | **+18.7 pp** |
+| 150 | 31.0% | +16.5 pp |
+| 200 | 28.5% | +14.0 pp |
+| 300 | 25.7% | +11.2 pp |
+
+**n = 120 buys only large effects, and that is stated rather than hidden.** It cannot see a rise from
+14.5% to 25%; it needs 167 draws per arm to see a rise to 30%. It is chosen because the effect this
+lab has actually observed in generation is enormous — the addendum's frontier arms yielded 100%,
+which needs n = 7 — and because compute is the binding constraint. **If every arm lands between 15%
+and 30%, this study will be underpowered and must say so rather than report a null.**
+
+### Generation cost estimate
+
+From `reports/generation_throughput_estimate.md`: 18.1 s per strategy for a single call on the
+RTX 4060 Laptop. Scaling by call count as an upper bound — intermediate stages are capped at 150–250
+words and will generate far fewer tokens than a full strategy, so this over-states:
+
+| Arm | Call-count equivalents | Estimated hours at n = 120 |
+|---|---|---|
+| G1 live | 1 | 0.6 |
+| G2 | 2 | 1.2 |
+| G4 | 4 | 2.4 |
+| G5 | 3 | 1.8 |
+| G6 | 5 | 3.0 |
+| G7 | 12 | 7.2 |
+| **Total** | **27** | **16.3** |
+
+**This is an estimate, not a measurement, and the ten-generation probe at the start of Phase 4.1
+replaces it.** The author's estimating record in this project is three over-estimates and no
+under-estimates, so the true figure is expected to be lower. G7 additionally puts the backtester
+inside the generation loop: 12 candidates × 11.8 s ≈ 142 s of CPU per draw, parallelisable, and
+independent of the GPU budget.
+
+## 7. Exclusion rules, fixed in advance
+
+1. **Nothing is excluded for its result.** A draw that fails to parse, fails to execute, or takes no
+   position is a datum and stays in the yield denominator.
+2. **Every candidate is a trial**, including retries, discarded evolutionary individuals, and syntax
+   failures. G7 is charged 12 per returned strategy.
+3. **Nondeterministic strategies are retained and reported**, not dropped. P1 found 27 of 174
+   survivors return a different Sharpe on rerun; `PYTHONHASHSEED` is pinned for this study and the
+   rate is measured per arm as a paradigm property.
+4. **The knife-edge exclusions P2 defined apply unchanged** at the stress stage, and the count
+   excluded is reported per arm.
+5. **No arm is dropped after its downstream results are seen.** Dropping an arm at Checkpoint 4.1,
+   on yield and redundancy alone, is permitted and honest. Dropping one later is not.
+
+## 8. Predictions, recorded before the data exists
+
+**Mine.** G5 reflection wins on yield, because most P1 failures were conformance failures and a
+critique pass targets exactly those. G6 multi-agent gains least per token, because four short role
+prompts consume budget without touching the code contract. G7 wins before trial adjustment and loses
+after it. Redundancy rises with scaffolding on every arm. **I expect H2 to hold: at most two arms
+beat their matched control.** I expect H5's zero and H7's null to hold on every arm, because they
+have held on 1,550 local strategies and 60 frontier ones.
+
+**The PI's.** *To be recorded at Checkpoint 4.0, before generation, in the PI's own words.*
+
+**If we are both wrong, the paper says so, in those words.**
+
+## 9. The open decision this study cannot make for itself
+
+**The trial-counter rule: pooled across arms, or one counter per arm?** Pooling punishes every
+paradigm for the volume of the others; separating them makes cross-paradigm DSR incomparable. There
+is no neutral choice, and CLAUDE.md requires the PI to make it in advance and in writing.
+
+**Not decided here.** It is Checkpoint 4.0's first question, and the ruling is appended to this file
+as an amendment **before any strategy is generated**. Precedent exists: the addendum's Amendment 2
+resolved an equivalent ambiguity by publishing both readings and forbidding either alone.
+
+## 10. Threats to validity, known before starting
+
+1. **The semantic auditor's accuracy on this population is unmeasured.** P1's Cohen's κ was computed
+   on the local corpus. Thirteen frontier strategies were flagged in the addendum and none was
+   hand-labelled. Any per-arm semantic rejection rate inherits that uncertainty.
+2. **The static layer may be inert rather than robust.** It raised one finding in sixty frontier
+   strategies, and that finding carries no independent human confirmation — the PI declined to
+   review it, logged as a waiver on 2026-08-04. If H6 holds and static rejection is flat across
+   arms, "the layer does not discriminate" and "the paradigms do not differ" are **not
+   distinguishable**, and the result must be reported as such.
+3. **The paradigms are one implementation each.** G6's four personas are a prompt, not four models.
+   A different implementation of the same idea could perform differently, and this study measures
+   these implementations on this date.
+4. **n = 120 sees only large effects**, per §6.
+5. **The control reuses P1's corpus.** Its draws are already counted in AlphaAudit's ledger at
+   N = 1,887. Both readings — control draws counted afresh, and control draws treated as
+   already-counted — are published, and neither is quoted alone.
+6. **G3 is missing**, so the paradigm space is covered with a hole in it.
