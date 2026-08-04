@@ -63,6 +63,40 @@ The matched figures repeat across arms because the subsampling depends only on t
 draw size and the fixed seed, not on which arm it is compared against. That is
 correct, not a duplicated row.
 
+## The holdout — evaluated once, for the whole study
+
+2025-01-01 to 2025-12-31, never seen during development or during any methodology
+decision in this study. Authorised by the PI on 2026-08-04 after all three arms
+were collected, under RULE 7's amendment, whose three conditions were verified in
+writing from git history beforehand. **No tuning of anything follows this table.**
+
+| Arm | Dev Sharpe, mean | Holdout mean | Holdout median | Holdout best | Best DSR |
+|---|---|---|---|---|---|
+| GPT, base model | -0.1394 | -0.9491 | -1.1492 | +0.3376 | 0.0000 |
+| Claude Opus, high effort | -0.1635 | -0.5781 | -0.7696 | +0.4419 | 0.0000 |
+| Gemini Pro | -0.5854 | -1.4768 | -1.1492 | +0.3827 | 0.0000 |
+
+M0's own 225 rankable strategies score a mean holdout Sharpe of **-1.0351** (P1
+`RESULTS.md`). Every frontier arm lands in the same territory: negative on average,
+with a best case near zero.
+
+| Arm | N | Clearing DSR >= 0.95 | Matched M0 draws clearing | Empirical p |
+|---|---|---|---|---|
+| GPT, base model | 5 | 0/20 | 0/1000 | 0.000 |
+| GPT, base model | 20 | 0/20 | 0/1000 | 0.000 |
+| Claude Opus, high effort | 5 | 0/20 | 0/1000 | 0.000 |
+| Claude Opus, high effort | 20 | 0/20 | 0/1000 | 0.000 |
+| Gemini Pro | 5 | 0/20 | 0/1000 | 0.000 |
+| Gemini Pro | 20 | 0/20 | 0/1000 | 0.000 |
+
+**Not one of the 60 frontier strategies clears DSR >= 0.95 on the holdout, at either
+N.** Neither does any of the 1,000 matched M0 subsamples, at either N --- on the
+holdout the local corpus clears 0/1000 where on development data it cleared 3/1000.
+The bar is not merely un-cleared by the frontier arms; it is un-cleared by everything.
+
+**H6 is confirmed on both halves.** The pre-registered prediction was that frontier
+generators would not change the study's statistical conclusions, and they did not.
+
 ## Auditor detail, including the layers that found nothing
 
 | Arm | Static classes raised | Semantic labels |
@@ -86,9 +120,7 @@ reported unresolved.
 | H3 | The blind spot is `full_sample_statistic` | **Not supported** — the single finding was `snooped_parameter` |
 | H4 | Diversity does not improve | **Confirmed, 3 of 3** — every arm duplicates across independent requests |
 | H5 | Capacity within 2x of M0 | **Falsified on Gemini Pro** at 0.31x; held on the other two |
-| H6 | No frontier strategy clears deflation | **Confirmed on development data, 3 of 3** — 0 of 60 at either N |
-
-H6's holdout half is not evaluated in this file.
+| H6 | No frontier strategy clears deflation | **Confirmed on both halves, 3 of 3** — 0 of 60 at either N, development and holdout |
 
 ## What these results do not establish
 

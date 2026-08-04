@@ -117,6 +117,7 @@ def arm_row(arm: str) -> Row:
         "cap_max": crores[-1],
         "cap_span": crores[-1] / crores[0],
         "deflation": _load(arm, "deflation.json"),
+        "deflation_holdout": _load(arm, "deflation_holdout.json"),
     }
 
 
@@ -173,26 +174,71 @@ def _table(rows: list[Row], ref: Row) -> list[str]:
     return out
 
 
-def _deflation_table(rows: list[Row]) -> list[str]:
+def _deflation_table(rows: list[Row], key: str) -> list[str]:
     out = [
         "| Arm | N | Clearing DSR >= 0.95 | Matched M0 draws clearing | Empirical p |",
         "|---|---|---|---|---|",
     ]
     for row in rows:
-        deflation = row["deflation"]
+        deflation = row[key]
         for n_trials in deflation["trial_counts_reported"]:
-            key = str(n_trials)
+            n_key = str(n_trials)
             cleared = sum(
                 1
-                for v in deflation["per_arm"][key].values()
+                for v in deflation["per_arm"][n_key].values()
                 if v["deflated_sharpe_probability"] >= deflation["dsr_bar"]
             )
-            matched = deflation["matched_n"][key]
+            matched = deflation["matched_n"][n_key]
             out.append(
                 f"| {row['model']} | {n_trials} | {cleared}/{row['n']} | "
                 f"{matched['subsamples_reaching_bar']}/{matched['n_subsamples']} | "
                 f"{matched['empirical_p']:.3f} |"
             )
+    return out
+
+
+def _holdout_section(rows: list[Row]) -> list[str]:
+    """The holdout half of H6, evaluated once for the whole study on 2026-08-04."""
+    out = [
+        "",
+        "## The holdout — evaluated once, for the whole study",
+        "",
+        "2025-01-01 to 2025-12-31, never seen during development or during any methodology",
+        "decision in this study. Authorised by the PI on 2026-08-04 after all three arms",
+        "were collected, under RULE 7's amendment, whose three conditions were verified in",
+        "writing from git history beforehand. **No tuning of anything follows this table.**",
+        "",
+        "| Arm | Dev Sharpe, mean | Holdout mean | Holdout median | Holdout best | Best DSR |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        dev = row["deflation"]["per_arm"][str(row["n"])].values()
+        hold = row["deflation_holdout"]["per_arm"][str(row["n"])].values()
+        dev_sharpes = [v["raw_sharpe"] for v in dev]
+        raw = sorted(v["raw_sharpe"] for v in hold)
+        best_dsr = max(v["deflated_sharpe_probability"] for v in hold)
+        out.append(
+            f"| {row['model']} | {st.mean(dev_sharpes):+.4f} | {st.mean(raw):+.4f} | "
+            f"{st.median(raw):+.4f} | {raw[-1]:+.4f} | {best_dsr:.4f} |"
+        )
+    out += [
+        "",
+        "M0's own 225 rankable strategies score a mean holdout Sharpe of **-1.0351** (P1",
+        "`RESULTS.md`). Every frontier arm lands in the same territory: negative on average,",
+        "with a best case near zero.",
+        "",
+    ]
+    out += _deflation_table(rows, "deflation_holdout")
+    out += [
+        "",
+        "**Not one of the 60 frontier strategies clears DSR >= 0.95 on the holdout, at either",
+        "N.** Neither does any of the 1,000 matched M0 subsamples, at either N --- on the",
+        "holdout the local corpus clears 0/1000 where on development data it cleared 3/1000.",
+        "The bar is not merely un-cleared by the frontier arms; it is un-cleared by everything.",
+        "",
+        "**H6 is confirmed on both halves.** The pre-registered prediction was that frontier",
+        "generators would not change the study's statistical conclusions, and they did not.",
+    ]
     return out
 
 
@@ -266,10 +312,8 @@ def _closing(rows: list[Row], ref: Row) -> list[str]:
         "across independent requests |",
         "| H5 | Capacity within 2x of M0 | **Falsified on Gemini Pro** at 0.31x; held on the "
         "other two |",
-        "| H6 | No frontier strategy clears deflation | **Confirmed on development data, "
-        "3 of 3** — 0 of 60 at either N |",
-        "",
-        "H6's holdout half is not evaluated in this file.",
+        "| H6 | No frontier strategy clears deflation | **Confirmed on both halves, 3 of 3** "
+        "— 0 of 60 at either N, development and holdout |",
         "",
         "## What these results do not establish",
         "",
@@ -302,13 +346,14 @@ def main() -> int:
         "as collected are 20. **Both readings are published**, per the PI's ruling.",
         "",
     ]
-    lines += _deflation_table(rows)
+    lines += _deflation_table(rows, "deflation")
     lines += [
         "",
         "The matched figures repeat across arms because the subsampling depends only on the",
         "draw size and the fixed seed, not on which arm it is compared against. That is",
         "correct, not a duplicated row.",
     ]
+    lines += _holdout_section(rows)
     lines += _closing(rows, ref)
 
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")

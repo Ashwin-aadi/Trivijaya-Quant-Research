@@ -77,13 +77,13 @@ def _deflate(values: np.ndarray, n_trials: int, trial_variance: float) -> float:
     )
 
 
-def arm_series(arm: str) -> dict[str, np.ndarray]:
+def arm_series(arm: str, window: str) -> dict[str, np.ndarray]:
     """Each strategy's realised net return series, keyed by the arm's own candidate name."""
     run = ROOT / "runs" / f"frontier_{arm}"
     pooled = json.loads((run / "pooling.json").read_text(encoding="utf-8"))
     out: dict[str, np.ndarray] = {}
     for position, entry in enumerate(pooled["index"]):
-        path = run / "backtests_development" / f"candidate_{position:03d}_returns.parquet"
+        path = run / f"backtests_{window}" / f"candidate_{position:03d}_returns.parquet"
         if path.exists():
             out[str(entry["candidate"]).removesuffix(".py")] = (
                 pl.read_parquet(path)["return"].to_numpy()
@@ -91,8 +91,13 @@ def arm_series(arm: str) -> dict[str, np.ndarray]:
     return out
 
 
-def local_rankable() -> list[np.ndarray]:
-    """The local corpus's 225 rankable series, the frame Amendment 2 samples from."""
+def local_rankable(window: str) -> list[np.ndarray]:
+    """The local corpus's 225 rankable series, the frame Amendment 2 samples from.
+
+    Rankable is fixed by *development* eligibility even when the series read are holdout ones ---
+    exactly as P1 scored the same 225 on the holdout. Re-deciding eligibility on the holdout would
+    select the population using the data the population is about to be tested on.
+    """
     records = json.loads(POOLED_RESULTS.read_text(encoding="utf-8"))
     frame: list[np.ndarray] = []
     for record in records:
@@ -100,7 +105,11 @@ def local_rankable() -> list[np.ndarray]:
             continue
         if not (record.get("mean_turnover") or 0) > 0:
             continue  # executed but never traded: nothing to deflate
-        frame.append(pl.read_parquet(ROOT / record["returns_path"])["return"].to_numpy())
+        path = ROOT / str(record["returns_path"]).replace(
+            "backtests_development", f"backtests_{window}"
+        )
+        if path.exists():
+            frame.append(pl.read_parquet(path)["return"].to_numpy())
     return frame
 
 
@@ -142,21 +151,24 @@ def main() -> int:
         "--n-trials", type=int, action="append", default=None,
         help="trial count(s) to deflate at; defaults to the arm's size and to 5",
     )
+    parser.add_argument(
+        "--window", choices=("development", "holdout"), default="development",
+        help="which backtest window to read; holdout is spent once for the whole study",
+    )
     args = parser.parse_args()
 
-    series = arm_series(args.arm)
+    series = arm_series(args.arm, args.window)
     if not series:
         raise SystemExit(f"no return series found for arm {args.arm}")
     size = len(series)
     # Amendment 2 says "its own trial count" and illustrates it with N = 5, the arm size expected
-    # when it was written. The arm as collected is four requests of five. Both readings are computed
-    # and reported; which one is the pre-registered figure is a question for the PI, and it is left
-    # open here rather than settled by this script.
+    # when it was written; the arm as collected is four requests of five. Amendment 3 settles this
+    # by publishing both, which is adequate only because the two readings agree.
     trial_counts = args.n_trials or sorted({size, 5})
 
     sharpes = [sharpe_ratio(v.tolist()) for v in series.values()]
     variance = float(np.var(sharpes, ddof=1)) if len(sharpes) > 1 else 0.0
-    frame = local_rankable()
+    frame = local_rankable(args.window)
     _log.info("arm %s: %d strategies; local rankable frame: %d", args.arm, size, len(frame))
 
     per_arm: dict[str, dict[str, Any]] = {}
@@ -183,6 +195,7 @@ def main() -> int:
 
     payload = {
         "arm": args.arm,
+        "window": args.window,
         "n_strategies": size,
         "dsr_bar": DSR_BAR,
         "variance_of_trial_sharpes": variance,
@@ -194,7 +207,8 @@ def main() -> int:
             "beside it."
         ),
     }
-    out = ROOT / "runs" / f"frontier_{args.arm}" / "deflation.json"
+    suffix = "" if args.window == "development" else f"_{args.window}"
+    out = ROOT / "runs" / f"frontier_{args.arm}" / f"deflation{suffix}.json"
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     _log.info("  written to %s", out.relative_to(ROOT).as_posix())
     return 0
