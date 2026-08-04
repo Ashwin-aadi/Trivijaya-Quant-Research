@@ -66,7 +66,7 @@ what auditing can achieve in general.
 | Best holdout AUAP | **-1.1967** (semantic alone) vs random 95% interval **[-1.2208, -0.8600]** |
 | Configurations beating random | **0 of 7** (6 of 7 fall *below* the interval) |
 | Deterministic survivors | **147 of 174** — 27 return a different Sharpe on a repeat run |
-| Benchmark version | **1.2** — see [`CORRECTIONS.md`](CORRECTIONS.md) |
+| Benchmark version | **1.3** — see [`CORRECTIONS.md`](CORRECTIONS.md) |
 
 ### Three conditions that travel with this number permanently
 
