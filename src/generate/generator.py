@@ -28,6 +28,7 @@ import requests
 from src.audit.semantic import GENERATE_PATH, MODEL_TAG, NUM_CTX, OLLAMA_HOST
 from src.common.log import get_logger
 from src.generate.prompts import build_prompt, theme_for
+from src.generate.tokens import Usage
 
 _log = get_logger(__name__)
 
@@ -60,6 +61,10 @@ class Candidate:
     #: attempt did, so the Deflated Sharpe denominator must count all of them - recording only the
     #: final outcome understates N and weakens the deflation, which is the wrong direction.
     attempt_outcomes: tuple[str, ...] = ()
+    #: Tokens spent across every attempt, including the ones that failed. Defaults to zero so that
+    #: P1's corpus, which was generated before this was recorded, deserialises without claiming a
+    #: cost it never measured. A zero here means "not measured", not "free".
+    usage: Usage = Usage()
 
     @property
     def usable(self) -> bool:
@@ -122,7 +127,14 @@ def _class_name(source: str) -> str:
     return names[-1] if names else "Unknown"
 
 
-def _post(prompt: str, seed: int, *, model_tag: str, host: str) -> str:
+def _post(prompt: str, seed: int, *, model_tag: str, host: str) -> tuple[str, Usage]:
+    """Issue one call and return its text together with what it cost.
+
+    **The payload is unchanged from the one that generated P1's corpus.** Only the return value
+    grew, to carry the token counts Ollama has always sent back and this function used to drop.
+    P4 compares paradigms at equal token budget under RULE 11, which is unmeasurable without them.
+    Altering the request instead would have made P1's corpus unusable as P4's control arm.
+    """
     payload: dict[str, str | bool | dict[str, float | int]] = {
         "model": model_tag,
         "prompt": prompt,
@@ -133,7 +145,8 @@ def _post(prompt: str, seed: int, *, model_tag: str, host: str) -> str:
         f"{host}{GENERATE_PATH}", json=payload, timeout=REQUEST_TIMEOUT_SECONDS
     )
     response.raise_for_status()
-    return str(response.json().get("response", ""))
+    body = response.json()
+    return str(body.get("response", "")), Usage.from_ollama(body)
 
 
 def generate_candidate(
@@ -152,18 +165,23 @@ def generate_candidate(
     prompt = build_prompt(theme)
     last_reason = "no attempt made"
     outcomes: list[str] = []
+    spent = Usage()
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         # Offsetting by attempt as well as index keeps a retry from redrawing the same failure.
         seed = base_seed + index + attempt * 10_000
-        source = extract_code(_post(prompt, seed, model_tag=model_tag, host=host))
+        text, usage = _post(prompt, seed, model_tag=model_tag, host=host)
+        # Accumulated before the conformance check, so a failed attempt is still charged for the
+        # tokens it burned. Charging only successes would flatter whichever paradigm retries most.
+        spent = spent + usage
+        source = extract_code(text)
         reason = _conformance_failure(source)
         if reason is None:
             outcomes.append("evaluated")
             return Candidate(
                 index=index, seed=seed, theme=theme, source=source,
                 class_name=_class_name(source), attempts=attempt, outcome="evaluated",
-                attempt_outcomes=tuple(outcomes),
+                attempt_outcomes=tuple(outcomes), usage=spent,
             )
         last_reason = reason
         outcomes.append("syntax_error" if "syntax" in reason else "runtime_error")
@@ -173,5 +191,5 @@ def generate_candidate(
         index=index, seed=base_seed + index, theme=theme, source="",
         class_name=f"Failed{index}", attempts=MAX_ATTEMPTS,
         outcome="syntax_error" if "syntax" in last_reason else "runtime_error",
-        attempt_outcomes=tuple(outcomes),
+        attempt_outcomes=tuple(outcomes), usage=spent,
     )
