@@ -252,3 +252,156 @@ resolved an equivalent ambiguity by publishing both readings and forbidding eith
    N = 1,887. Both readings — control draws counted afresh, and control draws treated as
    already-counted — are published, and neither is quoted alone.
 6. **G3 is missing**, so the paradigm space is covered with a hole in it.
+
+---
+
+# AMENDMENT 1 — Two arms swapped, the trial-counter rule settled, and the PI's predictions
+
+**Committed 2026-08-04, before any strategy was generated.** Nothing in the corpus directory existed
+when this was written; `benchmarks/generationbench/corpus/` was created empty by the commit that
+carries this amendment, and its emptiness at that commit is the evidence.
+
+This amendment records the PI's rulings at Checkpoint 4.0 and the design changes they authorised.
+Everything above this line stands as written; nothing has been edited.
+
+## 1.1 — The arms: G6 and G7 replaced
+
+| | Was | Is now | Structure |
+|---|---|---|---|
+| `G6` | Multi-agent (chain of four roles, then an implementer) | **Graph of thoughts** | 3 independent proposals → 2 aggregations under different criteria → 1 merge → implement. **7 calls.** |
+| `G7` | Evolutionary (4 population × 3 generations = 12 candidates) | **Monte Carlo tree search** | 12 iterations, each one expansion call plus one completion call, over a 3-layer design tree. **12 candidates, 24 calls.** |
+
+**Both retired modules remain on disk** at `src/generate/paradigms/multi_agent.py` and
+`evolutionary.py`, still tested and still under the prompt-circularity check. They are not arms.
+
+**Why the swap is admissible.** RULE 10 requires the analysis to be written before the data. No data
+exists: not one model call has been made for P4. §7 rule 5 of this file permits dropping an arm
+before its downstream results are seen and forbids it afterwards; this is the former, by a margin of
+the entire experiment. The swap is recorded here rather than by editing §3 so that the original
+design is not overwritten.
+
+**Why these two.** The retired G6 was a *chain*: each role saw only its predecessor's output and
+could therefore only elaborate it. Graph of thoughts aggregates *independent* proposals — an
+operation a chain cannot express — which makes it a genuinely different point in the paradigm space
+rather than a longer version of G4 planning. The retired G7 and its replacement both close a loop
+with a fitness signal, which is the property H4 and RQ4 depend on; what MCTS adds is a budget linear
+in one parameter, where `population × generations` is a product of two that interact.
+
+**What this costs in coverage, stated rather than buried.** P4 no longer measures a multi-agent
+paradigm or an evolutionary one. Both are well represented in the literature, and their absence is a
+second hole in the paradigm space alongside G3's. This is to be reported in the paper's threats
+section, not in a footnote.
+
+### H4, restated for the arm that now exists
+
+> **H4 — An honest trial counter erases the search arm's gains.** G7's best DSR, deflated at its own
+> candidate count (12 per returned strategy, not 1), is no higher than G1's best DSR deflated at
+> G1's. *Falsified if G7's best DSR exceeds G1's.*
+
+The hypothesis is unchanged in substance: it was never about breeding specifically, but about
+whether *iterating with a fitness signal* survives honest accounting. Only the arm's name changes.
+
+### The revised cost estimate
+
+Two figures, because the call-count scaling used in §6 over-states arms whose intermediate stages
+are word-capped, and by different amounts now that two arms have changed shape.
+
+| Arm | Calls per draw | Call-count ceiling (h) | Structure-aware estimate (h) |
+|---|---|---|---|
+| G1 live | 1 | 0.6 | 0.6 |
+| G2 | 1 | 1.2 | 1.2 |
+| G4 | 4 | 2.4 | 1.9 |
+| G5 | 3 | 1.8 | 1.6 |
+| G6 graph of thoughts | 7 | 4.2 | 1.9 |
+| G7 MCTS | 24 | 14.5 | 9.4 |
+| **Total at n = 120** | | **24.7** | **16.6** |
+
+The structure-aware column charges a word-capped intermediate stage at 0.3 of a full strategy
+generation and a full implementation at 1.0. **Both columns are estimates and neither is a
+measurement.** `scripts/probe_paradigms.py` replaces them before the run, per CLAUDE.md's Phase 4.1
+halt, and the projection it produces is what the run is committed against.
+
+G7 additionally puts the backtester inside the generation loop — 12 backtests per draw at roughly
+11.8 s each, about 3.9 h of CPU across the arm, parallelisable and independent of the GPU budget.
+
+## 1.2 — The trial-counter rule (PI ruling, resolving §9)
+
+> **Publish both per-arm and pooled DSR, with per-arm treated as the primary analysis.** Per-arm
+> measures the methodology fairly, because each paradigm has a different search budget. Pooled
+> remains valuable as a sensitivity analysis and for comparison with the entire experiment. Report
+> both explicitly and never rely on only one.
+
+**Binding consequences.**
+
+1. Each arm writes its own hash-chained ledger at
+   `benchmarks/generationbench/corpus/<arm>/trial_ledger.jsonl`. The pooled count is the sum of the
+   six and is computed at analysis time, never maintained as a seventh file that could drift.
+2. **P1's project ledger is not touched.** It stands at the count AlphaAudit's published results
+   were deflated against; appending P4's draws would retrospectively change a released paper's N.
+3. **No table, figure or sentence may report one reading without the other**, matching the addendum's
+   Amendment 2. A per-arm DSR quoted alone overstates; a pooled DSR quoted alone punishes every arm
+   for G7's volume.
+4. The ledger increments by **candidates evaluated**, not by draws: 24 attempts for a 12-iteration
+   MCTS draw that retried nothing, 1 for a plain draw that conformed first time.
+
+## 1.3 — The search arm's fitness objective (PI ruling, resolving Checkpoint 4.0 question 4)
+
+> **Use net-of-costs performance as the optimisation objective.** Every benchmark in this research
+> programme ultimately evaluates net performance after realistic transaction costs, so the search
+> objective should remain aligned with the benchmark rather than optimise gross returns.
+
+Implemented in `src/generate/paradigms/fitness.py` as development-window Sharpe net of the Phase 1.1
+Indian cost model. **The confound this creates is pre-registered here:** G7 is the only arm that
+receives cost information during generation, so part of any advantage it shows may be
+cost-optimisation rather than search quality. Any G7 result must be reported with that sentence
+attached.
+
+## 1.4 — Sample size (PI ruling, resolving Checkpoint 4.0 question 3)
+
+> **n = 120 per arm.** Six paradigms × 120 = 720 generated strategies — already several times larger
+> than the frontier-model validation. Additional compute beyond 120 gives diminishing returns
+> relative to the extra GPU time.
+
+Unchanged from §6, and §6's power table and its explicit statement that n = 120 cannot see a rise to
+25% stand exactly as written.
+
+## 1.5 — The frozen stack (PI ruling, resolving Checkpoint 4.0 question 5)
+
+> **Approved.** AlphaAudit v1.3, RegimeStress v1.0 and FlowState v1.0 are permanently frozen for
+> Project 4. No benchmark logic, thresholds or scoring rules may change after generation begins. Any
+> future benchmark improvements belong to later versions and must never alter Project 4 results.
+
+## 1.6 — Compute efficiency as an auxiliary metric (PI addition)
+
+> **Compute efficiency will be reported as an auxiliary metric** (rankable strategies per million
+> generated tokens, and per GPU-hour). **This metric is exploratory and will not be treated as a
+> primary hypothesis or influence confirmatory statistical conclusions.**
+
+Added because MCTS will consume substantially more compute than reflection or chain of thought, and
+a reader will ask whether the extra cost is justified. It is pre-registered *as exploratory*, which
+is the distinction RULE 10 exists to preserve: it is declared in advance and it still cannot support
+a confirmatory claim. Every report of it carries the word "exploratory" in the same sentence.
+
+## 1.7 — The PI's predictions, recorded before the data exists (resolving §8)
+
+Verbatim, in the PI's own words:
+
+> My pre-registered prediction is as follows. Plain prompting will produce the weakest overall
+> results. Chain-of-Thought and Planning will provide modest improvements over the baseline.
+> Reflection will offer the best balance between quality and computational cost. Graph-of-Thoughts
+> will improve diversity through reasoning aggregation but is not expected to substantially
+> outperform Reflection. Monte Carlo Tree Search will achieve the highest raw optimisation
+> performance before trial correction, but after Deflated Sharpe adjustment its advantage will
+> diminish because of its substantially larger search budget. Overall I predict Reflection will be
+> the strongest practical methodology under a fixed compute budget.
+
+**Where the two of us agree:** reflection wins on practical grounds; the search arm leads before
+trial adjustment and gives it back after.
+
+**Where we differ, and it is worth recording because only one of us can be right:** the PI expects
+graph of thoughts to *raise* diversity through aggregation. §5's H3 predicts the opposite — that
+redundancy rises and coverage falls as scaffolding deepens, on every arm. **H3 is the pre-registered
+hypothesis and it is not amended.** If G6's coverage rises, H3 is falsified and the PI was right;
+the paper reports that in these words.
+
+**If we are both wrong, the paper says so, in both sets of words.**
