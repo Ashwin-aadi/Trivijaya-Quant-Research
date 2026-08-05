@@ -405,3 +405,58 @@ hypothesis and it is not amended.** If G6's coverage rises, H3 is falsified and 
 the paper reports that in these words.
 
 **If we are both wrong, the paper says so, in both sets of words.**
+
+---
+
+# AMENDMENT 2 — Equal compute budget per arm, replacing equal n
+
+**Committed 2026-08-05, before any draw beyond the ones listed below.** PI ruling, adopted against
+my stated reservations, which are recorded here rather than omitted.
+
+## 2.1 — The change
+
+Fixed `n = 120` per arm is replaced by **fixed generated-token budget per arm**. The research
+question becomes: *under an equal compute budget, which reasoning methodology produces the most
+surviving strategies?*
+
+**Budget: 439,200 generated tokens per arm**, set by the search arm at n = 60.
+
+## 2.2 — Sample sizes, from the probe of 2026-08-05
+
+Measured output tokens per draw (2 draws each): G1 448, G2 388, G4 943, G5 1404, G6 2514.
+**G7 is estimated at 7,320 and is not yet measured** — if the measurement differs, every other arm's
+n moves with it and this table is reissued before those draws.
+
+| Arm | Tokens/draw | **n** | Est. hours |
+|---|---|---|---|
+| G1 | 448 | 980 | 3.2 |
+| G2 | 388 | 1130 | 3.3 |
+| G4 | 943 | 465 | 3.8 |
+| G5 | 1404 | 315 | 3.2 |
+| G6 | 2514 | 175 | 3.2 |
+| G7 | ~7320 | 60 | 4.0 |
+
+Total ≈ 20.7 h.
+
+## 2.3 — What this costs, stated in advance
+
+1. **This design change was made after generation began**, with the first draws of five arms
+   visible. It is therefore **exploratory as to the choice of design**, and every report of the
+   equal-budget result must say so in the same sentence. The hypotheses H1–H7 are unchanged and
+   remain confirmatory.
+2. **Equal compute is not equal precision.** G7 at n = 60 detects only very large effects; G2 at
+   n = 1130 detects small ones. **A null from G7 is uninformative and must not be reported as
+   evidence of no effect.**
+3. **The primary metric changes from a rate to a count.** Yield per draw and surviving strategies
+   per budget can disagree — a paradigm can have the better rate and the worse count. **Both are
+   reported, neither alone.**
+4. **G7 cannot shrink below what has already been drawn.** If more than 60 exist when this takes
+   effect, all are kept and the real number is reported.
+5. Matching is on **generated tokens**, per RULE 11. Wall-clock hours are reported alongside and are
+   not the matching unit — G7's hours include backtest CPU that is not generation.
+
+## 2.4 — Unchanged
+
+Every hypothesis, exclusion rule, measurement in §4, the frozen stack, the trial-counter rule of
+Amendment 1.2, and the compute-matched best-of-k control against P1's corpus. The control's k is now
+computed against each arm's measured tokens per accepted strategy, exactly as §3 already specifies.
