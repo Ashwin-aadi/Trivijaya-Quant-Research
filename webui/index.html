@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strategy console — Trivijaya-Quant</title>
+<style>
+  :root {
+    --navy: #10233f;
+    --navy-soft: #1d3557;
+    --ink: #16202e;
+    --muted: #5b6b80;
+    --line: #dfe4ec;
+    --bg: #ffffff;
+    --panel: #f7f9fc;
+    --flag: #8c2f24;
+    --ok: #1f5c3d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    background: linear-gradient(160deg, #0d1f3c 0%, #16345c 100%);
+    color: #fff; padding: 20px 32px 26px;
+  }
+  header .bar {
+    display: flex; align-items: center; gap: 10px;
+    padding-bottom: 16px; margin-bottom: 18px;
+    border-bottom: 1px solid rgba(255,255,255,.14);
+  }
+  header .brand { font-size: 14px; font-weight: 600; letter-spacing: .2px; }
+  header .local {
+    margin-left: auto; font-size: 12px; color: #c9a227; letter-spacing: .04em;
+  }
+  header h1 { margin: 0; font-size: 21px; font-weight: 620; letter-spacing: -.2px; }
+  header p { margin: 7px 0 0; font-size: 13.5px; color: #b9c6d9; max-width: 74ch; }
+  main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--muted); margin: 0 0 10px; font-weight: 600;
+  }
+  textarea {
+    width: 100%; height: 460px; padding: 14px; border: 1px solid var(--line);
+    border-radius: 4px; font: 13px/1.5 "SF Mono", Consolas, "Courier New", monospace;
+    color: var(--ink); resize: vertical; background: var(--panel);
+  }
+  textarea:focus { outline: 2px solid var(--navy-soft); outline-offset: -1px; }
+  .actions { margin-top: 12px; display: flex; gap: 10px; align-items: center; }
+  button {
+    background: var(--navy); color: #fff; border: 0; border-radius: 3px;
+    padding: 9px 18px; font-size: 14px; font-weight: 500; cursor: pointer;
+  }
+  button:hover { background: var(--navy-soft); }
+  button:disabled { background: #9aa8bb; cursor: default; }
+  button.ghost { background: #fff; color: var(--navy); border: 1px solid var(--line); }
+  .trials { margin-left: auto; font-size: 13px; color: var(--muted); }
+  .panel {
+    border: 1px solid var(--line); border-radius: 4px; background: var(--panel);
+    padding: 16px; min-height: 460px;
+  }
+  .empty { color: var(--muted); font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  th { color: var(--muted); font-weight: 500; width: 46%; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .verdict { font-weight: 600; margin-bottom: 14px; font-size: 15px; }
+  .verdict.flag { color: var(--flag); }
+  .verdict.pass { color: var(--ok); }
+  .finding {
+    border-left: 3px solid var(--flag); background: #fff; padding: 10px 12px; margin-bottom: 10px;
+  }
+  .finding .cls { font-weight: 600; font-size: 13px; }
+  .finding .why { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .finding pre {
+    margin: 7px 0 0; padding: 7px 9px; background: var(--panel); overflow-x: auto;
+    font: 12px/1.4 "SF Mono", Consolas, monospace; border-radius: 3px;
+  }
+  .note {
+    margin-top: 26px; padding: 15px 18px; border-left: 3px solid var(--navy);
+    background: var(--panel); font-size: 13px; color: var(--muted); max-width: 80ch;
+  }
+  .note strong { color: var(--ink); }
+  code { font-family: "SF Mono", Consolas, monospace; font-size: .93em; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="5" fill="#c9a227"/>
+      <path d="M7 23V9h4.6l4.4 9.4L20.4 9H25v14h-3.4v-8.6L17.6 23h-3.2L10.4 14.4V23z"
+            fill="#0d1f3c"/>
+    </svg>
+    <span class="brand">Trivijaya Quant Research</span>
+    <span class="local">running locally &middot; 127.0.0.1</span>
+  </div>
+  <h1>Strategy console</h1>
+  <p>Paste a strategy, run it against the frozen leakage auditor and the point-in-time backtester
+     on Indian equities, 2020&ndash;2024, net of statutory costs. Nothing is uploaded, nothing is
+     ranked, and the 2025 holdout is not reachable from this page.</p>
+</header>
+
+<main>
+  <div class="grid">
+    <section>
+      <h2>Strategy source</h2>
+      <textarea id="src" spellcheck="false"></textarea>
+      <div class="actions">
+        <button id="audit">Audit for leakage</button>
+        <button id="run" class="ghost">Audit &amp; backtest</button>
+        <span class="trials" id="trials">No strategies evaluated yet</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Result</h2>
+      <div class="panel" id="out"><p class="empty">Results appear here.</p></div>
+    </section>
+  </div>
+
+  <div class="note">
+    <strong>Why your Sharpe falls as you iterate.</strong> Every strategy you evaluate in this
+    session counts as a trial, and the deflated Sharpe adjusts for how many things you tried. Submit
+    forty variants and keep the best, and the best one now has to clear a higher bar &mdash; because
+    with forty tries, something looks good by luck alone. The counter is per-session and lives in
+    memory only. It does not touch the repository's ledger, and neither the auditor nor the
+    backtester is modified by anything you do here.
+    <br><br>
+    <strong>A high deflated Sharpe here is weak evidence, and deliberately so.</strong> The
+    correction deflates by how many things you tried <em>and</em> by how much they differed. Two
+    near-identical variants have almost no spread between them, so there is almost nothing to
+    deflate and the number comes back near 1.000 &mdash; which reflects a search too small to have
+    found anything by luck, not a strategy that works. The published results deflate against
+    thousands of genuinely distinct trials. A session of five does not compare.
+    <br><br>
+    <strong>The holdout is not reachable from this page.</strong> Results are on the development
+    window only. The 2025 holdout is a separate file that this process never opens.
+  </div>
+</main>
+
+<script>
+const EXAMPLE = `"""Cross-sectional momentum: hold the strongest names over a trailing window.
+
+A starting point, not a good strategy. Adapted from tests/fixtures/clean/, which holds twenty
+honest and mostly unprofitable strategies used to measure the auditor's false-positive rate.
+"""
+from datetime import date
+
+from src.backtest.strategy import MarketView, Signal, Strategy
+
+
+class Momentum(Strategy):
+    rationale = (
+        "Names that outperformed over the last 126 sessions tend to keep outperforming for a "
+        "few weeks, so holding the strongest decile should capture some of that drift."
+    )
+
+    def __init__(self, lookback: int = 126, n_hold: int = 10) -> None:
+        self._lookback = lookback
+        self._n_hold = n_hold
+
+    def generate(self, view: MarketView) -> Signal:
+        # The last session actually visible -- never view.as_of, which is the session being
+        # traded. Claiming that timestamp asserts knowledge of the future and the engine
+        # raises PointInTimeError.
+        history = view.history()
+        stamp = history["session_date"].max() if not history.is_empty() else date(1900, 1, 1)
+
+        closes = view.closes(lookback=self._lookback + 1)
+        scores = {}
+        for symbol in view.symbols:
+            if symbol not in closes.columns:
+                continue
+            series = closes[symbol].drop_nulls()
+            if series.len() < 2 or series[0] <= 0:
+                continue
+            scores[symbol] = series[-1] / series[0] - 1.0
+
+        # Symbol breaks ties so the selection is reproducible run to run.
+        ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
+        picks = [symbol for symbol, _ in ranked[: self._n_hold]]
+        weights = {name: 1.0 / len(picks) for name in picks} if picks else {}
+        return Signal(information_available_at=stamp, weights=weights)
+`;
+
+const src = document.getElementById("src");
+const out = document.getElementById("out");
+const trials = document.getElementById("trials");
+src.value = EXAMPLE;
+
+const esc = (s) => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const num = (v, d = 3) => (typeof v === "number" && isFinite(v)) ? v.toFixed(d) : "&mdash;";
+
+function findingsHtml(a) {
+  if (!a.findings.length) {
+    return `<div class="verdict pass">No leakage findings.</div>
+            <p class="empty">The static layer reads the code for future-peeking. Passing it is not
+            a claim that the strategy is any good &mdash; only that it does not visibly cheat.</p>`;
+  }
+  const head = a.rejected
+    ? `<div class="verdict flag">Rejected &mdash; ${a.findings.length} finding(s), at least one high severity.</div>`
+    : `<div class="verdict">${a.findings.length} finding(s), none high severity.</div>`;
+  return head + a.findings.map(f => `
+    <div class="finding">
+      <div class="cls">${esc(f.leak_class)} &middot; ${esc(f.severity)} &middot; line ${esc(f.line)}</div>
+      <div class="why">${esc(f.explanation)}</div>
+      <pre>${esc(f.snippet)}</pre>
+    </div>`).join("");
+}
+
+function backtestHtml(r) {
+  if (r.outcome !== "evaluated") {
+    return `<div class="verdict flag">Did not run &mdash; ${esc(r.outcome)}</div>
+            <pre>${esc(r.error || "no detail recorded")}</pre>`;
+  }
+  const rows = [
+    ["Net Sharpe", num(r.sharpe)],
+    ["Gross Sharpe", num(r.sharpe_gross)],
+    ["Annualised return, net", num(r.annualised_return)],
+    ["Max drawdown", num(r.max_drawdown)],
+    ["Mean turnover", num(r.mean_turnover, 4)],
+    ["Mean cost per session", num(r.mean_cost, 5)],
+    ["Return skew", num(r.skew, 2)],
+    ["Return kurtosis", num(r.kurtosis, 2)],
+    ["Sessions", r.n_sessions ?? "&mdash;"],
+    ["Deflated Sharpe probability", num(r.deflated_sharpe_probability)],
+    ["Trials this session", r.session_trials],
+  ];
+  const note = r.deflation_note
+    ? `<p class="empty" style="margin-top:-8px">${esc(r.deflation_note)}</p>` : "";
+  const traded = (r.mean_turnover || 0) > 0;
+  const head = traded
+    ? `<div class="verdict pass">Ran and took a position.</div>`
+    : `<div class="verdict flag">Ran, but never took a position.</div>`;
+  return head + `<table>${rows.map(([k, v]) =>
+    `<tr><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>` + note;
+}
+
+async function call(path, source) {
+  const res = await fetch(path, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({source})
+  });
+  return res.json();
+}
+
+async function go(withBacktest) {
+  const buttons = document.querySelectorAll("button");
+  buttons.forEach(b => b.disabled = true);
+  out.innerHTML = `<p class="empty">${withBacktest ? "Backtesting over 1,232 sessions&hellip;" : "Auditing&hellip;"}</p>`;
+  try {
+    const a = await call("/api/audit", src.value);
+    let html = findingsHtml(a);
+    if (withBacktest) {
+      const r = await call("/api/backtest", src.value);
+      html += `<h2 style="margin-top:22px">Backtest</h2>` + backtestHtml(r);
+      trials.textContent = `${r.session_trials} strateg${r.session_trials === 1 ? "y" : "ies"} evaluated this session`;
+    }
+    out.innerHTML = html;
+  } catch (e) {
+    out.innerHTML = `<div class="verdict flag">Request failed</div><pre>${esc(e)}</pre>`;
+  } finally {
+    buttons.forEach(b => b.disabled = false);
+  }
+}
+
+document.getElementById("audit").onclick = () => go(false);
+document.getElementById("run").onclick = () => go(true);
+</script>
+</body>
+</html>

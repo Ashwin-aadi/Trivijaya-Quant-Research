@@ -460,3 +460,64 @@ Total ≈ 20.7 h.
 Every hypothesis, exclusion rule, measurement in §4, the frozen stack, the trial-counter rule of
 Amendment 1.2, and the compute-matched best-of-k control against P1's corpus. The control's k is now
 computed against each arm's measured tokens per accepted strategy, exactly as §3 already specifies.
+
+---
+
+# Amendment 3 — the realised design, recorded before any Phase 4.2 result is read
+
+**Committed 2026-08-07, on the PI's ruling at Checkpoint 4.1 question 5.** Amendment 2 switched the
+design from equal-n to equal-token but was written while generation was still running, so it carries
+the *intent* and an estimated 439,200-token budget. This records what was actually spent. No
+hypothesis, exclusion rule or measurement changes; §2.3's four costs stand unaltered.
+
+## 3.1 — What was generated
+
+| arm | paradigm | draws | output tokens | tokens/draw | model calls | trials |
+|---|---|---|---|---|---|---|
+| G1 | plain | 830 | 407,588 | 491 | 844 | 844 |
+| G2 | chain-of-thought | 800 | 408,215 | 510 | 811 | 811 |
+| G4 | planning | 365 | 409,161 | 1,121 | 1,465 | 370 |
+| G5 | reflection | 288 | 408,324 | 1,418 | 870 | 582 |
+| G6 | graph-of-thoughts | 152 | 410,177 | 2,699 | 1,068 | 156 |
+| G7 | MCTS | 60 | 408,053 | 6,801 | 1,436 | 736 |
+
+**Matched to 0.6%** — a spread of 2,589 output tokens on a base of ~408,000. This is the figure
+RULE 11 requires and the one the primary comparison rests on. Pooled trial count **3,499**.
+
+Realised wall-clock 19.64 h against the 16.6 h structure-aware projection (+18%), inside the 24.7 h
+call-count ceiling. Accepted by the PI at Checkpoint 4.1 question 2.
+
+`scripts/verify_corpus.py` still expects n = 120 per arm and therefore exits 1 on G7. The constant
+is left stale deliberately: an expected sample size edited to match what was generated has the shape
+of the pathology this lab detects, even when innocent. It is superseded by this table, not by a code
+change.
+
+## 3.2 — Fragility is measured at Tier 2 only, and is not comparable to P2's
+
+**PI ruling, 2026-08-07, with the cost in front of them.** P2 measured tier agreement on mean
+performance at Spearman 0.897 and on **fragility at 0.620** (n = 125), and published the conclusion
+that *"Tier 2 cannot be substituted for Tier 1 when fragility is the quantity of interest."*
+
+Tier 1 is nonetheless unavailable: P2 spent **124.5 CPU-hours** on 125 strategies, so P4's 315 would
+cost upwards of 250 on consumer hardware at a zero budget. Tier 2 at 1,000 paths costs seconds.
+
+**The justification is affordability, not agreement.** No sentence in the paper may claim or imply
+that the tiers agree on fragility; P2 is the paper that measured they do not. Two consequences bind:
+
+1. P4's fragility figures are **not interchangeable with P2's** and are never quoted alongside them
+   as though continuous.
+2. Tier 2 is a noisy proxy for fragility, so power to separate arms is reduced. **A null between
+   arms means "not detected", never "not there"** — the same caution Amendment 2 §2.3(2) attaches to
+   G7 at n = 60.
+
+The cross-arm comparison remains internally valid: all six arms are measured by the same tier, block
+length, seed and rule, and a shared bias cancels when ranking arms rather than reporting a level.
+The caveat is emitted into every arm's `fragility.json` so it travels with the numbers.
+
+## 3.3 — Semantic audit covers all draws, not only those that traded
+
+Deciding this before results are read, per RULE 10. The semantic layer needs source text alone, so
+it is run over **all 2,495 candidates** rather than the 315 that took a position. RQ3's leak-class
+distribution is then measured over what each paradigm actually emits; restricting it to traders
+would condition the distribution on having traded, which is a selected sample. The cost of the wider
+population is 2.6 h of GPU against a stage that is not the critical path.

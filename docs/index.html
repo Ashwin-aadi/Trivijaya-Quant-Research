@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trivijaya Quant Research — instruments for detecting false results</title>
+<meta name="description" content="Three frozen benchmarks that test whether a quantitative trading result is real: leakage auditing, regime fragility, and deployment capacity, on Indian equities.">
+<style>
+  :root {
+    --navy:#0d1f3c; --navy-2:#16345c; --accent:#c9a227;
+    --ink:#131b26; --muted:#5d6b7f; --line:#e2e7ef;
+    --bg:#fff; --panel:#f6f8fc; --flag:#8c2f24; --ok:#1f5c3d;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; }
+  a { color:var(--navy-2); }
+  .wrap { max-width:1080px; margin:0 auto; padding:0 32px; }
+
+  nav { position:sticky; top:0; z-index:10; background:rgba(13,31,60,.97);
+    backdrop-filter:blur(6px); border-bottom:1px solid rgba(255,255,255,.09); }
+  nav .wrap { display:flex; align-items:center; gap:26px; height:60px; }
+  .mark { display:flex; align-items:center; gap:10px; color:#fff;
+    font-weight:600; font-size:15px; letter-spacing:.2px; text-decoration:none; }
+  nav a.link { color:#b9c8de; text-decoration:none; font-size:14px; }
+  nav a.link:hover { color:#fff; }
+  nav .spacer { margin-left:auto; }
+  nav a.cta { color:var(--navy); background:var(--accent); padding:7px 14px;
+    border-radius:3px; font-size:14px; font-weight:600; text-decoration:none; }
+
+  header { background:linear-gradient(160deg,#0d1f3c 0%,#16345c 100%); color:#fff;
+    padding:76px 0 68px; }
+  .eyebrow { color:var(--accent); font-size:12px; letter-spacing:.16em;
+    text-transform:uppercase; font-weight:600; margin-bottom:18px; }
+  header h1 { margin:0 0 20px; font-size:44px; line-height:1.12; font-weight:650;
+    letter-spacing:-.6px; max-width:19ch; }
+  header .lede { font-size:18px; color:#cfdaea; max-width:62ch; margin:0 0 30px; }
+  .byline { border-top:1px solid rgba(255,255,255,.16); padding-top:20px;
+    font-size:14px; color:#a9bad2; }
+  .byline strong { color:#fff; font-weight:600; }
+
+  section { padding:64px 0; border-bottom:1px solid var(--line); }
+  h2 { font-size:26px; letter-spacing:-.3px; margin:0 0 10px; font-weight:640; }
+  .sub { color:var(--muted); max-width:66ch; margin:0 0 32px; }
+  h3 { font-size:17px; margin:0 0 6px; font-weight:620; }
+
+  .flow { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  @media (max-width:860px){ .flow{grid-template-columns:1fr;} nav .link{display:none;} }
+  .card { border:1px solid var(--line); border-radius:6px; padding:22px;
+    background:var(--panel); display:flex; flex-direction:column; }
+  .card .q { color:var(--muted); font-size:14px; font-style:italic; margin:0 0 14px; }
+  .card .finding { font-size:14px; margin:0 0 16px; }
+  .stat { font-size:30px; font-weight:660; letter-spacing:-.5px; color:var(--navy);
+    font-variant-numeric:tabular-nums; }
+  .stat small { display:block; font-size:12.5px; font-weight:500; color:var(--muted);
+    letter-spacing:0; margin-top:3px; line-height:1.4; }
+  .card .foot { margin-top:auto; padding-top:16px; font-size:13px; }
+  .tag { display:inline-block; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    font-weight:600; color:var(--ok); border:1px solid #bcd7c7; background:#eef6f1;
+    border-radius:3px; padding:2px 7px; margin-bottom:12px; }
+
+  .papers { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  @media (max-width:860px){ .papers{grid-template-columns:1fr;} }
+  .paper { border:1px solid var(--line); border-radius:6px; padding:20px; }
+  .paper .venue { font-size:12px; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.09em; font-weight:600; margin-bottom:9px; }
+  .paper p { font-size:14px; color:var(--muted); margin:0 0 16px; }
+  .paper a { font-size:14px; font-weight:600; text-decoration:none; margin-right:14px; }
+  .paper a:hover { text-decoration:underline; }
+
+  pre.code { background:var(--navy); color:#e6edf6; padding:18px 20px; border-radius:6px;
+    overflow-x:auto; font:13.5px/1.7 "SF Mono",Consolas,monospace; }
+  pre.code .c { color:#8fa6c4; }
+  .two { display:grid; grid-template-columns:1.1fr .9fr; gap:36px; align-items:start; }
+  @media (max-width:860px){ .two{grid-template-columns:1fr;} }
+  ul.plain { list-style:none; padding:0; margin:0; }
+  ul.plain li { padding:9px 0 9px 22px; border-bottom:1px solid var(--line);
+    position:relative; font-size:14.5px; }
+  ul.plain li:before { content:"›"; position:absolute; left:4px; color:var(--accent);
+    font-weight:700; }
+
+  .callout { border-left:3px solid var(--accent); background:var(--panel);
+    padding:18px 22px; font-size:14.5px; color:var(--muted); max-width:78ch; }
+  .callout strong { color:var(--ink); }
+
+  footer { background:var(--navy); color:#a9bad2; padding:44px 0; font-size:14px; }
+  footer a { color:#fff; }
+  footer .row { display:flex; gap:30px; flex-wrap:wrap; align-items:baseline; }
+  footer .spacer { margin-left:auto; }
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="mark" href="#top">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="5" fill="#c9a227"/>
+      <path d="M7 23V9h4.6l4.4 9.4L20.4 9H25v14h-3.4v-8.6L17.6 23h-3.2L10.4 14.4V23z"
+            fill="#0d1f3c"/>
+    </svg>
+    Trivijaya Quant Research
+  </a>
+  <span class="spacer"></span>
+  <a class="link" href="#benchmarks">Benchmarks</a>
+  <a class="link" href="#papers">Papers</a>
+  <a class="link" href="#console">Run it</a>
+  <a class="cta" href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">GitHub</a>
+</div></nav>
+
+<header id="top"><div class="wrap">
+  <div class="eyebrow">Measurement infrastructure · Indian equities</div>
+  <h1>Instruments that detect when a quantitative result is false.</h1>
+  <p class="lede">Almost every trading signal that looks profitable on historical data is not. The
+    two dominant causes are <strong>leakage</strong> — the code sees the future — and
+    <strong>multiple testing</strong> — try enough things and something looks brilliant by luck.
+    This is the apparatus that separates real findings from artifacts, applied to a market where it
+    does not currently exist openly.</p>
+  <div class="byline">
+    <strong>Ashwin Jain</strong> · Department of Computer Science &amp; Engineering,
+    MNNIT Allahabad
+  </div>
+</div></header>
+
+<section id="benchmarks"><div class="wrap">
+  <h2>One suite, three questions</h2>
+  <p class="sub">The sequence a systematic fund uses to take an idea from <em>interesting</em> to
+    <em>we are allocating capital to this</em>. Each benchmark answers the question the previous one
+    raises. All three are released, frozen and versioned.</p>
+
+  <div class="flow">
+    <div class="card">
+      <span class="tag">Frozen v1.2</span>
+      <h3>AlphaAudit</h3>
+      <p class="q">Is this signal real, or is it leakage and luck?</p>
+      <p class="finding">A local model generated 1,550 strategies. A three-layer auditor read the
+        code for future-peeking, deflated every Sharpe by the honest trial count, and checked each
+        stated rationale against what the code does.</p>
+      <div class="stat">0 / 631<small>strategies cleared a deflated-Sharpe probability of 0.95.
+        The highest in the entire corpus was 4.37 × 10⁻⁸.</small></div>
+      <div class="foot"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/benchmarks/alphaaudit/RESULTS.md">Full results →</a></div>
+    </div>
+
+    <div class="card">
+      <span class="tag">Frozen v1</span>
+      <h3>RegimeStress</h3>
+      <p class="q">When does it break?</p>
+      <p class="finding">Market conditions are labelled by regime, then histories that never
+        happened are generated by block-bootstrapping real conditions — because history offers one
+        pandemic and one rate cycle, which is not much evidence.</p>
+      <div class="stat">27 / 174<small>audit survivors turned out not to be deterministic
+        functions of their own inputs, and are disclosed rather than quietly dropped.</small></div>
+      <div class="foot"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/benchmarks/regimestress/RESULTS.md">Full results →</a></div>
+    </div>
+
+    <div class="card">
+      <span class="tag">Frozen v1</span>
+      <h3>FlowState</h3>
+      <p class="q">How much money can it absorb?</p>
+      <p class="finding">Deployment capacity measured from observed liquidity rather than an
+        assumed impact coefficient — and a first-class negative result showing why daily bars
+        cannot price market impact at all.</p>
+      <div class="stat">₹0.81–7.91 cr<small>binding capacity across five standard factors: roughly
+        one to ten million US dollars, set by the least-liquid position.</small></div>
+      <div class="foot"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/benchmarks/flowstate/RESULTS.md">Full results →</a></div>
+    </div>
+  </div>
+
+  <div style="margin-top:34px" class="callout">
+    <strong>A negative result is a successful outcome here.</strong> This machinery exists to
+    destroy attractive-looking findings. <em>“The signal did not survive”</em> is the honest
+    majority case, and every benchmark is built to report it rather than to avoid it. That is what
+    separates a research result from a backtest.
+  </div>
+</div></section>
+
+<section id="papers"><div class="wrap">
+  <h2>Papers</h2>
+  <p class="sub">Each benchmark is written up with mandatory Limitations and Negative Results
+    sections. Every figure is generated by the numbers pipeline, never transcribed by hand.</p>
+  <div class="papers">
+    <div class="paper">
+      <div class="venue">q-fin.TR · cs.LG</div>
+      <h3>AlphaAudit</h3>
+      <p>Abstention-calibrated agentic strategy research with adversarial self-audit on Indian
+        equities.</p>
+      <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/alphaaudit.pdf">PDF</a>
+      <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit.tex">Source</a>
+    </div>
+    <div class="paper">
+      <div class="venue">q-fin.RM · q-fin.PM</div>
+      <h3>RegimeStress</h3>
+      <p>Counterfactual regime resampling and learned fragility estimation for Indian equity
+        strategies.</p>
+      <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/regimestress.pdf">PDF</a>
+      <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress.tex">Source</a>
+    </div>
+    <div class="paper">
+      <div class="venue">q-fin.TR</div>
+      <h3>FlowState</h3>
+      <p>Flow-conditional capacity and alpha-decay estimation in a retail-dominated equity
+        market.</p>
+      <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/flowstate.pdf">PDF</a>
+      <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate.tex">Source</a>
+    </div>
+  </div>
+</div></section>
+
+<section id="console"><div class="wrap">
+  <h2>Run your own strategy through it</h2>
+  <p class="sub">The repository ships a local console: paste a strategy, get the leakage findings
+    and a point-in-time backtest over 1,232 sessions of Indian equities, net of statutory costs.</p>
+
+  <div class="two">
+    <div>
+      <pre class="code"><span class="c"># clone and set up</span>
+git clone https://github.com/Ashwin-aadi/Trivijaya-Quant-Research.git
+cd Trivijaya-Quant-Research
+pip install -r env/requirements.txt
+
+<span class="c"># build the price data (immutable raw, then derived)</span>
+python scripts/download_bhavcopy.py
+python scripts/build_universe.py
+python scripts/build_corporate_actions.py
+
+<span class="c"># open http://127.0.0.1:8000</span>
+python webui/server.py</pre>
+    </div>
+    <div>
+      <ul class="plain">
+        <li>The <strong>same</strong> static auditor the papers used, imported frozen.</li>
+        <li>The <strong>same</strong> backtest engine, with point-in-time discipline enforced by the
+          engine rather than trusted to the author.</li>
+        <li>Indian transaction costs in full: STT, exchange charges, SEBI fees, GST, stamp duty,
+          plus a volume-participation slippage model.</li>
+        <li>A session trial counter, so your deflated Sharpe gets <em>harder</em> to clear the more
+          variants you try.</li>
+        <li>Runs entirely on your machine. Nothing is uploaded, nothing is ranked, no account.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top:30px" class="callout">
+    <strong>This page cannot run anything.</strong> It is static, so there is no auditor and no
+    backtester behind it — a page that pretended otherwise would be showing you numbers it did not
+    compute. The console is real code and runs locally, on your clone, under your own account.
+  </div>
+</div></section>
+
+<footer><div class="wrap"><div class="row">
+  <div><strong style="color:#fff">Trivijaya Quant Research</strong><br>
+    Ashwin Jain · CSE, MNNIT Allahabad</div>
+  <span class="spacer"></span>
+  <div>
+    <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">Repository</a> ·
+    <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/README.md">README</a> ·
+    <a href="#papers">Papers</a>
+  </div>
+</div></div></footer>
+
+</body>
+</html>
