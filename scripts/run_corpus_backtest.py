@@ -199,6 +199,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, required=True, help="directory of candidate .py")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
+    # P4 keeps each arm's candidates in its own directory under a shared parent, so the default
+    # (write beside the corpus's parent) would have all six arms overwrite one another's results.
+    # Additive and defaulted, so every P1 and P3 invocation behaves exactly as it did.
+    parser.add_argument("--out-root", type=Path, default=None,
+                        help="where results are written; defaults to the corpus's parent")
     # Same structural gate as the ablation. A convention that the holdout is only read when intended
     # is worth very little at the end of a long run; the flag pair makes it impossible to do by
     # accident, and the authorisation text lands in the output filename's sibling manifest.
@@ -226,7 +231,9 @@ def main() -> int:
     label = "holdout" if args.holdout else "development"
     if args.holdout:
         _log.warning("HOLDOUT EVALUATION, authorised by: %s", args.authorised_by)
-    out_dir = args.corpus.parent / f"backtests_{label}"
+    out_root = args.out_root or args.corpus.parent
+    out_root.mkdir(parents=True, exist_ok=True)
+    out_dir = out_root / f"backtests_{label}"
     out_dir.mkdir(parents=True, exist_ok=True)
     # The corpus path goes in the log so a progress reader can tell which corpus a log belongs to.
     # Without it a stale log from an earlier corpus is indistinguishable from a live one, and the
@@ -281,7 +288,7 @@ def main() -> int:
     elapsed = time.perf_counter() - started
     ran = sum(1 for r in results if r["outcome"] == "evaluated")
     results_name = "holdout_results.json" if args.holdout else "backtest_results.json"
-    (args.corpus.parent / results_name).write_text(
+    (out_root / results_name).write_text(
         json.dumps(results, indent=2), encoding="utf-8"
     )
     _log.info("%d/%d ran to completion in %.0f min", ran, len(results), elapsed / 60)

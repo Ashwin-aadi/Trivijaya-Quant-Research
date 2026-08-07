@@ -1,0 +1,139 @@
+{
+  "arms": {
+    "G1": {
+      "clusters": [
+        [
+          "candidate_039",
+          "candidate_807"
+        ],
+        [
+          "candidate_109",
+          "candidate_719"
+        ],
+        [
+          "candidate_132",
+          "candidate_564"
+        ],
+        [
+          "candidate_231",
+          "candidate_399"
+        ],
+        [
+          "candidate_344",
+          "candidate_507",
+          "candidate_700"
+        ],
+        [
+          "candidate_348",
+          "candidate_468"
+        ],
+        [
+          "candidate_459",
+          "candidate_483"
+        ]
+      ],
+      "largest_cluster": 3,
+      "n_candidates": 830,
+      "n_clusters": 7,
+      "n_in_cluster": 15,
+      "n_traded": 115,
+      "paradigm": "G1_plain",
+      "redundancy_of_traded": 0.13043478260869565
+    },
+    "G2": {
+      "clusters": [
+        [
+          "candidate_009",
+          "candidate_621"
+        ],
+        [
+          "candidate_081",
+          "candidate_372",
+          "candidate_755"
+        ],
+        [
+          "candidate_171",
+          "candidate_363"
+        ],
+        [
+          "candidate_249",
+          "candidate_504"
+        ],
+        [
+          "candidate_291",
+          "candidate_723",
+          "candidate_795"
+        ],
+        [
+          "candidate_567",
+          "candidate_639"
+        ]
+      ],
+      "largest_cluster": 3,
+      "n_candidates": 800,
+      "n_clusters": 6,
+      "n_in_cluster": 14,
+      "n_traded": 81,
+      "paradigm": "G2_cot",
+      "redundancy_of_traded": 0.1728395061728395
+    },
+    "G4": {
+      "clusters": [],
+      "largest_cluster": 0,
+      "n_candidates": 365,
+      "n_clusters": 0,
+      "n_in_cluster": 0,
+      "n_traded": 23,
+      "paradigm": "G4_planning",
+      "redundancy_of_traded": 0.0
+    },
+    "G5": {
+      "clusters": [
+        [
+          "candidate_033",
+          "candidate_141"
+        ]
+      ],
+      "largest_cluster": 2,
+      "n_candidates": 288,
+      "n_clusters": 1,
+      "n_in_cluster": 2,
+      "n_traded": 25,
+      "paradigm": "G5_reflection",
+      "redundancy_of_traded": 0.08
+    },
+    "G6": {
+      "clusters": [],
+      "largest_cluster": 0,
+      "n_candidates": 152,
+      "n_clusters": 0,
+      "n_in_cluster": 0,
+      "n_traded": 12,
+      "paradigm": "G6_graph_of_thoughts",
+      "redundancy_of_traded": 0.0
+    },
+    "G7": {
+      "clusters": [
+        [
+          "candidate_007",
+          "candidate_043"
+        ],
+        [
+          "candidate_034",
+          "candidate_040",
+          "candidate_055"
+        ]
+      ],
+      "largest_cluster": 3,
+      "n_candidates": 60,
+      "n_clusters": 2,
+      "n_in_cluster": 5,
+      "n_traded": 35,
+      "paradigm": "G7_mcts",
+      "redundancy_of_traded": 0.14285714285714285
+    }
+  },
+  "exact_tolerance": 1e-12,
+  "near_correlation_threshold": 0.9999,
+  "purpose": "Fraction of each paradigm's position-taking output inside an exact-duplicate cluster, judged on realised net returns by the identical rule and thresholds used in benchmarks/regimestress/duplicates.json."
+}
