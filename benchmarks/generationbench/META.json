@@ -1,0 +1,799 @@
+{
+  "axes": {
+    "generator": "identical prompt and funnel, four models, NOT compute-matched -- rate claims only",
+    "methodology": "identical model, six paradigms, matched generated tokens (RULE 11)"
+  },
+  "comparability_hazards": [
+    "Fragility: frontier arms are tier 1 across-paths (100 panels); P4 is tier 2 across-regimes (1,000 return paths). P2 measured tier agreement on fragility at Spearman 0.620 and published that tier 2 cannot substitute for tier 1. Never tabled together.",
+    "Sample sizes differ by up to 40x: 20 frontier draws against 830 for G1.",
+    "P4 capacity uses the unfiltered price panel; frontier capacity uses the truncated one (FlowState CORRECTIONS.md C7).",
+    "The generator axis is not compute-matched. No generator-axis figure is a RULE 11 win."
+  ],
+  "findings": {
+    "auditor_abstention_null": {
+      "all_reportable": true,
+      "corpora": [
+        {
+          "beats": 0,
+          "best_auap": -1.3754435106258471,
+          "corpus": "paradigm G1",
+          "n_ranked": 121,
+          "of": 7
+        },
+        {
+          "beats": 0,
+          "best_auap": -1.626353568477589,
+          "corpus": "paradigm G2",
+          "n_ranked": 92,
+          "of": 7
+        },
+        {
+          "beats": 0,
+          "best_auap": -0.605578193660781,
+          "corpus": "paradigm G4",
+          "n_ranked": 25,
+          "of": 7
+        },
+        {
+          "beats": 0,
+          "best_auap": -1.4012617183669336,
+          "corpus": "paradigm G5",
+          "n_ranked": 29,
+          "of": 7
+        },
+        {
+          "beats": 0,
+          "best_auap": -1.0879637655542962,
+          "corpus": "paradigm G6",
+          "n_ranked": 13,
+          "of": 7
+        },
+        {
+          "beats": 0,
+          "best_auap": 0.0123756662604507,
+          "corpus": "paradigm G7",
+          "n_ranked": 35,
+          "of": 7
+        },
+        {
+          "beats": 0,
+          "best_auap": -0.9716630179323453,
+          "corpus": "generator GPT",
+          "n_ranked": 20,
+          "of": 7
+        },
+        {
+          "beats": 0,
+          "best_auap": -0.6083168398629001,
+          "corpus": "generator Claude",
+          "n_ranked": 20,
+          "of": 7
+        },
+        {
+          "beats": 0,
+          "best_auap": -1.7410644870129492,
+          "corpus": "generator Gemini",
+          "n_ranked": 20,
+          "of": 7
+        },
+        {
+          "beats": 0,
+          "best_auap": -1.1966716179995605,
+          "corpus": "AlphaAudit pooled corpus",
+          "n_ranked": 225,
+          "of": 7
+        }
+      ],
+      "n_combinations_beating_random": 0,
+      "n_combinations_total": 70,
+      "n_corpora": 10
+    },
+    "frontier_front_vs_back": {
+      "available": true,
+      "back": {
+        "any_frontier_arm_better_out_of_sample": false,
+        "frontier_combinations_beating_random": 0,
+        "frontier_holdout_median_sharpe": {
+          "Claude": -0.7696255001737691,
+          "GPT": -1.1491581222982632,
+          "Gemini": -1.1491581222982632
+        },
+        "reference_holdout_median_sharpe": -0.6161459793443447
+      },
+      "front": {
+        "every_frontier_arm_exceeds_reference": true,
+        "frontier_execution_rates": {
+          "Claude": 1.0,
+          "GPT": 1.0,
+          "Gemini": 1.0
+        },
+        "frontier_position_taking_rates": {
+          "Claude": 1.0,
+          "GPT": 1.0,
+          "Gemini": 1.0
+        },
+        "reference_execution_rate": 0.4072289156626506,
+        "reference_position_taking_rate": 0.14578313253012049
+      },
+      "not_compute_matched": true,
+      "reference": "local 7B (qwen2.5:7b-instruct-q4_K_M)"
+    },
+    "redundancy_power": {
+      "n_arms_with_informative_zero": 0,
+      "per_arm": {
+        "G1": {
+          "informative": true,
+          "p_zero_at_reference_rate": 2.9683361516825976e-06,
+          "redundancy_of_traded": 0.13043478260869565
+        },
+        "G2": {
+          "informative": true,
+          "p_zero_at_reference_rate": 0.001853012373896704,
+          "redundancy_of_traded": 0.1728395061728395
+        },
+        "G4": {
+          "informative": false,
+          "p_zero_at_reference_rate": 0.6118689283819109,
+          "redundancy_of_traded": 0.0
+        },
+        "G5": {
+          "informative": false,
+          "p_zero_at_reference_rate": 0.5585033344188796,
+          "redundancy_of_traded": 0.08
+        },
+        "G6": {
+          "informative": false,
+          "p_zero_at_reference_rate": 0.8797224386920651,
+          "redundancy_of_traded": 0.0
+        },
+        "G7": {
+          "informative": false,
+          "p_zero_at_reference_rate": 0.3149689754876473,
+          "redundancy_of_traded": 0.14285714285714285
+        }
+      },
+      "status": "EXPLORATORY -- not pre-registered"
+    },
+    "sophistication_under_compute_matching": {
+      "claim_explicitly_not_made": "Scaffolding makes performance worse. The experiment does not establish this.",
+      "claim_sanctioned_by_pi": "Under compute-matched evaluation, no tested scaffolded paradigm improved yield over plain prompting.",
+      "n_beating_control_on_yield": 0,
+      "n_scaffolded_arms": 5,
+      "per_arm": {
+        "G2": {
+          "control_yield": 0.2709677419354839,
+          "k": 2,
+          "treatment_yield": 0.115
+        },
+        "G4": {
+          "control_yield": 0.39147286821705424,
+          "k": 3,
+          "treatment_yield": 0.0684931506849315
+        },
+        "G5": {
+          "control_yield": 0.39147286821705424,
+          "k": 3,
+          "treatment_yield": 0.10069444444444445
+        },
+        "G6": {
+          "control_yield": 0.6434108527131783,
+          "k": 6,
+          "treatment_yield": 0.08552631578947369
+        },
+        "G7": {
+          "control_yield": 0.8909090909090909,
+          "k": 14,
+          "treatment_yield": 0.5833333333333334
+        }
+      }
+    }
+  },
+  "generator_axis": [
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -1.3233597094959109,
+          -0.8610462368253868
+        ],
+        "best_auap": -1.3754435106258471,
+        "best_layers": [
+          "static"
+        ],
+        "best_p_at_005": -2.5535333673277725,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 121,
+        "reportable": true
+      },
+      "audit": {
+        "semantic_n": 830,
+        "semantic_rejected": 83,
+        "semantic_rejection_rate": 0.1,
+        "static_n": 830,
+        "static_rejected": 112,
+        "static_rejection_rate": 0.13493975903614458,
+        "statistical_n": 338,
+        "statistical_rejected": 338,
+        "statistical_rejects_everything": true
+      },
+      "fragility_tier": 2,
+      "funnel": {
+        "dev_max_sharpe": 1.2806765188958098,
+        "dev_median_sharpe": 0.3658134173876187,
+        "execution_rate": 0.4072289156626506,
+        "holdout_fraction_positive": 0.2755905511811024,
+        "holdout_max_sharpe": 1.0071440156345077,
+        "holdout_median_sharpe": -0.6161459793443447,
+        "holdout_n": 127,
+        "n_draws": 830,
+        "n_executed": 338,
+        "n_traded": 121,
+        "position_taking_rate": 0.14578313253012049
+      },
+      "generator": "local 7B (qwen2.5:7b-instruct-q4_K_M)",
+      "role": "reference"
+    },
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -1.4806105807320937,
+          -0.53193807129475
+        ],
+        "best_auap": -0.9716630179323453,
+        "best_layers": [
+          "semantic"
+        ],
+        "best_p_at_005": -1.186992405133995,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 20,
+        "reportable": true
+      },
+      "audit": {
+        "semantic_n": 20,
+        "semantic_rejected": 2,
+        "semantic_rejection_rate": 0.1,
+        "static_n": 20,
+        "static_rejected": 0,
+        "static_rejection_rate": 0.0,
+        "statistical_n": 20,
+        "statistical_rejected": 20,
+        "statistical_rejects_everything": true
+      },
+      "capacity": {
+        "deployed_max_crore": 64.28376095238097,
+        "deployed_median_crore": 2.991819350831486,
+        "deployed_n": 20,
+        "measure": "constraint-based deployment capacity, never impact erosion",
+        "near_cash_median_crore": null,
+        "near_cash_n": 0
+      },
+      "fragility_n": 20,
+      "fragility_tier": 1,
+      "fragility_tier1_across_paths_median": 0.417687604241879,
+      "funnel": {
+        "dev_max_sharpe": 0.8016427783475133,
+        "dev_median_sharpe": -0.012909098953739147,
+        "execution_rate": 1.0,
+        "holdout_fraction_positive": 0.4,
+        "holdout_max_sharpe": 0.33762629354479345,
+        "holdout_median_sharpe": -1.1491581222982632,
+        "holdout_n": 20,
+        "n_draws": 20,
+        "n_executed": 20,
+        "n_traded": 20,
+        "position_taking_rate": 1.0
+      },
+      "generator": "GPT",
+      "role": "frontier arm"
+    },
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -0.8710767061025572,
+          -0.3003899674500238
+        ],
+        "best_auap": -0.6083168398629001,
+        "best_layers": [
+          "semantic"
+        ],
+        "best_p_at_005": -0.9372739474697948,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 20,
+        "reportable": true
+      },
+      "audit": {
+        "semantic_n": 20,
+        "semantic_rejected": 6,
+        "semantic_rejection_rate": 0.3,
+        "static_n": 20,
+        "static_rejected": 0,
+        "static_rejection_rate": 0.0,
+        "statistical_n": 20,
+        "statistical_rejected": 20,
+        "statistical_rejects_everything": true
+      },
+      "capacity": {
+        "deployed_max_crore": 26.331419047619054,
+        "deployed_median_crore": 5.117690714285714,
+        "deployed_n": 20,
+        "measure": "constraint-based deployment capacity, never impact erosion",
+        "near_cash_median_crore": null,
+        "near_cash_n": 0
+      },
+      "fragility_n": 20,
+      "fragility_tier": 1,
+      "fragility_tier1_across_paths_median": 0.3550803366830682,
+      "funnel": {
+        "dev_max_sharpe": 0.7990275307354342,
+        "dev_median_sharpe": 0.1839287723627659,
+        "execution_rate": 1.0,
+        "holdout_fraction_positive": 0.35,
+        "holdout_max_sharpe": 0.44190260671833864,
+        "holdout_median_sharpe": -0.7696255001737691,
+        "holdout_n": 20,
+        "n_draws": 20,
+        "n_executed": 20,
+        "n_traded": 20,
+        "position_taking_rate": 1.0
+      },
+      "generator": "Claude",
+      "role": "frontier arm"
+    },
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -2.2475761179908402,
+          -0.8580175987332428
+        ],
+        "best_auap": -1.7410644870129492,
+        "best_layers": [
+          "static"
+        ],
+        "best_p_at_005": -1.1491581222982632,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 20,
+        "reportable": true
+      },
+      "audit": {
+        "semantic_n": 20,
+        "semantic_rejected": 5,
+        "semantic_rejection_rate": 0.25,
+        "static_n": 20,
+        "static_rejected": 1,
+        "static_rejection_rate": 0.05,
+        "statistical_n": 20,
+        "statistical_rejected": 20,
+        "statistical_rejects_everything": true
+      },
+      "capacity": {
+        "deployed_max_crore": 67.31138571428575,
+        "deployed_median_crore": 0.8032756050875328,
+        "deployed_n": 20,
+        "measure": "constraint-based deployment capacity, never impact erosion",
+        "near_cash_median_crore": null,
+        "near_cash_n": 0
+      },
+      "fragility_n": 20,
+      "fragility_tier": 1,
+      "fragility_tier1_across_paths_median": 0.33363368278626016,
+      "funnel": {
+        "dev_max_sharpe": 0.9315142962311925,
+        "dev_median_sharpe": -0.3377723572150946,
+        "execution_rate": 1.0,
+        "holdout_fraction_positive": 0.3,
+        "holdout_max_sharpe": 0.38274629505012286,
+        "holdout_median_sharpe": -1.1491581222982632,
+        "holdout_n": 20,
+        "n_draws": 20,
+        "n_executed": 20,
+        "n_traded": 20,
+        "position_taking_rate": 1.0
+      },
+      "generator": "Gemini",
+      "role": "frontier arm"
+    }
+  ],
+  "methodology_axis": [
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -1.3233597094959109,
+          -0.8610462368253868
+        ],
+        "best_auap": -1.3754435106258471,
+        "best_layers": [
+          "static"
+        ],
+        "best_p_at_005": -2.5535333673277725,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 121,
+        "reportable": true
+      },
+      "arm": "G1",
+      "audit": {
+        "semantic_n": 830,
+        "semantic_rejected": 83,
+        "semantic_rejection_rate": 0.1,
+        "static_n": 830,
+        "static_rejected": 112,
+        "static_rejection_rate": 0.13493975903614458,
+        "statistical_n": 338,
+        "statistical_rejected": 338,
+        "statistical_rejects_everything": true
+      },
+      "capacity": {
+        "deployed_max_crore": 23.647696428571425,
+        "deployed_median_crore": 2.603995952380952,
+        "deployed_n": 115,
+        "measure": "constraint-based deployment capacity, never impact erosion",
+        "near_cash_median_crore": 1.1579373333333334,
+        "near_cash_n": 6
+      },
+      "compute_matched": {
+        "beats_control_on_yield": null,
+        "control_yield": null,
+        "k": null,
+        "treatment_yield": null
+      },
+      "cross_arm_duplicate_share": 0.1391304347826087,
+      "fragility_n": 101,
+      "fragility_tier2_across_regimes_median": 0.5394434318497026,
+      "full_stack_survival": 0.0855421686746988,
+      "funnel": {
+        "dev_max_sharpe": 1.2806765188958098,
+        "dev_median_sharpe": 0.3658134173876187,
+        "execution_rate": 0.4072289156626506,
+        "holdout_fraction_positive": 0.2755905511811024,
+        "holdout_max_sharpe": 1.0071440156345077,
+        "holdout_median_sharpe": -0.6161459793443447,
+        "holdout_n": 127,
+        "n_draws": 830,
+        "n_executed": 338,
+        "n_traded": 121,
+        "position_taking_rate": 0.14578313253012049
+      },
+      "knife_edge_rate": 0.17391304347826086,
+      "p_zero_duplicates_at_reference_rate": 2.9683361516825976e-06,
+      "paradigm": "plain prompting",
+      "pbo": 0.11351981351981352,
+      "redundancy_of_traded": 0.13043478260869565,
+      "trials_arm": 844
+    },
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -4.142508778555123,
+          -0.7911438733686317
+        ],
+        "best_auap": -1.626353568477589,
+        "best_layers": [
+          "semantic"
+        ],
+        "best_p_at_005": -1.4963534450248115,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 92,
+        "reportable": true
+      },
+      "arm": "G2",
+      "audit": {
+        "semantic_n": 800,
+        "semantic_rejected": 84,
+        "semantic_rejection_rate": 0.105,
+        "static_n": 800,
+        "static_rejected": 102,
+        "static_rejection_rate": 0.1275,
+        "statistical_n": 294,
+        "statistical_rejected": 294,
+        "statistical_rejects_everything": true
+      },
+      "capacity": {
+        "deployed_max_crore": 61.34802380952381,
+        "deployed_median_crore": 1.7712239285714286,
+        "deployed_n": 84,
+        "measure": "constraint-based deployment capacity, never impact erosion",
+        "near_cash_median_crore": 1.6231374761904762,
+        "near_cash_n": 8
+      },
+      "compute_matched": {
+        "beats_control_on_yield": false,
+        "control_yield": 0.2709677419354839,
+        "k": 2,
+        "treatment_yield": 0.115
+      },
+      "cross_arm_duplicate_share": 0.19753086419753085,
+      "fragility_n": 89,
+      "fragility_tier2_across_regimes_median": 0.6145076512057637,
+      "full_stack_survival": 0.08,
+      "funnel": {
+        "dev_max_sharpe": 1.4379932505569823,
+        "dev_median_sharpe": 0.44898141335845043,
+        "execution_rate": 0.3675,
+        "holdout_fraction_positive": 0.4791666666666667,
+        "holdout_max_sharpe": 1.1257125635150123,
+        "holdout_median_sharpe": -0.050772301448965884,
+        "holdout_n": 96,
+        "n_draws": 800,
+        "n_executed": 294,
+        "n_traded": 92,
+        "position_taking_rate": 0.115
+      },
+      "knife_edge_rate": 0.037037037037037035,
+      "p_zero_duplicates_at_reference_rate": 0.001853012373896704,
+      "paradigm": "chain-of-thought",
+      "pbo": 0.16223776223776223,
+      "redundancy_of_traded": 0.1728395061728395,
+      "trials_arm": 811
+    },
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -2.5799362702392936,
+          -0.21016378204130143
+        ],
+        "best_auap": -0.605578193660781,
+        "best_layers": [
+          "static",
+          "semantic"
+        ],
+        "best_p_at_005": 0.11433254607125676,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 25,
+        "reportable": true
+      },
+      "arm": "G4",
+      "audit": {
+        "semantic_n": 365,
+        "semantic_rejected": 48,
+        "semantic_rejection_rate": 0.13150684931506848,
+        "static_n": 365,
+        "static_rejected": 66,
+        "static_rejection_rate": 0.18082191780821918,
+        "statistical_n": 83,
+        "statistical_rejected": 83,
+        "statistical_rejects_everything": true
+      },
+      "capacity": {
+        "deployed_max_crore": 36.877188571428576,
+        "deployed_median_crore": 3.8496666666666686,
+        "deployed_n": 25,
+        "measure": "constraint-based deployment capacity, never impact erosion",
+        "near_cash_median_crore": null,
+        "near_cash_n": 0
+      },
+      "compute_matched": {
+        "beats_control_on_yield": false,
+        "control_yield": 0.39147286821705424,
+        "k": 3,
+        "treatment_yield": 0.0684931506849315
+      },
+      "cross_arm_duplicate_share": 0.13043478260869565,
+      "fragility_n": 24,
+      "fragility_tier2_across_regimes_median": 0.5234795654735017,
+      "full_stack_survival": 0.0547945205479452,
+      "funnel": {
+        "dev_max_sharpe": 1.0037729963650681,
+        "dev_median_sharpe": 0.7678302007240905,
+        "execution_rate": 0.2273972602739726,
+        "holdout_fraction_positive": 0.4827586206896552,
+        "holdout_max_sharpe": 1.2392257085276148,
+        "holdout_median_sharpe": -0.059549434981603165,
+        "holdout_n": 29,
+        "n_draws": 365,
+        "n_executed": 83,
+        "n_traded": 25,
+        "position_taking_rate": 0.0684931506849315
+      },
+      "knife_edge_rate": 0.043478260869565216,
+      "p_zero_duplicates_at_reference_rate": 0.6118689283819109,
+      "paradigm": "planning",
+      "pbo": 0.13885003885003885,
+      "redundancy_of_traded": 0.0,
+      "trials_arm": 370
+    },
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -1.9386936595470143,
+          -1.0308361050640615
+        ],
+        "best_auap": -1.4012617183669336,
+        "best_layers": [
+          "semantic"
+        ],
+        "best_p_at_005": 0.3448928451251676,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 29,
+        "reportable": true
+      },
+      "arm": "G5",
+      "audit": {
+        "semantic_n": 288,
+        "semantic_rejected": 39,
+        "semantic_rejection_rate": 0.13541666666666666,
+        "static_n": 288,
+        "static_rejected": 47,
+        "static_rejection_rate": 0.16319444444444445,
+        "statistical_n": 98,
+        "statistical_rejected": 98,
+        "statistical_rejects_everything": true
+      },
+      "capacity": {
+        "deployed_max_crore": 9.861959523809524,
+        "deployed_median_crore": 1.3839423333333332,
+        "deployed_n": 25,
+        "measure": "constraint-based deployment capacity, never impact erosion",
+        "near_cash_median_crore": 1.0417005714285714,
+        "near_cash_n": 4
+      },
+      "compute_matched": {
+        "beats_control_on_yield": false,
+        "control_yield": 0.39147286821705424,
+        "k": 3,
+        "treatment_yield": 0.10069444444444445
+      },
+      "cross_arm_duplicate_share": 0.24,
+      "fragility_n": 21,
+      "fragility_tier2_across_regimes_median": 1.0353702729239875,
+      "full_stack_survival": 0.0625,
+      "funnel": {
+        "dev_max_sharpe": 0.9614921095002021,
+        "dev_median_sharpe": -0.589263656499821,
+        "execution_rate": 0.3402777777777778,
+        "holdout_fraction_positive": 0.06451612903225806,
+        "holdout_max_sharpe": 0.3448928451251676,
+        "holdout_median_sharpe": -1.1508399949745345,
+        "holdout_n": 31,
+        "n_draws": 288,
+        "n_executed": 98,
+        "n_traded": 29,
+        "position_taking_rate": 0.10069444444444445
+      },
+      "knife_edge_rate": 0.32,
+      "p_zero_duplicates_at_reference_rate": 0.5585033344188796,
+      "paradigm": "reflection",
+      "pbo": 0.08982128982128983,
+      "redundancy_of_traded": 0.08,
+      "trials_arm": 582
+    },
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -1.6577160968056517,
+          -0.24875896753936558
+        ],
+        "best_auap": -1.0879637655542962,
+        "best_layers": [
+          "static"
+        ],
+        "best_p_at_005": -2.332780122566319,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 13,
+        "reportable": true
+      },
+      "arm": "G6",
+      "audit": {
+        "semantic_n": 152,
+        "semantic_rejected": 13,
+        "semantic_rejection_rate": 0.08552631578947369,
+        "static_n": 152,
+        "static_rejected": 25,
+        "static_rejection_rate": 0.16447368421052633,
+        "statistical_n": 45,
+        "statistical_rejected": 45,
+        "statistical_rejects_everything": true
+      },
+      "capacity": {
+        "deployed_max_crore": 36.877188571428576,
+        "deployed_median_crore": 9.906152380952381,
+        "deployed_n": 11,
+        "measure": "constraint-based deployment capacity, never impact erosion",
+        "near_cash_median_crore": 641.977295404762,
+        "near_cash_n": 2
+      },
+      "compute_matched": {
+        "beats_control_on_yield": false,
+        "control_yield": 0.6434108527131783,
+        "k": 6,
+        "treatment_yield": 0.08552631578947369
+      },
+      "cross_arm_duplicate_share": 0.0,
+      "fragility_n": 12,
+      "fragility_tier2_across_regimes_median": 0.4298144868553211,
+      "full_stack_survival": 0.05263157894736842,
+      "funnel": {
+        "dev_max_sharpe": 0.9133875523498561,
+        "dev_median_sharpe": 0.10789430398897693,
+        "execution_rate": 0.29605263157894735,
+        "holdout_fraction_positive": 0.2857142857142857,
+        "holdout_max_sharpe": 1.0066362930516979,
+        "holdout_median_sharpe": -0.5067636087331455,
+        "holdout_n": 14,
+        "n_draws": 152,
+        "n_executed": 45,
+        "n_traded": 13,
+        "position_taking_rate": 0.08552631578947369
+      },
+      "knife_edge_rate": 0.08333333333333333,
+      "p_zero_duplicates_at_reference_rate": 0.8797224386920651,
+      "paradigm": "graph-of-thoughts",
+      "pbo": 0.10442890442890443,
+      "redundancy_of_traded": 0.0,
+      "trials_arm": 156
+    },
+    {
+      "ablation_holdout": {
+        "baseline_interval": [
+          -0.17604622844472756,
+          0.11026956079230185
+        ],
+        "best_auap": 0.0123756662604507,
+        "best_layers": [
+          "statistical"
+        ],
+        "best_p_at_005": 0.014377912417048097,
+        "n_beating_random": 0,
+        "n_combinations": 7,
+        "n_ranked": 35,
+        "reportable": true
+      },
+      "arm": "G7",
+      "audit": {
+        "semantic_n": 60,
+        "semantic_rejected": 5,
+        "semantic_rejection_rate": 0.08333333333333333,
+        "static_n": 60,
+        "static_rejected": 5,
+        "static_rejection_rate": 0.08333333333333333,
+        "statistical_n": 59,
+        "statistical_rejected": 59,
+        "statistical_rejects_everything": true
+      },
+      "capacity": {
+        "deployed_max_crore": 36.877188571428576,
+        "deployed_median_crore": 5.162709047619047,
+        "deployed_n": 33,
+        "measure": "constraint-based deployment capacity, never impact erosion",
+        "near_cash_median_crore": 282.1749206349207,
+        "near_cash_n": 2
+      },
+      "compute_matched": {
+        "beats_control_on_yield": false,
+        "control_yield": 0.8909090909090909,
+        "k": 14,
+        "treatment_yield": 0.5833333333333334
+      },
+      "cross_arm_duplicate_share": 0.05714285714285714,
+      "fragility_n": 32,
+      "fragility_tier2_across_regimes_median": 0.6151763439187039,
+      "full_stack_survival": 0.43333333333333335,
+      "funnel": {
+        "dev_max_sharpe": 1.1690314958593864,
+        "dev_median_sharpe": 0.7500214064821675,
+        "execution_rate": 0.9833333333333333,
+        "holdout_fraction_positive": 0.6,
+        "holdout_max_sharpe": 0.7353103280677146,
+        "holdout_median_sharpe": 0.046828746068961494,
+        "holdout_n": 35,
+        "n_draws": 60,
+        "n_executed": 59,
+        "n_traded": 35,
+        "position_taking_rate": 0.5833333333333334
+      },
+      "knife_edge_rate": 0.08571428571428572,
+      "p_zero_duplicates_at_reference_rate": 0.3149689754876473,
+      "paradigm": "Monte Carlo tree search",
+      "pbo": 0.1794094794094794,
+      "redundancy_of_traded": 0.14285714285714285,
+      "trials_arm": 736
+    }
+  ],
+  "purpose": "Every computable number about machine-written strategies measured by this lab's frozen stack, across four generators and six generation paradigms."
+}
