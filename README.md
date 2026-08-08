@@ -43,7 +43,7 @@ infrastructure.
 ## AlphaAudit — is the signal real?
 
 > **A Benchmark for Auditing AI-Generated Trading Strategies**
-> Paper: [`papers/pdf/alphaaudit.pdf`](papers/pdf/alphaaudit.pdf) · Every number:
+> Paper: [`papers/pdf/1-alphaaudit.pdf`](papers/pdf/1-alphaaudit.pdf) · Every number:
 > [`benchmarks/alphaaudit/RESULTS.md`](benchmarks/alphaaudit/RESULTS.md)
 
 A local 7B model wrote 1,550 candidate trading strategies. A three-layer auditor — AST leakage
@@ -82,7 +82,7 @@ authorisation and now permanently closed.
 ## RegimeStress — when does it break?
 
 > **Counterfactual Regime Resampling and Learned Fragility Estimation**
-> Paper: [`papers/pdf/regimestress.pdf`](papers/pdf/regimestress.pdf) · Every number:
+> Paper: [`papers/pdf/2-regimestress.pdf`](papers/pdf/2-regimestress.pdf) · Every number:
 > [`benchmarks/regimestress/RESULTS.md`](benchmarks/regimestress/RESULTS.md) · Frozen as
 > `regimestress-v1`
 
@@ -118,7 +118,7 @@ happened, and measures how much each strategy's performance moves across them.
 ## FlowState — how much can it take?
 
 > **Flow-Conditional Capacity and Alpha-Decay Estimation in a Retail-Dominated Market**
-> Paper: [`papers/pdf/flowstate.pdf`](papers/pdf/flowstate.pdf) · Every number:
+> Paper: [`papers/pdf/3-flowstate.pdf`](papers/pdf/3-flowstate.pdf) · Every number:
 > [`benchmarks/flowstate/RESULTS.md`](benchmarks/flowstate/RESULTS.md) · Frozen as `flowstate-v1`
 
 The first question a portfolio manager asks is how much money a strategy can take. The standard

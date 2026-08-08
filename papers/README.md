@@ -4,9 +4,9 @@
 
 | Paper | Question it answers |
 |---|---|
-| [`pdf/alphaaudit.pdf`](pdf/alphaaudit.pdf) | Is the signal real, or is it leakage and multiple testing? |
-| [`pdf/regimestress.pdf`](pdf/regimestress.pdf) | When does a surviving strategy break? |
-| [`pdf/flowstate.pdf`](pdf/flowstate.pdf) | How much capital can it absorb before it cannot be traded? |
+| [`pdf/1-alphaaudit.pdf`](pdf/1-alphaaudit.pdf) | Is the signal real, or is it leakage and multiple testing? |
+| [`pdf/2-regimestress.pdf`](pdf/2-regimestress.pdf) | When does a surviving strategy break? |
+| [`pdf/3-flowstate.pdf`](pdf/3-flowstate.pdf) | How much capital can it absorb before it cannot be traded? |
 
 They are designed to be read in that order — each answers a question the previous one raises. All
 three carry a section reporting the generator-validation study, which issued the identical frozen

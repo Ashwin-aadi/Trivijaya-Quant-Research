@@ -54,7 +54,7 @@ permanently closed after two authorised evaluations.
 
 Landing page: [`benchmarks/alphaaudit/README.md`](benchmarks/alphaaudit/README.md) ·
 Every number: [`benchmarks/alphaaudit/RESULTS.md`](benchmarks/alphaaudit/RESULTS.md) ·
-Paper: [`papers/pdf/alphaaudit.pdf`](papers/pdf/alphaaudit.pdf)
+Paper: [`papers/pdf/1-alphaaudit.pdf`](papers/pdf/1-alphaaudit.pdf)
 
 | Path | What it is |
 |---|---|
