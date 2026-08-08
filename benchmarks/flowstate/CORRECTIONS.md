@@ -10,6 +10,7 @@ corrections and require a version bump.
 | C2 | pre-freeze, Phase 3.3 | Median session capacity used as the headline | **All capacity figures overstated by 4.3× to 26×** |
 | C3 | pre-freeze, Phase 3.1 | Universe expansion collapsed by an as-of join | 18 symbols instead of 184; every downstream number wrong |
 | C4 | pre-freeze, Phase 3.1 | Monthly book formation | 59 observations, ragged curves, no t-statistic above 1.5 |
+| C7 | **post-freeze**, 2026-08-08 | Two price-panel loaders disagree; released capacity used the narrower | Reproducibility defect; capacity insensitive in the tested sample, impact on P3 not yet measured |
 | C5 | pre-freeze, Phase 3.0 | Per-symbol reversal test reported without a power bound | An underpowered proportion presented as evidence |
 | C6 | pre-freeze, Phase 3.2 | The validation-gap magnitude was overstated in a checkpoint report | Claimed ~20×; the correct figure is 3.2× |
 
@@ -104,3 +105,46 @@ capacity, the standard factor strategies span **9.8×** and the corpus spans **3
 The finding survives — the validation population is narrower than the application population, and
 both defects lived in the gap — but it is a threefold difference, not a twentyfold one, and the
 paper states the smaller figure.
+
+## C7 — two price-panel loaders disagree, and the released capacity numbers used the narrower one
+
+**Post-freeze. Found 2026-08-08, during P4 Phase 4.2. Scoped by PI ruling the same day.**
+
+**The defect.** `data/processed/prices_adjusted.parquet` begins on **2019-06-25**, while trading
+begins at `dev_start`, **2020-01-01**. Those 188,853 pre-window rows are the warm-up a lookback
+strategy needs on its first trading session. Two loaders treat them differently:
+
+| loader | range | symbols | used by |
+|---|---|---|---|
+| direct read, unfiltered | 2019-06-25 → 2024-12-31 | 2,697 | `run_corpus_backtest.py` — every published Sharpe |
+| `load_dev_panel()` | 2020-01-01 → 2024-12-31 | 185 | `persist_positions.py`, `persist_real_returns.py`, `run_frontier_capacity.py` |
+
+**FlowState's released capacity figures were computed from `data/interim/positions/`, which
+`persist_positions.py` wrote through the narrower loader.** The Sharpe figures they sit beside came
+from the wider one. A strategy with a 60-session lookback therefore has capacity measured on a book
+that was empty for its first weeks and a Sharpe measured on a book that was not.
+
+**How it was found.** Not by inspection — by a crash. A P4 candidate weighting the calmest 30% of
+symbols holding a complete 60-session window divides by that count, which is zero in January 2020
+without warm-up.
+
+**Measured effect, n = 8 G1 strategies.**
+
+- The **unfiltered panel reproduces the released Sharpe figures** to within **0.0012** in all eight.
+- The **truncated panel does not.** Seven of eight produce books differing on 9 to 23 sessions, and
+  on most of those the L1 distance between books is exactly 1.0 — the truncated run holds nothing at
+  all while the other is fully invested. Six move in the third decimal; `candidate_029` moves from
+  **−0.7652 to −2.3878**.
+- **Capacity appeared insensitive** in the tested sample. Recomputing P4's G1 arm through the
+  unfiltered panel left its capacity summary identical to two decimals — min 0.19, median 2.60, max
+  23.65 crore — because binding capacity is a minimum over ~1,200 sessions and does not notice a cold
+  start of twenty.
+
+**What this entry does *not* claim.** **P3's published conclusions are not asserted to be invalid.**
+The insensitivity above was measured on P4's G1 arm, not on P3's own corpus, which has not been
+rerun. This is a versioned correction notice recording a reproducibility defect in the evaluation
+infrastructure; the impact assessment on P3's figures is outstanding work, not a completed finding.
+
+**Status.** P4's capacity is computed from the unfiltered panel (PREREGISTRATION.md Amendment 4
+§4.1). No frozen module was modified. `load_dev_panel` is unchanged, so P3's artefacts remain exactly
+reproducible as published, and this entry is the record of what they were produced with.

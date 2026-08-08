@@ -1,0 +1,4746 @@
+{
+  "arm": "G5",
+  "n_candidates": 288,
+  "n_trials_arm": 582,
+  "n_trials_pooled": 3499,
+  "paradigm": "G5_reflection",
+  "pbo": 0.08982128982128983,
+  "semantic": {
+    "candidate_000": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_001": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_002": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_003": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_004": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_005": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_006": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_007": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_008": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_009": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_010": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_011": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_012": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_013": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_014": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_015": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_016": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_017": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_018": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_019": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_020": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_021": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_022": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_023": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_024": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_025": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unfalsifiable_mechanism",
+      "rejected": true
+    },
+    "candidate_026": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_027": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_028": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_029": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_030": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_031": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_032": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_033": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_034": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_035": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_036": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_037": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_038": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unfalsifiable_mechanism",
+      "rejected": true
+    },
+    "candidate_039": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_040": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_041": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_042": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_043": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_044": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_045": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_046": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_047": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_048": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_049": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_050": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_051": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_052": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_053": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_054": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_055": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_056": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_057": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_058": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_059": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_060": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_061": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_062": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_063": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_064": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_065": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_066": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_067": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_068": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_069": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_070": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_071": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_072": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_073": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_074": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_075": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_076": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_077": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_078": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_079": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_080": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_081": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_082": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unacknowledged_known_anomaly",
+      "rejected": true
+    },
+    "candidate_083": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_084": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_085": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_086": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_087": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_088": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_089": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_090": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_091": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_092": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_093": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_094": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_095": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_096": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_097": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_098": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_099": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_100": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_101": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_102": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_103": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_104": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_105": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_106": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_107": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_108": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_109": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_110": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_111": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_112": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_113": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_114": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_115": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_116": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_117": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unacknowledged_known_anomaly",
+      "rejected": true
+    },
+    "candidate_118": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_119": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_120": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_121": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_122": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_123": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_124": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unacknowledged_known_anomaly",
+      "rejected": true
+    },
+    "candidate_125": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_126": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_127": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_128": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_129": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unacknowledged_known_anomaly",
+      "rejected": true
+    },
+    "candidate_130": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_131": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_132": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_133": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_134": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_135": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_136": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_137": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_138": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_139": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_140": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_141": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_142": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_143": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_144": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_145": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_146": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_147": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_148": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_149": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_150": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_151": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_152": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_153": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_154": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_155": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_156": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_157": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_158": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_159": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_160": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_161": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_162": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_163": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unfalsifiable_mechanism",
+      "rejected": true
+    },
+    "candidate_164": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_165": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_166": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_167": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_168": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_169": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_170": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_171": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_172": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_173": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_174": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_175": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_176": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_177": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_178": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_179": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_180": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_181": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_182": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_183": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_184": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unfalsifiable_mechanism",
+      "rejected": true
+    },
+    "candidate_185": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_186": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_187": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_188": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_189": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_190": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_191": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_192": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_193": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_194": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_195": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_196": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_197": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_198": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_199": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_200": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_201": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_202": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_203": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_204": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_205": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_206": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_207": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_208": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_209": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_210": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_211": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_212": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_213": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_214": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_215": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_216": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_217": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_218": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_219": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_220": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_221": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_222": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_223": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_224": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_225": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_226": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_227": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_228": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_229": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_230": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_231": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_232": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_233": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_234": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_235": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_236": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_237": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_238": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_239": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_240": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_241": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_242": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_243": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_244": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unfalsifiable_mechanism",
+      "rejected": true
+    },
+    "candidate_245": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_246": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_247": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_248": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_249": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_250": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_251": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_252": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_253": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_254": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_255": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_256": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_257": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_258": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_259": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_260": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_261": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unacknowledged_known_anomaly",
+      "rejected": true
+    },
+    "candidate_262": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_263": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_264": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_265": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_266": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_267": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_268": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_269": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_270": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_271": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_272": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_273": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_274": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_275": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_276": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_277": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_278": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "rationale_implementation_mismatch",
+      "rejected": true
+    },
+    "candidate_279": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_280": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_281": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_282": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_283": {
+      "confidence": 0.85,
+      "error": null,
+      "label": "unfalsifiable_mechanism",
+      "rejected": true
+    },
+    "candidate_284": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_285": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_286": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    },
+    "candidate_287": {
+      "confidence": 0.95,
+      "error": null,
+      "label": "consistent",
+      "rejected": false
+    }
+  },
+  "semantic_coverage": 1.0,
+  "static": {
+    "candidate_000": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_001": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_002": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_003": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_004": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_005": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_006": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_007": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_008": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_009": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_010": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_011": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_012": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_013": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_014": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_015": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_016": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_017": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_018": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_019": {
+      "classes": [
+        "future_indexing"
+      ],
+      "confidence": 1.0,
+      "n_findings": 2,
+      "rejected": true
+    },
+    "candidate_020": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_021": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_022": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_023": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_024": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_025": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_026": {
+      "classes": [
+        "future_indexing",
+        "target_in_features"
+      ],
+      "confidence": 2.0,
+      "n_findings": 4,
+      "rejected": true
+    },
+    "candidate_027": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_028": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_029": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_030": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_031": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_032": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_033": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_034": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_035": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_036": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 2,
+      "rejected": true
+    },
+    "candidate_037": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_038": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_039": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_040": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_041": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_042": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_043": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_044": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_045": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_046": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_047": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_048": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_049": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_050": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_051": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_052": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_053": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_054": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_055": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_056": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_057": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_058": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_059": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_060": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_061": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_062": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_063": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_064": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_065": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_066": {
+      "classes": [
+        "future_indexing",
+        "target_in_features"
+      ],
+      "confidence": 2.0,
+      "n_findings": 2,
+      "rejected": true
+    },
+    "candidate_067": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_068": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_069": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_070": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_071": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_072": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_073": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_074": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_075": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_076": {
+      "classes": [
+        "survivorship_selection"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_077": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_078": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_079": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_080": {
+      "classes": [
+        "future_indexing"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_081": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_082": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_083": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_084": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_085": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_086": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_087": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_088": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_089": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_090": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_091": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_092": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_093": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_094": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_095": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_096": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_097": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_098": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_099": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_100": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_101": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_102": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_103": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_104": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_105": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_106": {
+      "classes": [
+        "point_in_time_bypass"
+      ],
+      "confidence": 1.0,
+      "n_findings": 2,
+      "rejected": true
+    },
+    "candidate_107": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_108": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_109": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_110": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_111": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_112": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_113": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_114": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_115": {
+      "classes": [
+        "future_indexing"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_116": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_117": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_118": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_119": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_120": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_121": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_122": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_123": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_124": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_125": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_126": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_127": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_128": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_129": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_130": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_131": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_132": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_133": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_134": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_135": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_136": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_137": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_138": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_139": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_140": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_141": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_142": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_143": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 2,
+      "rejected": true
+    },
+    "candidate_144": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_145": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_146": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_147": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_148": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_149": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_150": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_151": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_152": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_153": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_154": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_155": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_156": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_157": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_158": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_159": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_160": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_161": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_162": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_163": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_164": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_165": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_166": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_167": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_168": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_169": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_170": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_171": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_172": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_173": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_174": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_175": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_176": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_177": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_178": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_179": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_180": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_181": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_182": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_183": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_184": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_185": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_186": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_187": {
+      "classes": [
+        "future_indexing",
+        "target_in_features"
+      ],
+      "confidence": 2.0,
+      "n_findings": 2,
+      "rejected": true
+    },
+    "candidate_188": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_189": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_190": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_191": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_192": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_193": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_194": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_195": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_196": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_197": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_198": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_199": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_200": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_201": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_202": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_203": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_204": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_205": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_206": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_207": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_208": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_209": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 1,
+      "rejected": false
+    },
+    "candidate_210": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_211": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_212": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_213": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_214": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_215": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_216": {
+      "classes": [
+        "future_indexing"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_217": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_218": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_219": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_220": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_221": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_222": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_223": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_224": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_225": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_226": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_227": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_228": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_229": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_230": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_231": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_232": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_233": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_234": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 1,
+      "rejected": false
+    },
+    "candidate_235": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_236": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_237": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_238": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_239": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_240": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_241": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_242": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_243": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_244": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_245": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_246": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_247": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_248": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_249": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_250": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_251": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_252": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_253": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_254": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 2,
+      "rejected": true
+    },
+    "candidate_255": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_256": {
+      "classes": [
+        "future_indexing"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_257": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_258": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_259": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_260": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_261": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_262": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_263": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_264": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_265": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_266": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_267": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_268": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_269": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_270": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_271": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_272": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_273": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_274": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_275": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_276": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_277": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_278": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_279": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_280": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_281": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_282": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_283": {
+      "classes": [
+        "future_indexing"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_284": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_285": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    },
+    "candidate_286": {
+      "classes": [],
+      "confidence": 0.0,
+      "n_findings": 0,
+      "rejected": false
+    },
+    "candidate_287": {
+      "classes": [
+        "snooped_parameter"
+      ],
+      "confidence": 1.0,
+      "n_findings": 1,
+      "rejected": true
+    }
+  },
+  "statistical": {
+    "candidate_003": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 2.234962655022835e-149,
+      "raw_sharpe": 0.907957693796431,
+      "rejected": true
+    },
+    "candidate_005": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_007": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_008": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 2.895174149654224e-184,
+      "raw_sharpe": -1.906674487671277,
+      "rejected": true
+    },
+    "candidate_011": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_013": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_014": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_015": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -2.469493528542534,
+      "rejected": true
+    },
+    "candidate_017": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_021": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.04003588283601064,
+      "rejected": true
+    },
+    "candidate_022": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 2.6987750500249222e-17,
+      "raw_sharpe": -0.8793848572452528,
+      "rejected": true
+    },
+    "candidate_030": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_033": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.0315967023539026,
+      "rejected": true
+    },
+    "candidate_038": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_040": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_041": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_044": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_048": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 6.625847984208513e-209,
+      "raw_sharpe": 0.8854825508162102,
+      "rejected": true
+    },
+    "candidate_053": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_057": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_062": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_068": {
+      "confidence": 0.999999981969275,
+      "deflated_sharpe_probability": 1.8030725038639178e-08,
+      "raw_sharpe": -2.449316326306131,
+      "rejected": true
+    },
+    "candidate_069": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_077": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_078": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_079": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_080": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_085": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_088": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 1.6099197021278935e-135,
+      "raw_sharpe": -2.16400968446383,
+      "rejected": true
+    },
+    "candidate_096": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_101": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_104": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_105": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_106": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_108": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.2717906551378905,
+      "rejected": true
+    },
+    "candidate_109": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -2.496273994229977,
+      "rejected": true
+    },
+    "candidate_110": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_113": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 7.330893690594304e-109,
+      "raw_sharpe": -2.7955090892805776,
+      "rejected": true
+    },
+    "candidate_116": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_122": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_124": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_125": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.589263656499821,
+      "rejected": true
+    },
+    "candidate_126": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_128": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_137": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_138": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_140": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_141": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.0315967023539026,
+      "rejected": true
+    },
+    "candidate_143": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_144": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.4937102076033036,
+      "rejected": true
+    },
+    "candidate_145": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 2.5662349906299328e-141,
+      "raw_sharpe": -0.6764031891775406,
+      "rejected": true
+    },
+    "candidate_146": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_147": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_150": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_161": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_165": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_170": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_171": {
+      "confidence": 0.9999999999999992,
+      "deflated_sharpe_probability": 7.30160272686443e-16,
+      "raw_sharpe": -0.9324551472618738,
+      "rejected": true
+    },
+    "candidate_177": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.3867958691649031,
+      "rejected": true
+    },
+    "candidate_182": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_185": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_186": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 1.3756241659302355e-217,
+      "raw_sharpe": -3.339955626671005,
+      "rejected": true
+    },
+    "candidate_189": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_191": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_195": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 2.854156700909789e-107,
+      "raw_sharpe": 0.9614921095002021,
+      "rejected": true
+    },
+    "candidate_202": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 1.0801290887671009e-181,
+      "raw_sharpe": 0.7892789267613494,
+      "rejected": true
+    },
+    "candidate_203": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_206": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_207": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_210": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_211": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_212": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_213": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_214": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_220": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_225": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_226": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.11343605496760958,
+      "rejected": true
+    },
+    "candidate_227": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_233": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_235": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.0011697780625547214,
+      "rejected": true
+    },
+    "candidate_238": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_240": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_243": {
+      "confidence": 0.9999999978275462,
+      "deflated_sharpe_probability": 2.172453821020763e-09,
+      "raw_sharpe": -3.431767783948246,
+      "rejected": true
+    },
+    "candidate_244": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.49398879817490304,
+      "rejected": true
+    },
+    "candidate_248": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.642334371835486,
+      "rejected": true
+    },
+    "candidate_250": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_254": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_257": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_259": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_263": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.8180997473707671,
+      "rejected": true
+    },
+    "candidate_269": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 2.6414680344938344e-295,
+      "raw_sharpe": -1.3440640159893475,
+      "rejected": true
+    },
+    "candidate_270": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_272": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 4.286117601441754e-116,
+      "raw_sharpe": 0.9472897105210762,
+      "rejected": true
+    },
+    "candidate_274": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_281": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_285": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_286": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_287": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    }
+  },
+  "statistical_pooled": {
+    "candidate_003": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 3.792148895391514e-233,
+      "raw_sharpe": 0.907957693796431,
+      "rejected": true
+    },
+    "candidate_005": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_007": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_008": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 7.044949688272395e-219,
+      "raw_sharpe": -1.906674487671277,
+      "rejected": true
+    },
+    "candidate_011": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_013": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_014": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_015": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -2.469493528542534,
+      "rejected": true
+    },
+    "candidate_017": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_021": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.04003588283601064,
+      "rejected": true
+    },
+    "candidate_022": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 3.5361471050687516e-21,
+      "raw_sharpe": -0.8793848572452528,
+      "rejected": true
+    },
+    "candidate_030": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_033": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.0315967023539026,
+      "rejected": true
+    },
+    "candidate_038": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_040": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_041": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_044": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_048": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.8854825508162102,
+      "rejected": true
+    },
+    "candidate_053": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_057": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_062": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_068": {
+      "confidence": 0.9999999987033026,
+      "deflated_sharpe_probability": 1.296697364828109e-09,
+      "raw_sharpe": -2.449316326306131,
+      "rejected": true
+    },
+    "candidate_069": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_077": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_078": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_079": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_080": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_085": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_088": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 2.0712800520559274e-159,
+      "raw_sharpe": -2.16400968446383,
+      "rejected": true
+    },
+    "candidate_096": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_101": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_104": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_105": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_106": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_108": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.2717906551378905,
+      "rejected": true
+    },
+    "candidate_109": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -2.496273994229977,
+      "rejected": true
+    },
+    "candidate_110": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_113": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 1.3004241682197117e-125,
+      "raw_sharpe": -2.7955090892805776,
+      "rejected": true
+    },
+    "candidate_116": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_122": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_124": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_125": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.589263656499821,
+      "rejected": true
+    },
+    "candidate_126": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_128": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_137": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_138": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_140": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_141": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.0315967023539026,
+      "rejected": true
+    },
+    "candidate_143": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_144": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.4937102076033036,
+      "rejected": true
+    },
+    "candidate_145": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 1.1525123554128948e-178,
+      "raw_sharpe": -0.6764031891775406,
+      "rejected": true
+    },
+    "candidate_146": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_147": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_150": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_161": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_165": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_170": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_171": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 2.47610354844772e-19,
+      "raw_sharpe": -0.9324551472618738,
+      "rejected": true
+    },
+    "candidate_177": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.3867958691649031,
+      "rejected": true
+    },
+    "candidate_182": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_185": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_186": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 3.8595356089507505e-248,
+      "raw_sharpe": -3.339955626671005,
+      "rejected": true
+    },
+    "candidate_189": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_191": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_195": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 1.9940415232118095e-169,
+      "raw_sharpe": 0.9614921095002021,
+      "rejected": true
+    },
+    "candidate_202": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 5.550334196828721e-276,
+      "raw_sharpe": 0.7892789267613494,
+      "rejected": true
+    },
+    "candidate_203": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_206": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_207": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_210": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_211": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_212": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_213": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_214": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_220": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_225": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_226": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.11343605496760958,
+      "rejected": true
+    },
+    "candidate_227": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_233": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_235": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.0011697780625547214,
+      "rejected": true
+    },
+    "candidate_238": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_240": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_243": {
+      "confidence": 0.9999999998162034,
+      "deflated_sharpe_probability": 1.8379659685053689e-10,
+      "raw_sharpe": -3.431767783948246,
+      "rejected": true
+    },
+    "candidate_244": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.49398879817490304,
+      "rejected": true
+    },
+    "candidate_248": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.642334371835486,
+      "rejected": true
+    },
+    "candidate_250": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_254": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_257": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_259": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_263": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -0.8180997473707671,
+      "rejected": true
+    },
+    "candidate_269": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": -1.3440640159893475,
+      "rejected": true
+    },
+    "candidate_270": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_272": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 8.979525874505798e-183,
+      "raw_sharpe": 0.9472897105210762,
+      "rejected": true
+    },
+    "candidate_274": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_281": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_285": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_286": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    },
+    "candidate_287": {
+      "confidence": 1.0,
+      "deflated_sharpe_probability": 0.0,
+      "raw_sharpe": 0.0,
+      "rejected": true
+    }
+  }
+}
