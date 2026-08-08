@@ -1,0 +1,178 @@
+% =====================================================================================
+% Shared style for the three papers of the Trivijaya Quant Research programme.
+%
+% The three papers report one programme and must look like it: same typography, same
+% heading hierarchy, same table rules, same panel vocabulary, same cover structure.
+% Anything paper-specific (title, running head, abstract) stays in the paper's own file.
+%
+% Each paper defines, BEFORE inputting this file:
+%   \paperName        e.g. AlphaAudit
+%   \paperSubtitle    the one-line question the paper answers
+%   \paperNumber      1, 2 or 3
+%   \paperShortHead   the right-hand running head
+% =====================================================================================
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[scaled=0.92]{helvet}          % sans face, headings only
+\usepackage[margin=1.05in,top=1.15in,bottom=1.1in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage[font=small,labelfont={bf,color=navy},labelsep=period]{caption}
+\usepackage{fancyhdr}
+\usepackage{natbib}
+\usepackage[colorlinks=true]{hyperref}   % loaded last, as hyperref requires
+
+% The rupee sign is not in the default T1 encoding. A plain "Rs." is unambiguous, renders
+% identically on every machine, and avoids a font dependency a reader would have to satisfy
+% before they could compile the paper that asks them to check our numbers.
+\providecommand{\rupee}{\textrm{Rs.}\,}
+
+% ---- Palette: white ground, blues, one warm accent for our own errors ---------------
+\definecolor{navy}{HTML}{0E2E5C}
+\definecolor{steel}{HTML}{2C6BA8}
+\definecolor{sky}{HTML}{5B93C7}
+\definecolor{mist}{HTML}{F0F5FB}
+\definecolor{ash}{HTML}{F6F7F9}
+\definecolor{ink}{HTML}{1A1A1A}
+\definecolor{rust}{HTML}{9C4221}
+
+\color{ink}
+\hypersetup{linkcolor=steel, citecolor=steel, urlcolor=steel}
+
+% ---- Repository, cited often enough to deserve one definition ----------------------
+\newcommand{\repourl}{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}
+\newcommand{\repo}{\href{\repourl}{\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}}
+\newcommand{\siteurl}{https://ashwin-aadi.github.io/Trivijaya-Quant-Research/}
+\newcommand{\site}{\href{\siteurl}{\texttt{ashwin-aadi.github.io/Trivijaya-Quant-Research}}}
+
+% ---- Headings ----------------------------------------------------------------------
+\newcommand{\sectionrule}{{\color{sky}\rule{\linewidth}{0.5pt}}\vspace{-0.9em}}
+\titleformat{\section}[block]
+  {\sffamily\large\bfseries\color{navy}}
+  {\colorbox{navy}{\textcolor{white}{\sffamily\bfseries\ \thesection\ }}}{0.7em}{}
+  [\vspace{0.25em}\sectionrule]
+\titleformat{\subsection}[block]
+  {\sffamily\normalsize\bfseries\color{navy}}{\thesubsection}{0.6em}{}
+\titleformat{\paragraph}[runin]
+  {\sffamily\bfseries\color{navy}}{}{0em}{}[\;]
+\titlespacing*{\section}{0pt}{1.6em}{0.8em}
+\titlespacing*{\subsection}{0pt}{1.2em}{0.5em}
+
+% ---- Running head ------------------------------------------------------------------
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{{\color{sky}\hrule height 0.4pt}}
+\fancyhead[L]{\sffamily\scriptsize\color{navy}\MakeUppercase{\paperName}}
+\fancyhead[R]{\sffamily\scriptsize\color{navy}\paperShortHead}
+\fancyfoot[C]{\sffamily\scriptsize\color{navy}\thepage}
+\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+  \fancyfoot[C]{\sffamily\scriptsize\color{navy}\thepage}}
+
+% ---- Panels ------------------------------------------------------------------------
+% A finding the reader must not skim past.
+\newtcolorbox{finding}[1][]{
+  enhanced, breakable, colback=mist, colframe=steel, boxrule=0pt,
+  leftrule=2.5pt, arc=1pt, left=9pt, right=9pt, top=7pt, bottom=7pt,
+  coltext=navy, fonttitle=\sffamily\bfseries\small, #1}
+
+% A place where we report our own error. Deliberately a different colour from the findings,
+% so a reader flipping through can see at a glance that the paper contains both.
+\newtcolorbox{selfreport}[1][]{
+  enhanced, breakable, colback=ash, colframe=rust, boxrule=0pt,
+  leftrule=2.5pt, arc=1pt, left=9pt, right=9pt, top=7pt, bottom=7pt,
+  fonttitle=\sffamily\bfseries\small, #1}
+
+% What a result does *not* license. Every headline in this programme has one of these, because
+% the distance between "we measured X on our corpus" and "X is true of AI" is where this
+% literature goes wrong.
+\newtcolorbox{scopebox}[1][]{
+  enhanced, breakable, colback=white, colframe=sky, boxrule=0.6pt,
+  arc=1pt, left=9pt, right=9pt, top=6pt, bottom=6pt,
+  fonttitle=\sffamily\bfseries\small, title={\sffamily\bfseries What this does not say}, #1}
+
+\newcommand{\keyfinding}[1]{\begin{finding}#1\end{finding}}
+
+% A one-line takeaway that sits directly against a figure or table.
+\newcommand{\takeaway}[1]{%
+  \vspace{-0.4em}\noindent{\small\sffamily\color{navy}\textbf{Takeaway.}\ #1}\vspace{0.5em}}
+
+% ---- Tables ------------------------------------------------------------------------
+\newcommand{\thead}[1]{{\sffamily\bfseries\color{navy}#1}}
+\renewcommand{\arraystretch}{1.15}
+
+\setlist[itemize]{leftmargin=1.3em, itemsep=0.25em, topsep=0.4em}
+\setlist[enumerate]{leftmargin=1.6em, itemsep=0.35em, topsep=0.4em}
+
+% ---- Evidence-scope tags -----------------------------------------------------------
+% The programme's central discipline: every finding is tagged with the population it was
+% measured on, so a local-corpus observation can never be read as a statement about AI.
+\newcommand{\tagbox}[2]{{\sffamily\scriptsize\textbf{\textcolor{#1}{[#2]}}}}
+\newcommand{\taglocal}{\tagbox{steel}{LOCAL 7B}}
+\newcommand{\tagfrontier}{\tagbox{navy}{FRONTIER}}
+\newcommand{\tagmethod}{\tagbox{navy}{GENERATION METHOD}}
+\newcommand{\tagindep}{\tagbox{rust}{GENERATOR-INDEPENDENT}}
+\newcommand{\tagexpl}{\tagbox{rust}{EXPLORATORY}}
+\newcommand{\tagprereg}{\tagbox{steel}{PRE-REGISTERED}}
+
+% ---- Cover page --------------------------------------------------------------------
+\newcommand{\programmecover}[1]{%
+\begin{titlepage}
+\thispagestyle{empty}
+\raggedright
+\vspace*{0.6in}
+{\sffamily\small\color{steel}\MakeUppercase{Trivijaya Quant Research Programme}\\[0.2em]
+ \color{sky}\rule{\linewidth}{1.2pt}}\\[0.3em]
+{\sffamily\small\color{steel}Paper \paperNumber\ of 3 \quad$\cdot$\quad
+ Measurement infrastructure for AI-driven quantitative research on Indian equities}
+
+\vspace{1.5in}
+{\sffamily\bfseries\color{navy}\fontsize{46}{50}\selectfont \paperName}\\[0.7em]
+{\color{sky}\rule{0.4\linewidth}{2pt}}\\[0.9em]
+{\sffamily\Large\color{navy} \paperSubtitle}
+
+\vspace{0.9in}
+{\sffamily\large\color{ink} Ashwin Jain}\\[0.35em]
+{\rmfamily\small Department of Computer Science and Engineering\\
+Motilal Nehru National Institute of Technology Allahabad\\
+Prayagraj, India\\[0.2em]
+\texttt{ashwinaadi2007@gmail.com}}
+
+\vfill
+{\small\sffamily\color{navy}#1}
+
+\vspace{0.5em}
+{\small\rmfamily Code, corpus, fixtures and evaluation protocol: \repo\\
+Programme overview and results: \site}\\[0.6em]
+{\sffamily\small\color{steel} 8 August 2026}
+\end{titlepage}}
+
+% ---- The trilogy map, printed identically in all three papers ----------------------
+\newcommand{\trilogymap}{%
+\begin{tcolorbox}[enhanced, colback=ash, colframe=sky, boxrule=0.6pt, arc=1pt,
+  left=10pt, right=10pt, top=8pt, bottom=8pt]
+\small\sffamily\color{navy}
+\textbf{One programme, three questions.} Each paper answers the question the previous one
+raises, on one shared universe, one shared cost model and one shared backtest engine.
+\vspace{0.5em}
+
+\begin{tabular}{@{}p{0.055\linewidth}p{0.22\linewidth}p{0.65\linewidth}@{}}
+\textbf{1} & \textbf{AlphaAudit} & Can an AI produce a trading strategy that is real,
+  rather than a plausible artefact of luck and leakage? \\[0.3em]
+\textbf{2} & \textbf{RegimeStress} & If a strategy looks real, when does it break? \\[0.3em]
+\textbf{3} & \textbf{FlowState} & If a strategy survives, how much capital can it absorb? \\
+\end{tabular}
+\vspace{0.4em}
+
+\textbf{Code $\rightarrow$ validity $\rightarrow$ robustness $\rightarrow$ scale.} The
+programme's overarching question is whether making the AI better makes the \emph{research}
+better --- and the three papers answer it only to the extent their experiments support.
+\end{tcolorbox}}

@@ -265,7 +265,7 @@
   },
   "aaGvSubsamples": {
     "source": "generator_validation.json",
-    "value": "1000"
+    "value": "1,000"
   },
   "aaGvTotal": {
     "source": "generator_validation.json",
@@ -285,7 +285,7 @@
   },
   "aaLocalDraws": {
     "source": "runs/pooled/audit_results.json",
-    "value": "1550"
+    "value": "1,550"
   },
   "aaLocalFlips": {
     "source": "runs/pooled/gross_vs_net.json",

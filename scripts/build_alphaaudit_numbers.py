@@ -37,8 +37,22 @@ Macros = dict[str, tuple[str, str]]
 ARM_WORD = {"gpt": "Gpt", "claude": "Claude", "gemini": "Gemini"}
 
 
+def _thousands(value: str) -> str:
+    """Group a bare integer of four or more digits, so 1550 typesets as 1,550.
+
+    Presentation only, applied at emission so no call site has to remember it. The paper states
+    some counts inline and some through macros, and an unseparated 1550 beside a hand-written
+    1,550 reads as two different quantities. Decimals, percentages, signed values and the ``--``
+    placeholder are left exactly as they are.
+    """
+    if not value.isdigit() or len(value) < 4:
+        return value
+    return f"{int(value):,}"
+
+
 def _put(macros: Macros, name: str, value: str, source: str) -> None:
     """Refuse silent overwrites. Two artifacts claiming one macro is a defect, not a merge."""
+    value = _thousands(value)
     key = macro_name(name)
     if key in macros and macros[key][0] != value:
         raise ValueError(f"macro {key} redefined: {macros[key][0]!r} vs {value!r}")
