@@ -3,142 +3,167 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Strategy console — Trivijaya-Quant</title>
+<title>Strategy console — Trivijaya Quant Research</title>
 <style>
-  :root {
-    --navy: #10233f;
-    --navy-soft: #1d3557;
-    --ink: #16202e;
-    --muted: #5b6b80;
-    --line: #dfe4ec;
-    --bg: #ffffff;
-    --panel: #f7f9fc;
-    --flag: #8c2f24;
-    --ok: #1f5c3d;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  header {
-    background: linear-gradient(160deg, #0d1f3c 0%, #16345c 100%);
-    color: #fff; padding: 20px 32px 26px;
-  }
-  header .bar {
-    display: flex; align-items: center; gap: 10px;
-    padding-bottom: 16px; margin-bottom: 18px;
-    border-bottom: 1px solid rgba(255,255,255,.14);
-  }
-  header .brand { font-size: 14px; font-weight: 600; letter-spacing: .2px; }
-  header .local {
-    margin-left: auto; font-size: 12px; color: #c9a227; letter-spacing: .04em;
-  }
-  header h1 { margin: 0; font-size: 21px; font-weight: 620; letter-spacing: -.2px; }
-  header p { margin: 7px 0 0; font-size: 13.5px; color: #b9c6d9; max-width: 74ch; }
-  main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
-  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-  h2 {
-    font-size: 12px; text-transform: uppercase; letter-spacing: .09em;
-    color: var(--muted); margin: 0 0 10px; font-weight: 600;
-  }
-  textarea {
-    width: 100%; height: 460px; padding: 14px; border: 1px solid var(--line);
-    border-radius: 4px; font: 13px/1.5 "SF Mono", Consolas, "Courier New", monospace;
-    color: var(--ink); resize: vertical; background: var(--panel);
-  }
-  textarea:focus { outline: 2px solid var(--navy-soft); outline-offset: -1px; }
-  .actions { margin-top: 12px; display: flex; gap: 10px; align-items: center; }
-  button {
-    background: var(--navy); color: #fff; border: 0; border-radius: 3px;
-    padding: 9px 18px; font-size: 14px; font-weight: 500; cursor: pointer;
-  }
-  button:hover { background: var(--navy-soft); }
-  button:disabled { background: #9aa8bb; cursor: default; }
-  button.ghost { background: #fff; color: var(--navy); border: 1px solid var(--line); }
-  .trials { margin-left: auto; font-size: 13px; color: var(--muted); }
-  .panel {
-    border: 1px solid var(--line); border-radius: 4px; background: var(--panel);
-    padding: 16px; min-height: 460px;
-  }
-  .empty { color: var(--muted); font-size: 14px; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
-  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: 14px; }
-  th { color: var(--muted); font-weight: 500; width: 46%; }
-  td.num { font-variant-numeric: tabular-nums; }
-  .verdict { font-weight: 600; margin-bottom: 14px; font-size: 15px; }
-  .verdict.flag { color: var(--flag); }
-  .verdict.pass { color: var(--ok); }
-  .finding {
-    border-left: 3px solid var(--flag); background: #fff; padding: 10px 12px; margin-bottom: 10px;
-  }
-  .finding .cls { font-weight: 600; font-size: 13px; }
-  .finding .why { color: var(--muted); font-size: 13px; margin-top: 4px; }
-  .finding pre {
-    margin: 7px 0 0; padding: 7px 9px; background: var(--panel); overflow-x: auto;
-    font: 12px/1.4 "SF Mono", Consolas, monospace; border-radius: 3px;
-  }
-  .note {
-    margin-top: 26px; padding: 15px 18px; border-left: 3px solid var(--navy);
-    background: var(--panel); font-size: 13px; color: var(--muted); max-width: 80ch;
-  }
-  .note strong { color: var(--ink); }
-  code { font-family: "SF Mono", Consolas, monospace; font-size: .93em; }
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --navy-900:#0b1220;--paper:#f5f5f2;--panel:#fff;
+  --ink:#12161f;--muted:#5b6270;--line:rgba(18,22,31,.16);--line-strong:rgba(18,22,31,.32);
+  --accent:#1f3d6b;--accent-bright:#9fb6dc;--flag:#8c2f24;--ok:#1f5c3d;
+  --serif:Georgia,"Times New Roman",Times,serif;
+  --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
+  font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+p{margin:0 0 1em;text-wrap:pretty}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.wrap{max-width:1320px;margin:0 auto;padding:0 44px;width:100%}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+/* blueprint frame */
+.bp{position:relative;border:1px solid var(--line)}
+.bp>i.c{position:absolute;width:10px;height:10px;color:var(--line-strong);pointer-events:none}
+.bp>i.c::before,.bp>i.c::after{content:"";position:absolute;background:currentColor}
+.bp>i.c::before{left:4.5px;top:0;width:1px;height:100%}
+.bp>i.c::after{top:4.5px;left:0;width:100%;height:1px}
+.bp>i.tl{top:-5.5px;left:-5.5px}.bp>i.tr{top:-5.5px;right:-5.5px}
+.bp>i.bl{bottom:-5.5px;left:-5.5px}.bp>i.br{bottom:-5.5px;right:-5.5px}
+/* header */
+header{background:var(--navy-900);color:var(--paper);padding:24px 0 40px;position:relative;
+  overflow:hidden}
+header::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+             linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:46px 46px;mask:linear-gradient(180deg,#000,transparent 88%)}
+header .wrap{position:relative}
+.bar{display:flex;align-items:baseline;gap:20px;padding-bottom:20px;flex-wrap:wrap;
+  border-bottom:1px solid rgba(245,245,242,.16)}
+.bar .brand{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+  color:#aab4c6;margin-right:auto}
+.bar .host{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent-bright)}
+h1{font-family:var(--serif);font-weight:700;letter-spacing:-.025em;line-height:1;
+  font-size:clamp(34px,5.5vw,58px);margin:28px 0 0;color:#fff}
+header .lede{font-size:clamp(16px,1.5vw,18.5px);color:#aeb8ca;max-width:66ch;margin:18px 0 0}
+header .lede b{color:#fff;font-weight:400;border-bottom:1px solid rgba(159,182,220,.6)}
+/* layout */
+main{padding:clamp(36px,5vw,64px) 0 80px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}
+@media (max-width:1000px){.grid{grid-template-columns:1fr}}
+@media (max-width:640px){.wrap{padding:0 22px}}
+/* editor */
+textarea{width:100%;height:520px;padding:18px;border:0;background:#070c15;color:#d6def0;
+  font:13.5px/1.7 var(--mono);resize:vertical;display:block}
+textarea:focus{outline:2px solid var(--accent-bright);outline-offset:-2px}
+.editbar{display:flex;align-items:center;gap:8px;padding:11px 16px;background:#070c15;
+  border-bottom:1px solid rgba(245,245,242,.14);color:#8b97ad;font-family:var(--mono);
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.actions{margin-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+button{font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:14px 22px;border:1px solid var(--navy-900);background:var(--navy-900);color:#fff;
+  cursor:pointer}
+button:hover{background:var(--accent)}
+button.ghost{background:transparent;color:var(--navy-900);border-color:var(--line-strong)}
+button.ghost:hover{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
+button:disabled{opacity:.42;cursor:default;background:var(--navy-900)}
+.trials{margin-left:auto;font-family:var(--mono);font-size:12px;letter-spacing:.06em;
+  color:var(--muted)}
+/* results */
+.panel{background:var(--panel);padding:26px 28px;min-height:520px}
+.empty{color:var(--muted);font-size:15.5px}
+.verdict{font-family:var(--serif);font-weight:700;font-size:clamp(21px,2.2vw,28px);
+  line-height:1.15;letter-spacing:-.015em;margin:0 0 18px}
+.verdict.flag{color:var(--flag)}
+.verdict.pass{color:var(--ok)}
+table{width:100%;border-collapse:collapse;margin:0 0 20px}
+th,td{text-align:left;padding:9px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);font-weight:400;width:52%}
+td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.finding{border-left:2px solid var(--flag);background:var(--paper);padding:14px 16px;
+  margin-bottom:12px}
+.finding .cls{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--flag)}
+.finding .why{font-size:15px;margin-top:7px;color:#333b48}
+.finding pre{margin:10px 0 0;padding:9px 11px;background:#070c15;color:#d6def0;overflow-x:auto;
+  font:12.5px/1.5 var(--mono)}
+.subhead{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:26px 0 12px;padding-top:20px;border-top:1px solid var(--line-strong)}
+/* notes */
+.notes{margin-top:clamp(40px,5vw,64px);display:grid;grid-template-columns:1fr 1fr;gap:32px}
+@media (max-width:1000px){.notes{grid-template-columns:1fr}}
+.note{padding:24px 26px;background:var(--panel)}
+.note h3{font-family:var(--serif);font-weight:700;font-size:20px;letter-spacing:-.01em;
+  margin:0 0 10px;line-height:1.2}
+.note p{font-size:15.5px;color:#333b48;margin:0 0 .8em}
+.note p:last-child{margin-bottom:0}
 </style>
 </head>
 <body>
+
 <header>
-  <div class="bar">
-    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="5" fill="#c9a227"/>
-      <path d="M7 23V9h4.6l4.4 9.4L20.4 9H25v14h-3.4v-8.6L17.6 23h-3.2L10.4 14.4V23z"
-            fill="#0d1f3c"/>
-    </svg>
-    <span class="brand">Trivijaya Quant Research</span>
-    <span class="local">running locally &middot; 127.0.0.1</span>
+  <div class="wrap">
+    <div class="bar">
+      <span class="brand">Trivijaya Quant Research</span>
+      <span class="host">running locally · 127.0.0.1</span>
+    </div>
+    <h1>Strategy console</h1>
+    <p class="lede">Paste a strategy and run it against the frozen leakage auditor and the
+      point-in-time backtester — Indian equities, 2020&ndash;2024, net of statutory costs.
+      Nothing is uploaded, nothing is ranked, and <b>the 2025 holdout is not reachable from this
+      page</b>.</p>
   </div>
-  <h1>Strategy console</h1>
-  <p>Paste a strategy, run it against the frozen leakage auditor and the point-in-time backtester
-     on Indian equities, 2020&ndash;2024, net of statutory costs. Nothing is uploaded, nothing is
-     ranked, and the 2025 holdout is not reachable from this page.</p>
 </header>
 
 <main>
-  <div class="grid">
-    <section>
-      <h2>Strategy source</h2>
-      <textarea id="src" spellcheck="false"></textarea>
-      <div class="actions">
-        <button id="audit">Audit for leakage</button>
-        <button id="run" class="ghost">Audit &amp; backtest</button>
-        <span class="trials" id="trials">No strategies evaluated yet</span>
+  <div class="wrap">
+    <div class="grid">
+      <section>
+        <p class="kicker">Strategy source</p>
+        <div class="bp">
+          <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+          <div class="editbar">python — submission.py</div>
+          <textarea id="src" spellcheck="false"></textarea>
+        </div>
+        <div class="actions">
+          <button id="audit" class="ghost">Audit for leakage</button>
+          <button id="run">Audit &amp; backtest</button>
+          <span class="trials" id="trials">No strategies evaluated</span>
+        </div>
+      </section>
+
+      <section>
+        <p class="kicker">Result</p>
+        <div class="panel bp" id="out">
+          <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+          <p class="empty">Results appear here. The backtest runs 1,232 sessions and takes about
+            half a minute.</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="notes">
+      <div class="note bp">
+        <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+        <h3>Why your Sharpe falls as you iterate</h3>
+        <p>Every strategy you evaluate in this session counts as a trial, and the deflated Sharpe
+          adjusts for how many things you tried. Submit forty variants and keep the best, and the
+          best one now has to clear a higher bar — because with forty tries, something looks good
+          by luck alone.</p>
+        <p>The counter is per-session and lives in memory. It never touches the repository's
+          tamper-evident ledger, which belongs to the published results.</p>
       </div>
-    </section>
-
-    <section>
-      <h2>Result</h2>
-      <div class="panel" id="out"><p class="empty">Results appear here.</p></div>
-    </section>
-  </div>
-
-  <div class="note">
-    <strong>Why your Sharpe falls as you iterate.</strong> Every strategy you evaluate in this
-    session counts as a trial, and the deflated Sharpe adjusts for how many things you tried. Submit
-    forty variants and keep the best, and the best one now has to clear a higher bar &mdash; because
-    with forty tries, something looks good by luck alone. The counter is per-session and lives in
-    memory only. It does not touch the repository's ledger, and neither the auditor nor the
-    backtester is modified by anything you do here.
-    <br><br>
-    <strong>A high deflated Sharpe here is weak evidence, and deliberately so.</strong> The
-    correction deflates by how many things you tried <em>and</em> by how much they differed. Two
-    near-identical variants have almost no spread between them, so there is almost nothing to
-    deflate and the number comes back near 1.000 &mdash; which reflects a search too small to have
-    found anything by luck, not a strategy that works. The published results deflate against
-    thousands of genuinely distinct trials. A session of five does not compare.
-    <br><br>
-    <strong>The holdout is not reachable from this page.</strong> Results are on the development
-    window only. The 2025 holdout is a separate file that this process never opens.
+      <div class="note bp">
+        <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+        <h3>A high deflated Sharpe here is weak evidence</h3>
+        <p>The correction deflates by how many things you tried <em>and</em> by how much they
+          differed. Two near-identical variants have almost no spread between them, so there is
+          almost nothing to deflate and the number comes back near 1.000 — which reflects a search
+          too small to have found anything by luck, not a strategy that works.</p>
+        <p>The published results deflate against 1,887 genuinely distinct trials. A session of five
+          does not compare.</p>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -192,6 +217,7 @@ const out = document.getElementById("out");
 const trials = document.getElementById("trials");
 src.value = EXAMPLE;
 
+const MARKS = '<i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>';
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const num = (v, d = 3) => (typeof v === "number" && isFinite(v)) ? v.toFixed(d) : "&mdash;";
 
@@ -199,14 +225,14 @@ function findingsHtml(a) {
   if (!a.findings.length) {
     return `<div class="verdict pass">No leakage findings.</div>
             <p class="empty">The static layer reads the code for future-peeking. Passing it is not
-            a claim that the strategy is any good &mdash; only that it does not visibly cheat.</p>`;
+            a claim that the strategy is any good — only that it does not visibly cheat.</p>`;
   }
   const head = a.rejected
-    ? `<div class="verdict flag">Rejected &mdash; ${a.findings.length} finding(s), at least one high severity.</div>`
+    ? `<div class="verdict flag">Rejected — ${a.findings.length} finding(s), at least one high severity.</div>`
     : `<div class="verdict">${a.findings.length} finding(s), none high severity.</div>`;
   return head + a.findings.map(f => `
     <div class="finding">
-      <div class="cls">${esc(f.leak_class)} &middot; ${esc(f.severity)} &middot; line ${esc(f.line)}</div>
+      <div class="cls">${esc(f.leak_class)} · ${esc(f.severity)} · line ${esc(f.line)}</div>
       <div class="why">${esc(f.explanation)}</div>
       <pre>${esc(f.snippet)}</pre>
     </div>`).join("");
@@ -214,8 +240,8 @@ function findingsHtml(a) {
 
 function backtestHtml(r) {
   if (r.outcome !== "evaluated") {
-    return `<div class="verdict flag">Did not run &mdash; ${esc(r.outcome)}</div>
-            <pre>${esc(r.error || "no detail recorded")}</pre>`;
+    return `<div class="verdict flag">Did not run — ${esc(r.outcome)}</div>
+            <pre class="finding">${esc(r.error || "no detail recorded")}</pre>`;
   }
   const rows = [
     ["Net Sharpe", num(r.sharpe)],
@@ -231,7 +257,7 @@ function backtestHtml(r) {
     ["Trials this session", r.session_trials],
   ];
   const note = r.deflation_note
-    ? `<p class="empty" style="margin-top:-8px">${esc(r.deflation_note)}</p>` : "";
+    ? `<p class="empty">${esc(r.deflation_note)}</p>` : "";
   const traded = (r.mean_turnover || 0) > 0;
   const head = traded
     ? `<div class="verdict pass">Ran and took a position.</div>`
@@ -251,18 +277,18 @@ async function call(path, source) {
 async function go(withBacktest) {
   const buttons = document.querySelectorAll("button");
   buttons.forEach(b => b.disabled = true);
-  out.innerHTML = `<p class="empty">${withBacktest ? "Backtesting over 1,232 sessions&hellip;" : "Auditing&hellip;"}</p>`;
+  out.innerHTML = MARKS + `<p class="empty">${withBacktest ? "Backtesting over 1,232 sessions&hellip;" : "Auditing&hellip;"}</p>`;
   try {
     const a = await call("/api/audit", src.value);
     let html = findingsHtml(a);
     if (withBacktest) {
       const r = await call("/api/backtest", src.value);
-      html += `<h2 style="margin-top:22px">Backtest</h2>` + backtestHtml(r);
-      trials.textContent = `${r.session_trials} strateg${r.session_trials === 1 ? "y" : "ies"} evaluated this session`;
+      html += `<p class="subhead">Backtest · development window</p>` + backtestHtml(r);
+      trials.textContent = `${r.session_trials} evaluated this session`;
     }
-    out.innerHTML = html;
+    out.innerHTML = MARKS + html;
   } catch (e) {
-    out.innerHTML = `<div class="verdict flag">Request failed</div><pre>${esc(e)}</pre>`;
+    out.innerHTML = MARKS + `<div class="verdict flag">Request failed</div><pre class="finding">${esc(e)}</pre>`;
   } finally {
     buttons.forEach(b => b.disabled = false);
   }

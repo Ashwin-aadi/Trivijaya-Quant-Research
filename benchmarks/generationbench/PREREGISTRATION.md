@@ -521,3 +521,89 @@ it is run over **all 2,495 candidates** rather than the 315 that took a position
 distribution is then measured over what each paradigm actually emits; restricting it to traders
 would condition the distribution on having traded, which is a selected sample. The cost of the wider
 population is 2.6 h of GPU against a stage that is not the critical path.
+
+---
+
+# Amendment 4 — the price panel, and two capacity findings, 2026-08-08
+
+Committed after Phase 4.2's capacity stage and before any cross-arm capacity statistic is computed
+or read. Nothing here adjusts a threshold or a hypothesis; §4.1 records a defect and its repair, and
+§4.2 and §4.3 record two properties of the corpus that constrain how a capacity number may be read.
+
+## 4.1 — Capacity is computed from the unfiltered price panel
+
+`prices_adjusted.parquet` begins on 2019-06-25 while trading begins at `dev_start`, 2020-01-01.
+Those 188,853 pre-window rows are the warm-up a lookback strategy needs on its first trading
+session. `run_corpus_backtest.py` loads the panel unfiltered and therefore supplies that warm-up;
+`load_dev_panel()` filters to the dev window and discards it. Every P4 Sharpe, turnover and return
+series came from the former.
+
+The capacity driver initially used the latter, following `run_frontier_capacity.py`. It was found by
+a crash, not by inspection: `G2/candidate_045` weights the calmest 30% of symbols with a complete
+60-session window, and that count is zero at the start of 2020 without warm-up.
+
+**Measured effect, on eight G1 strategies.** Against published Sharpe, the unfiltered panel
+reproduces to within 0.0012 in all eight. The truncated panel does not: seven of eight have books
+that differ on 9 to 23 sessions, and on most of those sessions the L1 distance between the two books
+is exactly 1.0 — the truncated run holds nothing at all while the other is fully invested. It is a
+cold start, concentrated at the beginning of 2020. Six of the eight move in the third decimal;
+`candidate_029` moves from -0.7652 to -2.3878.
+
+**The repair.** P4 capacity is computed from the unfiltered panel, on the PI's ruling of 2026-08-08.
+The argument is internal consistency and does not depend on which panel is correct in principle: a
+capacity computed from the truncated panel would describe a different strategy from the one in the
+same row of the same table. The liquidity frame remains dev-window-filtered, mirroring
+`run_corpus_capacity.py` line for line, so the capacity *definition* is unchanged and only the
+population moves. This is an objective omission repaired, not a threshold tuned.
+
+**What it changed, reported because it is the unflattering direction for the repair.** G1's capacity
+summary is *identical to two decimals* before and after: min 0.19, median 2.60, max 23.65 crore. Only
+the position-row count moved, by the 19,994 warm-up rows. Binding capacity is a minimum over ~1,200
+sessions and is insensitive to a cold start of twenty. The repair was still necessary — the crash was
+real and Sharpe is not insensitive — but it did not move the capacity numbers.
+
+**Non-comparability, recorded rather than discovered later.** P3's released capacity figures were
+computed from `data/interim/positions/`, written by `persist_positions.py`, which uses
+`load_dev_panel`. P4's capacity is therefore computed under a different information set from P3's.
+On the G1 evidence the difference is expected to be immaterial for capacity specifically, but it is
+not measured for P3's corpus and is not asserted. Whether P3 requires an entry in
+`benchmarks/flowstate/CORRECTIONS.md` is an open question held for the PI; no frozen code has been
+touched.
+
+## 4.2 — Extreme capacities are near-cash strategies, not residue
+
+Binding capacities of 726.86 (G2), 1283.04 (G6) and 371.87 (G7) crore appear against maxima of 9.86
+to 36.88 crore in the other arms. They are **not** the floating-point residue defect repaired at
+Checkpoint 3.3: `min_traded_fraction` is 1e-9 and these strategies turn over 1e-5 to 1e-4 per
+session, four orders of magnitude above the guard.
+
+They hold almost no book. Measured gross exposure: `G2/candidate_435` 0.0028 across 100 names,
+`G6/candidate_144` 0.0150 across 60, `G7/candidate_012` 0.0300 across 20, against 1.0000 for a
+normally invested strategy. Capacity is defined per rupee of AUM rather than per rupee deployed, so a
+strategy leaving 97-99.7% of the account in cash reports an enormous capacity that is arithmetically
+correct and substantively empty.
+
+**FlowState is not changed.** The Phase 3.3 ruling is explicit that a corpus finding is reported and
+never used to adjust the benchmark, and the evaluation stack is frozen for P4 besides. The gap is
+real and belongs in the paper: FlowState's five validation factors were all fully invested, so the
+validation set could not reach this path. This is the second time the machine-generated corpus has
+exposed a gap the validation set could not, and that is itself evidence for the standing
+build-validate-apply-freeze-write process rather than an argument against it.
+
+## 4.3 — Every cross-arm capacity statistic is reported against deployed exposure
+
+**Confound.** If arms differ in how often they emit near-cash strategies, a cross-arm capacity
+comparison measures how much each arm invests rather than how scalable its strategies are. G6's
+median of 9.91 crore against G5's 1.38 is uninterpretable until that is known.
+
+**Rule, fixed before the comparison is computed.** `scripts/paradigm_exposure.py` measures median
+gross exposure for all 315 traded strategies. Every cross-arm capacity statistic is reported
+alongside the near-cash count for both arms, at a stated threshold of median gross exposure below
+0.10. Near-cash strategies are **not dropped** — dropping them after seeing the capacity figures
+would be selection on the outcome. They are reported as a separate stratum, and any arm difference
+that does not survive stratification is reported as not surviving it.
+
+**Prediction, stated before the exposure measurement is read.** Near-cash strategies are expected to
+be a small minority in every arm, single-digit percentages, and no arm difference in capacity is
+expected to be explained by them alone. If that is wrong, this amendment is the record that it was
+predicted wrongly.
