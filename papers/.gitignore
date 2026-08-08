@@ -6,3 +6,6 @@
 *.toc
 *.synctex.gz
 page-*.png
+
+# pdflatex writes its output beside the source; the copy under pdf/ is the one we publish.
+/*.pdf
