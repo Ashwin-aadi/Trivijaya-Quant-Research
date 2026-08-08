@@ -1,0 +1,23 @@
+{
+  "index": 558,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Identifying stocks with strong relative performance can help in capturing \"\n        \"momentum and outperformance. This strategy selects the top-performing stocks \"\n        \"relative to the market index over a lookback period.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(sym) for sym in view.symbols]\n        avg_market_close = (\n            history.groupby(\"session_date\")\n                   .agg(pl.col(\"adj_close\").mean().alias(\"avg_adj_close\"))\n                   .select([\"session_date\", \"avg_adj_close\"])\n                   .with_columns(\n                       (pl.col(\"adj_close\") / pl.col(\"avg_adj_close\") - 1.0).alias(\"strength\")\n                   )\n        )\n\n        strong_stocks = (\n            history\n                   .group_by(\"symbol\")\n                   .agg(pl.col(\"strength\").max().alias(\"max_strength\"))\n                   .select([\"symbol\", \"max_strength\"])\n                   .sort(\"max_strength\", descending=True)\n                   .head(5)\n        )\n\n        if strong_stocks.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(strong_stocks)\n        strong_symbols = [row[\"symbol\"] for row in strong_stocks.to_dicts()]\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in strong_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 463
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.278795999998692,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 568
+}

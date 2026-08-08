@@ -1,0 +1,23 @@
+{
+  "index": 38,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following exploits the tendency for asset prices to revert to \"\n        \"their mean after a period of high volatility. High volatility periods often indicate \"\n        \"greater uncertainty and potential for large price movements in either direction, which can be capitalized upon.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history\n            .with_column((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"))\n            .sort(\"session_date\")\n        )\n\n        symbols_with_sufficient_data = [symbol for symbol in view.symbols if all(history[symbol].is_not_null().to_list())]\n\n        # Calculate mean absolute returns\n        mean_abs_returns = history.select(\n            pl.col(symbols_with_sufficient_data).mean().alias(\"mean_abs_return\")\n        ).collect()[\"mean_abs_return\"].to_list()[0]\n\n        # Identify symbols with above-threshold returns\n        signals: dict[str, float] = {}\n        for symbol in symbols_with_sufficient_data:\n            if history[symbol].mean().abs() > mean_abs_returns * 1.5:\n                signals[symbol] = 1.0\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_weight = sum(signals.values())\n        normalized_weights = {symbol: weight / total_weight for symbol, weight in signals.items()}\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, weight in normalized_weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 511
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.725371699998504,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 41
+}

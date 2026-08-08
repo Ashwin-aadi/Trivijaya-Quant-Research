@@ -1,0 +1,27 @@
+{
+  "index": 192,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum250d(Strategy):\n    rationale = (\n        \"This strategy exploits the cross-sectional momentum effect by selecting stocks \"\n        \"with positive past returns. It capitalizes on historical performance data to inform \"\n        \"current investment decisions and aims to benefit from the persistence of momentum \"\n        \"in stock returns.\"\n    )\n\n    def __init__(self, lookback: int = 250, portfolio_size: int = 30) -> None:\n        self._lookback = lookback\n        self._portfolio_size = portfolio_size\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n\n        if history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        cumulative_returns = (\n            (history[\"adj_close\"].to_list()[1:] / history[\"adj_close\"].shift(1).to_list() - 1.0)\n            .accumulate()\n            .alias(\"cumulative_return\")\n        )\n        ranked_stocks = (\n            history.select([pl.col(\"symbol\"), cumulative_returns])\n            .sort(\"cumulative_return\", descending=True)\n            .head(self._portfolio_size)\n            .select(\"symbol\")\n            .to_dict(False)[\"symbol\"]\n        )\n\n        if not ranked_stocks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(ranked_stocks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in ranked_stocks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum250d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2388,
+    "output_tokens": 847
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy based on cross-sectional momentum in the Indian market, we will exploit the phenomenon where stocks with positive past returns tend to continue outperforming those with negative past returns. This persistence is often driven by fundamental changes or investor sentiment shifts that are slow to adjust fully across the market.\n\nThe rule would involve selecting a portfolio of top-performing stocks from the previous trading period and holding them for a specified duration (e.g., 1-3 months). We will also incorporate risk management techniques such as stop-loss orders and diversification across sectors to mitigate risks. This approach capitalizes on the observed tendency of momentum to persist in stock returns, leveraging historical performance data to inform current investment decisions.",
+    "The signal for this systematic equity strategy involves computing the cumulative return of each stock over a 250-day lookback period. This is done by summing up the daily returns (calculated as the natural logarithm of the ratio of the closing price to the previous day's closing price) for each stock in the Indian market. On any given trading day, stocks are ranked based on their cumulative return, with the top-performing stocks over the 250-day period being selected for inclusion in the portfolio. This ranking reflects the cross-sectional momentum effect, where past high performers are likely to continue outperforming, at least in the short term.",
+    "For this systematic equity strategy, we will hold a portfolio of 20-30 top-performing stocks selected based on their cumulative return over a 250-day lookback period. Each stock in the portfolio will be equally weighted to simplify position management and reduce complexity. To manage risk, we will implement stop-loss orders at a predetermined level (e.g., -10% below the entry price) to limit potential losses per stock. The overall loss for the strategy will be capped at 5-7% of the total portfolio value to ensure that any single trading period does not significantly impact the overall capital. This approach balances exposure to momentum while safeguarding against excessive risk."
+  ],
+  "seconds": 26.804801500002213,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 195
+}

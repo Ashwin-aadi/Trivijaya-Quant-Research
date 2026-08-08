@@ -1,0 +1,23 @@
+{
+  "index": 299,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"This strategy aims to combine two characteristics: momentum and low volume. \"\n        \"Momentum suggests that stocks which have recently performed well are likely to continue performing well in the near future. Low volume can indicate underfollowed or smaller companies, potentially offering higher volatility and thus more opportunities for profit.\"\n    )\n\n    def __init__(self, momentum_window: int = 10, low_volume_threshold: float = 5e6) -> None:\n        self._momentum_window = momentum_window\n        self._low_volume_threshold = low_volume_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._momentum_window + 1)\n        if history.is_empty() or history.height < self._momentum_window + 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        momentum_scores = []\n        volume_scores = []\n\n        for symbol in symbols:\n            close_series = history[symbol].drop_nulls().to_list()\n            high_close_ratio = max(close / close_series[0] for close in close_series[-self._momentum_window:])\n            momentum_scores.append(high_close_ratio)\n\n            volume_series = [float(v) for v in history[f\"{symbol}_volume\"].drop_nulls().to_list()]\n            low_volume_score = 1 if any(volume < self._low_volume_threshold for volume in volume_series) else 0\n            volume_scores.append(low_volume_score)\n\n        combined_scores = [(momentum, volume) for momentum, volume in zip(momentum_scores, volume_scores)]\n        selected_symbols = [symbol for symbol, (momentum, volume) in zip(symbols, combined_scores)\n                            if momentum >= max(momentum_scores) and volume == 1]\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in selected_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 548
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.53201860000263,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 306
+}

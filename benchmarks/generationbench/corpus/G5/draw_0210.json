@@ -1,0 +1,26 @@
+{
+  "index": 210,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength tend to outperform over time. \"\n        \"By identifying the top performers relative to their peers, we can construct a portfolio of strong stocks.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n\n        if closes.height < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate relative strength as the ratio of current close to the minimum price in the window\n        rel_strengths: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            min_price = min(values)\n            current_price = values[-1]\n            relative_strength = (current_price / min_price) - 1.0\n            rel_strengths[symbol] = relative_strength\n\n        top_symbols: list[str] = []\n        for symbol, strength in sorted(rel_strengths.items(), key=lambda x: x[1], reverse=True):\n            if strength > 0:\n                top_symbols.append(symbol)\n            if len(top_symbols) >= self._top_n:\n                break\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3952,
+    "output_tokens": 1339
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify top-performing stocks based on relative strength over a specified window period. Here are some critiques:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale mentions \"higher relative strength tends to outperform,\" but the code calculates relative strength as `relative_strength = (values[-1] / min(values)) - 1.0`. This does not directly measure relative strength; instead, it computes a ratio of the latest price to the minimum price over the window period.\n\n2. **Potential Failures**:\n   - Line 37: If all values in `closes[symbol]` are equal (i.e., no variation), `min(values)` will be constant, leading to undefined behavior or zero division.\n   - Line 40: The check `if len(values) < self._window` is unnecessary because the `drop_nulls()` method already removes null values and ensures a minimum window size.\n\n3. **Fragile Parameters**:\n   - The parameter `top_n` (line 7) is used to select the top N performing stocks, but the criterion for ranking is not clearly defined in terms of relative strength.\n   - The parameter `window` (line 6) sets the lookback period; if set too short, it may lead to overfitting or noisy signals.\n\n4. **Potential Issues**:\n   - Line 21: The method `_latest_visible(view)` assumes that there is at least one session date in `view.history()`. If this assumption fails (e.g., empty history), the function returns an arbitrary date, which may lead to incorrect signal generation.\n   - Line 47-50: Sorting by relative strength and filtering negative values might not be necessary if the relative strength calculation is more robust.\n\nOverall, while the strategy has good intentions, it would benefit from clearer definitions of key metrics and parameters. The current implementation assumes a specific metric for relative strength that may not align with the stated rationale. Improvements could include using a more conventional definition of relative strength or performance metrics."
+  ],
+  "seconds": 34.654508700001315,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 426
+}

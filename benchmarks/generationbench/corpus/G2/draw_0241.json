@@ -1,0 +1,23 @@
+{
+  "index": 241,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion occurs when prices or returns tend to move towards the mean. \"\n        \"In a short horizon like 10 days, stocks that have deviated significantly from their \"\n        \"mean price are likely to return to it, providing an opportunity for profit.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.group_by(\"symbol\")\n                   .agg(pl.col(\"adj_close\").mean().alias(\"mean_close\"))\n        )\n        latest_closes = view.closes(lookback=self._window + 1)\n        \n        deviations = pl.DataFrame()\n        for symbol in view.symbols:\n            if symbol not in mean_close.columns or symbol not in latest_closes.columns:\n                continue\n            mean_val = float(mean_close[symbol][\"mean_close\"])\n            latest_val = float(latest_closes[symbol].drop_nulls().to_list()[-1])\n            deviations = deviations.with_column(\n                pl.Series([symbol, abs(latest_val - mean_val)]).transpose().explode()\n            )\n\n        if deviations.height < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        sorted_deviations = (\n            deviations.sort(\"field_1\", descending=True)\n                      .head(5)  # Select the top 5 symbols with highest deviation\n        )\n        \n        weight = 1.0 / len(sorted_deviations[\"field_0\"].to_list())\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_deviations[\"field_0\"].to_list()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).collect()[0][0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 518
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.836698500002967,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 247
+}

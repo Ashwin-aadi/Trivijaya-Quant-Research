@@ -1,0 +1,23 @@
+{
+  "index": 318,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"This strategy selects stocks that have outperformed the broad market in recent \"\n        \"trading periods. It assumes that strong relative performance is a sign of good underlying fundamentals.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        broad_market = closes.mean().item()\n        strengths: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            performance = sum([v - broad_market for v in values]) / len(values)\n            strengths[symbol] = performance\n\n        top_symbols = sorted(strengths.items(), key=lambda x: x[1], reverse=True)[:5]\n        weights = {symbol: 1.0 / len(top_symbols) for symbol, _ in top_symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, weight in weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date).item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 404
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.136901600009878,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 323
+}

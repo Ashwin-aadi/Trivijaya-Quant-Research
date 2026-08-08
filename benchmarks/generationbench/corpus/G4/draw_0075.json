@@ -1,0 +1,27 @@
+{
+  "index": 75,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy aims to exploit the economic mechanism where liquid stocks often outperform less liquid ones due to lower transaction costs and better price discovery. By equal-weighting a portfolio of top-liquid stocks, the strategy seeks to balance exposure across a diversified set while capturing the benefits of higher liquidity.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        liquidity_scores: dict[str, float] = {}\n\n        for symbol in symbols:\n            volume = history[symbol + \"_volume\"]\n            open_price = history[symbol + \"_open\"]\n            high = history[symbol + \"_high\"]\n            low = history[symbol + \"_low\"]\n            close = history[symbol + \"adj_close\"]\n\n            turnover_ratio = (2 * volume) / (high - low)\n            average_true_range = (close.diff().abs().mean())  # 30-day ATR\n            price_impact = (high - low) / volume\n\n            liquidity_score = (\n                float(turnover_ratio.mean())\n                + float(average_true_range.mean())\n                + float(price_impact.mean())\n            )\n            liquidity_scores[symbol] = liquidity_score\n\n        sorted_symbols = [\n            s for _, s in sorted(liquidity_scores.items(), key=lambda item: -item[1])\n        ][:30]\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in sorted_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2433,
+    "output_tokens": 915
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to exploit the economic mechanism where liquid stocks often outperform less liquid ones due to lower transaction costs and better price discovery. This persistence stems from market efficiency and investor behavior, as liquidity allows for smoother trades with less impact on stock prices. The plan involves creating an equal-weighted portfolio of highly liquid stocks identified through a rigorous liquidity screening process. By equal weighting, the strategy aims to mitigate the risk associated with concentration in any single stock while capturing the benefits of higher liquidity. This approach seeks to balance exposure across a diversified set of top-liquid stocks, potentially achieving better performance compared to market-cap weighted indices.",
+    "The signal for this systematic equity strategy focuses on liquidity metrics derived from daily price and volume data. Specifically, the strategy computes the following liquidity measures:\n\n1. **Turnover Ratio**: Calculated as (2 * Volume) / (High - Low), which indicates how frequently the stock trades relative to its price range.\n2. **Average True Range**: A volatility measure that helps assess the stock's liquidity and stability over a lookback period of 30 days.\n3. **Price Impact**: Estimated using the difference between daily high and low prices, normalized by volume, providing an indication of how much the stock's price moves per unit of trading activity.\n\nOn each trading day, these metrics are calculated for all candidate stocks in the market. Stocks are then ranked based on their combined liquidity score, which could be a weighted sum of the turnover ratio, average true range, and price impact. The top-liquid stocks from this ranking are selected to form an equal-weighted portfolio, ensuring broad diversification while leveraging the benefits of higher liquidity.",
+    "This strategy employs an equal-weighted approach, holding a diversified portfolio of approximately 30-50 top-liquid stocks identified through rigorous liquidity screening. Each stock within the portfolio carries an equal weight to mitigate concentration risk. To manage risk, the total portfolio exposure is limited such that no single-day loss exceeds 1% of the portfolio value, ensuring that drawdowns remain manageable and aligned with investor risk tolerance."
+  ],
+  "seconds": 28.34407310000097,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 78
+}

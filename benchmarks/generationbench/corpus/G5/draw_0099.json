@@ -1,0 +1,26 @@
+{
+  "index": 99,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"High liquidity in stocks is crucial for minimizing trading costs and executing trades efficiently. \"\n        \"This strategy allocates weights based on a combination of volume and price range metrics to identify \"\n        \"highly liquid stocks that can be traded with minimal impact.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"volume\").sum() / pl.col(\"adj_close\").mean().cast(pl.float64)).alias(\"avg_vol\"),\n                (pl.col(\"adj_close\") - pl.col(\"open\")).abs().mean().alias(\"price_range\"),\n            )\n            .sort(by=\"avg_vol\", descending=True)\n        )\n\n        if liquidity_scores.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [row[\"symbol\"] for row in liquidity_scores.to_dicts()][: self._window]\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3811,
+    "output_tokens": 1150
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This systematic equity trading strategy aims to allocate weights based on liquidity metrics but contains several potential issues:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale emphasizes minimizing transaction costs through liquidity, but the code primarily focuses on volume and price range. This discrepancy could mislead users about the true intent of the strategy.\n\n2. **Potential Failures**:\n   - Line 39: If `history` is empty, the function returns an empty weights dictionary without raising an error or warning. It would be better to handle this case more explicitly.\n   - Line 45-50: The use of `.select([\"symbol\", \"avg_vol\", \"price_range\"])` could lead to a `KeyError` if any of these columns are missing in the DataFrame.\n\n3. **Fragile Parameters**:\n   - The `window` parameter is hardcoded and not passed as an argument, making it less flexible. It should be passed via the `__init__` method.\n   - Line 18: Using a fixed window size might not always be optimal; different windows could perform better for different market conditions.\n\n4. **Potential Issues**:\n   - Lines 23-27: The volume and price range metrics are calculated but not combined into a single liquidity score, which could lead to incomplete or misleading results.\n   - Line 51: Rounding the weights directly might cause them not to sum exactly to 1 due to floating-point precision issues.\n\nOverall, while the strategy aims at a logical approach, it requires addressing these specific issues for robustness and clarity."
+  ],
+  "seconds": 30.931484300000193,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 202
+}

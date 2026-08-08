@@ -1,0 +1,23 @@
+{
+  "index": 80,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves suggest strong momentum in a security. \"\n        \"By identifying such moves, we can capitalize on the likely continuation of trends.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=False)\n            .drop_nulls()\n        )\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n\n            # Get the last return value\n            latest_return = float(history[symbol][\"return\"].last())\n\n            # Check if it's a significant move (positive or negative)\n            if abs(latest_return) > 0.01:  # Threshold for significant move\n                # Confirm with volume\n                volume_series = history.select(pl.col(symbol).filter(pl.col(\"session_date\") < pl.lit(stamp))).select(\"volume\")\n                mean_volume = float(volume_series[\"volume\"].mean())\n                if latest_return > 0 and history[symbol][\"volume\"].last() > 1.5 * mean_volume:\n                    picks.append(symbol)\n                elif latest_return < 0 and history[symbol][\"volume\"].last() > 1.5 * mean_volume:\n                    picks.append(symbol)\n\n        picks = list(set(picks))[:5]  # Remove duplicates and limit to top 5\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 557
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.560832499992102,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 84
+}

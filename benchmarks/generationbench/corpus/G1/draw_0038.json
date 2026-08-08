@@ -1,0 +1,23 @@
+{
+  "index": 38,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy follows trends while scaling positions based on historical volatility. \"\n        \"High volatility periods reduce position sizes to limit risk, while low volatility allows \"\n        \"for larger bets on established trends.\"\n    )\n\n    def __init__(self, window: int = 20, lookback_volatility: int = 5) -> None:\n        self._window = window\n        self._lookback_volatility = lookback_volatility\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols_with_close_data = [symbol for symbol in view.symbols if symbol in history.columns]\n\n        volatility_df: pl.DataFrame = (\n            view.closes(lookback=self._lookback_volatility)\n            .select(pl.col(\"session_date\"))\n            .with_column(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\")\n            )\n            .group_by(\"symbol\", maintain_order=True)\n            .agg(\n                (\n                    pl.col(\"return\").std().over(pl.all()).alias(\"volatility\"),\n                    (pl.col(\"adj_close\")[-1] / pl.col(\"adj_close\")[0]).alias(\"trend_factor\"),\n                )\n            )\n        )\n\n        volatility_scaled_weights: dict[str, float] = {}\n        for symbol in symbols_with_close_data:\n            volatility = history.select(pl.col(symbol).std()).item()\n            trend_factor = volatility_df.filter(pl.col(\"symbol\") == symbol)[\"trend_factor\"].item()\n\n            weight = (1.0 / len(symbols_with_close_data)) * max(0.1, 1 - 0.9 * (volatility / self._lookback_volatility))\n            if not np.isnan(weight):\n                volatility_scaled_weights[symbol] = weight * trend_factor\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in volatility_scaled_weights.items() if not np.isnan(w)},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 562
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.65986869999324,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 41
+}

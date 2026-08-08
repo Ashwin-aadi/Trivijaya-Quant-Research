@@ -1,0 +1,27 @@
+{
+  "index": 244,
+  "paradigm": "G4_planning",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion50d(Strategy):\n    rationale = (\n        \"This strategy exploits mean reversion by identifying stocks whose prices have \"\n        \"deviated significantly from their 50-day simple moving average (SMA). It aims to \"\n        \"capitalize on temporary price anomalies and benefit from the natural tendency of \"\n        \"prices to return to historical norms.\"\n    )\n\n    def __init__(self, window: int = 50, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        sma = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"close\").mean().alias(\"sma\"))\n            )\n            .with_columns((pl.col(\"close\") - pl.col(\"sma\")).abs().alias(\"diff\"))\n        )\n\n        top_buy_symbols = [\n            symbol for symbol, diff in sma.sort(\"diff\", descending=True)[\"symbol\"].to_list()[: self._top_n]\n        ]\n        top_sell_symbols = [\n            symbol for symbol, diff in sma.sort(\"diff\", descending=False)[\"symbol\"].to_list()[: self._top_n]\n        ]\n\n        buy_weights = {s: 1.0 / len(top_buy_symbols) for s in top_buy_symbols}\n        sell_weights = {s: -1.0 / len(top_sell_symbols) for s in top_sell_symbols}\n\n        weights = {**buy_weights, **sell_weights}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion50d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2468,
+    "output_tokens": 889
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to exploit the price-level reversion phenomenon in the Indian equity market by comparing current stock prices with their trailing reference levels. The economic mechanism is based on mean reversion theory, which posits that asset prices and historical returns eventually move back toward the long-term average or mean value over time. This tendency may persist due to market inefficiencies and investor behavior biases.\n\nThe trading rule would identify stocks whose prices have deviated significantly from their trailing reference levels (e.g., 50-day moving average). When a stock price reverts, it triggers a buy signal if the price falls below its mean, or a sell signal if it rises above. This approach seeks to capitalize on temporary price anomalies and benefit from the natural tendency of prices to return to historical norms.",
+    "The strategy employs a 50-day moving average as the trailing reference level. Each day, compute the 50-day simple moving average (SMA) for each stock from its daily open, high, low, close, and volume data. On any given trading day, identify stocks where the current price has deviated significantly from their 50-day SMA. Specifically:\n\n- For candidates to buy: Identify stocks whose closing price is below their 50-day SMA.\n- For candidates to sell: Identify stocks whose closing price is above their 50-day SMA.\n\nOn a given day, rank all candidate stocks based on the absolute difference between their current closing price and their 50-day SMA. Stocks with the largest differences (either positive or negative) are prioritized for buy or sell signals, respectively, as they represent the strongest reversion candidates.",
+    "This strategy can hold up to 30 stocks at a time, with an equal weight of 3.33% per stock to ensure diversification and mitigate concentration risk. Position sizing is limited to prevent large losses; the total portfolio exposure from any single day's trade should not exceed 10% of the total capital, ensuring that no single trading event can cause more than a 10% loss in the overall equity."
+  ],
+  "seconds": 27.805365000000165,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 248
+}

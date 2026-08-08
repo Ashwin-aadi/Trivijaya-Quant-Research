@@ -1,0 +1,26 @@
+{
+  "index": 154,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Certain stocks exhibit stronger performance during specific times of the year. \"\n        \"By identifying these seasonal trends, we can allocate capital towards stocks that are \"\n        \"likely to perform well in upcoming periods.\"\n    )\n\n    def __init__(self, window: int = 365, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_history: dict[str, pl.DataFrame] = {}\n        for symbol in view.symbols:\n            if symbol not in history.symbol.to_list():\n                continue\n            symbol_df = (\n                history.select([\"session_date\", \"close\"])\n                .filter(pl.col(\"symbol\") == symbol)\n                .sort(\"session_date\")\n            )\n            if symbol_df.height < self._window:\n                continue\n            symbol_history[symbol] = symbol_df\n\n        seasonal_signals: dict[str, float] = {}\n        for symbol, df in symbol_history.items():\n            monthly_close = (\n                df.groupby(pl.date.ExtractMonth(\"session_date\")).agg(\n                    (pl.col(\"close\").mean()).alias(\"monthly_avg\")\n                )\n            ).sort(\"session_date\")\n\n            if monthly_close.height < 12:\n                continue\n\n            yearly_avg = (\n                monthly_close.select([\"monthly_avg\"])\n                .mean()\n                .item()\n            )\n\n            deviations = [\n                (month, (row[\"close\"] - yearly_avg) / yearly_avg)\n                for month, row in monthly_close.iter_rows()\n            ]\n\n            seasonal_signals[symbol] = max(deviations, key=lambda x: abs(x[1]))[0]\n\n        sorted_signals = [\n            (symbol, score) for symbol, score in seasonal_signals.items() if score > self._threshold\n        ]\n        picks = [symbol for symbol, _ in sorted_signals]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4308,
+    "output_tokens": 1605
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears generally sound but has a few critical issues:\n\n1. **Rationale vs. Code Disagreement:**\n   - The rationale states identifying \"seasonal trends\" will help allocate capital towards stocks likely to perform well. However, the code does not explicitly calculate seasonal trends; instead, it ranks performance based on deviations from yearly averages (line 23-28). This discrepancy could mislead users about what the strategy actually does.\n\n2. **Potential Failures:**\n   - The `generate` method relies heavily on historical data being available and complete within the lookback period (line 14). If any stock lacks sufficient history, it will be excluded.\n   - The ranking of stocks uses a dense rank (`rank(method=\"dense\", descending=True\")`) to identify top performers (line 26), which can lead to ties if multiple symbols have identical rankings.\n\n3. **Fragile Parameters:**\n   - `window` and `threshold` are hardcoded with default values (lines 7-8). These parameters significantly influence strategy performance, yet their sensitivity is not addressed.\n   - The use of a simple threshold (`self._threshold = 0.1`) to filter signals can be problematic as it may exclude relevant stocks or include noisy ones.\n\n4. **Run-time Issues:**\n   - Line 23-28 could fail if `monthly_close` has fewer than 12 rows, leading to an error in the subsequent steps.\n   - The method `_latest_visible(view)` assumes that all dates are date types (`assert isinstance(newest, date)`) and will raise an exception if not.\n\nOverall, while the strategy aims to leverage historical performance, its implementation could benefit from clearer documentation, robust parameter handling, and more explicit seasonal trend calculations."
+  ],
+  "seconds": 40.1960411,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 312
+}

@@ -1,0 +1,23 @@
+{
+  "index": 346,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality in equity markets refers to the tendency of certain stocks or indices \"\n        \"to perform better during specific times of the year. This strategy aims to exploit \"\n        \"such trends by identifying and weighting towards stocks that have historically outperformed \"\n        \"during the same period each year.\"\n    )\n\n    def __init__(self, window: int = 365) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_trends: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            # Calculate the seasonal trend by comparing current close with historical closes of this date\n            current_close_index = _date_to_index(stamp, closes)\n            if current_close_index >= 0 and len(values) > current_close_index + 1:\n                recent_closes = values[current_close_index - self._window : current_close_index]\n                seasonal_trends[symbol] = (values[-1] / max(recent_closes) - 1.0)\n\n        # Filter out symbols with no clear trend\n        picks = [symbol for symbol, trend in seasonal_trends.items() if trend > 0.05]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _date_to_index(date: date, df: pl.DataFrame) -> int:\n    idx = df.height - 1\n    while idx >= 0 and df.row(idx)[\"session_date\"] != date:\n        idx -= 1\n    return idx if df.row(idx)[\"session_date\"] == date else -1",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 567
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.80636300000333,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 354
+}

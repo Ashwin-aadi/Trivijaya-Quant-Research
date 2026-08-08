@@ -1,0 +1,23 @@
+{
+  "index": 248,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMoves(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are indicative of strong buying or selling pressure. \"\n        \"This strategy captures such moves by identifying symbols with significant volume increases \"\n        \"on days where the price also shows a substantial change in direction.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        moves = (\n            history\n            .filter((pl.col(\"close\") > pl.col(\"open\")) | (pl.col(\"high\") == pl.col(\"close\")))\n            .group_by([\"symbol\"], maintain_order=True)\n            .agg([\n                (pl.col(\"volume\").sum() / self._window).alias(\"total_volume\"),\n                ((pl.col(\"close\") - pl.col(\"open\")).abs()).alias(\"price_move\")\n            ])\n        )\n\n        if moves.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = (\n            moves\n            .sort(\"total_volume\", descending=True)\n            .head(self._window // 4)\n            .select([\"symbol\"])\n        )[\"symbol\"].to_list()\n\n        signal_weights = {s: 1.0 for s in top_symbols}\n        return Signal(information_available_at=stamp, weights=signal_weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMoves",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 423
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.529038000007858,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 253
+}

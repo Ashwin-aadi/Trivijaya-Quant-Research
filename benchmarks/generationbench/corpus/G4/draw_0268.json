@@ -1,0 +1,27 @@
+{
+  "index": 268,
+  "paradigm": "G4_planning",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionToMean(Strategy):\n    rationale = (\n        \"This strategy capitalizes on the tendency of stock prices to revert to historical \"\n        \"averages. It identifies stocks that have deviated significantly from their mean price \"\n        \"levels and trades in the direction opposite to this deviation.\"\n    )\n\n    def __init__(self, window: int = 50, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_prices = (\n            history.groupby(\"symbol\")\n                   .agg(pl.col(\"adj_close\").mean().alias(\"mean_price\"))\n                   .with_columns((pl.col(\"adj_close\") - pl.col(\"mean_price\")).abs().alias(\"deviation\"))\n                   .sort(\"deviation\", descending=True)\n                   .head(self._threshold * self._window)[\"symbol\"]\n        )\n\n        weights = {s: 1.0 / len(mean_prices) for s in mean_prices}\n        return Signal(\n            information_available_at=stamp, weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionToMean",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2756,
+    "output_tokens": 934
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To implement a systematic equity trading strategy for the Indian market based on price-level reversion against a trailing reference, we aim to capitalize on the tendency of stock prices to revert to historical averages. The economic mechanism involves identifying stocks that have deviated significantly from their mean price levels over time. This deviation could be due to short-term volatility or temporary market inefficiencies.\n\nWe hypothesize this phenomenon persists because investor sentiment and external factors can cause prices to overshoot their fundamental values, leading to eventual corrections. Our strategy would involve calculating a trailing average of historical stock prices as the reference level. When current prices deviate from this reference by more than a predefined threshold, we would initiate trades in the direction opposite to the deviation (buy low, sell high). The rule's shape includes setting thresholds for deviations and defining entry/exit rules based on price crossing these thresholds, ensuring trades are executed when reversion signals are strong.",
+    "The precise signal for this systematic equity trading strategy involves the following steps:\n\n1. **Data Collection**: Collect daily open, high, low, close prices, and volume for stocks in the Indian market.\n\n2. **Trailing Average Calculation**: Compute a trailing average price level over a specified lookback period (e.g., 50 days). This serves as the reference level against which stock prices are compared.\n\n3. **Deviation Measurement**: For each stock, calculate the difference between its current close price and the trailing average to determine the deviation.\n\n4. **Threshold Determination**: Set predefined thresholds for deviations above or below the trailing average. Stocks with a deviation exceeding these thresholds are flagged as potential candidates.\n\n5. **Ranking Candidates**: On any given day, rank stocks based on the absolute value of their deviation from the trailing average. Higher absolute deviation indicates stronger reversion signals.\n\n6. **Entry/Exit Rules**: For stocks meeting the threshold criteria, execute trades in the direction opposite to the current price trend (buy when prices are below the average and sell when above) with defined entry and exit rules based on additional criteria such as stop-loss levels or further price movements.\n\nThis approach ensures that trades are initiated only when reversion signals are strong, aiming to capitalize on temporary market inefficiencies.",
+    "For this systematic equity trading strategy, position sizing will be critical to manage risk effectively. Typically, you might hold up to 20-30 highly ranked stocks based on their deviation from the trailing average, ensuring diversification while maintaining a balance. Each position can be weighted equally or adjusted based on volatility and liquidity. Risk limits should cap daily losses at 1% of the portfolio value to avoid excessive drawdowns. Additionally, implement stop-loss orders to limit potential losses per trade to no more than 2-3% of the allocated capital per stock, ensuring robust risk management throughout market fluctuations."
+  ],
+  "seconds": 28.862328600000183,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 273
+}

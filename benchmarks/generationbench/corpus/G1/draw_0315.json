@@ -1,0 +1,23 @@
+{
+  "index": 315,
+  "paradigm": "G1_plain",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity screening filters out low-liquidity stocks before equal-weighting the \"\n        \"remaining universe. This strategy aims to balance risk and reward by favoring more \"\n        \"liquid stocks, which are easier to trade without significantly moving the market.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window or len(view.symbols) == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history.lazy()\n            .group_by(\"symbol\")\n            .agg(pl.col(\"volume\").mean().alias(\"avg_volume\"))\n            .with_columns(\n                (pl.col(\"avg_volume\") / pl.col(\"avg_volume\").max() * 100).alias(\"liquidity_score\")\n            )\n            .collect()[\"liquidity_score\"]\n            .to_list()\n        )\n\n        filtered_symbols = [\n            symbol for symbol, score in zip(view.symbols, liquidity_scores) if score > 0\n        ]\n\n        weights = {symbol: 1.0 / len(filtered_symbols) for symbol in filtered_symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in weights.items() if w > 0},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 418
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.547021499995026,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 320
+}

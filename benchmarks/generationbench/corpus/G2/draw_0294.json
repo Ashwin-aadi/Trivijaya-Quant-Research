@@ -1,0 +1,23 @@
+{
+  "index": 294,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Securities that have outperformed their peers over a given period are likely to \"\n        \"continue to do so due to the self-fulfilling nature of market sentiment. This strategy \"\n        \"identifies and invests in such securities by comparing recent returns against the broader\"\n        \" market index.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty100_closes = view.closes(lookback=self._window)\n\n        # Calculate returns for NIFTY 100 constituents\n        price_changes = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=True)\n            .group_by(\"symbol\")\n            .agg(pl.sum(\"return\").alias(\"total_return\"))\n        )\n\n        # Calculate returns for the broad market index (NIFTY 100)\n        nifty100_returns = (\n            history.group_by(\"session_date\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"market_avg_close\"))\n            .join(nifty100_closes, on=\"session_date\", how=\"left\")\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"market_avg_close\").shift(self._window) - 1.0).alias(\"nifty100_return\")\n            )\n        )\n\n        # Calculate the relative strength by comparing each stock's return to the market\n        relative_strengths = (\n            nifty100_returns.join(price_changes, on=\"symbol\", how=\"left\").with_columns(\n                (pl.col(\"total_return\") / pl.col(\"nifty100_return\")).alias(\"relative_strength\")\n            ).sort(\"relative_strength\", descending=True)\n        )\n\n        # Select the top N stocks based on relative strength\n        top_stocks = relative_strengths.head(self._window)[\"symbol\"].to_list()\n        if not top_stocks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_stocks)\n        return Signal(\n            information_available_at=stamp,\n            weights={stock: weight for stock in top_stocks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 643
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.539925500001118,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 301
+}

@@ -1,0 +1,26 @@
+{
+  "index": 58,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Seasonality effects can be exploited by identifying periods during the year \"\n        \"when certain stocks tend to outperform. This strategy focuses on trading \"\n        \"during these favorable times based on historical price data.\"\n    )\n\n    def __init__(self, window: int = 10, threshold_high: float = 0.2, threshold_low: float = -0.2) -> None:\n        self._window = window\n        self._threshold_high = threshold_high\n        self._threshold_low = threshold_low\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or len(closes.columns) < 20:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            mean_return = sum(values[-10:] - values[:-10]) / 10.0\n            if mean_return > self._threshold_high or mean_return < self._threshold_low:\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3920,
+    "output_tokens": 1286
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several potential issues that could affect its robustness and reliability:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states the strategy focuses on trading during favorable seasons when certain stocks tend to outperform. However, the code does not explicitly use seasonality data or time-of-year factors. Instead, it relies on rolling mean returns over a 10-day window, which might not capture seasonal trends effectively.\n\n2. **Potential Rule Failure**:\n   - The strategy uses a fixed lookback period of 10 days for calculating mean return (`self._window = 10`). If the market conditions or stock behavior changes significantly within this short timeframe, it could lead to suboptimal trading decisions.\n   - The `threshold_high` and `threshold_low` parameters are set at 0.2 and -0.2 respectively. These values might be too broad for some stocks, potentially leading to frequent trades based on small variations in returns.\n\n3. **Fragile Parameters**:\n   - The window size (`_window`) is hardcoded to 10, which could be a fragile parameter depending on the market conditions and data characteristics.\n   - The threshold values (`threshold_high`, `threshold_low`) are also fixed and might not generalize well across different stocks or time periods.\n\n4. **Potential Failures**:\n   - If there are insufficient historical price data for certain symbols (line 31 checks if `len(closes.columns) < 20`), the strategy will return an empty weights dictionary, which could lead to no trades being made.\n   - The strategy assumes that all symbols in `view.symbols` have sufficient recent data. If a symbol is missing from `closes`, it might be incorrectly skipped (line 35).\n\nOverall, while the code aims to capture mean returns over a window, the fixed parameters and lack of explicit seasonality consideration make the strategy less robust and adaptable to varying market conditions."
+  ],
+  "seconds": 33.606929199999286,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 119
+}

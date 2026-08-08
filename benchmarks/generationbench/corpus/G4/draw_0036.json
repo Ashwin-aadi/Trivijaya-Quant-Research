@@ -1,0 +1,27 @@
+{
+  "index": 36,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum360d(Strategy):\n    rationale = (\n        \"To exploit cross-sectional momentum in the Indian equity market, this strategy focuses on \"\n        \"identifying stocks that have outperformed their peers over recent periods. By selecting \"\n        \"stocks with the highest returns over a 3-6 month window, we aim to capture continued positive \"\n        \"performance driven by factors such as strong management and favorable industry trends.\"\n    )\n\n    def __init__(self, lookback_days: int = 240) -> None:\n        self._lookback_days = lookback_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n        if history.height < self._lookback_days or len(view.symbols) == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_to_returns: dict[str, float] = {}\n        for symbol in view.symbols:\n            daily_data = history.filter(pl.col(\"symbol\") == symbol)\n            if daily_data.height < self._lookback_days / 2:\n                continue\n            open_prices = [float(v) for v in daily_data[\"open\"].to_list()]\n            close_prices = [float(v) for v in daily_data[\"close\"].to_list()]\n\n            # Calculate cumulative returns over the lookback period\n            total_return = (close_prices[-1] - open_prices[0]) / open_prices[0]\n            symbol_to_returns[symbol] = total_return\n\n        ranked_symbols = sorted(symbol_to_returns, key=symbol_to_returns.get, reverse=True)\n\n        top_20_symbols = ranked_symbols[:20]\n        weight_per_symbol = 1.0 / len(top_20_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight_per_symbol for s in top_20_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum360d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2553,
+    "output_tokens": 976
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To exploit cross-sectional momentum in the Indian equity market, the strategy will focus on identifying stocks that have outperformed their peers over recent periods. The economic mechanism is based on the notion that firms with positive past returns are likely to continue performing well due to sustained favorable factors such as strong management, competitive advantages, or cyclical industry trends. This momentum effect might persist because market participants often take time to adjust their perceptions and valuations, leading to delayed price reactions.\n\nThe rule would involve selecting a portfolio of stocks that have shown the highest returns over the past 3-6 months, while also considering liquidity and sector diversification constraints. These selected stocks would form the long position in the portfolio. Additionally, short positions could be taken on underperforming stocks to hedge against market-wide downturns or to capture mean reversion if the momentum effect reverses.",
+    "The signal for this systematic equity strategy can be defined as follows:\n\n1. **Lookback Period**: Calculate the total return of each stock over the past 3-6 months (e.g., 120 to 240 trading days).\n2. **Signal Calculation**: For each stock, compute the cumulative returns from its daily open, high, low, close, and volume data during the lookback period.\n3. **Ranking**: On a given day, rank all eligible stocks based on their total return over the specified lookback period. Higher returns indicate stronger past performance.\n\nThe highest-ranked stocks will form the long positions in the portfolio, while the lowest-ranked underperformers may be shorted to hedge against broader market downturns or for mean reversion trades. This ranking helps in selecting stocks that have shown recent outperformance and are likely to continue performing well due to momentum effects.",
+    "For this strategy, a portfolio of approximately 20-30 names is typically selected based on their highest returns over the past 3-6 months. Long positions are sized to reflect each stock's liquidity and market capitalization, with no single position exceeding 15% of the total portfolio value. Short positions, if taken, would be constrained to 10% of the portfolio to limit overall risk exposure. Risk management includes setting stop-loss orders at a 2-3 standard deviation level from the average daily return to protect against significant losses, ensuring the strategy remains robust under market fluctuations."
+  ],
+  "seconds": 29.670481299996027,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 37
+}

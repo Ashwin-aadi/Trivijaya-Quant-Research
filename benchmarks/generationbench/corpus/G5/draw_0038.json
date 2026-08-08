@@ -1,0 +1,26 @@
+{
+  "index": 38,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy aims to identify and capitalize on trends by normalizing \"\n        \"price movements using historical volatility. High volatility periods are \"\n        \"expected to smooth out price movements, making it easier to detect true \"\n        \"trends.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        trends: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns or len(history[symbol].unique()) <= 1:\n                continue\n\n            # Calculate daily returns\n            close_values = [float(v) for v in history[symbol].to_list()]\n            returns = [(close_values[i] - close_values[i-1]) / close_values[i-1] if close_values[i-1] != 0 else float('nan') for i in range(1, len(close_values))]\n\n            # Calculate mean return and standard deviation\n            mean_return = sum(returns) / max(len(returns), 1)\n            std_dev = (sum([(r - mean_return)**2 for r in returns if not pl.col(\"r\").is_nan()]) / max(len(returns) - 1, 1))**0.5\n\n            # Normalize the last close by its historical volatility\n            normalized_close = history[symbol][-1] / std_dev if std_dev != 0 else float('nan')\n\n            trends[symbol] = normalized_close\n\n        top_trends = sorted(trends.items(), key=lambda x: abs(x[1]), reverse=True)[:5]\n\n        if not top_trends:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_trends)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, _ in top_trends}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4145,
+    "output_tokens": 1514
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several issues that could lead to its failure or incorrect implementation:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states the strategy aims to identify trends by normalizing price movements using historical volatility. However, the code directly calculates daily returns and then uses standard deviation without explicitly applying a moving window for volatility calculation. This discrepancy could lead to inaccurate results as it doesn't account for the actual historical volatility in a trend-following manner.\n\n2. **Potential Failure Cases**:\n   - Line 36: The check `if symbol not in history.columns or len(history[symbol].unique()) <= 1:` may fail if there are missing symbols in the `view.symbols` list, leading to potential errors.\n   - Line 45-49: The calculation of daily returns using `close_values` might introduce NaN values when encountering consecutive identical close prices, affecting subsequent calculations.\n\n3. **Fragile Parameters**:\n   - The parameter `window` in the `__init__` method is fixed at 20. This value may not be optimal for all datasets or market conditions. A more dynamic approach to setting this window based on historical data might improve robustness.\n   - The strategy only considers the top 5 trends, which could miss out on other significant trends if they are not among the top 5.\n\n4. **Potential Issues**:\n   - Line 30: The method `history(lookback=self._window + 1)` should ensure that there is enough data for volatility calculation.\n   - Line 62: Sorting and selecting top trends without considering their direction (positive or negative) might result in non-informative signals.\n\nOverall, while the concept of using historical volatility to smooth price movements and identify trends is sound, the implementation has several issues that could lead to incorrect results or operational failures. Improvements could include dynamically setting the window period, handling missing data more robustly, and considering trend directionality."
+  ],
+  "seconds": 38.33437550000053,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 79
+}

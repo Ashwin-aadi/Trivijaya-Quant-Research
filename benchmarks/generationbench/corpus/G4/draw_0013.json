@@ -1,0 +1,27 @@
+{
+  "index": 13,
+  "paradigm": "G4_planning",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"This strategy exploits short-horizon mean reversion by identifying stocks that deviate \"\n        \"significantly from their moving averages over a 5-day period. It capitalizes on the \"\n        \"tendency for stock prices to revert towards historical means, capturing temporary mispricings.\"\n    )\n\n    def __init__(self, window: int = 5, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        sma_series = (closes[\"adj_close\"] / closes[\"adj_close\"].rolling_sum(self._window) - 1.0).alias(\"sma\")\n        mean_reversion_df = (\n            closes\n                .with_column(sma_series)\n                .sort(\"session_date\", descending=False)\n                .select(\n                    pl.col(\"symbol\"),\n                    (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(-self._window) * (1 + sma_series[-1])).alias(\"reversion\")\n                )\n        )\n\n        def rank_signal(row):\n            return abs(row[\"reversion\"])\n\n        ranked_df = mean_reversion_df.with_column(pl.col(\"reversion\").rank(method=\"dense\", descending=True).alias(\"rank\"))\n        top_picks = ranked_df.sort(\"rank\").select(\"symbol\").to_series().to_list()[:self._top_n]\n\n        if not top_picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2572,
+    "output_tokens": 991
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan involves exploiting short-horizon mean reversion in Indian equity markets by capitalizing on stock price fluctuations around their long-term averages. The economic mechanism is based on the tendency for stock prices to revert to historical means due to market inefficiencies and investor behavior biases. This persistence may arise from market participants' delayed reactions to news, herd mentality, and emotional trading.\n\nThe rule would identify stocks deviating significantly from their mean price over a short period (e.g., 5-10 trading days). When a stock's price falls below its moving average, it triggers a buy signal. Conversely, when the price rises above its moving average, it signals a sell opportunity. This strategy aims to capture temporary mispricings and benefit from mean reversion tendencies in the market.",
+    "The precise signal for this systematic equity strategy involves computing the difference between the closing price of a stock and its simple moving average (SMA) over a 5-10 trading-day period. On a given day, for each stock, calculate:\n\n1. **Daily Close Price**: The closing price is taken as the most recent price in the daily data.\n2. **Simple Moving Average (SMA)**: Compute the SMA of the close prices over the lookback period (5-10 trading days).\n3. **Deviation from Mean**: Calculate the difference between the current day's closing price and the SMA.\n\nOn any given day, rank stocks based on the absolute value of their deviation from the mean. Stocks with higher absolute deviations are more likely to revert towards their means, thus triggering buy or sell signals:\n\n- **Buy Signal**: When a stock\u2019s close is below its SMA.\n- **Sell Signal**: When a stock\u2019s close is above its SMA.\n\nThis ranking helps in identifying stocks that are most likely to correct and provides a basis for trading decisions.",
+    "For this strategy, position sizing and risk management are crucial to ensure robust performance. Hold up to 30-50 stocks at any given time to balance diversification and liquidity. Weight positions based on the absolute deviation from mean but limit individual stock exposure to no more than 2% of the portfolio to mitigate concentration risk. Implement a stop-loss mechanism, setting it to protect against significant losses, ideally capping daily drawdowns at 1-2%. This approach balances capturing mean reversion opportunities with managing risk effectively."
+  ],
+  "seconds": 30.02863029999571,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 14
+}

@@ -1,0 +1,23 @@
+{
+  "index": 827,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"Combining short-term and long-term momentum signals aims to capture both the current \"\n        \"trend strength and its persistence over time. Short-term momentum identifies recent \"\n        \"price action, while long-term momentum indicates sustained performance.\"\n    )\n\n    def __init__(self, short_window: int = 5, long_window: int = 20) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._long_window + self._short_window - 1)\n        if closes.height < self._long_window + self._short_window - 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        short_moments: list[str] = []\n        long_moments: list[str] = []\n\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            short_values = [float(v) for v in closes[symbol].drop_nulls().to_list()[-self._short_window :]]\n            long_values = [float(v) for v in closes[symbol].drop_nulls().to_list()[-self._long_window :]]\n\n            if len(short_values) < self._short_window or len(long_values) < self._long_window:\n                continue\n\n            short_momentum = sum(short_values) / self._short_window\n            long_momentum = sum(long_values) / self._long_window\n\n            if short_momentum > 0 and long_momentum > 0:\n                short_moments.append(symbol)\n                long_moments.append(symbol)\n\n        combined_symbols = list(set(short_moments).intersection(long_moments))\n        if not combined_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(combined_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in combined_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 536
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.688370099989697,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 842
+}

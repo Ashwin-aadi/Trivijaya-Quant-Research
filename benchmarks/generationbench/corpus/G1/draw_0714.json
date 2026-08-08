@@ -1,0 +1,23 @@
+{
+  "index": 714,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks that have performed better than the broader market \"\n        \"can provide excess returns over time. This strategy focuses on relative strength.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        universe_mean = (\n            closes\n            .select(pl.col(\"adj_close\").mean().alias(\"universe_mean\"))\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"universe_mean\") - 1).alias(\"relative_strength\")\n            )\n            .sort(\"relative_strength\", descending=True)\n            .tail(self._window)[\"symbol\"]\n        ).to_list()\n\n        if not universe_mean:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(universe_mean)\n        return Signal(\n            information_available_at=stamp,\n            weights=dict(zip(universe_mean, [weight] * len(universe_mean))),\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 368
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.703118200006429,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 728
+}

@@ -1,0 +1,23 @@
+{
+  "index": 612,
+  "paradigm": "G2_cot",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed well \"\n        \"relatively to their peers in recent periods to continue outperforming over a longer \"\n        \"term. By identifying and investing in such stocks, we can capitalize on this effect.\"\n    )\n\n    def __init__(self, lookback_window: int = 30, top_n: int = 5) -> None:\n        self._lookback_window = lookback_window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback_window)\n        if closes.height < self._lookback_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute the relative performance of each stock\n        relative_performances = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns or len(closes[symbol].to_list()) < self._lookback_window:\n                continue\n\n            close_values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            recent_close = close_values[-1]\n            min_price = min(close_values)\n            max_price = max(close_values)\n\n            # Calculate the relative performance as the percentage change from the lowest to highest price\n            if max_price == min_price:\n                continue\n\n            rel_perf = (recent_close - min_price) / (max_price - min_price)\n            relative_performances.append((symbol, rel_perf))\n\n        # Sort by relative performance in descending order and pick top N performers\n        sorted_performances = sorted(relative_performances, key=lambda x: x[1], reverse=True)[: self._top_n]\n        picks = [s[0] for s in sorted_performances]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={p: weight for p in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1342,
+    "output_tokens": 543
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.415149299995392,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 622
+}

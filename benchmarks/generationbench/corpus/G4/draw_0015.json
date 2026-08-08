@@ -1,0 +1,27 @@
+{
+  "index": 15,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the anomaly in equity markets where smaller, less liquid stocks \"\n        \"often exhibit higher returns due to underpriced information. By selecting and equally \"\n        \"weighting the most liquid stocks from the Indian stock market, we aim to capture enhanced \"\n        \"returns while maintaining diversification and minimizing concentration risk.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_df = (\n            history.select(\n                pl.col(\"symbol\"), (pl.col(\"volume\").sum() / self._window).alias(\"avg_volume\")\n            )\n            .sort(\"avg_volume\", descending=True)\n            .head(self._top_n)[[\"symbol\"]]\n        )\n\n        if volume_df.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [str(row[0]) for row in volume_df.rows()]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2296,
+    "output_tokens": 766
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan exploits the anomaly in equity markets where smaller, less liquid stocks often exhibit higher returns due to underpriced information. This phenomenon persists because market inefficiencies can lead to mispricing of securities, particularly those with limited trading volumes. The strategy involves creating a portfolio by selecting a fixed number of equally weighted stocks from the most liquid segments of the Indian stock market, ensuring diversification while minimizing concentration risk. By equal weighting, we aim to balance out potential biases towards larger or more heavily traded stocks. This approach seeks to capture the enhanced returns from less liquid, yet fundamentally sound, companies that may be overlooked by investors due to liquidity constraints.",
+    "The signal for this systematic equity strategy is based on selecting stocks with the highest liquidity metrics. Daily computations involve calculating the average trading volume over a 30-day lookback period for each candidate stock. On a given day, all stocks in the selected liquid segments of the Indian market are ranked based on their average daily trading volume during the past 30 days. The top N (where N is a fixed number) equally weighted stocks from this ranking form the portfolio. This approach ensures that less liquid but fundamentally sound companies with higher potential returns due to market inefficiencies are included, while also maintaining diversification and minimizing concentration risk.",
+    "The strategy holds a fixed number of N equally weighted stocks (e.g., N = 20) to ensure diversification and minimize concentration risk. Each stock in the portfolio is assigned an equal weight, ensuring that no single stock dominates the portfolio's performance. To manage risk, the maximum allowable loss per day is set at 1% of the portfolio value, providing a clear limit on potential daily losses. This approach balances the capture of higher returns from less liquid stocks with prudent risk management."
+  ],
+  "seconds": 25.164186699999846,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 16
+}

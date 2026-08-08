@@ -1,0 +1,26 @@
+{
+  "index": 150,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks with the highest relative strength compared to the broader market \"\n        \"can potentially outperform. This strategy ranks assets based on their price momentum \"\n        \"relative to the NIFTY 100 index and allocates capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_history = history.select(pl.col(\"adj_close\").filter(pl.col(\"symbol\") == \"NIFTY\")).to_series()\n        if nifty_history.is_null().sum() > 0 or len(nifty_history) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_returns = (nifty_history / nifty_history.shift(1) - 1.0).to_list()[1:]\n        asset_returns = history.select(\n            [pl.col(f\"adj_close/{pl.col('symbol').shift(1)}-1\").alias(\"return\") for symbol in view.symbols]\n        ).transpose().drop_nulls().to_series()\n\n        strength_scores = (asset_returns / nifty_returns).mean(axis=0)\n        top_scorers = [symbol for _, symbol in sorted(zip(strength_scores.to_list(), view.symbols), reverse=True)[:self._top_n]]\n\n        if not top_scorers:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_scorers)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_scorers},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4106,
+    "output_tokens": 1484
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains some weaknesses and potential issues:\n\n### Strengths:\n- **Rationale**: The strategy aims to identify stocks with the highest relative strength compared to the NIFTY 100 index, potentially outperforming by allocating capital accordingly. This rationale is clear and aligns well with the code implementation.\n\n### Issues and Criticisms:\n\n1. **Fragile Parameters**:\n   - **Line 24**: `top_scorers = [symbol for _, symbol in sorted(zip(strength_scores.to_list(), view.symbols), reverse=True)[:5]]` \n     - The parameter `5` is hard-coded to select the top 5 assets based on relative strength. This number should be configurable or dynamically adjusted based on historical performance.\n   \n2. **Potential Data Issues**:\n   - **Line 19**: `if history.height < self._window + 1:` \n     - If there's insufficient data, the strategy fails without returning a meaningful signal. Consider handling this case with alternative logic or providing default weights.\n\n3. **Assumptions About Data**:\n   - **Lines 20-22**: The code assumes that `nifty_history` will always have non-null values and that they are in the correct format.\n     - If the NIFTY data is missing or formatted incorrectly, this could lead to runtime errors.\n\n4. **Simplistic Return Calculation**:\n   - **Lines 31-32**: The use of `adj_close / adj_close.shift(1) - 1` for calculating returns might not be suitable if there are significant gaps in the data.\n     - Consider using a more robust method like log returns.\n\n5. **Weight Allocation**:\n   - **Line 46**: `weight = 1.0 / len(top_scorers)` \n     - This simple equal weighting approach might not reflect actual market conditions or risk preferences.\n\n### Fragile Sections:\n- The hard-coded top 5 assets selection (line 24) and the assumptions about non-null data (lines 20-22) are particularly fragile. These should be reviewed for robustness.\n\nIn summary, while the strategy is conceptually sound, it could benefit from more flexible parameter handling, improved error checking, and a more sophisticated method for calculating returns and weights."
+  ],
+  "seconds": 37.73388779999914,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 304
+}

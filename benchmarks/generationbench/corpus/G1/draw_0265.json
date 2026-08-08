@@ -1,0 +1,23 @@
+{
+  "index": 265,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that asset prices and returns eventually return to the long-term \"\n        \"average. In a short-horizon context, recent extreme price movements are likely to reverse.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = history.select(\n            pl.col(\"symbol\").alias(\"symbol\"),\n            (pl.col(\"adj_close\").mean().alias(\"mean\")),\n        ).to_vertical()\n\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_reversion_scores: list[float] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or symbol not in closes.columns:\n                continue\n            close_values = [float(v) for v in closes[symbol].to_list()]\n            mean_close_value = float(mean_close.filter(pl.col(\"symbol\") == symbol)[0][\"mean\"])\n            score = (close_values[-1] - mean_close_value) / mean_close_value\n\n            if abs(score) > 2:  # Considering scores with absolute value greater than 2 as extreme\n                mean_reversion_scores.append(score)\n\n        symbols_with_extreme_moves = [s for s in view.symbols if any(v != 0 for v in mean_reversion_scores)]\n        weight = 1.0 / len(symbols_with_extreme_moves)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in symbols_with_extreme_moves}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 499
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.380485500005307,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 270
+}

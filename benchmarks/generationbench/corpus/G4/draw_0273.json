@@ -1,0 +1,27 @@
+{
+  "index": 273,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilt(Strategy):\n    rationale = (\n        \"Historically, lower volatility stocks tend to outperform higher volatility ones over time \"\n        \"due to risk aversion among investors. This strategy selects the top decile of least volatile \"\n        \"stocks based on their 12-month historical volatility scores.\"\n    )\n\n    def __init__(self, window: int = 365) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                ((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\"))\n            )\n            .sort(\"session_date\")\n            .drop_nulls()\n        )\n\n        # Compute 12-month volatility for each stock\n        volatilities = (\n            history.groupby(\"symbol\")\n            .agg((pl.col(\"r\").std().alias(\"volatility\")))\n            .select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volatility\") * 100).alias(\"volatility_pct\"),  # Convert to percentage for readability\n            )\n        )\n\n        # Rank stocks by volatility\n        ranks = volatilities.sort(\"volatility\", descending=False).with_column(\n            pl.arange(1, pl.count() + 1).over(\"symbol\").alias(\"rank\")\n        )\n\n        # Get top decile of low-volatility stocks\n        top_decile_count = int(volatilities.height * 0.1)\n        selected_symbols = ranks.filter(pl.col(\"rank\") <= top_decile_count)[\"symbol\"].to_list()\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Equal weight allocation for the selected stocks\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in selected_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilt",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2457,
+    "output_tokens": 983
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy focuses on exploiting the low-volatility anomaly in the Indian equity market. Historically, lower volatility stocks tend to outperform higher volatility ones over time, likely due to risk aversion among investors leading them to favor less volatile assets. This phenomenon might persist because markets often misprice risk, and low-volatility tilts can reduce overall portfolio risk while potentially enhancing returns.\n\nThe rule for this strategy would involve constructing a portfolio that systematically selects stocks with the lowest historical volatility scores. Specifically, one could rank all equities based on their 12-month historical volatility and select the top decile to form the long position. This approach ensures that the portfolio is always exposed to lower-risk assets, potentially benefiting from both reduced risk and enhanced returns associated with low-volatility tilting.",
+    "The signal for this strategy involves computing the 12-month historical volatility of each stock's price. Volatility is calculated using the standard deviation of daily returns over the past year. Specifically, for each equity, the daily returns are derived from its open, high, low, and close prices, and then the standard deviation of these returns is computed over a 12-month lookback period.\n\nOn any given day, all equities in the market are ranked based on their historical volatility scores, with lower values indicating lower risk. The top decile of stocks by this measure forms the long position for the portfolio. This ranking process ensures that the strategy consistently selects the least volatile stocks, aligning with the low-volatility anomaly and potentially offering reduced risk and enhanced returns.",
+    "This strategy will hold positions in the top decile of low-volatility stocks, approximately 20-30 equities. Positions are equally weighted to simplify management while ensuring diversification benefits. To manage risk, the portfolio limits any single stock's weight to no more than 5% of the total portfolio value, and the overall portfolio volatility is capped at 10%, preventing excessive exposure in volatile market conditions. These bounds aim to balance active positions with controlled risk levels, aligning with low-volatility strategy principles."
+  ],
+  "seconds": 29.721985099997255,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 278
+}

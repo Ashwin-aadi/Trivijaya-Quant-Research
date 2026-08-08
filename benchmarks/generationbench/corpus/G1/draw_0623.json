@@ -1,0 +1,23 @@
+{
+  "index": 623,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"Combining a 20-day moving average crossover with relative strength provides a balanced \"\n        \"approach to selecting stocks. The moving average gives a trend signal while relative \"\n        \"strength indicates which assets are performing better than the market.\"\n    )\n\n    def __init__(self, ma_window: int = 20, rs_window: int = 10) -> None:\n        self._ma_window = ma_window\n        self._rs_window = rs_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._ma_window + self._rs_window)\n        if closes.height < self._ma_window + self._rs_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        ma_values = []\n        rs_values = []\n\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            history = view.history(lookback=self._ma_window + self._rs_window)\n            close_prices = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            ma_close_price = sum(close_prices[-self._ma_window:]) / self._ma_window\n            ma_values.append(ma_close_price)\n\n            rs_history = history.select(\n                pl.col(\"symbol\"), pl.col(\"adj_close\").sort(descending=True).head(self._rs_window)\n            ).collect()\n            rs_close_prices = [float(v) for v in rs_history[symbol].to_list()]\n            if len(rs_close_prices) >= self._rs_window:\n                avg_rs_close_price = sum(rs_close_prices[-self._rs_window:]) / self._rs_window\n                rs_values.append(avg_rs_close_price)\n            else:\n                rs_values.append(None)\n\n        ma_ranked = sorted(zip(view.symbols, ma_values), key=lambda x: -x[1])\n        rs_ranked = sorted(zip(view.symbols, rs_values), key=lambda x: -x[1])\n\n        selected_symbols = set()\n        for symbol, _ in ma_ranked[:5]:\n            if rs_values[symbols.index(symbol)] is not None and \\\n                    (symbol not in selected_symbols):\n                selected_symbols.add(symbol)\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in selected_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 626
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 18.43862449999142,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 636
+}

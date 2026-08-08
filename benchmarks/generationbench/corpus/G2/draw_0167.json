@@ -1,0 +1,23 @@
+{
+  "index": 167,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeTrendBreakout(Strategy):\n    rationale = (\n        \"We hypothesize that stocks which have recently broken out of their long-term trends \"\n        \"are likely to continue in the direction of their recent momentum. This strategy aims \"\n        \"to identify such stocks by combining a short-term breakout signal with a longer-term \"\n        \"trend change.\"\n    )\n\n    def __init__(self, short_window: int = 20, long_window: int = 100) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._short_window + self._long_window - 1)\n        if closes.height < self._short_window + self._long_window - 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        short_breakouts: list[str] = []\n        long_trends: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n\n            short_prices = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(short_prices) < self._short_window + self._long_window - 1:\n                continue\n\n            # Check for a breakout\n            if (\n                (short_prices[-1] > max(short_prices[-self._short_window :]))\n                and short_prices[-20:] != sorted(short_prices[-20:])\n            ):\n                short_breakouts.append(symbol)\n\n            # Calculate long-term trend change\n            long_trend = float(\n                (short_prices[-1] - short_prices[0])\n                / sum(short_prices[: self._long_window]) * 100.0\n            )\n            if abs(long_trend) > 2.0:\n                long_trends[symbol] = long_trend\n\n        # Select symbols that have both a recent breakout and a significant long-term trend change\n        picks: list[str] = [\n            symbol for symbol in short_breakouts if long_trends.get(symbol, 0.0) != 0.0\n        ]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeTrendBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 613
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.802723299995705,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 172
+}

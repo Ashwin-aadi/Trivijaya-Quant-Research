@@ -1,0 +1,23 @@
+{
+  "index": 388,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Reversion to the mean suggests that prices which have deviated significantly from their \"\n        \"historical average should tend to revert. By identifying such deviations and trading \"\n        \"against them, we can exploit this tendency for profit.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_close = closes.mean().to_dict()[\"adj_close\"]\n        deviations = [\n            (symbol, abs(float(close) - avg_close))\n            for symbol, close in zip(view.symbols, closes[\"session_date\", \"adj_close\"].to_dict()[\"adj_close\"])\n        ]\n\n        # Identify top N symbols with the largest absolute deviations\n        top_n_symbols = sorted(deviations, key=lambda x: x[1], reverse=True)[:5]\n        picks = [symbol for symbol, _ in top_n_symbols]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 400
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.423158699995838,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 396
+}

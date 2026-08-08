@@ -1,0 +1,23 @@
+{
+  "index": 37,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion(Strategy):\n    rationale = (\n        \"Mean reversion suggests that stock prices and investment returns will eventually \"\n        \"reverse after a significant deviation from the mean. In short-term trading, \"\n        \"extreme price movements often revert to historical norms.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_prices = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            prices = [float(v) for v in history[symbol].to_list()]\n            mean_price = sum(prices) / self._window\n            deviation = abs(prices[-1] - mean_price)\n            symbol_prices[symbol] = deviation\n\n        sorted_symbols = [\n            s for s, _ in sorted(symbol_prices.items(), key=lambda item: item[1])\n        ]\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbol = sorted_symbols[0]\n        weight = 1.0\n        return Signal(\n            information_available_at=stamp, weights={top_symbol: weight}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 389
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.272118599998066,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 40
+}

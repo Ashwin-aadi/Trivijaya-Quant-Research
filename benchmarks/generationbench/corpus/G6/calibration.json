@@ -1,0 +1,49 @@
+{
+  "arm": "G6",
+  "paradigm": "G6_graph_of_thoughts",
+  "n_strategies": 13,
+  "tolerance": 1e-09,
+  "wall_minutes": 2.2981781966666555,
+  "criterion_nondeterministic": "net Sharpe changes across a replicate at fixed PYTHONHASHSEED, or across two hash seeds; tolerance 1e-9",
+  "criterion_knife_edge": "deterministic by the above, yet net Sharpe differs by more than the tolerance between the real panel and its identity reconstruction",
+  "n_unseeded_random": 2,
+  "unseeded_random": [
+    {
+      "name": "candidate_069",
+      "left": 0.9311795630574206,
+      "right": 0.9273354004307082,
+      "abs_diff": 0.0038441626267123885
+    },
+    {
+      "name": "candidate_060",
+      "left": 0.02893902072528964,
+      "right": 0.028657654023221766,
+      "abs_diff": 0.00028136670206787423
+    }
+  ],
+  "n_nondeterministic": 2,
+  "nondeterministic": [
+    {
+      "name": "candidate_069",
+      "left": 0.9311795630574206,
+      "right": 0.9266761859868603,
+      "abs_diff": 0.004503377070560255
+    },
+    {
+      "name": "candidate_060",
+      "left": 0.02893902072528964,
+      "right": 0.027217910612232818,
+      "abs_diff": 0.0017211101130568222
+    }
+  ],
+  "n_reconstruction_sensitive": 3,
+  "n_knife_edge": 1,
+  "knife_edge": [
+    {
+      "name": "candidate_068",
+      "left": -2.3918593741754743,
+      "right": -2.9992589492652266,
+      "abs_diff": 0.6073995750897523
+    }
+  ]
+}

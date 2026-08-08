@@ -1,0 +1,23 @@
+{
+  "index": 694,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalBreakout(Strategy):\n    rationale = (\n        \"Certain stocks in India exhibit stronger performance during specific seasons or holidays. \"\n        \"For instance, agricultural-related stocks might see increased trading volumes and prices during harvest periods. \"\n        \"Identifying these patterns can provide a basis for timing entries into the market.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Define the holiday season as the last 30 days of November and first 15 days of January\n        holiday_season = {str(date(y, 11, 25)) for y in range(2020, 2024)} | {\n            str(d) for d in [date(y, 1, m) for y in range(2020, 2024) for m in range(1, 16)]\n        }\n\n        # Filter the close prices to only include those within the holiday season\n        relevant_closes = closes.filter(pl.col(\"session_date\").is_in(holiday_season))\n        \n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in relevant_closes.columns:\n                continue\n            \n            values = [float(v) for v in relevant_closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            if values[-1] >= max(values):\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 544
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.333055299997795,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 705
+}

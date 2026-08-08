@@ -1,0 +1,46 @@
+{
+  "index": 0,
+  "paradigm": "G7_mcts",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy selects stocks based on their recent high price performance. \"\n        \"Higher highs indicate stronger intraday momentum and potential for future gains.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 50) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily high returns\n        history = (\n            history.sort(\"session_date\")\n            .with_columns(\n                (pl.col(\"high\") / pl.col(\"high\").shift(1) - 1.0).alias(\"return\")\n            )\n            .select([\"symbol\", \"session_date\", \"return\"])\n        )\n\n        # Select top N symbols with highest average returns\n        avg_returns = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n            .sort(\"avg_return\", descending=True)\n            .head(self._top_n)\n        )\n\n        picks: list[str] = [row[\"symbol\"] for row in avg_returns.to_dicts()]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19175,
+    "output_tokens": 5780
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the cross-sectional momentum strategy, I propose using the daily closing price as the signal, measuring the returns over a 60-day lookback period. This approach captures medium-term trends while filtering out short-term noise.",
+    "For the cross-sectional momentum strategy, I propose using the daily high price as the signal, measuring the returns over a 30-day lookback period. This approach focuses on intraday strength and captures more timely trends in stock performance.",
+    "For the portfolio rule, we will hold a fixed number of 30 names in the portfolio, equally weighted, ensuring simplicity and reducing management complexity while capturing significant market trends.",
+    "For the portfolio rule, we will hold a total of 50 names in the cross-sectional momentum strategy, with each name weighted equally at 2% to ensure a balanced distribution of risk and capitalize on diverse market opportunities.",
+    "For the portfolio rule, we will hold a fixed number of 30 names in the portfolio, equally weighted, ensuring simplicity and reducing management complexity while capturing significant market trends.",
+    "For the portfolio rule, we will hold a total of 50 names in the cross-sectional momentum strategy, with each name weighted equally at 2%. This approach ensures a balanced distribution of risk and allows for capitalization on diverse market opportunities.",
+    "For the risk rule, we will set an individual position loss bound of -5% to limit potential losses on any single stock, and a portfolio-wide loss bound of -10% to control overall risk exposure, stopping trading if either threshold is breached. This ensures that no single stock can significantly impact the portfolio while maintaining market participation.",
+    "For the risk rule, I propose setting an individual position loss limit of -5%, which will trigger a stop-loss order to sell the position if the daily return falls below this threshold. Additionally, the portfolio-wide drawdown limit is set at -10% over any 30-day period, stopping further trading until the portfolio recovers to prevent excessive risk exposure.",
+    "For the risk rule, I propose setting a stop-loss threshold of -5% for individual positions and limiting overall portfolio losses to -3%. These bounds will protect against severe drawdowns while allowing the strategy to capture significant market trends.",
+    "For the risk rule, I propose setting an individual position loss bound of -5% to prevent significant drawdowns on any single stock. Additionally, the strategy will stop trading if the portfolio loss exceeds -10%, ensuring overall risk is managed effectively.",
+    "For the risk rule, I propose setting an individual position loss bound of -5% to prevent significant drawdowns on any single stock. This limit ensures that no single investment can cause excessive loss, maintaining stability in the strategy. Additionally, the strategy will stop trading if the portfolio loss exceeds -10%, safeguarding against broader market downturns and protecting capital."
+  ],
+  "seconds": 204.31085409998195,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 12
+}

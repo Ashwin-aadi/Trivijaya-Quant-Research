@@ -1,0 +1,27 @@
+{
+  "index": 258,
+  "paradigm": "G4_planning",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"By selecting stocks based on their relative strength against the broad market universe, \"\n        \"we aim to capitalize on persistent performance trends. Strong performers are expected to \"\n        \"outperform weak ones over time due to underlying structural or fundamental advantages.\"\n    )\n\n    def __init__(self, lookback: int = 12, top_n: int = 10) -> None:\n        self._lookback = lookback\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback)\n        if closes.height < self._lookback * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        cumulative_returns = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._lookback:\n                continue\n            last_close = values[-1]\n            start_close = values[0]\n            cumulative_return = (last_close / start_close - 1.0) * 100\n            cumulative_returns[symbol] = cumulative_return\n\n        ranked_symbols = sorted(cumulative_returns.items(), key=lambda x: x[1], reverse=True)\n        top_decile, bottom_decile = _get_deciles(ranked_symbols)\n\n        if not top_decile or not bottom_decile:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_top = 0.05 / len(top_decile)\n        weight_bottom = -0.05 / len(bottom_decile)\n        weights = {symbol: weight_top for symbol in top_decile}\n        for symbol in bottom_decile:\n            weights[symbol] = weight_bottom\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _get_deciles(ranked_symbols: list[tuple[str, float]]) -> tuple[list[str], list[str]]:\n    total_stocks = len(ranked_symbols)\n    top_n = min(total_stocks // 10 * 2, total_stocks)  # Top two deciles combined\n    bottom_n = min(total_stocks - top_n, total_stocks // 10)\n\n    return [symbol for symbol, _ in ranked_symbols[:top_n]], [symbol for symbol, _ in ranked_symbols[-bottom_n:]]",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2403,
+    "output_tokens": 1017
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy based on relative strength against the broad universe for the Indian market, we will exploit the economic phenomenon where stocks with strong performance outperform those with weak performance over time. This persistence could be due to ongoing structural or fundamental advantages in the outperforming stocks.\n\nThe rule would involve:\n1. **Ranking Stocks**: Periodically rank all listed Indian equities based on their recent returns.\n2. **Selecting Winners and Losers**: Identify a top decile of strong performers and a bottom decile of underperformers.\n3. **Constructing Portfolios**: Long the top decile and short the bottom decile to benefit from the relative outperformance.\n\nThis approach aims to capture excess returns by betting on market-wide momentum, leveraging the persistence in stock performance rankings over time.",
+    "The precise signal for this systematic equity strategy involves computing the 12-month cumulative return for each listed Indian equity based on its daily open, high, low, close, and volume data. This lookback period of 12 months helps capture longer-term performance trends. On any given day, all stocks are ranked from highest to lowest based on their 12-month cumulative returns. The top decile of stocks with the highest returns are selected for long positions, while the bottom decile with the lowest returns are selected for short positions. This ranking process allows the strategy to capitalize on the observed persistence in stock performance over time.",
+    "This systematic equity strategy holds positions in 20 stocks each\u201410 for long and 10 for short, representing the top and bottom deciles based on 12-month cumulative returns. Each position is equally weighted to maintain simplicity and diversification benefits. To manage risk, the total portfolio exposure is capped at 5% of the capital base, ensuring that no single trade can result in losses exceeding this limit, thus protecting against extreme market movements or underperformance of a particular stock."
+  ],
+  "seconds": 30.371181700000307,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 263
+}

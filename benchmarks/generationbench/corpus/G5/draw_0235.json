@@ -1,0 +1,26 @@
+{
+  "index": 235,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates a market is consolidating, which can be a precursor to \"\n        \"a breakout or reversal. By identifying symbols where the range has compressed recently, \"\n        \"we aim to capture potential breakout opportunities.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n\n            open_vals = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"open\"].drop_nulls().to_list()]\n            close_vals = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"close\"].drop_nulls().to_list()]\n\n            if len(open_vals) < self._window or len(close_vals) < self._window:\n                continue\n\n            high = max([float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"high\"].drop_nulls().to_list()])\n            low = min([float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"low\"].drop_nulls().to_list()])\n\n            recent_open_range = (max(open_vals[-self._window:]) - min(open_vals[-self._window:])) / high\n            recent_close_range = (max(close_vals[-self._window:]) - min(close_vals[-self._window:])) / low\n\n            range_compression_scores[symbol] = abs(high - low) / (high + low)\n\n        sorted_scores = sorted(range_compression_scores.items(), key=lambda x: x[1], reverse=True)\n        picks = [symbol for symbol, score in sorted_scores[:5]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4181,
+    "output_tokens": 1539
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains potential issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states identifying symbols with compressed ranges to capture breakout opportunities. However, the code calculates a single range compression score for each symbol without considering how recent or significant the compression is (line 24-36). This could miss dynamic changes in market conditions.\n\n2. **Potential Failures**:\n   - The strategy may fail if there are too few historical data points. If `history.height` is less than the window size, it returns an empty weights dictionary (line 19), which might not provide useful signals.\n   - The calculation of range compression scores uses the maximum and minimum values in the last window period without considering recent trends (lines 25-36). This could lead to false positives if the data points are very old or irrelevant.\n\n3. **Fragile Parameters**:\n   - The `window` parameter is hardcoded at 20 but might not be optimal for all markets or timeframes. Adjusting this value would require retesting (line 7).\n   - The strategy only picks the top 5 symbols, which could lead to overconcentration in a few assets if they are highly correlated.\n\n4. **Potential Issues**:\n   - The `_latest_visible` function assumes that all data is visible and does not handle cases where there might be missing sessions or incomplete data (line 56).\n   - The `polars` library is used for data manipulation, but the code assumes certain behaviors of `polars`, such as the existence of `\"symbol\"`, `\"open\"`, etc. columns (lines 27-30).\n\nOverall, while the strategy has a sound rationale and uses appropriate libraries, it could benefit from more robust handling of edge cases and dynamic parameter adjustments."
+  ],
+  "seconds": 38.83163539999987,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 476
+}

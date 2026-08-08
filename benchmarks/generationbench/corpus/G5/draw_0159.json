@@ -1,0 +1,26 @@
+{
+  "index": 159,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity is a proxy for marketability and can indicate the ease of trading. \"\n        \"This strategy screens for symbols with high liquidity (volume) and \"\n        \"allocates equal weights to them.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_screened = (\n            history.groupby(\"symbol\")\n                   .agg(\n                       pl.col(\"volume\").mean().alias(\"avg_volume\"),\n                       pl.col(\"adj_close\").last().alias(\"latest_close\"),\n                   )\n                   .sort(\"avg_volume\", descending=True)\n                   .head(self._top_n)  # Adjust the number of top symbols as needed\n        )\n\n        if liquidity_screened.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [row[\"symbol\"] for row in liquidity_screened.to_dicts()]\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3849,
+    "output_tokens": 1241
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This systematic equity trading strategy has several strengths but also contains some potential issues:\n\n### Strengths:\n1. **Rationale**: The strategy aims to select high-liquidity symbols (as measured by volume) for equal weighting, which aligns with the rationale provided.\n\n2. **Code Implementation**:\n   - The `LiquidityScreenedEqualWeighting` class is well-defined and follows a clear structure.\n   - It correctly uses Polars for data manipulation, ensuring efficient processing of large datasets.\n\n### Issues:\n\n1. **Rationale vs Code Disagreement**:\n   - Line 30: The rationale states that liquidity screens are used to indicate the ease of trading, but the code only considers average volume as a proxy for liquidity without addressing other factors like bid-ask spread or market depth.\n   - This discrepancy could lead to suboptimal strategies since not all high-volume securities might be easily tradable.\n\n2. **Potential Failures**:\n   - Line 37: The `history.is_empty()` check is redundant because the subsequent aggregation step will handle empty data gracefully.\n   - Line 46: The hard-coded number of top symbols (`5`) can lead to performance issues if the universe of securities grows significantly, or it might exclude important symbols.\n\n3. **Fragile Parameters**:\n   - The `window` parameter (line 8) and the fixed number of top symbols (line 46) are static values that may not work well in all market conditions.\n   - Line 21: The use of `view.history(lookback=self._window)` assumes the availability of historical data, which might be inconsistent or delayed.\n\n4. **Potential Stopping Points**:\n   - If the view history contains no symbols (line 37), the strategy returns an empty weights dictionary.\n   - Line 29: The `.head(5)` method call could fail if `history` has fewer than five non-empty records, leading to a runtime error.\n\n### Conclusion:\nWhile the core idea of screening for high-liquidity securities is sound, the implementation has room for improvement. Specifically, incorporating additional liquidity metrics and dynamic parameter handling would make this strategy more robust and adaptable. Additionally, ensuring consistent data availability and handling edge cases properly are crucial for reliable performance."
+  ],
+  "seconds": 32.79739879999943,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 322
+}

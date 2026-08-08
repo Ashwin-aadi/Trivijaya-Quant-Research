@@ -1,0 +1,23 @@
+{
+  "index": 563,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"Combining short-term momentum with long-term trend-following can provide a more \"\n        \"robust signal. Short-term momentum captures recent strength, while long-term trends \"\n        \"indicate sustained performance.\"\n    )\n\n    def __init__(self, short_window: int = 10, long_window: int = 60) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._long_window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        short_moments = (history[\"adj_close\"] / history[\"adj_close\"].shift(self._short_window) - 1.0).alias(\"short_moment\")\n        long_trends = (history[\"adj_close\"] / history[\"adj_close\"].shift(self._long_window) - 1.0).alias(\"long_trend\")\n\n        momentum_history = history.with_columns(short_moments, long_trends)\n        if momentum_history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        positive_short = (momentum_history[\"short_moment\"] > 0).sum()\n        negative_long = (momentum_history[\"long_trend\"] < 0).sum()\n\n        if positive_short == 0 or negative_long >= self._long_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks = [symbol for symbol in view.symbols if symbol in momentum_history.columns]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 479
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.262820099997043,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 572
+}

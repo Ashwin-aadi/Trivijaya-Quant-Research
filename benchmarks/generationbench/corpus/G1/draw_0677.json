@@ -1,0 +1,23 @@
+{
+  "index": 677,
+  "paradigm": "G1_plain",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"If a stock breaks out of its recent range and then retraces part of that move, \"\n        \"it is likely to continue in the breakout direction. This strategy identifies such \"\n        \"breakouts and signals positions based on their potential for continuation.\"\n    )\n\n    def __init__(self, window: int = 20, retrace_fraction: float = 0.5) -> None:\n        self._window = window\n        self._retrace_fraction = retrace_fraction\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * 2 + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window * 2 + 1:\n                continue\n            high, low, close = max(values), min(values), values[-1]\n            breakout_high = high - low\n            retrace_low = close - (high - self._retrace_fraction * breakout_high)\n            retrace_high = close + (high - self._retrace_fraction * breakout_high)\n\n            if (\n                close > high and\n                any(v < retrace_high and v > retrace_low for v in values[:-1])\n            ):\n                picks.append(symbol)\n\n        picks = list(set(picks))  # Remove duplicates\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1243,
+    "output_tokens": 504
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.227267199996277,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 690
+}

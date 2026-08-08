@@ -1,0 +1,27 @@
+{
+  "index": 51,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the anomaly where small-cap stocks often outperform large caps in the Indian market. By using a liquidity screen to filter stocks with high trading volume and equal-weighting them, we aim to capture this effect without overconcentration in any single stock. The persistence of this phenomenon may stem from asymmetric information and institutional trading biases.\"\n    )\n\n    def __init__(self, top_n: int = 30, lookback_days: int = 30) -> None:\n        self._top_n = top_n\n        self._lookback_days = lookback_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_data = (\n            history.group_by(\"symbol\")\n            .agg(\n                pl.col(\"volume\").mean().alias(\"avg_volume\"),\n            )\n            .sort(\"avg_volume\", descending=True)\n            .head(self._top_n)\n        )\n\n        if liquidity_data.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = [row[\"symbol\"] for row in liquidity_data.iter_rows()]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2163,
+    "output_tokens": 714
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy involves exploiting the anomaly where small-cap stocks often outperform large caps in the Indian market. By using a liquidity screen to filter stocks with high trading volume and equal weighting them, we aim to capture this effect without overconcentration in any single stock. The persistence of this phenomenon may stem from asymmetric information and institutional trading biases. Our rule would select top 20-30 most liquid stocks monthly and equally weight them in the portfolio to balance risk exposure while leveraging potential returns from small-cap stocks.",
+    "The signal for this strategy is based on liquidity metrics. Each day, compute the average daily trading volume over a 30-day lookback period for each stock in the Indian market. Rank all stocks by their average trading volume, selecting the top 20-30 most liquid stocks. On a given day, equal-weight these selected stocks to form the portfolio. This approach focuses on identifying and weighting the most actively traded small-cap stocks, leveraging the observed outperformance of this segment while managing risk through diversification.",
+    "This strategy holds a portfolio of 20-30 most liquid stocks selected monthly based on average daily trading volume over a 30-day lookback period. Each stock in the portfolio is equally weighted to balance risk exposure. To manage potential losses, the strategy limits the total portfolio value at-risk to no more than 15% of the total capital, ensuring diversification across multiple names while controlling for concentration risk and downside protection."
+  ],
+  "seconds": 24.24108260000503,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 53
+}

@@ -1,0 +1,23 @@
+{
+  "index": 642,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks with the highest relative strength against the NIFTY 100 index \"\n        \"helps identify outperformers. This strategy assumes that such stocks are more likely \"\n        \"to continue their upward trend.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate relative strength\n        symbol_closes = {symbol: [float(v) for v in closes[symbol].drop_nulls().to_list()] for symbol in view.symbols}\n        nifty_close = symbol_closes[\"^NIFTY 100\"]\n        rel_strengths = [(symbol_closes[symbol][-1] / nifty_close[-1]) - 1.0 for symbol in view.symbols]\n        \n        top_symbols = [view.symbols[i] for i, _ in sorted(zip(range(len(rel_strengths)), rel_strengths), key=lambda x: x[1], reverse=True)[:3]]\n        weight = 1.0 / len(top_symbols)\n        \n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 407
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.134549599999445,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 655
+}

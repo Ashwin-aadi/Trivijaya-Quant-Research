@@ -1,0 +1,26 @@
+{
+  "index": 249,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over long periods. \"\n        \"By tilting the portfolio towards low volatility, we can potentially enhance returns.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window or len(history.columns) < len(view.symbols) + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility: dict[str, float] = {}\n        for symbol in view.symbols:\n            symbol_history = history.select(pl.col(\"symbol\") == symbol).select(\"adj_close\")\n            if symbol_history.height < self._window:\n                continue\n            close_values = [float(v) for v in symbol_history.drop_nulls().to_list()]\n            volatility[symbol] = ((pl.Series(close_values).std()) / pl.Series(close_values).mean()).round(4)\n\n        sorted_symbols = [k for k, _ in sorted(volatility.items(), key=lambda item: item[1])]\n        top_n_symbols = sorted_symbols[:5]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3985,
+    "output_tokens": 1325
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This systematic equity trading strategy for LowVolatilityTilting appears to have a few potential issues:\n\n1. **Rationale vs Code**: The rationale suggests the goal is to tilt towards low-volatility stocks to enhance returns over long periods. However, the code only selects the top 5 symbols with the lowest volatility and assigns them equal weights (line 32). This does not explicitly favor lower volatility but rather equally distributes weight among selected high-performing (in terms of volatility) assets.\n\n2. **Volatility Calculation**: The volatility is calculated using a simple mean and standard deviation ratio, which might not be the most accurate or robust measure for all types of markets or time periods. Lines 15-23 handle this calculation. More sophisticated methods like exponentially weighted moving average (EWMA) could provide better insights.\n\n3. **Parameter Fragility**: The parameter `window` is hardcoded to 20 (line 7). While a fixed window can be appropriate in some cases, it might not capture the market dynamics effectively over different time periods or economic conditions. A more flexible approach, such as dynamically adjusting this based on historical data, could improve performance.\n\n4. **Data Availability Check**: The check for sufficient history and columns (lines 12-13) is good but should be more robust. Handling missing values or ensuring complete data sets before proceeding with the volatility calculation can prevent errors.\n\n5. **Potential Failure Cases**:\n   - If less than 5 symbols are selected due to insufficient data, a failure occurs (line 30).\n   - The `view.history()` function might return empty data (line 12), leading to incorrect signal generation if not handled properly.\n   - Assuming all symbols have the same number of closing prices for volatility calculation might lead to issues with incomplete or irregularly spaced data.\n\n6. **General Soundness**: The core logic of selecting top 5 low-volatility stocks and assigning equal weights is sound, provided that the volatility measure and other checks are robust.\n\nOverall, while the strategy has a clear rationale and basic implementation, it could benefit from more sophisticated metrics, dynamic parameters, and better error handling."
+  ],
+  "seconds": 34.468612500000745,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 505
+}

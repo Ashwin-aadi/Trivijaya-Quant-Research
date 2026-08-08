@@ -1,0 +1,26 @@
+{
+  "index": 241,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion strategies seek to capitalize on deviations from an asset's historical \"\n        \"mean price. When prices deviate significantly from the mean in a short time frame, \"\n        \"there is often a tendency for them to revert to their average value.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.select(pl.col(\"adj_close\").mean()).collect().get(0).item(float)\n        )\n        reversion_symbols = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            recent_close = values[-1]\n            z_score = (recent_close - mean_close) / (\n                history.select(pl.col(\"adj_close\").stddev()).collect().get(0).item(float)\n                or 1e-6  # Avoid division by zero\n            )\n            if abs(z_score) > 2.0:\n                reversion_symbols.append(symbol)\n\n        weight = 1.0 / len(reversion_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in reversion_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3987,
+    "output_tokens": 1350
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code generally aligns well with its mean reversion rationale but contains some potential issues and fragilities:\n\n1. **Rationale vs Code Discrepancy**:\n   - The strategy aims to capitalize on deviations from an asset's historical mean price, but the implementation focuses solely on recent close prices (`closes`). While this is a form of mean reversion, it might not fully capture the intended behavior because it only uses the most recent data points.\n\n2. **Potential Failures**:\n   - Line 18: The `history.is_empty()` check returns an empty DataFrame, but the code does not handle scenarios where historical data exists but no recent close prices are available.\n   - Lines 23-24: These lines check if the number of columns and rows in `closes` meet expectations. If the dataset has missing symbols or incomplete time series, these checks may incorrectly return an empty signal.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window`) is hardcoded to 10 days. This parameter should be configurable but is not passed as a method argument in `generate()`.\n   - The z-score threshold of 2.0 might be too high or low for certain markets. It\u2019s hard-coded and could be tuned based on specific market conditions.\n\n4. **Potential Issues**:\n   - Line 38: The code assumes that the `adj_close` column exists in `history`. If this is not always the case, it will raise an error.\n   - Line 52: The use of `pl.col(\"adj_close\").stddev()` to compute standard deviation might fail if there are no data points or if all values are identical.\n\nOverall, while the strategy is fundamentally sound, improvements could be made in handling edge cases and ensuring robustness. Additionally, making key parameters more flexible would enhance its applicability across different market conditions."
+  ],
+  "seconds": 35.05638069999986,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 488
+}

@@ -1,0 +1,23 @@
+{
+  "index": 262,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality in the Indian market can be driven by various factors such as religious \"\n        \"festivals, government policies, and macroeconomic events. This strategy aims to capture \"\n        \"the momentum during specific times of the year that historically have shown positive returns.\"\n    )\n\n    def __init__(self, window: int = 20, seasonality_window: int = 365) -> None:\n        self._window = window\n        self._seasonality_window = seasonality_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._seasonality_window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Identify the current season\n        today = date.fromordinal(stamp.toordinal())\n        year_start = today.replace(month=1, day=1)\n        seasonal_period = (today - year_start).days // 30 + 1\n\n        # Extract relevant historical data for the same period in previous years\n        filtered_history = (\n            history.with_columns(\n                pl.col(\"session_date\").dt.year().alias(\"year\"),\n                pl.col(\"session_date\").dt.weekday().alias(\"weekday\"),\n            )\n            .filter((pl.col(\"session_date\") >= year_start)\n                    & (pl.col(\"session_date\") < today))\n            .group_by([\"symbol\", \"weekday\"])\n            .agg(\n                (\n                    (pl.col(\"adj_close\").mean()).alias(\"mean_price\"),\n                    ((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).sum())\n                    .alias(\"log_return_sum\")\n                )\n            )\n            .sort([\"symbol\", \"weekday\"])\n        )\n\n        # Calculate the average log returns for each symbol in the current season\n        seasonal_trends = (\n            filtered_history\n            .group_by(\"symbol\")\n            .agg(\n                pl.col(\"log_return_sum\").mean().alias(\"seasonal_log_return_mean\"),\n                pl.col(\"mean_price\").max().alias(\"max_price\")\n            )\n            .sort(\"seasonal_log_return_mean\", descending=True)\n        )\n\n        top_symbols = seasonal_trends[\"symbol\"].head(self._window).to_list()\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Allocate equally across the top symbols\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight for symbol in top_symbols\n            }\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 650
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.565200800003367,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 267
+}

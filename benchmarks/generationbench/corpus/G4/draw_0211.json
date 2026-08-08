@@ -1,0 +1,27 @@
+{
+  "index": 211,
+  "paradigm": "G4_planning",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"High dispersion in stock prices across certain sectors or industries followed by \"\n        \"range compression can be exploited through writing protective puts. This strategy aims \"\n        \"to identify periods of high volatility using Average True Range (ATR) and target stocks \"\n        \"with the highest ATR values for range compression.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 10) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate ATR for each symbol\n        atr_values = {}\n        for symbol in view.symbols:\n            high_low_diff = (history[pl.col(\"high\")] - pl.col(\"low\")).abs()\n            true_range = (\n                pl.col(\"high\") - pl.col(\"close\").shift(1).fill_null(pl.lit(history[\"close\"][0]))\n            ).abs() + \\\n                         (pl.col(\"low\") - pl.col(\"open\")).abs() + \\\n                         high_low_diff\n\n            atr = true_range.mean().item()\n            atr_values[symbol] = atr\n\n        # Rank symbols by ATR values\n        ranked_symbols = sorted(atr_values.items(), key=lambda x: x[1], reverse=True)\n        selected_symbols = [symbol for symbol, _ in ranked_symbols[:self._top_n]]\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Assign equal weight to each selected stock\n        weight_per_stock = 0.10 / len(selected_symbols)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight_per_stock for s in selected_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2341,
+    "output_tokens": 881
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy will focus on exploiting the phenomenon where stock prices in certain sectors or industries exhibit periods of high dispersion (volatility) followed by periods of range compression. This can be driven by market sentiment shifts, economic cycles, or seasonal factors. The persistence might arise due to structural changes in the market or investor behavior.\n\nTo exploit this theme, we will develop a rule-based system that identifies periods of high dispersion using technical indicators like Bollinger Bands or volatility measures. When such periods are detected, the strategy will sell call options and buy put options (writing protective puts) on selected stocks or indices to capture potential profits from range compression. This approach leverages the expected narrowing of price ranges during these phases.",
+    "The signal for identifying periods of high dispersion involves calculating the Average True Range (ATR) over a 20-day lookback period. ATR measures market volatility by smoothing the difference between the highest and lowest prices of each trading session, adjusted for gaps.\n\nOn a given day, stocks or indices are ranked based on their ATR values. Higher ATR values indicate higher volatility and dispersion in stock prices. The top-ranked candidates with the highest ATR values are selected as potential targets for the strategy.\n\nThis ranking allows the system to identify sectors or industries where stock price movements have been particularly volatile recently, signaling a high probability of range compression in the near future.",
+    "The strategy will hold positions in up to 10 selected stocks or indices with equal weighting of 10% each. Position sizing is designed to limit potential losses by maintaining a conservative approach. Risk limits are set such that no single position can exceed a maximum loss of 5% of the total portfolio value, ensuring that any individual stock's volatility does not significantly impact overall risk exposure. This structure balances the opportunity to capture range compression profits with prudent risk management."
+  ],
+  "seconds": 27.689751400001114,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 215
+}

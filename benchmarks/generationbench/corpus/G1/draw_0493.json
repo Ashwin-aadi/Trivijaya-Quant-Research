@@ -1,0 +1,23 @@
+{
+  "index": 493,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion occurs when recent extreme prices are followed by prices moving \"\n        \"towards the mean. By identifying symbols that have recently deviated from their \"\n        \"mean and are close to reverting, we can profit from this behavior.\"\n    )\n\n    def __init__(self, window: int = 10, z_score_threshold: float = 2.0) -> None:\n        self._window = window\n        self._z_score_threshold = z_score_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        means = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\").mean().alias(\"mean\")),\n                (pl.col(\"adj_close\").std().alias(\"std\")),\n            )\n            .with_columns((pl.col(\"adj_close\") - pl.col(\"mean\")).alias(\"deviation\"))\n        )\n\n        recent_closes = view.closes(lookback=self._window)\n        z_scores = (\n            means.join(\n                right=recent_closes,\n                on=\"symbol\",\n                how=\"left\",\n            )\n            .with_columns((pl.col(\"adj_close\") - pl.col(\"mean\")) / pl.col(\"std\").alias(\"z_score\"))\n            .select([\"symbol\", \"z_score\"])\n        )\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in z_scores.columns or z_scores[z_scores[\"symbol\"] == symbol].height < 1:\n                continue\n            if float(z_scores[z_scores[\"symbol\"] == symbol][\"z_score\"].to_list()[0]) >= self._z_score_threshold:\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 544
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.149837899996783,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 499
+}

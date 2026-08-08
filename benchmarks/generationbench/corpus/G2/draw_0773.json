@@ -1,0 +1,23 @@
+{
+  "index": 773,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"A breakout from a previous range can indicate the start of a new trend. \"\n        \"If the market continues in that direction for a period, it may signal strength and \"\n        \"the continuation of the trend. This strategy identifies symbols that have recently \"\n        \"broken out and continue to move in that direction.\"\n    )\n\n    def __init__(self, breakout_window: int = 20, continuation_window: int = 10) -> None:\n        self._breakout_window = breakout_window\n        self._continuation_window = continuation_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._breakout_window + self._continuation_window)\n\n        if history.height < self._breakout_window + self._continuation_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = self._find_breakouts(history)\n        continuation_symbols = [\n            sym for sym in breakout_symbols if view.closes().get_column(sym).is_monotonically_increasing()\n        ]\n\n        if not continuation_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(continuation_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in continuation_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _find_breakouts(history: pl.DataFrame) -> list[str]:\n    symbols = history[\"symbol\"].to_list()\n    breakout_symbols = []\n\n    for symbol in symbols:\n        symbol_data = history.select(pl.col(\"symbol\") == symbol).drop_nulls().sort(\"session_date\").to_dict()[0][1]\n        if len(symbol_data) < 2 * _breakout_window:\n            continue\n        breakout_price = float(max(symbol_data[-_breakout_window:]))\n        for i in range(_breakout_window, len(symbol_data)):\n            if symbol_data[i] > breakout_price:\n                break\n        else:\n            continue\n\n        if all(symbol_data[i + 1 : min(i + _continuation_window + 1, len(symbol_data))] > symbol_data[i]\n               for i in range(len(symbol_data) - _breakout_window - _continuation_window)):\n            breakout_symbols.append(symbol)\n\n    return breakout_symbols",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 586
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.24898079999548,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 785
+}

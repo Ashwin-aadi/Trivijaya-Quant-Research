@@ -1,0 +1,27 @@
+{
+  "index": 123,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy focuses on small-cap stocks with high liquidity. By equal-weighting \"\n        \"these stocks, we aim to capture higher returns from under-followed firms while managing risk.\"\n    )\n\n    def __init__(self, window: int = 180, top_n: int = 50) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_screened = (\n            history.group_by(\"symbol\")\n                   .agg((pl.col(\"volume\").mean()).alias(\"avg_volume\"))\n                   .sort(\"avg_volume\", descending=True)\n        )\n\n        small_caps = view.closes(lookback=self._window).select(\n            [pl.col(sym) for sym in liquidity_screened.select(\"symbol\") if\n             float(view.latest_close()[sym]) < 100]  # Assuming a simple cap threshold\n        ).shape[1]\n\n        if small_caps < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row['symbol'] for row in liquidity_screened.to_dicts()[:self._top_n]]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2487,
+    "output_tokens": 910
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan is to develop a systematic equity trading strategy focusing on liquidity-screened equal weighting in the Indian market. The economic mechanism involves exploiting the observation that small-cap stocks often exhibit higher abnormal returns due to their under-following by institutional investors. Liquidity constraints limit these institutions from fully investing, leading to mispriced securities. This mispricing might persist as it takes time for information to fully disseminate and be reflected in stock prices. The rule would screen for highly liquid small-cap stocks, then equally weight them in the portfolio to balance risk exposure while leveraging potential higher returns from under-followed firms. Regular rebalancing ensures alignment with this liquidity and equal weighting theme.",
+    "To develop this systematic equity strategy, the following signals are computed:\n\n1. **Screening for Liquidity**: Calculate the liquidity score of each stock using metrics such as average daily trading volume over the past 6 months (lookback period). Only consider stocks with above-average liquidity to ensure sufficient market depth.\n2. **Size Filtering**: Select small-cap stocks, typically those below a certain market capitalization threshold, which is determined based on historical data and market conditions.\n3. **Equal Weighting**: Rank the screened stocks by their liquidity score. Equally weight these top-ranked stocks in the portfolio at each rebalancing date.\n\nOn a given day, candidates are ranked based on their liquidity scores, with higher liquidity scores indicating greater potential for under-following and mispricing. The top N (e.g., 50-100) most liquid small-cap stocks are then equally weighted into the portfolio. Regular rebalancing ensures that these criteria remain aligned over time.",
+    "This systematic equity strategy holds a portfolio of approximately 50-100 highly liquid small-cap stocks, equally weighted to balance risk exposure. Each stock in the portfolio is given an equal weight of around 1.2%-2.4% (1/50-1/100). Regular rebalancing ensures alignment with liquidity and equal weighting criteria. Risk limits are set to prevent any single position from exceeding a loss bound, ensuring that no single investment can cause the portfolio's overall value to decline by more than 5% in a single day. This limit helps manage concentration risk while leveraging potential higher returns from under-followed firms."
+  ],
+  "seconds": 28.282950300002994,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 126
+}

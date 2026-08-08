@@ -1,0 +1,23 @@
+{
+  "index": 440,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves can indicate a shift in investor sentiment towards \"\n        \"a stock. If a stock has a significant upward move on high volume, it often suggests that\"\n        \" new buying interest is driving the price up, which may lead to further gains.\"\n    )\n\n    def __init__(self, window: int = 5, threshold_volume_ratio: float = 1.5) -> None:\n        self._window = window\n        self._threshold_volume_ratio = threshold_volume_ratio\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_data: dict[str, list[float]] = {}\n        for symbol in view.symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            open_prices = [float(o) for o in df[\"open\"].to_list()]\n            close_prices = [float(c) for c in df[\"close\"].to_list()]\n            volumes = [float(v) for v in df[\"volume\"].to_list()]\n\n            if len(open_prices) < self._window:\n                continue\n\n            latest_close_price = float(df.filter(pl.col(\"session_date\") == stamp).select(\"adj_close\").row(0)[0])\n            last_window_close_price = close_prices[-1]\n\n            # Check for significant move\n            price_move_ratio = (latest_close_price - last_window_close_price) / abs(last_window_close_price)\n            if not 0.05 < price_move_ratio < 0.2:\n                continue\n\n            # Check for high volume confirmation\n            latest_volume = volumes[-1]\n            average_volume = sum(volumes[:-1]) / (self._window - 1)\n            volume_ratio = latest_volume / average_volume\n\n            if not self._threshold_volume_ratio > volume_ratio:\n                continue\n\n            symbol_data[symbol] = [price_move_ratio, volume_ratio]\n\n        if not symbol_data:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Rank symbols by combined score\n        scores = [\n            (symbol, price_move * 0.5 + volume_ratio * 0.5)\n            for symbol, (price_move, volume_ratio) in symbol_data.items()\n        ]\n        ranked_symbols = sorted(scores, key=lambda x: -x[1])\n\n        top_symbols = [s for s, _ in ranked_symbols[:3]]\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 671
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.937730899997405,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 448
+}

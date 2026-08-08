@@ -1,0 +1,26 @@
+{
+  "index": 75,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Highly liquid stocks are more likely to be priced efficiently and thus provide \"\n        \"better risk-adjusted returns. This strategy selects the most liquid stocks based on \"\n        \"average daily volume over a specified window.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_screened = (\n            history.group_by(\"symbol\")\n            .agg((pl.col(\"volume\").mean().alias(\"avg_volume\")))\n            .sort(\"avg_volume\", descending=True)\n            .head(self._window)\n        )\n\n        if liquidity_screened.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        weights = (\n            liquidity_screened.with_columns(pl.lit(1.0 / self._window).alias(\"weight\"))\n            .select([\"symbol\", \"weight\"])\n            .to_dict(False)\n        )\n        \n        return Signal(information_available_at=stamp, weights={s: w for s, w in weights})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3839,
+    "output_tokens": 1190
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "### Critique of the Systematic Equity Trading Strategy\n\nThe provided strategy aims to create a liquidity-screened equal-weight portfolio based on historical volume and volatility data. Here are some critical points:\n\n1. **Rationale vs. Implementation**:\n   - The rationale states that highly liquid stocks are more likely to be priced efficiently, suggesting an expectation of better risk-adjusted returns.\n   - Line 24: `history.group_by(\"symbol\")` aggregates by symbol and calculates mean volume and standard deviation of adjusted closing price (volatility). However, the rationale does not explicitly mention volatility as a key metric. The focus should be purely on liquidity.\n\n2. **Fragility in Parameters**:\n   - Line 5: The `window` parameter is hardcoded to 30. This fixed value might not generalize well across different market conditions or time periods.\n   - If the window size needs adjustment, it would be better as a configurable parameter.\n\n3. **Potential Failures and Fragilities**:\n   - Line 21: If there are no symbols in `history`, the code returns an empty weights dictionary without any information available date. This could mislead users about when the signal was generated.\n   - Line 27: The `.head(self._window)` method truncates the list of symbols to only those with the highest average volume. If fewer than `self._window` symbols are available, this will raise an error. It should handle such cases gracefully.\n\n4. **Code Execution Issues**:\n   - Line 15: `_latest_visible(view)`: This function assumes that `view.history()` returns a DataFrame-like object with at least one column named \"session_date\". If not, the assertion would fail.\n   - Line 29: The `.collect().to_dict(False)` methods are used to convert Polars dataframes to Python dictionaries. These might be unnecessary and could lead to performance issues if not optimized.\n\nOverall, while the strategy has a clear rationale focused on liquidity, the implementation can be improved by making more dynamic parameter handling, better error handling, and ensuring robustness against edge cases."
+  ],
+  "seconds": 31.740977500000554,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 153
+}

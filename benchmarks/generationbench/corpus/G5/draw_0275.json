@@ -1,0 +1,26 @@
+{
+  "index": 275,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignal(Strategy):\n    rationale = (\n        \"This strategy combines two characteristics: a 20-day closing price above the 50-day simple moving average (SMA) and \"\n        \"a high volume on the most recent day. These signals are weak individually but combined they suggest increased \"\n        \"momentum and confidence from market participants.\"\n    )\n\n    def __init__(self, window_20: int = 20, window_50: int = 50) -> None:\n        self._window_20 = window_20\n        self._window_50 = window_50\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window_20)\n        history = view.history(lookback=max(self._window_20, self._window_50))\n        if closes.height < self._window_20 or history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        sma_50 = _sma(view.history(), window=self._window_50)\n        merged = closes.join(sma_50, on=\"symbol\", how=\"inner\")\n\n        if (merged[\"adj_close\"] > merged[\"sma_50\"]) & (\n            merged[\"volume\"] >= merged[\"volume\"].quantile(0.75)\n        ):\n            picks = [\n                symbol\n                for symbol in view.symbols\n                if symbol in merged.select(\"symbol\").to_list()\n            ]\n            weight = 1.0 / len(picks)\n            return Signal(\n                information_available_at=stamp, weights={s: weight for s in picks}\n            )\n        else:\n            return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _sma(df: pl.DataFrame, window: int) -> pl.DataFrame:\n    sma = df.group_by(\"symbol\").agg(\n        (pl.col(\"adj_close\") / window).sum().alias(f\"sma_{window}\")\n    )\n    return sma",
+  "class_name": "CompositeSignal",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4205,
+    "output_tokens": 1549
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains potential issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states combining a 20-day closing price above the 50-day SMA with recent high volume to suggest increased momentum and confidence from market participants. However, the code only checks if the most recent close is greater than the 50-day SMA and does not explicitly check for high volume on the latest day.\n   - **Line**: `if (merged[\"adj_close\"] > merged[\"sma_50\"]) & (merged[\"volume\"] >= merged[\"volume\"].quantile(0.75)):`\n\n2. **Potential Failures**:\n   - The strategy may fail if there are no recent price data, as it relies on the latest close and volume.\n   - **Line**: `if closes.height < self._window_20 or history.is_empty():`\n   - If the historical data does not meet the required lookback periods, the signal will default to an empty weights dictionary.\n\n3. **Fragile Parameters**:\n   - The window parameters (`window_20` and `window_50`) are hardcoded within the strategy class and cannot be easily adjusted without modifying the code.\n   - **Lines**: `def __init__(self, window_20: int = 20, window_50: int = 50) -> None:`\n\n4. **Potential Issues**:\n   - The `_sma` function computes a simple moving average (SMA) using the entire group of symbols, which might not be efficient if dealing with many symbols.\n   - **Line**: `df.group_by(\"symbol\").agg((pl.col(\"adj_close\") / window).sum().alias(f\"sma_{window}\"))`\n\n5. **Code Fragility**:\n   - The strategy may fail due to missing or inconsistent data, such as null values in the closing prices or volumes.\n   - **Line**: `merged = closes.join(sma_50, on=\"symbol\", how=\"inner\")` and subsequent operations.\n\nOverall, while the strategy aims to identify strong momentum by combining price and volume signals, it could be improved with explicit checks for high recent volume and clearer documentation of its assumptions. Additionally, robust error handling should be added to manage data inconsistencies."
+  ],
+  "seconds": 39.03454729999976,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 558
+}

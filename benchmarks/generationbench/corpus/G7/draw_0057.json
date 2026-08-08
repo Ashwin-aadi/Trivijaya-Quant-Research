@@ -1,0 +1,47 @@
+{
+  "index": 57,
+  "paradigm": "G7_mcts",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"By tilting towards low-volatility stocks, the strategy aims to minimize overall portfolio risk. \"\n        \"Historical volatility over 20 days provides a measure of stock price fluctuations, which is used \"\n        \"to identify and invest in less risky assets.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_volatility: dict[str, float] = {}\n        for symbol in view.symbols:\n            df_symbol = history.filter(pl.col(\"symbol\") == symbol)\n            if df_symbol.is_empty():\n                continue\n            close_prices = [float(v) for v in df_symbol[\"adj_close\"].drop_nulls().to_list()]\n            volatility = _calculate_volatility(close_prices, self._window)\n            symbol_volatility[symbol] = volatility\n\n        sorted_symbols = sorted(symbol_volatility.items(), key=lambda x: x[1])\n        picks = [symbol for symbol, _ in sorted_symbols[: self._top_n]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 0.05\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_volatility(prices: list[float], window: int) -> float:\n    mean_price = sum(prices[-window:]) / window\n    variance = sum((price - mean_price) ** 2 for price in prices[-window:]) / (window - 1)\n    volatility = (variance ** 0.5) * (252 ** 0.5)  # Annualizing the standard deviation\n    return volatility",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19768,
+    "output_tokens": 6685
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the systematic equity strategy targeting low-volatility tilting in the Indian market, I propose using the 20-day historical volatility of daily closing prices as the signal. This measure will capture the stock's price fluctuations over a recent period, allowing for effective low-volatility selection.",
+    "For the systematic equity strategy targeting low-volatility tilting in the Indian market, I propose using the 30-day average True Range as the signal. This measure captures the daily high-to-low volatility without being influenced by gaps or unusual closing prices, providing a robust indication of stock price movement.",
+    "The portfolio will consist of the top 20 low-volatility stocks ranked by their 20-day historical volatility, each weighted equally at 5% to balance diversification and simplicity.",
+    "The portfolio will hold 15 names, with each name equally weighted at approximately 6.7% to ensure a balanced exposure while maintaining simplicity in implementation.",
+    "The portfolio will consist of the top 15 low-volatility stocks ranked by their 20-day historical volatility, each weighted equally at 6.67% to maintain a balanced level of diversification while slightly reducing the number of holdings for potentially more concentrated exposure.",
+    "To limit individual stock risk, I propose setting a maximum loss bound of -5% on any single position. This rule will stop the strategy from trading further in that direction if the loss exceeds this threshold, ensuring that no single stock can significantly impact the overall portfolio performance.",
+    "The portfolio will hold 15 names, with each name equally weighted at approximately 6.7% to ensure balanced exposure and simplify implementation.",
+    "To limit individual stock risk, I propose setting a maximum loss bound of -5% on any single position. This rule will stop the strategy from trading further in that direction if the loss exceeds this threshold, ensuring that no single stock can significantly impact the overall portfolio performance.",
+    "For the risk rule, I propose setting an individual position loss limit of -5%, which would trigger a stop-loss order to exit the position if the stock's price falls by 5% from its purchase price. This limit helps manage risk while allowing for some volatility within the strategy.",
+    "For the risk rule, I propose setting a stop-loss threshold of -3% for an individual position and -5% for the portfolio as a whole. This will limit potential losses while maintaining the strategy's focus on low-volatility stocks.",
+    "For the risk rule, I propose setting a stop-loss threshold of -3% for an individual stock position and -4% for the overall portfolio. This balance limits exposure to significant downturns without being overly restrictive, aligning with the strategy's focus on low-volatility tilting.",
+    "For the risk rule, I propose setting an individual stock position loss limit of -5% to prevent significant single-stock losses that could impact the portfolio. This bound will stop the strategy from trading any further positions if a stock's value drops by 5%, ensuring risk is managed effectively."
+  ],
+  "seconds": 219.49445050000213,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 712
+}

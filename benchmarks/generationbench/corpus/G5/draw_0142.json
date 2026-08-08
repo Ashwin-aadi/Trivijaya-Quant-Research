@@ -1,0 +1,26 @@
+{
+  "index": 142,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Certain stocks exhibit stronger performance during specific months or seasons. \"\n        \"By identifying these seasonal trends and focusing on symbols with significant \"\n        \"performance boosts in those months, we can construct a strategy that takes advantage of \"\n        \"the calendar effects in the Indian market.\"\n    )\n\n    def __init__(self, window: int = 90) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_trends: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            monthly_closes = {d.month: c for d, c in zip(history[\"session_date\"].dt.month(), closes)}\n            avg_monthly_close = sum(monthly_closes.values()) / len(monthly_closes)\n            trend_scores = [c - avg_monthly_close for c in monthly_closes.values()]\n            max_trend_score = max(trend_scores) if trend_scores else 0\n            seasonal_trends[symbol] = max_trend_score\n\n        sorted_symbols = [\n            s for s, _ in sorted(seasonal_trends.items(), key=lambda x: x[1], reverse=True)\n        ]\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = sorted_symbols[:3]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3919,
+    "output_tokens": 1307
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to leverage seasonal trends in the Indian stock market by identifying symbols with the strongest performance during specific months. However, there are several issues and critiques:\n\n1. **Rationale vs. Code Disagreement**: The rationale states that stocks exhibit stronger performance during specific months or seasons, but the code only calculates a trend score based on monthly closing prices without considering seasonality explicitly. Specifically, line 20 calculates `trend_score` as the maximum deviation from the average monthly close, which does not capture seasonal trends effectively.\n\n2. **Potential Failure**: The strategy might fail if there are no significant seasonal patterns in the data. For instance, lines 31-46 calculate monthly closes and trend scores but do not account for seasonality beyond a single month.\n\n3. **Fragile Parameters**:\n   - **Window Size (`window`)**: Setting `self._window = 30` might be too short or long depending on the market dynamics. A more robust approach would involve parameter tuning.\n   - **Top Symbols Selection**: Selecting only the top three symbols without considering their historical performance or volatility could lead to suboptimal results.\n\n4. **Potential Stopping Points**:\n   - Line 21: If `history.is_empty()`, it returns an empty `Signal`.\n   - Line 35-36: If no symbols have valid seasonal trends, it also returns an empty `Signal`.\n\n5. **Assumptions and Fragilities**:\n   - The code assumes that the data is clean and properly formatted.\n   - It does not handle cases where symbols might not have sufficient historical data.\n\nOverall, while the strategy aims to leverage calendar effects, the implementation needs improvements in capturing seasonal trends more accurately and handling edge cases better."
+  ],
+  "seconds": 34.202380800001265,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 288
+}

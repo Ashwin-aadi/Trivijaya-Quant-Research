@@ -1,0 +1,23 @@
+{
+  "index": 364,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionStrategy(Strategy):\n    rationale = (\n        \"Price reversion strategies assume that prices will return to historical levels of \"\n        \"mean or median after a deviation. In the context of the NIFTY 100, this means \"\n        \"buying stocks that have fallen below their recent mean price level and selling those \"\n        \"that have risen above it.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n\n        mean_close = (\n            history.select(pl.col(\"adj_close\").mean().over(\"symbol\"))\n            .with_columns(\n                pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0\n            )\n            .sort(\"session_date\", descending=True)\n            .select([pl.col(\"adj_close\"), \"session_date\"])\n            .filter(pl.col(\"session_date\") == view.as_of)\n            .collect()\n        )[\"adj_close\"].to_list()[0]\n\n        deviations = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"adj_close\") / mean_close - 1.0).alias(\"deviation\")\n            )\n            .sort(\"symbol\", descending=True)\n            .select([\"symbol\", \"deviation\"])\n        )\n\n        top_bullish = [row[0] for row in deviations.scan().filter(pl.col(\"deviation\") > 0.25).collect().rows()]\n        bottom_bearish = [row[0] for row in deviations.scan().filter(pl.col(\"deviation\") < -0.25).collect().rows()]\n\n        weights: dict[str, float] = {}\n        if top_bullish:\n            weight = 1.0 / len(top_bullish)\n            for symbol in top_bullish:\n                weights[symbol] = weight\n        elif bottom_bearish:\n            weight = -1.0 / len(bottom_bearish)\n            for symbol in bottom_bearish:\n                weights[symbol] = weight\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 604
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.5326031999939,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 372
+}

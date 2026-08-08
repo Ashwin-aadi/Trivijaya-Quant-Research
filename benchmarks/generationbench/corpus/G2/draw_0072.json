@@ -1,0 +1,23 @@
+{
+  "index": 72,
+  "paradigm": "G2_cot",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed well \"\n        \"in the past to continue outperforming. This phenomenon can be attributed to various \"\n        \"factors such as herding behavior or persistence in stock returns.\"\n    )\n\n    def __init__(self, lookback_window: int = 60, top_n: int = 10) -> None:\n        self._lookback_window = lookback_window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback_window)\n        if closes.height < self._lookback_window or closes.width < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate returns over the lookback period\n        closes_with_returns = (\n            closes.lazy()\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._lookback_window) - 1.0)\n                .alias(\"return\")\n            )\n            .collect()\n        )\n\n        # Rank symbols by their mean return\n        ranked_returns = (\n            closes_with_returns.group_by(\"symbol\", maintain_order=True)\n            .agg(\n                (pl.col(\"return\").mean().alias(\"avg_return\")),\n            )\n            .sort(pl.col(\"avg_return\"), descending=True)\n            .select([\"symbol\", \"avg_return\"])\n        )\n\n        top_symbols = ranked_returns.head(self._top_n).to_dict(as_series=False)[\"symbol\"]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1342,
+    "output_tokens": 472
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.923888299999817,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 75
+}

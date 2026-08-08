@@ -1,0 +1,23 @@
+{
+  "index": 76,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass PriceReversion(Strategy):\n    rationale = (\n        \"Price reversion occurs when prices move to extremes and then tend to revert \"\n        \"towards the mean. By identifying symbols that have moved significantly away from \"\n        \"their historical mean price levels, we can generate buy or sell signals based on \"\n        \"the expectation of a return to the mean.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_stats: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            close_history = [float(v) for v in history[symbol].to_list()]\n            mean_price = sum(close_history) / len(close_history)\n            latest_close = float(view.latest_close()[symbol])\n            deviation = abs(latest_close - mean_price)\n            symbol_stats[symbol] = deviation\n\n        sorted_symbols = sorted(symbol_stats.items(), key=lambda x: x[1], reverse=True)\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbol = sorted_symbols[0][0]\n        weight = 1.0\n        return Signal(\n            information_available_at=stamp,\n            weights={top_symbol: weight},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "PriceReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 421
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.91881899999862,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 79
+}

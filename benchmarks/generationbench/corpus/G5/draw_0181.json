@@ -1,0 +1,26 @@
+{
+  "index": 181,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion assumes that prices which are far from their recent \"\n        \"average will revert to it. This strategy buys undervalued stocks and sells overvalued ones.\"\n    )\n\n    def __init__(self, window: int = 10, deviation_threshold: float = 1.0) -> None:\n        self._window = window\n        self._deviation_threshold = deviation_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_close = (\n            history.select(pl.col(\"adj_close\").mean().alias(\"avg\"))\n            .with_column(pl.lit(stamp).alias(\"session_date\"))\n            .select([\"symbol\", \"session_date\", \"avg\"])\n        )\n\n        latest_closes = view.closes(lookback=self._window)\n        avg_close = avg_close.join(latest_closes, on=\"symbol\")\n\n        deviations = (avg_close[\"adj_close\"] - avg_close[\"avg\"]).abs().alias(\"deviation\")\n        avg_close = avg_close.select([\"symbol\", \"deviation\"])\n\n        sorted_avg_close = (\n            avg_close.sort(\"deviation\", descending=False)\n            .group_by(\"symbol\")\n            .agg(pl.col(\"deviation\").mean().alias(\"mean_deviation\"))\n        )\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in sorted_avg_close.columns:\n                continue\n            deviation = float(sorted_avg_close[sorted_avg_close[\"symbol\"] == symbol][\"mean_deviation\"])\n            if deviation >= self._deviation_threshold:\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4096,
+    "output_tokens": 1467
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale of mean reversion over a short horizon but has some issues and potential fragilities:\n\n1. **Rationale vs. Code Disagreement**:\n   - The strategy aims to identify undervalued and overvalued stocks based on their deviation from the recent average price (`avg_close`). However, it does not explicitly define how \"undervalued\" or \"overvalued\" is determined. In line 36, a `deviation` of at least 1.0 is considered for picking symbols, but this threshold seems arbitrary and may need tuning based on historical data.\n   \n2. **Potential Failures**:\n   - Line 45: The strategy assumes that every symbol in the view's history will have a corresponding entry in the `sorted_avg_close` DataFrame after joining with `latest_closes`. This can fail if there are missing symbols or if the join does not find a match.\n   \n3. **Fragile Parameters**:\n   - Line 15: The window parameter is hardcoded to 10 days, which might be too short for mean reversion strategies that typically require more data points to capture trends accurately.\n   - The threshold of `deviation >= 1.0` (line 43) is arbitrary and needs empirical validation.\n\n4. **Potential Issues**:\n   - Line 27: The use of `pl.lit(stamp).alias(\"session_date\")` might not be necessary if the join operation already aligns the dates correctly.\n   - Line 35: The handling of symbols that do not have a corresponding entry in `sorted_avg_close` could lead to incorrect weight distribution. A more robust approach would be to handle such cases explicitly.\n\n5. **Running Concerns**:\n   - Ensure that `view.history()` and `view.closes()` return the correct types and structures.\n   - The `MarketView` class should be properly implemented to provide the necessary data for this strategy to run.\n\nOverall, while the core concept is sound, specific parameters and handling of edge cases need refinement."
+  ],
+  "seconds": 37.3934459000011,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 367
+}

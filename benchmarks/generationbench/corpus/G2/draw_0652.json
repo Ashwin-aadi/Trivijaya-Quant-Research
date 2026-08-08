@@ -1,0 +1,23 @@
+{
+  "index": 652,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Reversion to the mean suggests that assets which have deviated significantly from \"\n        \"their historical price levels will eventually return. By identifying symbols that \"\n        \"have had extreme price movements and betting against these extremes, we can take \"\n        \"advantage of the tendency for prices to revert.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"].to_list()\n        means = [sum(closes[i : i + self._window]) / self._window for i in range(len(closes) - self._window + 1)]\n        deviations = [(closes[i] - means[i]).abs() for i in range(self._window, len(closes))]\n        \n        symbols_with_extreme_deviations: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            values = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            latest_index = -1\n            max_deviation = 0.0\n            for i, d in enumerate(deviations):\n                if d > max_deviation and len(values[i:i + self._window]) == self._window:\n                    max_deviation = d\n                    latest_index = i\n            \n            if latest_index != -1:\n                symbols_with_extreme_deviations.append(symbol)\n\n        weights: dict[str, float] = {symbol: 0.0 for symbol in view.symbols}\n        if symbols_with_extreme_deviations:\n            weight_per_symbol = -1.0 / len(symbols_with_extreme_deviations)\n            for symbol in symbols_with_extreme_deviations:\n                weights[symbol] = weight_per_symbol\n\n        return Signal(\n            information_available_at=stamp, weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 550
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.200050800005556,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 663
+}

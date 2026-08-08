@@ -1,0 +1,26 @@
+{
+  "index": 167,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeFeature(Strategy):\n    rationale = (\n        \"This strategy identifies stocks that exhibit both a strong recent momentum and a low volatility \"\n        \"level. The combination of these two characteristics aims to capture stocks with high potential for appreciation.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, volatility_window: int = 30) -> None:\n        self._momentum_window = momentum_window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._momentum_window, self._volatility_window))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores = {}\n        volatility_scores = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.symbol.to_list():\n                continue\n\n            close_prices = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].to_list()]\n            if len(close_prices) < self._momentum_window + 1:  # Ensure enough data points\n                continue\n            recent_closes = close_prices[-self._momentum_window:]\n            momentum_score = (recent_closes[-1] - min(recent_closes)) / max(0.001, max(recent_closes) - min(recent_closes))\n\n            volatility_scores[symbol] = _calculate_volatility(close_prices[: self._volatility_window])\n\n            if symbol in momentum_scores and momentum_score > momentum_scores[symbol]:\n                momentum_scores[symbol] = momentum_score\n\n        top_symbols = sorted(momentum_scores.items(), key=lambda x: (x[1], -volatility_scores.get(x[0], float('inf'))), reverse=True)[:5]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, _ in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_volatility(prices: list[float]) -> float:\n    returns = [(prices[i] - prices[i-1]) / max(0.001, prices[i-1]) for i in range(1, len(prices))]\n    volatility = (sum([abs(r) for r in returns]) / len(returns)) ** 0.5\n    return volatility",
+  "class_name": "CompositeFeature",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4176,
+    "output_tokens": 1539
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns well with its rationale but has some potential issues:\n\n1. **Rationale vs Code**: The strategy aims to identify stocks with strong momentum and low volatility. However, the `momentum_score` calculation only considers the most recent price relative to the minimum in the lookback period (line 23). This may not fully capture the momentum over the entire window.\n\n2. **Fragile Parameters**:\n   - The parameter `momentum_window` is set arbitrarily at line 17, with a default of 20.\n   - The `volatility_window` is set to 30 (line 18), which might not always be optimal for all market conditions.\n\n3. **Potential Failures**:\n   - Line 29 checks if the history has enough data points but fails to handle cases where close prices are missing or invalid.\n   - Line 46 sorts symbols by both momentum and volatility, but this approach could lead to issues if volatility scores are too high, as it might overshadow lower momentum.\n\n4. **Runtime Issues**:\n   - The function `_latest_visible` (line 51) returns an arbitrary date if the history is empty, which may not be ideal.\n   - Line 68 calculates volatility using a simple standard deviation approximation. This could lead to issues with very small or inconsistent price data.\n\nOverall, the strategy is sound but needs some adjustments for robustness and accuracy. Specifically, ensuring proper handling of missing or invalid data and fine-tuning the momentum and volatility windows could improve its performance."
+  ],
+  "seconds": 40.34950589999971,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 339
+}

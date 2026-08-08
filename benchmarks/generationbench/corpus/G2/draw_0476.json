@@ -1,0 +1,23 @@
+{
+  "index": 476,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong market sentiment. \"\n        \"A significant increase in volume on a price move suggests that the move is not just \"\n        \"a short-term fluctuation but rather driven by substantial trading activity, which can \"\n        \"indicate a trend continuation or reversal.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            hist = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            if hist.is_empty():\n                continue\n\n            latest_close = float(hist.select(pl.last(\"adj_close\"))[0][0])\n            prev_close = float(hist.select(pl.last(\"close\"))[0][0])\n\n            # Calculate the percentage change\n            price_change = (latest_close - prev_close) / prev_close * 100.0\n\n            # Get volume data for the last day and compare with previous session's volume\n            latest_volume = float(hist.select(pl.last(\"volume\"))[0][0])\n            prev_volume = float(hist.filter(pl.col(\"session_date\") == (view.as_of - date(1, 1, 1))).select(pl.first(\"volume\")))[0][0]\n\n            # Volume change percentage\n            volume_change = (latest_volume - prev_volume) / prev_volume * 100.0 if prev_volume != 0 else 0\n\n            # Check for a significant price move with high volume confirmation\n            if abs(price_change) > 2.0 and abs(volume_change) > 30.0:\n                picks.append(symbol)\n\n        picks = picks[:5]  # Select top 5 symbols only\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 589
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.301321499995538,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 484
+}

@@ -1,0 +1,23 @@
+{
+  "index": 481,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that asset prices and returns are tendency to revert \"\n        \"to a long-term mean. In the short term (20 days), price deviations from the mean can \"\n        \"create trading opportunities. If an asset's price has fallen significantly below its \"\n        \"mean, it is likely to bounce back towards the mean.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = closes.select(\n            pl.col(pl.Utf8).exclude(\"session_date\").mean().alias(\"mean\")\n        ).select(\"mean\").to_series()[0]\n\n        symbols_to_trade: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            latest_close = float(view.latest_close()[symbol])\n            if abs(latest_close - mean_close) > 1.5 * (latest_close - closes[symbol].mean().item()):\n                symbols_to_trade.append(symbol)\n\n        weights: dict[str, float] = {s: 1.0 / len(symbols_to_trade) for s in symbols_to_trade}\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, weight in weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 434
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.104901800004882,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 489
+}

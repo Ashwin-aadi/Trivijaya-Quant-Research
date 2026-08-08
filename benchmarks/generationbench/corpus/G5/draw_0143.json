@@ -1,0 +1,26 @@
+{
+  "index": 143,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeTrendVolatility(Strategy):\n    rationale = (\n        \"A combination of upward trend and low volatility suggests that the stock is in a \"\n        \"stable and positive momentum phase. This dual characteristic can indicate a good entry point.\"\n    )\n\n    def __init__(self, trend_window: int = 30, vol_window: int = 20) -> None:\n        self._trend_window = trend_window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._trend_window, self._vol_window))\n        if history.is_empty() or history.height < max(self._trend_window, self._vol_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        trend_scores: dict[str, float] = {}\n        volatilities: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            trend_score = _calculate_trend_score(closes, self._trend_window)\n            volatilities[symbol] = _calculate_volatility(closes, self._vol_window)\n\n            if trend_score >= 0 and volatilities[symbol] < 1.0:\n                trend_scores[symbol] = trend_score\n\n        filtered_symbols = [s for s in trend_scores.keys()]\n        if not filtered_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(filtered_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in filtered_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_trend_score(prices: list[float], window: int) -> float:\n    shifted_prices = [prices[i] / prices[i - 1] - 1.0 for i in range(1, len(prices))]\n    mean_return = sum(shifted_prices[-window:]) / min(len(shifted_prices), window)\n    return max(min(mean_return + 1, 2), 0)\n\n\ndef _calculate_volatility(prices: list[float], window: int) -> float:\n    shifted_prices = [prices[i] / prices[i - 1] - 1.0 for i in range(1, len(prices))]\n    volatility = (sum([p ** 2 for p in shifted_prices[-window:]]) / min(len(shifted_prices), window)) ** 0.5\n    return max(volatility, 1e-6)",
+  "class_name": "CompositeTrendVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4329,
+    "output_tokens": 1663
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy appears well-structured but has some critical issues that could affect its robustness:\n\n1. **Rationale vs. Code Mismatch:**\n   - The rationale suggests a combination of upward trend and low volatility as favorable conditions for entry. However, the code penalizes `trend_score` by scaling it to `[0, 1]`, which might not align with the intended positive momentum phase. This can be found in line `24`.\n\n2. **Potential Failures:**\n   - The strategy could fail if no symbols meet the criteria after filtering (line 36). This is a logical path where no trades are generated.\n   - If there's an issue with calculating trend scores or volatilities, it might lead to incorrect weight assignments.\n\n3. **Fragile Parameters:**\n   - The default window sizes for `trend_window` and `vol_window` (lines 12-13) could be too small or large depending on the dataset. For instance, using a volatility window of only 20 might not capture significant market dynamics.\n   - If historical data is insufficient (`history.height < max(self._trend_window, self._vol_window)`), it might return an empty signal without any trades.\n\n4. **Potential Issues:**\n   - Line 31 uses `float(v)`, which could lead to errors if the data type of history values is not numeric.\n   - The volatility calculation (line 56) assumes non-zero prices, which could cause issues with division by zero or very small numbers.\n\nOverall, while the strategy aims to capture a combination of positive momentum and low volatility, its implementation needs adjustments for robustness and accuracy."
+  ],
+  "seconds": 42.16885390000061,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 290
+}

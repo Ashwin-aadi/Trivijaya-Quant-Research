@@ -1,0 +1,23 @@
+{
+  "index": 700,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionToTrailingAverage(Strategy):\n    rationale = (\n        \"Price levels that revert to a trailing average indicate mean reversion \"\n        \"in the market. Inefficient markets may exhibit such patterns, and this strategy \"\n        \"aims to profit by buying underpriced stocks and selling overpriced ones.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the trailing average for each symbol\n        avg_close = history.group_by(\"symbol\").agg(\n            (pl.col(\"adj_close\").mean()).alias(\"trailing_avg\")\n        ).select([\"symbol\", \"trailing_avg\"])\n\n        # Join with the latest closes to calculate deviations from the mean\n        joined_history = history.join(avg_close, on=\"symbol\", how=\"inner\")\n        deviations = (\n            joined_history.with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"trailing_avg\")).alias(\"deviation\")\n            )\n            .sort(\"session_date\")\n            .tail(1)\n        )\n\n        # Find symbols with significant positive and negative deviations\n        positive_deviations = [float(v) for v in deviations[deviations[\"deviation\"] > 0][\"adj_close\"].to_list()]\n        negative_deviations = [float(v) for v in deviations[deviations[\"deviation\"] < 0][\"adj_close\"].to_list()]\n\n        if not positive_deviations and not negative_deviations:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_pos = len(positive_deviations) / (len(positive_deviations) + len(negative_deviations))\n        weight_neg = len(negative_deviations) / (len(positive_deviations) + len(negative_deviations))\n\n        positive_weights = {s: weight_pos for s in [dev.to_dict()[\"symbol\"] for dev in positive_deviations]}\n        negative_weights = {s: -weight_neg for s in [dev.to_dict()[\"symbol\"] for dev in negative_deviations]}\n\n        weights = {**positive_weights, **negative_weights}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionToTrailingAverage",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 595
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.480088800002704,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 711
+}

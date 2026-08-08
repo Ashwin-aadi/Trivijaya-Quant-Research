@@ -1,0 +1,26 @@
+{
+  "index": 206,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to identify and ride strong trends while \"\n        \"adjusting the investment size based on recent volatility. High volatility periods \"\n        \"are expected to have more noise, so smaller positions are taken.\"\n    )\n\n    def __init__(self, window: int = 20, vol_window: int = 10, max_position: float = 0.5) -> None:\n        self._window = window\n        self._vol_window = vol_window\n        self._max_position = max_position\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in symbols:\n            prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(prices) < self._window:\n                continue\n\n            # Calculate returns\n            returns = [(prices[i] / prices[i-1] - 1.0) for i in range(1, len(prices))]\n\n            # Calculate volatility\n            vol = pl.DataFrame({\"return\": returns}).select(\n                (pl.col(\"return\").abs().rolling_sum(self._vol_window) / self._vol_window).alias(\"vol\")\n            ).height\n\n            if vol == 0:\n                continue\n\n            position_size = min(self._max_position, abs(sum(returns)))\n            position_size /= vol\n            position_size = max(-self._max_position, position_size)\n\n            signals[symbol] = position_size if position_size > 0 else 0.0\n\n        return Signal(information_available_at=stamp, weights=signals)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4049,
+    "output_tokens": 1437
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also shows some weaknesses and potential issues:\n\n1. **Rationale vs. Code**:\n   - The rationale suggests volatility-scaled trend following, focusing on adjusting position size based on recent volatility to identify strong trends. However, the code calculates rolling absolute returns (volatility) without explicitly using it in a trend-following logic. Specifically, line 30 `volatility = pl.DataFrame({\"return\": returns}).select(...)`, where volatility is calculated but not directly used for trend following.\n\n2. **Potential Failure**:\n   - The strategy could fail if the market experiences extreme events that cause large, one-time price movements. This would lead to high volatility in short-term returns (line 30), causing overly conservative position sizing even during trending periods. Line 45 `position_size /= volatility` might result in excessively small positions.\n\n3. **Fragile Parameters**:\n   - The parameters (`window`, `vol_window`, and `_max_position`) are hardcoded and might not be optimal for all market conditions. For instance, line 6 `self._window = window` sets the lookback period without any default value or dynamic adjustment based on market volatility.\n   - Line 15 defines `max_position`, but the strategy lacks a mechanism to dynamically adjust this parameter based on market characteristics.\n\n4. **Potential Issues for Running**:\n   - The method `_latest_visible(view)` might return an incorrect date if there are no historical data points, as it uses `date(1900, 1, 1)` which is not the most recent session date (line 56).\n   - The check in line 23 to ensure `symbol` exists and is present in `view.symbols` is crucial but could be more robust by handling cases where symbols might have missing values or are invalid.\n\nOverall, while the strategy attempts to balance risk with trend following, it lacks a clear implementation of volatility scaling for trend identification. Improvements could involve integrating volatility directly into trend detection logic and dynamically adjusting parameters based on market conditions."
+  ],
+  "seconds": 36.63306740000007,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 418
+}

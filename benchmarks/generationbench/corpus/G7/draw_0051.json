@@ -1,0 +1,47 @@
+{
+  "index": 51,
+  "paradigm": "G7_mcts",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity screening ensures that highly traded stocks are selected, reducing the \"\n        \"risk of large trades impacting the stock price. Equal weighting across the selected \"\n        \"stocks provides a simple and effective way to diversify risk.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window or len(view.symbols) == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_screened = (\n            history.group_by(\"symbol\")\n                   .agg(pl.col(\"volume\").sum().alias(\"total_volume\"))\n                   .sort(\"total_volume\", descending=True)\n                   .head(self._top_n)\n        )\n        symbols = volume_screened[\"symbol\"].to_list()\n\n        if len(symbols) < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / self._top_n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19283,
+    "output_tokens": 5607
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I will measure liquidity by selecting the daily volume and using a 30-day lookback period to screen stocks for sufficient trading activity before equal weighting them in the portfolio.",
+    "I will measure liquidity by selecting the daily volume and use a 60-day lookback period to screen stocks, ensuring they have adequate historical trading activity before equal weighting them in the portfolio.",
+    "The portfolio will hold 30 equally-weighted positions after each rebalance. This ensures a balanced exposure while leveraging the liquidity screening criteria effectively.",
+    "The portfolio will hold a maximum of 50 equally-weighted stocks after screening for adequate liquidity based on daily volume over a 60-day lookback period. This ensures diversification while managing transaction costs.",
+    "The portfolio will hold 30 equally-weighted positions after each rebalance. This ensures a balanced exposure and leverages the liquidity screening criteria effectively, maintaining diversification and managing risk appropriately.",
+    "The portfolio will hold a maximum of 50 equally-weighted stocks after screening for adequate liquidity based on daily volume over a 60-day lookback period. This ensures diversification while managing transaction costs.",
+    "For each position, I will cap the potential loss at -20% of the investment amount to protect against excessive risk exposure. This limit ensures that no single stock can negatively impact the portfolio by more than 20%, thereby safeguarding overall performance. The strategy will halt trading and reset if any stock's liquidity falls below the predefined threshold, ensuring continued adherence to the screening criteria.",
+    "For the risk rule, I will set an individual position loss limit of -5% to prevent any single stock from causing excessive portfolio volatility. This ensures that no position can lose more than 5% before triggering a stop-loss order, thereby protecting against severe drawdowns while maintaining the benefits of equal weighting and liquidity screening.",
+    "For each position, I will cap the potential loss at -20% of the investment amount to protect against excessive risk exposure. This limit ensures that no single stock can negatively impact the portfolio by more than 20%, thereby safeguarding overall performance. The strategy will halt trading and reset if any stock's liquidity falls below the predefined threshold, ensuring continued adherence to the screening criteria.",
+    "For the risk rule, I will set an individual position loss limit of -5%, preventing any single stock from causing excessive portfolio volatility. This ensures that no position can lose more than 5% before triggering a stop-loss order, thereby protecting against severe drawdowns while maintaining the benefits of equal weighting and liquidity screening.",
+    "For this systematic equity strategy in the Indian market, I propose setting a stop-loss rule at 5% per position to limit individual stock risk exposure. This ensures that if any single stock drops by more than 5%, the position will be exited to prevent significant portfolio losses. Additionally, the entire portfolio's loss will be capped at 10% to safeguard against broader market downturns without terminating all trades.",
+    "For the risk rule, I will set an individual stock position limit to -3% loss before any trade involving that stock is executed, to control potential downside risk while allowing for normal market fluctuations. This bound will also halt trading in a stock if its value falls by 5% from the last entry price, ensuring disciplined execution and risk management."
+  ],
+  "seconds": 195.75030820001848,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 637
+}

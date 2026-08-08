@@ -1,0 +1,23 @@
+{
+  "index": 682,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Certain stocks in India exhibit stronger performance during specific months of the year \"\n        \"due to seasonal trends or calendar effects. Identifying these patterns can provide \"\n        \"predictive signals for profitable trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        seasonal_trends: dict[str, float] = {}\n\n        for symbol in symbols:\n            closes = history[symbol].to_list()\n            monthly_closes = [\n                sum(closes[i * 21 : (i + 1) * 21]) / min(21, len(closes) - i * 21)\n                for i in range(self._window // 21 + 1)\n            ]\n            if not monthly_closes:\n                continue\n            strongest_month = monthly_closes.index(max(monthly_closes))\n            seasonal_trends[symbol] = (strongest_month + 1) / self._window\n\n        sorted_symbols = [\n            s for _, s in sorted(seasonal_trends.items(), key=lambda item: -item[1])\n        ][:5]\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 481
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.169375199999195,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 693
+}

@@ -1,0 +1,26 @@
+{
+  "index": 42,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength (higher ratio of average price over the lookback period \"\n        \"to recent price) are likely to continue their recent outperformance. This strategy aims to \"\n        \"overweight these stocks in the portfolio.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the average price over the window\n        avg_close = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"avg\"))\n            .with_columns((pl.col(\"avg\") / pl.col(\"adj_close\")).alias(\"rs_ratio\"))\n        )\n\n        # Filter symbols that meet the relative strength threshold\n        filtered_rs = avg_close.filter(\n            (pl.col(\"rs_ratio\") > self._threshold)\n            & (pl.col(\"rs_ratio\").is_not_null())\n        )\n        if filtered_rs.height == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Assign equal weight to each selected symbol\n        symbols = [str(row.symbol) for row in filtered_rs.rows()]\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3911,
+    "output_tokens": 1264
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy generally aligns well with its rationale but has a few potential issues:\n\n1. **Rationale vs Code Discrepancy**:\n   - The rationale states that \"stocks with higher relative strength (higher ratio of price to average price over a lookback period) are likely to continue their recent outperformance.\" However, the code calculates `rs_ratio` as `(adj_close / avg)` which is actually the inverse of what was described. This should be corrected to:\n     ```python\n     rs_ratio = (pl.col(\"avg\") / pl.col(\"adj_close\")).alias(\"rs_ratio\")\n     ```\n\n2. **Potential Failure Cases**:\n   - The strategy will fail if there are no symbols meeting the relative strength threshold (`filtered_rs.height == 0`), leading to an empty weights dictionary.\n\n3. **Fragile Parameters**:\n   - The `window` parameter (line 11) determines the lookback period, and the `threshold` parameter (line 12) sets the cutoff for relative strength. These are hardcoded but should ideally be configurable or dynamically set based on market conditions.\n   \n4. **Code Fragility**:\n   - If there are no entries in `history`, the code returns an empty Signal with a default date of `1900-01-01` (line 26). This might be a good default, but it is worth ensuring that this date does not affect backtesting results.\n   \n5. **Potential Issues**:\n   - If `avg_close` contains missing values for \"symbol\" or \"adj_close\", the filtering step may fail (line 39-40).\n   - The strategy assumes all selected symbols will be equally weighted, which might not always be optimal.\n\nOverall, the core logic is sound but requires attention to detail in implementation and robustness checks."
+  ],
+  "seconds": 33.179278200000226,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 87
+}

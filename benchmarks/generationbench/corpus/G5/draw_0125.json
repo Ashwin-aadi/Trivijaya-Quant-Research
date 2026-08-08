@@ -1,0 +1,26 @@
+{
+  "index": 125,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"After a strong breakout, the continuation of momentum is often observed. This \"\n        \"strategy identifies stocks that have made a significant upward move and are still\"\n        \" in an uptrend.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 0.15) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            last_close = values[-1]\n            first_close = values[0]\n\n            # Check for non-zero first close to avoid division by zero\n            if first_close == 0:\n                continue\n\n            if (last_close - first_close) / first_close >= self._threshold:\n                picks.append(symbol)\n\n        picks = picks[:5]  # Limit to top 5 symbols\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3850,
+    "output_tokens": 1234
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy provided has several potential issues and improvements:\n\n1. **Rationale vs. Code Mismatch**:\n   - The rationale mentions \"a significant upward move,\" but the code calculates `last_close - first_close` / `first_close`. This doesn't necessarily capture a single, significant upward move but rather the overall increase over the window.\n   - Suggestion: Consider a more specific condition to identify a significant upward move.\n\n2. **Potential Failures**:\n   - Line 24: The threshold check is based on the total percentage change (`(last_close - first_close) / first_close >= self._threshold`). If `first_close` is close to zero, this could lead to division by zero or large values.\n   - Suggestion: Add a check for non-zero `first_close`.\n\n3. **Fragile Parameters**:\n   - The window size (line 7) and threshold (line 8) are hardcoded with default values (`20` and `0.15`). These may not be optimal for all market conditions.\n   - Suggestion: Consider making these parameters more dynamic or allow tuning based on historical data.\n\n4. **Limitation to Top 5 Symbols**:\n   - Line 36 limits the picks to top 5 symbols, which might miss out on other potentially strong stocks.\n   - Suggestion: Consider adjusting this limit or removing it if a larger number of positions is desired.\n\n5. **Assumptions and Fragilities**:\n   - The strategy assumes that the data provided in `view` is reliable and complete. Missing or incorrect data could lead to erroneous signals.\n   - Suggestion: Add validation checks for missing symbols or data issues.\n\nOverall, while the strategy has a clear rationale, it would benefit from more robust handling of edge cases and potential improvements in its implementation details."
+  ],
+  "seconds": 32.5969458999989,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 254
+}

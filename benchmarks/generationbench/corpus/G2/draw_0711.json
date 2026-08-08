@@ -1,0 +1,23 @@
+{
+  "index": 711,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqualWeighing(Strategy):\n    rationale = (\n        \"High liquidity stocks tend to be more efficient in pricing and less prone to trading \"\n        \"anomalies. By equal-weighting these stocks, we aim to capture the benefits of market \"\n        \"efficiency while maintaining a balanced portfolio.\"\n    )\n\n    def __init__(self, lookback_window: int = 20) -> None:\n        self._lookback_window = lookback_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume = history.select(pl.col(\"symbol\"), pl.col(\"volume\"))\n        total_volume = volume.group_by(\"symbol\").agg(volume.sum().alias(\"total_volume\"))\n\n        # Normalize volumes by their sum\n        normalized_volumes = (\n            total_volume.join(history, on=\"symbol\", how=\"inner\")\n                         .with_columns((pl.col(\"volume\") / pl.col(\"total_volume\")).alias(\"normalized_volume\"))\n        )\n\n        # Rank symbols by normalized volume\n        ranked_symbols = normalized_volumes.sort(\"normalized_volume\", descending=True).select(pl.col(\"symbol\"))\n\n        top_symbols = ranked_symbols.head(5)  # Adjust the number of top symbols as needed\n\n        if not top_symbols.height:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        signal_weights = {row[\"symbol\"]: weight for row in top_symbols.iter_rows()}\n\n        return Signal(\n            information_available_at=stamp,\n            weights=signal_weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqualWeighing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 456
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.682827399999951,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 723
+}

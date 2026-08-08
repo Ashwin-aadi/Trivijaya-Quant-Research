@@ -1,0 +1,23 @@
+{
+  "index": 566,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following involves entering positions when recent volatility \"\n        \"is low relative to the current price level. This strategy aims to capture trending markets \"\n        \"by using a simple moving average as a signal and adjusting for risk through volatility.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the rolling mean and standard deviation\n        means = history.select(pl.col(\"adj_close\").mean()).to_series().to_list()[0]\n        stds = (history.select((pl.col(\"adj_close\") - pl.lit(means).alias(\"diff\")).std())\n                .to_series().to_list()[0])\n\n        # Calculate the trend signal\n        signals = [float(v) for v in history[\"adj_close\"].to_list()]\n        mean_adj_close = means[-1]\n        std_adj_close = stds[-1]\n\n        if signals[-1] > (mean_adj_close + self._threshold * std_adj_close):\n            direction = \"up\"\n        elif signals[-1] < (mean_adj_close - self._threshold * std_adj_close):\n            direction = \"down\"\n        else:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Determine the symbols to trade based on trend and volatility\n        symbols_to_trade = []\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].unique().to_list():\n                continue\n\n            recent_closes = [float(v) for v in view.closes(lookback=self._window)[symbol].drop_nulls().to_list()]\n            last_close = recent_closes[-1]\n            mean_recent = sum(recent_closes) / len(recent_closes)\n\n            if direction == \"up\" and last_close > (mean_recent + self._threshold * std_adj_close):\n                symbols_to_trade.append(symbol)\n            elif direction == \"down\" and last_close < (mean_recent - self._threshold * std_adj_close):\n                symbols_to_trade.append(symbol)\n\n        weights = {s: 1.0 / len(symbols_to_trade) for s in symbols_to_trade}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 638
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.898884800000815,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 576
+}

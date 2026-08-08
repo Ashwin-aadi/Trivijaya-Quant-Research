@@ -1,0 +1,23 @@
+{
+  "index": 196,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionTrailing(Strategy):\n    rationale = (\n        \"Price reverts towards the mean over time. By tracking a trailing average and \"\n        \"identifying deviations from it, we can find potential entry points when prices \"\n        \"move back to normal levels.\"\n    )\n\n    def __init__(self, window: int = 50, deviation_threshold: float = 1.5) -> None:\n        self._window = window\n        self._deviation_threshold = deviation_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_closes = view.latest_close()\n        symbols = list(latest_closes.keys())\n\n        # Calculate trailing mean and standard deviation\n        prices = history.select(\n            pl.col(\"symbol\").alias(\"symbol\"),\n            pl.col(\"adj_close\").rolling_mean(self._window).alias(\"trailing_mean\"),\n            (pl.col(\"adj_close\") - pl.col(\"adj_close\").rolling_mean(self._window)).pow(2)\n            .rolling_sum(self._window)\n            / self._window\n            .sqrt()\n            .alias(\"std_dev\")\n        )\n\n        # Filter out symbols without sufficient data\n        prices = prices.filter(\n            (pl.col(\"symbol\").is_in(symbols))\n            & (\n                pl.col(\"trailing_mean\").is_not_null()\n                & pl.col(\"std_dev\").is_not_null()\n            )\n        )\n\n        reversion_candidates = []\n        for symbol in symbols:\n            price_history = history.select(\n                \"session_date\",\n                (pl.col(\"adj_close\") - latest_closes[symbol])\n                / latest_closes[symbol]\n                .alias(f\"return_{symbol}\"),\n                pl.col(\"trailing_mean\").filter(pl.col(\"symbol\") == symbol).alias(\"mean\"),\n                pl.col(\"std_dev\").filter(pl.col(\"symbol\") == symbol).alias(\"std\")\n            )\n            # Calculate z-score\n            price_history = price_history.with_columns(\n                (pl.col(f\"return_{symbol}\") - pl.col(\"mean\"))\n                / pl.col(\"std\")\n                .alias(\"z_score\")\n            )\n\n            if (\n                price_history.select(pl.col(\"z_score\").max()).item()\n                > self._deviation_threshold\n            ):\n                reversion_candidates.append(symbol)\n\n        weights = {s: 1.0 / len(reversion_candidates) for s in reversion_candidates}\n        return Signal(\n            information_available_at=stamp, weights={s: weights[s] for s in symbols if s in weights}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionTrailing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 665
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.392711000007694,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 200
+}

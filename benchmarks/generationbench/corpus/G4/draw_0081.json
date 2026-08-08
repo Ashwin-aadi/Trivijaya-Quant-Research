@@ -1,0 +1,27 @@
+{
+  "index": 81,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilt(Strategy):\n    rationale = (\n        \"The low-volatility tilt effect suggests that stocks with lower volatility tend to outperform \"\n        \"high-volatility stocks over the long term. This persistence is attributed to pricing inefficiencies \"\n        \"and structural biases in the market, offering potential for reduced portfolio volatility and enhanced returns.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history[\"symbol\"].to_list()]\n        if len(symbols) < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: dict[str, float] = {}\n        for symbol in symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            prices = [float(v) for v in df[\"close\"].to_list()]\n            returns = [\n                (prices[i + 1] - prices[i]) / prices[i]\n                for i in range(len(prices) - 1)\n            ]\n            volatilities[symbol] = pl.DataFrame(returns).select(\n                ((pl.col(\"value\") * pl.col(\"value\")).mean()).alias(\"volatility\")\n            ).collect().item()\n\n        sorted_symbols = [\n            s[0]\n            for s in sorted(volatilities.items(), key=lambda x: float(x[1]))\n        ][: self._top_n]\n\n        weights = {s: 1.0 / len(sorted_symbols) for s in sorted_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilt",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2343,
+    "output_tokens": 890
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy focuses on exploiting the low-volatility tilt effect observed in the Indian market. The economic mechanism involves observing that lower volatility stocks tend to outperform higher volatility stocks over long periods, possibly due to risk premium adjustments by investors and efficient market dynamics. This persistence could be attributed to pricing inefficiencies or structural biases in the market.\n\nThe trading rule would involve constructing a portfolio that overweighted low-volatility stocks while underweighting high-volatility stocks. The strategy could use historical volatility measures as the primary factor, rebalancing periodically to capture ongoing outperformance of low-volatility assets. This approach aims to capitalize on the persistent risk-return relationship, offering potential for reduced volatility and enhanced returns in a diversified portfolio.",
+    "The signal for this systematic equity strategy is based on historical volatility. Each stock's 20-day realized volatility is calculated using the daily open, high, low, close prices over that period. The realized volatility is computed as the standard deviation of logarithmic returns. On any given day, stocks are ranked from lowest to highest volatility. The portfolio then overweights the lowest volatility stocks and underweights the highest volatility stocks, rebalancing periodically to maintain this allocation and capture the persistent outperformance of low-volatility assets in the Indian market.",
+    "The strategy holds a portfolio of approximately 30-40 low-volatility stocks, prioritizing diversification while maintaining concentration on high-quality assets. Positions are sized to ensure that no single stock exceeds 5% of the total portfolio value, with weights allocated based on volatility rankings. Risk limits are set such that potential drawdowns do not exceed 10% over any given quarter to protect against significant market fluctuations and maintain capital integrity. Regular rebalancing ensures alignment with low-volatility tilts while mitigating losses through disciplined position sizing and risk management."
+  ],
+  "seconds": 27.79170150000573,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 84
+}

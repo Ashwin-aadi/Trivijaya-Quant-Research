@@ -1,0 +1,23 @@
+{
+  "index": 228,
+  "paradigm": "G2_cot",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed well \"\n        \"relative to the market over a period to continue outperforming. This is based on the \"\n        \"idea that past performance may indicate future returns.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 60) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.is_empty() or history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        if closes.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        mean_close = (history.select(\"symbol\", \"session_date\", \"adj_close\")\n                      .group_by(\"symbol\")\n                      .agg(pl.col(\"adj_close\").mean().alias(\"mean_close\"))\n                      .collect()\n                      .select([\"symbol\", \"mean_close\"])\n                      .to_dict(as_series=False))\n\n        momentum_scores = []\n        for symbol in symbols:\n            if symbol not in closes.columns:\n                continue\n            close_series = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(close_series) < self._window:\n                continue\n\n            mean_adj_close = float(mean_close.get(symbol, 0))\n            momentum_score = (close_series[-1] - mean_adj_close) / mean_adj_close\n            momentum_scores.append((symbol, momentum_score))\n\n        sorted_scores = sorted(momentum_scores, key=lambda x: x[1], reverse=True)\n        top_symbols = [x[0] for x in sorted_scores[: self._lookback]]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1342,
+    "output_tokens": 564
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.923384399997303,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 234
+}

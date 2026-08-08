@@ -1,0 +1,46 @@
+{
+  "index": 9,
+  "paradigm": "G7_mcts",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility tilting has been shown to enhance returns in equity markets by \"\n        \"systematically overweighting low-volatility stocks. This strategy calculates the 20-day average \"\n        \"volatility of each stock and selects the lowest-volatility names for investment.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            volatility = _calculate_volatility(values)\n            picks.append((symbol, volatility))\n\n        sorted_picks = sorted(picks, key=lambda x: x[1])\n        top_n_symbols = [p[0] for p in sorted_picks[: self._top_n]]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_volatility(prices: list[float]) -> float:\n    mean_price = sum(prices) / len(prices)\n    squared_diffs = [(p - mean_price) ** 2 for p in prices]\n    variance = sum(squared_diffs) / (len(prices) - 1)\n    return variance ** 0.5",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19290,
+    "output_tokens": 6448
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I propose using the 20-day average volatility as the signal for low-volatility tilting. Volatility can be measured from the daily close prices. A 20-day lookback period is chosen to balance responsiveness and stability in the strategy.",
+    "I propose using the 30-day average realized variance from daily closing prices as the signal for low-volatility tilting. This choice balances responsiveness with stability, providing a robust measure of volatility over a slightly longer period than 20 days.",
+    "The portfolio will hold up to 30 names with equal weighting of 3.33% each to balance diversification and manage concentration risk.",
+    "The portfolio will consist of the top 10 low-volatility stocks, each equally weighted with a 10% allocation, ensuring balanced risk exposure while simplifying implementation.",
+    "The portfolio will hold up to 30 names, each weighted equally at 3.33%. This approach balances diversification needs while managing concentration risk effectively in the low-volatility tilted strategy for the Indian market.",
+    "For the risk rule, I propose capping the loss on any individual position at -5%, which would limit potential drawdowns while allowing for some volatility in pursuit of low-volatility stocks. This bound would stop the strategy from trading a stock if its price falls by more than 5% from the entry price.",
+    "The portfolio will consist of the top 10 low-volatility stocks, each equally weighted with a 10% allocation, ensuring balanced risk exposure while simplifying implementation.",
+    "For the risk rule, I propose capping the loss on any individual position at -3%, which limits drawdowns while maintaining flexibility to hold onto potentially rebounding low-volatility stocks. This bound would stop the strategy from trading a stock if its price falls by more than 3% from the entry price.",
+    "For the risk rule, I propose setting an individual stock position loss limit of -5%, which will prevent any single stock from causing a significant portfolio impact. Additionally, the strategy will halt trading if the overall portfolio loss exceeds -10%. These bounds ensure that no single stock can dominate losses while maintaining flexibility in market conditions.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent significant losses on any single stock, while stopping the strategy from trading if the portfolio loss exceeds -10%. This balance helps manage risks while allowing the strategy to adapt.",
+    "The risk rule will be set such that no single position loss exceeds 5% of the portfolio value, and the total portfolio loss is capped at 10%. This will stop the strategy from trading if either bound is breached, ensuring managed risk exposure."
+  ],
+  "seconds": 198.388625600026,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 121
+}

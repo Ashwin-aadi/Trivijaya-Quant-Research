@@ -1,0 +1,23 @@
+{
+  "index": 400,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionTrailing(Strategy):\n    rationale = (\n        \"Price reversion against a trailing reference implies that prices will revert to the \"\n        \"mean after deviating significantly. If recent price levels are far from a moving average, \"\n        \"the market may reverse direction.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_closes = {symbol: float(row[-1]) for symbol, row in zip(view.symbols, history.to_dicts())}\n        mean_price = sum(recent_closes.values()) / len(recent_closes)\n        \n        symbols_with_deviation = []\n        for symbol in view.symbols:\n            if symbol not in recent_closes:\n                continue\n            current_close = recent_closes[symbol]\n            deviation = abs(current_close - mean_price) / mean_price\n            if deviation > 0.1:  # Consider a threshold of 10% as significant deviation\n                symbols_with_deviation.append(symbol)\n\n        weight_per_symbol = 1.0 / len(symbols_with_deviation)\n        weights = {symbol: weight_per_symbol for symbol in symbols_with_deviation}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionTrailing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 413
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.694296100002248,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 408
+}

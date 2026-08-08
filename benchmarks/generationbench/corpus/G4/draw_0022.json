@@ -1,0 +1,27 @@
+{
+  "index": 22,
+  "paradigm": "G4_planning",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass JanuaryEffect(Strategy):\n    rationale = (\n        \"This strategy exploits the January Effect in the Indian market by identifying \"\n        \"stocks that historically perform well during early January. It involves buying a \"\n        \"diversified portfolio of top-ranked stocks from December 20th to January 20th, \"\n        \"holding them until February, and then selling for potential upside.\"\n    )\n\n    def __init__(self, window: int = 5 * 12 + 20, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter to the relevant dates\n        start_date = date(stamp.year - 1, 12, 20)\n        end_date = date(stamp.year + 1, 2, 20)\n\n        filtered_history = history.filter(\n            (pl.col(\"session_date\") >= start_date) & (pl.col(\"session_date\") <= end_date)\n        )\n\n        if filtered_history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate cumulative returns for each stock\n        filtered_history = (\n            filtered_history.with_columns(\n                ((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"daily_return\"))\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"daily_return\").sum().alias(\"cumulative_return\"))\n        )\n\n        # Rank stocks based on cumulative return\n        ranked = filtered_history.sort(\"cumulative_return\", descending=True)\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in ranked[\"symbol\"]:\n                continue\n            picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "JanuaryEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2464,
+    "output_tokens": 1006
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy exploiting seasonality in the Indian market, we will focus on calendar effects such as the \"January Effect\" and earnings announcement periods. The January Effect refers to an observed tendency for stocks to perform better in January compared to other months. This might persist due to investors returning from holidays with fresh capital or due to tax-loss selling pressure easing.\n\nThe strategy rule could involve:\n1. Buying a diversified portfolio of stocks at the beginning of each year.\n2. Holding these positions through January and selling by February, capturing potential upside.\n3. Hedging risk during the holding period using options or other derivatives.\n\nThis approach leverages historical patterns while managing risk to capitalize on perceived seasonal market behavior.",
+    "For this systematic equity strategy focusing on the January Effect in the Indian market, the precise signal can be defined as follows:\n\n1. **Signal Computation**: Compute the cumulative return of stocks from December 20th to January 20th for historical periods (lookback period). This period is chosen to capture the potential early January performance boost.\n\n2. **Lookback Period**: Use a lookback window of at least 5 years, analyzing data from December 20th to January 20th each year over this period.\n\n3. **Candidate Ranking**: Rank stocks based on their cumulative return during the specified lookback period. Higher returns indicate better performance in line with historical January Effect trends.\n\n4. **Selection Process**: Select a diversified portfolio of top-ranked stocks, ensuring adequate diversification across sectors to manage risk.\n\nThis ranking process helps identify stocks that historically perform well in early January, allowing for timely entry and exit based on the strategy's rules.",
+    "For this strategy, we recommend holding a portfolio of approximately 20-30 stocks to balance diversification and manage risk. Each stock can be allocated an equal weight of 3.3% to 5%, depending on market conditions and confidence in individual stocks. Risk limits should include stop-loss orders to prevent losses exceeding 10% of the total portfolio value at any point, ensuring capital preservation while leveraging seasonal trends."
+  ],
+  "seconds": 30.06508959999337,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 23
+}

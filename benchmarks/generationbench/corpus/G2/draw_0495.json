@@ -1,0 +1,23 @@
+{
+  "index": 495,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Highly liquid stocks are often those that are most actively traded and thus have \"\n        \"lower bid-ask spreads. Investors may be willing to pay a premium for liquidity, \"\n        \"suggesting that highly liquid stocks can outperform less liquid ones.\"\n    )\n\n    def __init__(self, min_trading_days: int = 10) -> None:\n        self._min_trading_days = min_trading_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._min_trading_days)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            trading_days = (\n                history.select(pl.col(\"session_date\").unique().shape[0])\n                .to_series()\n                .filter(pl.col(0) == symbol)\n                .sum()\n                .to_list()[0]\n            )\n            if trading_days >= self._min_trading_days:\n                liquidity_scores[symbol] = 1.0 / trading_days\n\n        if not liquidity_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(liquidity_scores)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in liquidity_scores},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 409
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.702031200002239,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 503
+}

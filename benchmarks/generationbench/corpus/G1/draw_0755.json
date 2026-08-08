@@ -1,0 +1,23 @@
+{
+  "index": 755,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"Combining the 20-day moving average cross and the relative strength index (RSI) \"\n        \"provides a more robust entry signal by capturing both trend strength and overbought/oversold conditions.\"\n    )\n\n    def __init__(self, ma_window: int = 20, rsi_window: int = 14, threshold: float = 70.0) -> None:\n        self._ma_window = ma_window\n        self._rsi_window = rsi_window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._ma_window + self._rsi_window)\n        if closes.height < self._ma_window + self._rsi_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n\n            # Calculate 20-day moving average\n            ma_20 = (\n                closes[symbol]\n                .drop_nulls()\n                .to_list()[-self._ma_window:]\n                .sum()\n                / self._ma_window\n            )\n\n            # Calculate RSI\n            price_changes = [\n                float(c - o) for c, o in zip(\n                    closes[symbol].drop_nulls().to_list()[1:],\n                    closes[symbol].drop_nulls().to_list()[:-1]\n                )\n            ]\n            gains = [p if p > 0 else 0 for p in price_changes]\n            losses = [-l if l < 0 else 0 for l in price_changes]\n\n            avg_gain = sum(gains) / self._rsi_window\n            avg_loss = abs(sum(losses)) / self._rsi_window\n\n            rs = 10.0 * (avg_gain / avg_loss) if avg_loss > 0 else float('inf')\n            rsi = 100 - (100 / (1 + rs))\n\n            # Check for overbought/oversold condition\n            if rsi >= self._threshold:\n                signals.append(symbol)\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(signals)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 623
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.793155299994396,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 769
+}

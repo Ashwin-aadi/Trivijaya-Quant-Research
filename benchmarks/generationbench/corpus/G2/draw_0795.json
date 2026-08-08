@@ -1,0 +1,23 @@
+{
+  "index": 795,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Higher liquidity stocks are often more efficiently priced and have lower trading \"\n        \"costs. By equally weighting these stocks, we aim to capture the benefits of market \"\n        \"efficiency while avoiding the potential for higher transaction costs associated with \"\n        \"less liquid securities.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_screened_closes = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volume\") / 100_000).alias(\"scaled_volume\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"scaled_volume\").sum().alias(\"total_volume\"))\n            .sort(\"total_volume\", descending=True)\n            .head(self._window)\n        )\n\n        symbols = liquidity_screened_closes[\"symbol\"].to_list()[:10]\n        weight = 0.1 if len(symbols) > 0 else 0\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 392
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.364325900009135,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 807
+}

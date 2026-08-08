@@ -1,0 +1,23 @@
+{
+  "index": 278,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to capture trends while adjusting for volatility. \"\n        \"During periods of low volatility, the strategy increases exposure, benefiting from persistent \"\n        \"trends. Conversely, during high volatility, it reduces exposure to avoid drawdowns.\"\n    )\n\n    def __init__(self, window: int = 20, vol_window: int = 10) -> None:\n        self._window = window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._vol_window - 1)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = [float(v) for v in history[\"adj_close\"].to_list()]\n        vol = _rolling_volatility(closes, window=self._vol_window)\n        trend_score = _rolling_trend_strength(closes, window=self._window)\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes[-self._window:]:\n                continue\n            score = vol[-1] * trend_score[-1]\n            signals[symbol] = score\n\n        # Normalize scores to sum up to 1.0 (or close)\n        total_score = sum(signals.values())\n        weights = {s: signals[s] / total_score for s in signals}\n        return Signal(\n            information_available_at=stamp, weights={k: v for k, v in weights.items() if v > 0}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _rolling_volatility(closes: list[float], window: int) -> float:\n    returns = [c / closes[i - 1] - 1 for i, c in enumerate(closes) if i > 0]\n    volatility = (pl.Series(returns).rolling_std(window=window)).mean().to_list()[-1]\n    return volatility\n\n\ndef _rolling_trend_strength(closes: list[float], window: int) -> float:\n    rolling_max = pl.Series(closes).rolling_max(window).to_list()\n    trend_strength = max((c / m - 1 for c, m in zip(closes, rolling_max)), default=0)\n    return trend_strength",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 592
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.581781500004581,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 284
+}

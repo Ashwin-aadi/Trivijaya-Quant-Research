@@ -1,0 +1,23 @@
+{
+  "index": 790,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain stocks in the Indian market show historically higher returns during specific seasons \"\n        \"of the year. This strategy aims to capture these seasonal effects by allocating capital towards \"\n        \"stocks that have performed well in previous years during similar periods.\"\n    )\n\n    def __init__(self, window: int = 365, season_length: int = 90) -> None:\n        self._window = window\n        self._season_length = season_length\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Extract the latest close date for each symbol\n        latest_closes = view.closes(lookback=self._window).select(\n            pl.all().exclude(\"session_date\")\n        )\n\n        # Filter out symbols not present in history\n        valid_symbols = set(view.symbols) & set(latest_closes.columns)\n\n        if len(valid_symbols) == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute the mean returns for each symbol over the season length\n        means: dict[str, float] = {}\n        for symbol in valid_symbols:\n            closes = latest_closes[symbol].to_list()\n            if len(closes) < self._season_length:\n                continue\n\n            start_date = history.filter(\n                (pl.col(\"session_date\") >= stamp - pl.duration(days=self._season_length))\n                & (pl.col(\"session_date\") <= stamp)\n            )[\"close\"].mean()\n\n            end_date = history.filter(\n                (pl.col(\"session_date\") > stamp - pl.duration(days=self._window))\n                & (pl.col(\"session_date\") < stamp)\n            )[\"close\"].mean()\n\n            mean_return = (end_date / start_date) - 1.0\n            means[symbol] = float(mean_return)\n\n        # Rank symbols by their mean returns in descending order\n        ranked_symbols = [\n            symbol for _, symbol in sorted(means.items(), key=lambda item: item[1], reverse=True)\n        ]\n\n        top_n_symbols = ranked_symbols[:3]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 631
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 18.54673030000413,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 805
+}

@@ -1,0 +1,26 @@
+{
+  "index": 39,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity is a proxy for marketability and thus tradability. \"\n        \"High-liquidity stocks can be entered or exited without significantly impacting their price. \"\n        \"An equal-weighted portfolio of highly liquid stocks is likely to have lower transaction costs.\"\n    )\n\n    def __init__(self, liquidity_threshold: float = 10_000_000, lookback_days: int = 365) -> None:\n        self._threshold = liquidity_threshold\n        self._lookback = lookback_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        high_liquidity_symbols = (\n            history.groupby(\"symbol\")\n            .agg(pl.col(\"volume\").sum().alias(\"total_volume\"))\n            .filter(pl.col(\"total_volume\") > self._threshold)\n            .select(\"symbol\")\n            .to_dict(True)[\"symbol\"]\n        )\n\n        if not high_liquidity_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(high_liquidity_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in high_liquidity_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3768,
+    "output_tokens": 1156
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears well-structured but has some potential issues and fragilities:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale emphasizes liquidity as a proxy for tradability to minimize transaction costs. However, the code only filters by volume over 365 days without considering other aspects of liquidity like bid-ask spread or market depth (lines 20-24). This discrepancy might lead to an incomplete measure of liquidity.\n\n2. **Potential Failure Cases**:\n   - If all symbols in the history have low volumes, the strategy will return empty weights (line 31), which could be problematic for portfolio rebalancing.\n   - The code does not consider recent changes in volume or liquidity; it relies solely on a static threshold over a fixed lookback period (lines 20-24).\n\n3. **Fragile Parameters**:\n   - The `liquidity_threshold` is hardcoded at 10,000,000 (line 7). This value might be too high or low depending on the market and historical data distribution.\n   - The strategy assumes that volume is a good proxy for liquidity; this may not always hold true. For instance, highly volatile stocks might have high volumes but still face significant trading difficulties.\n\n4. **Potential Blocking Issues**:\n   - If `history` is empty (line 23), the code immediately returns an empty weights dictionary without any fallback or error handling.\n   - The `_latest_visible` function assumes that `session_date` is always of type `date`, which might fail if there are non-date values in the column (line 41).\n\nOverall, while the strategy aims to create a simple and effective equal-weighted portfolio based on liquidity, it lacks robustness against data anomalies and market volatility. Enhancing the criteria for identifying liquidity or incorporating more dynamic thresholds could improve its reliability."
+  ],
+  "seconds": 30.859186099999533,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 81
+}

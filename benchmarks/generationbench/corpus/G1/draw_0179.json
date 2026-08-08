@@ -1,0 +1,23 @@
+{
+  "index": 179,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeCharStrategy(Strategy):\n    rationale = (\n        \"This strategy combines the 20-day high close with a simple moving average \"\n        \"crossover to identify potential buy signals. High closes indicate recent strength, \"\n        \"while the moving average crossover suggests momentum and mean reversion.\"\n    )\n\n    def __init__(self, short_window: int = 50, long_window: int = 200) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._short_window, self._long_window))\n        if history.is_empty() or history.height < max(self._short_window, self._long_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(pl.col(\"adj_close\"))\n        short_ma = (closes.rolling_mean(window_size=self._short_window) / 100).alias(\"short_ma\")\n        long_ma = (closes.rolling_mean(window_size=self._long_window) / 100).alias(\"long_ma\")\n\n        crossover_df = history.join(short_ma, on=\"session_date\").join(long_ma, on=\"session_date\")\n\n        if not _find_buy_signals(crossover_df):\n            return Signal(information_available_at=stamp, weights={})\n\n        buy_symbols: list[str] = []\n        for symbol in view.symbols:\n            if crossover_df[symbol].max() > 1.0 and _is_high_close(symbol, history):\n                buy_symbols.append(symbol)\n\n        weight = 1.0 / len(buy_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in buy_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _find_buy_signals(df: pl.DataFrame) -> bool:\n    df = df.filter(pl.col(\"long_ma\") < 1.0).filter(pl.col(\"short_ma\") > 1.0)\n    return not df.is_empty()\n\n\ndef _is_high_close(symbol: str, history: pl.DataFrame) -> bool:\n    symbol_df = history.select(pl.col(symbol))\n    latest_close = float(symbol_df.max().to_list()[0])\n    recent_closes = [float(v) for v in symbol_df.drop_nulls().sort(\"session_date\", descending=True).head(20).to_list()]\n    return all(latest_close > rc for rc in recent_closes)",
+  "class_name": "CompositeCharStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 617
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.348617999989074,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 183
+}

@@ -1,0 +1,23 @@
+{
+  "index": 336,
+  "paradigm": "G2_cot",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have outperformed \"\n        \"in the recent past to continue to outperform. This strategy ranks stocks based on their \"\n        \"returns over a short period and invests in the top performers.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate returns for each stock\n        returns = (closes[\"adj_close\"] / closes[\"adj_close\"].shift(self._window) - 1.0).alias(\"r\")\n\n        # Get the most recent close prices and returns\n        latest_closes = view.closes().with_column(returns)\n        if latest_closes.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Rank stocks by their returns in descending order\n        ranked = (\n            latest_closes.sort(\"r\", descending=True)\n            .group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\").last()).alias(\"latest_close\"))\n        )\n\n        # Select the top N performers\n        top_performers = ranked.head(self._window)[\"symbol\"].to_list()\n\n        if not top_performers:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_performers)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_performers},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1342,
+    "output_tokens": 468
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.801550199998019,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 344
+}

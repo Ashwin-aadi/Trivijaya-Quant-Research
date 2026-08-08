@@ -1,0 +1,26 @@
+{
+  "index": 92,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong momentum in a stock. \"\n        \"By identifying such moves early, we can potentially capitalize on the continuation of that trend.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_closes = view.closes()\n        if latest_closes.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            close_history = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].sort().to_list()]\n            latest_close = float(latest_closes[symbol][0])\n            volume_history = [int(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"volume\"].sort().to_list()]\n\n            if len(close_history) < self._window + 1:\n                continue\n\n            # Check for a significant move\n            latest_move = (latest_close - close_history[-2]) / close_history[-2]\n            if latest_move > 0.05:  # Strong bullish move\n                if volume_history[-1] >= 1.5 * sum(volume_history[-self._window : -1]):\n                    picks.append(symbol)\n            elif latest_move < -0.05:  # Strong bearish move\n                if volume_history[-1] >= 1.5 * sum(volume_history[-self._window : -1]):\n                    picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4114,
+    "output_tokens": 1467
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns well with its rationale but has a few critical issues:\n\n1. **Fragility of Parameters**: The threshold values for identifying significant price and volume moves (`0.05` for price and `1.5 * sum(volume_history[-self._window : -1])` for volume) are hardcoded. These thresholds may not generalize well across different markets or time periods, making the strategy fragile (Lines 28-34).\n\n2. **Handling of Empty Data**: The strategy should handle cases where there is no recent price data more robustly. For example, if `latest_closes` has fewer than `self._window + 1` entries, the current implementation does not return an error or a warning (Lines 20-23).\n\n3. **Edge Cases**: The logic for identifying significant moves only considers the last two closing prices and volumes. It may miss more nuanced price movements that occur over several days (Line 28). \n\n4. **Assumptions about Data Structure**: The code assumes that `latest_closes` and `history` are structured in a specific way, which might not always be true if the data source changes or is improperly formatted (Lines 17-23).\n\n5. **Potential Logical Flaws**: The logic for identifying bearish moves mirrors the bullish move logic but with opposite signs. This redundancy can be streamlined to improve code clarity and maintainability.\n\n6. **Missing Error Handling**: There are no explicit checks or error handling mechanisms, such as logging or raising exceptions when unexpected conditions occur (Lines 17-23).\n\nOverall, while the strategy has a solid rationale, it needs more robust parameter management, better handling of edge cases, and improved code clarity to be reliable."
+  ],
+  "seconds": 37.931969300000674,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 187
+}

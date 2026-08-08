@@ -1,0 +1,23 @@
+{
+  "index": 355,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression often precedes a breakout or continuation of the trend. \"\n        \"By identifying symbols with reduced price range over a recent period, we can \"\n        \"anticipate potential strong moves in either direction.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window or len(history.columns) <= 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history[\"symbol\"].to_list()]\n        compressed_symbols: list[str] = []\n\n        for symbol in symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol).select(\n                pl.col(\"close\"), pl.col(\"session_date\")\n            ).sort(\"session_date\")\n\n            if df.height < self._window or len(df.columns) <= 1:\n                continue\n\n            open_close_ratio = (df[\"close\"] - df[\"open\"]).abs().max() / (df[\"high\"] - df[\"low\"]).min()\n            if open_close_ratio <= 0.2:  # Consider a threshold for range compression\n                compressed_symbols.append(symbol)\n\n        if not compressed_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(compressed_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in compressed_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1245,
+    "output_tokens": 446
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.191921100005857,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 361
+}

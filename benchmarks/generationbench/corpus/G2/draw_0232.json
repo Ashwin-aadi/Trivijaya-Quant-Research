@@ -1,0 +1,23 @@
+{
+  "index": 232,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionToTrailingMean(Strategy):\n    rationale = (\n        \"Price reversion is a common phenomenon where asset prices tend to return to their \"\n        \"historical means. By identifying assets that have deviated significantly from their \"\n        \"trailing mean, we can exploit this tendency for potential returns.\"\n    )\n\n    def __init__(self, window: int = 60, k: float = 1.5) -> None:\n        self._window = window\n        self._k = k\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_adj_close = history.groupby(\"symbol\").agg(\n            (pl.col(\"adj_close\").mean()).alias(\"mean_adj_close\")\n        )\n        latest_closes = view.closes().select([\"session_date\", *view.symbols])\n\n        merged = (\n            history.join(mean_adj_close, on=\"symbol\", how=\"inner\")\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"mean_adj_close\")).alias(\"deviation\"),\n                ((pl.col(\"adj_close\") / pl.col(\"mean_adj_close\")) - 1).alias(\"ratio\"),\n            )\n            .sort([\"symbol\", \"session_date\"], descending=False)\n            .filter((pl.col(\"deviation\").abs() > self._k * pl.col(\"mean_adj_close\")))\n        )\n\n        symbols = merged[\"symbol\"].to_list()\n        weights: dict[str, float] = {}\n        for symbol in symbols:\n            if symbol not in latest_closes.columns:\n                continue\n            weight = 1.0 / len(symbols)\n            weights[symbol] = weight\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weights.get(s, 0) for s in view.symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionToTrailingMean",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 506
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.720207200000004,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 238
+}

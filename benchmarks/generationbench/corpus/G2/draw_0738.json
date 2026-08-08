@@ -1,0 +1,23 @@
+{
+  "index": 738,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength tend to outperform the broader market over time. \"\n        \"This is based on the assumption that stocks in strong sectors or with a history of \"\n        \"outperformance will continue to do well.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = closes.mean().to_vertical()\n        symbols_with_data = set(mean_close.columns) & set(view.symbols)\n\n        strength_scores: dict[str, float] = {}\n        for symbol in symbols_with_data:\n            if view.closes(symbol)[-1] > mean_close[symbol][-1]:\n                strength_scores[symbol] = 1.0\n            else:\n                strength_scores[symbol] = 0.0\n\n        sorted_strengths = sorted(strength_scores.items(), key=lambda x: x[1], reverse=True)\n        top_symbols = [symbol for symbol, score in sorted_strengths if score == 1.0]\n\n        weight_per_symbol = 1.0 / len(top_symbols) if top_symbols else 0\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight_per_symbol for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 419
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.817333899991354,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 750
+}

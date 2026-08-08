@@ -1,0 +1,26 @@
+{
+  "index": 109,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion strategies exploit the tendency of asset prices to revert \"\n        \"to their historical mean. In this case, we expect stocks that have performed \"\n        \"poorly recently to revert in the near future.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_reversion_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            mean = sum(values) / len(values)\n            latest_close = float(closes[symbol].last())\n            deviation_from_mean = abs(latest_close - mean)\n            max_deviation = max(abs(v - mean) for v in values)\n\n            # Avoid division by zero and ensure meaningful score\n            if max_deviation == 0:\n                continue\n\n            score = deviation_from_mean / max_deviation\n            mean_reversion_scores[symbol] = score\n\n        sorted_symbols = [s for s in view.symbols if s in mean_reversion_scores.keys()]\n        top_n_symbols = sorted(mean_reversion_scores.items(), key=lambda x: x[1], reverse=True)[:5]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in [t[0] for t in top_n_symbols]}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3974,
+    "output_tokens": 1385
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy generally aligns well with its rationale but has some potential issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale mentions exploiting the tendency of asset prices to revert to their historical mean, but the implementation calculates a score based on the latest close's deviation from the mean over the past 10 days and then selects the top 5 symbols with the highest scores for long positions. This might not fully capture mean reversion because it focuses more on identifying the most deviated symbols rather than those that are expected to revert.\n\n2. **Potential Failure Cases**:\n   - The score calculation in line `score = abs(latest_close - mean) / max(values, default=1.0)` can produce misleading results if the latest close is an extreme value (e.g., at a maximum or minimum). This could lead to incorrect signals.\n   - If there are symbols with missing data for more than 10 days, `closes.height < self._window` will cause them to be ignored, which might exclude important symbols from consideration.\n\n3. **Fragile Parameters**:\n   - The window size is hardcoded as 10 in the class definition and used consistently throughout (line `self._window = window`). While this can be adjusted by changing the parameter, it does not dynamically adapt based on market conditions or symbol characteristics.\n   - Selecting the top 5 symbols for long positions might not always make sense. The strategy could benefit from a more dynamic selection process that considers risk and potential returns.\n\n4. **Potential Issues**:\n   - Line `if closes.height < self._window: return Signal(...)` can lead to issues if the window size is too large relative to available data.\n   - The use of `polars` for handling financial data is good, but the strategy could benefit from more sophisticated statistical methods or models to better capture mean reversion.\n\nOverall, the core concept of identifying symbols that are expected to revert to their mean price is sound, but improvements in score calculation and parameter flexibility would enhance its robustness."
+  ],
+  "seconds": 35.785528200000044,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 222
+}

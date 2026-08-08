@@ -1,0 +1,46 @@
+{
+  "index": 16,
+  "paradigm": "G7_mcts",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion200d(Strategy):\n    rationale = (\n        \"Price reversion strategies exploit the tendency of stock prices to revert to their \"\n        \"mean over longer time frames. By tracking against a 200-day moving average (MA), this \"\n        \"strategy aims to identify stocks that have deviated significantly from their long-term \"\n        \"trend, potentially offering entry points for profitable trades.\"\n    )\n\n    def __init__(self, window: int = 200, top_n: int = 10) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            ma = sum(values[-self._window:]) / self._window\n            if values[-1] < 0.95 * ma or values[-1] > 1.05 * ma:\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion200d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19371,
+    "output_tokens": 6380
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the closing price, measured against a trailing 50-day average closing price. This choice captures recent market action while filtering out noise, making reversion more detectable.",
+    "The signal will be the daily close price, measured against a trailing 200-day moving average of closes. This longer lookback period helps in capturing broader market trends and smoothing out short-term volatility, potentially offering a clearer reversion signal over extended periods.",
+    "The portfolio will consist of 10 equally-weighted stocks when a position is opened or closed. This approach balances the need for diversification with manageable risk, ensuring each stock contributes equally to the overall strategy's performance.",
+    "The portfolio will hold exactly 10 names, each equally weighted at 10%. This approach balances diversification benefits with manageable risk exposure, ensuring no single stock dominates the portfolio's performance.",
+    "The portfolio will hold exactly 10 names, each equally weighted at 10%. This ensures balanced exposure and risk management across a diversified set of stocks.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% for each stock to prevent any single stock from significantly impacting the overall portfolio. This limit will help manage risk while allowing the strategy to capture potential reversions in price levels against the trailing 200-day moving average.",
+    "For this systematic equity strategy in the Indian market, we will set a stop-loss rule of 5% on an individual position and a portfolio-wide loss limit of 10%. This ensures that no single stock can cause undue risk while also safeguarding against significant overall losses. If either threshold is breached, trading will be halted to prevent further capital erosion.",
+    "The portfolio will consist of 10 equally-weighted stocks when a position is opened or closed. This balanced approach ensures that no single stock dominates the portfolio, promoting diversified risk management and consistent performance contributions from each selected equity.",
+    "For the risk rule, I propose setting a portfolio loss limit of -10% to prevent significant drawdowns that could erode the capital base over extended periods. This limit will ensure that the strategy exits trades or scales back positions before losses become too severe, thus protecting the overall portfolio from substantial declines.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% from the entry price to prevent significant losses on any single stock. Additionally, the strategy should halt trading if the portfolio's overall value falls below 90% of its initial value, safeguarding against severe market downturns.",
+    "For this systematic equity strategy in the Indian market, we will set a stop-loss rule of 5% on an individual position and a portfolio-wide loss limit of 10%. This ensures that no single stock can cause undue risk while also safeguarding against significant overall losses. If either threshold is breached, trading will be halted to prevent further capital erosion."
+  ],
+  "seconds": 389.41573349997634,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 207
+}

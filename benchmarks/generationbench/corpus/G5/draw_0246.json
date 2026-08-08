@@ -1,0 +1,27 @@
+{
+  "index": 246,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrengthStrategy(Strategy):\n    rationale = (\n        \"Identifying stocks with strong relative performance against the broad market can \"\n        \"lead to outperformance. This strategy selects the top-performing stocks based on their \"\n        \"10-day cumulative return compared to the NIFTY 100 index.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or len(history[\"symbol\"]) < 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_closes = view.closes().select(\"NIFTYBANK_CLOSE\")\n        nifty_returns = (\n            (nifty_closes.with_columns(\n                (pl.col(\"NIFTYBANK_CLOSE\") / pl.col(\"NIFTYBANK_CLOSE\").shift(self._window) - 1.0).alias(\"r\")\n            ).sort(\"session_date\", descending=False).select(pl.col(\"r\")).to_list())\n        )\n\n        stock_returns = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            close_values = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].drop_nulls().to_list()]\n            nifty_value = nifty_closes.filter(pl.col(\"NIFTYBANK_CLOSE\").is_not_null()).select(pl.col(\"NIFTYBANK_CLOSE\")[0]).item()\n            if close_values[-1] / nifty_value - 1.0 > max(nifty_returns):\n                stock_returns[symbol] = sum((close_values[i] / (close_values[max(0, i - self._window)] or 1) - 1.0 for i in range(self._window)))\n\n        top_n_symbols = sorted(stock_returns.items(), key=lambda x: x[1], reverse=True)[:5]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s, _ in top_n_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrengthStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 5352,
+    "output_tokens": 1914
+  },
+  "calls": 4,
+  "candidates_evaluated": 3,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains some issues that could lead to suboptimal performance or failures:\n\n1. **Rationale vs. Code**: The rationale states that the strategy identifies top-performing stocks based on their 10-day cumulative return compared to the NIFTY 100 index. However, the code calculates stock returns over a window of 10 days relative to their own closing prices (line 38-47), not relative to the NIFTY 100. This discrepancy could lead to different results than intended.\n\n2. **Potential Failure**: If `history` is empty or has fewer than two symbols, the code returns an empty weights dictionary, which might cause issues in a backtesting environment (line 34). The strategy should provide some default signal in such cases.\n\n3. **Fragile Parameters**: The window size of 10 days is hardcoded and not adjustable without changing the class definition (line 12). This makes the strategy less flexible and harder to adapt to different market conditions or investment horizons.\n\n4. **fragile Code**: The `_latest_visible` function assumes that `visible[\"session_date\"].max()` will always be a date object, which might fail if there are no dates in the dataset (line 52). This should include error handling to manage such scenarios.\n\n5. **Performance Calculation**: The calculation of stock returns uses a simple cumulative sum approach, which might not capture all nuances of performance (lines 38-47).\n\n6. **Missing Imports and Definitions**: Ensure that `MarketView`, `Signal`, `Strategy`, and other necessary imports are correctly defined elsewhere in the codebase.\n\nIn summary, while the strategy aims to identify top-performing stocks based on relative returns, it currently calculates absolute returns instead of relative ones. Additionally, the handling of edge cases and parameter flexibility could be improved for robustness."
+  ],
+  "seconds": 48.953970099999424,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 499
+}

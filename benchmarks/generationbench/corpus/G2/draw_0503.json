@@ -1,0 +1,23 @@
+{
+  "index": 503,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeMomentumVolatility(Strategy):\n    rationale = (\n        \"Combining momentum and volatility characteristics can provide a more robust signal. \"\n        \"High momentum stocks often see increased trading volume due to investor interest, while low volatility indicates stable price movements. \"\n        \"By combining these signals, we aim to identify stocks with strong historical performance that are also relatively less volatile.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, vol_window: int = 30) -> None:\n        self._momentum_window = momentum_window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._momentum_window + self._vol_window)\n\n        if history.is_empty() or history.height < self._momentum_window + self._vol_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"]\n        momentum_scores: dict[str, float] = {}\n        volatility_scores: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            adj_closes = [float(v) for v in closes[symbol].to_list()]\n            if len(adj_closes) < self._momentum_window + self._vol_window:\n                continue\n\n            # Momentum score: average daily return over the last 20 days\n            daily_returns = [(adj_closes[i] - adj_closes[i - 1]) / adj_closes[i - 1]\n                             for i in range(1, len(adj_closes))]\n            momentum_score = sum(daily_returns[-self._momentum_window:]) / self._momentum_window\n\n            # Volatility score: standard deviation of daily returns over the last 30 days\n            volatility_score = (sum([(x - sum(daily_returns[-self._vol_window:]) / self._vol_window) ** 2 for x in daily_returns[-self._vol_window:]]) /\n                                (self._vol_window - 1)) ** 0.5\n\n            momentum_scores[symbol] = momentum_score\n            volatility_scores[symbol] = volatility_score\n\n        # Combine scores to rank stocks: higher momentum and lower volatility are better\n        final_scores = {symbol: momentum_scores[symbol] / (1 + volatility_scores[symbol]) for symbol in momentum_scores}\n        \n        sorted_symbols = sorted(final_scores, key=lambda s: -final_scores[s])\n        top_n = min(len(sorted_symbols), 5)  # Select the top N symbols based on final score\n\n        weight = 1.0 / len(top_n)\n        return Signal(information_available_at=stamp, weights={s: weight for s in sorted_symbols[:top_n]})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeMomentumVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 683
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.196424200003094,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 511
+}

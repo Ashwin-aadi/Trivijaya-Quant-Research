@@ -1,0 +1,26 @@
+{
+  "index": 81,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks are often considered less risky and may exhibit more stable returns. \"\n        \"By tilting our portfolio towards these stocks, we aim to reduce overall portfolio risk.\"\n    )\n\n    def __init__(self, window: int = 20, top_n_percentage: float = 0.1) -> None:\n        self._window = window\n        self._top_n_percentage = top_n_percentage\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = []\n        for symbol in view.symbols:\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) >= self._window:\n                volatility = pl.DataFrame({\"returns\": [values[i] / values[i - 1] - 1.0 for i in range(1, self._window)]}).select(pl.col(\"returns\").std()).item()\n                symbols.append((symbol, volatility))\n\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        sorted_symbols = sorted(symbols, key=lambda x: x[1])\n        top_n_count = int(len(sorted_symbols) * self._top_n_percentage)\n        top_n_symbols = [s[0] for s in sorted_symbols[:top_n_count]]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3912,
+    "output_tokens": 1319
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale of tilting towards low-volatility stocks to reduce overall portfolio risk. However, there are several issues and potential improvements:\n\n1. **Rationale vs Code Mismatch:**\n   - The rationale states the goal is to reduce overall portfolio risk by favoring less volatile stocks.\n   - The code specifically selects only the top 5 symbols with the lowest volatility, which might not fully capture the low-volatility strategy's intent. It could be more nuanced, considering a broader range of low-volatility assets.\n\n2. **Potential Failures:**\n   - Line 19: If `closes.height < self._window`, it returns an empty weights dictionary, but no information is provided on what to do if there are no symbols with sufficient data.\n   - Line 30-34: If the volatility list has fewer than 5 elements after sorting, the strategy fails without any fallback mechanism.\n\n3. **Fragile Parameters:**\n   - The `window` parameter (Line 7) is hardcoded to 20. This might not be optimal for all market conditions and should be configurable.\n   - The selection of top 5 symbols is hard-coded (Line 34). A more flexible approach, such as selecting a percentage or a threshold value, could be beneficial.\n\n4. **Possible Run-Time Issues:**\n   - Line 21: `assert isinstance(newest, date)` should handle cases where the data might not always return a valid `date`.\n   - The strategy assumes that all symbols have enough data points, which may not always be true (Line 30-34).\n\n5. **Improvements Suggested:**\n   - Add handling for insufficient data in Line 19 and Line 30.\n   - Use configurable parameters for volatility window and top selection.\n   - Consider adding logging or error handling to provide more context during runtime.\n\nOverall, the strategy is sound but could benefit from better robustness and flexibility."
+  ],
+  "seconds": 34.41444690000026,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 165
+}

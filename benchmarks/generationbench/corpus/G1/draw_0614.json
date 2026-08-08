@@ -1,0 +1,23 @@
+{
+  "index": 614,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Trend following based on volatility scaling. During periods of high volatility, \"\n        \"we expect more consistent trends and can enter positions with higher confidence.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (\n            history.select([pl.col(\"symbol\"), (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")])\n            .drop_nulls()\n            .sort(\"session_date\")\n        )\n\n        # Calculate rolling volatility\n        rolling_volatility = returns.groupby(\"symbol\").agg(\n            (pl.col(\"return\").std().alias(\"volatility\"))\n        ).select(pl.col(\"symbol\"), \"volatility\")\n\n        # Filter symbols with high volatility\n        high_volatility_symbols = (\n            rolling_volatility.filter(\n                pl.col(\"volatility\") > self._threshold * returns.groupby(\"symbol\").agg(pl.col(\"return\").mean()).to_series()\n            )[\"symbol\"]\n            .to_list()\n        )\n\n        if not high_volatility_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Allocate equal weight to each selected symbol\n        weight = 1.0 / len(high_volatility_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                s: weight for s in high_volatility_symbols\n            }\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 483
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.164186199996038,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 627
+}

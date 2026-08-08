@@ -1,0 +1,23 @@
+{
+  "index": 280,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass TrailingReversion(Strategy):\n    rationale = (\n        \"Price reverts towards its recent average. This strategy identifies stocks that have \"\n        \"deviated significantly from their trailing mean and bets on a return to the mean.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        trailing_mean: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in trailing_mean:\n                mean_value = (\n                    history.filter(pl.col(\"symbol\") == symbol)\n                    .select(\n                        (pl.col(\"adj_close\").mean().alias(\"mean\"))\n                    )\n                    .to_dict(True)[0][\"mean\"]\n                )\n                trailing_mean[symbol] = float(mean_value)\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in trailing_mean:\n                continue\n            latest_close = history.filter(pl.col(\"symbol\") == symbol).select(\n                pl.col(\"adj_close\").last().alias(\"latest\")\n            ).to_dict(True)[0][\"latest\"]\n            mean_diff = abs(float(latest_close) - trailing_mean[symbol])\n            if mean_diff > 5.0:  # Assuming a threshold for deviation\n                picks.append(symbol)\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_dict(True)[0][\"session_date\"]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "TrailingReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 475
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.559323100009351,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 285
+}

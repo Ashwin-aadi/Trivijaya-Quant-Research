@@ -1,0 +1,26 @@
+{
+  "index": 252,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency of stocks that have performed well \"\n        \"relative to the market in the recent past to continue outperforming. By ranking \"\n        \"stocks based on their recent returns and allocating capital to the top performers, \"\n        \"the strategy aims to capture this persistent performance pattern.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns_df = (\n            closes\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=True)\n            .select([\"symbol\", \"return\"])\n        )\n\n        # Rank symbols by return\n        ranked = returns_df.group_by(\"symbol\").agg(\n            (pl.col(\"return\").mean().alias(\"average_return\")).rank(method=\"dense\", descending=True)\n        ).sort(\"average_return\")\n\n        top_symbols: list[str] = [row[\"symbol\"] for _, row in ranked.iter_rows() if row[\"average_return\"] <= self._top_n]\n\n        # Ensure at least one symbol is selected\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Assign weights based on rank and average return\n        weight_sum = sum([1.0 / (rank + 1) for _, row in ranked.iter_rows() if row[\"average_return\"] <= self._top_n])\n        weights = {symbol: 1.0 / (rank + 1) / weight_sum for symbol, rank in zip(top_symbols, range(len(top_symbols)))}\n\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, weight in weights.items()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3983,
+    "output_tokens": 1422
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears well-structured and aligns with its stated rationale. However, there are a few potential issues to consider:\n\n1. **Rationale vs. Implementation**:\n   - The rationale states that the strategy allocates capital to the top performers based on recent returns. While the code does calculate daily returns and rank symbols by their mean return over the window period, it only considers the top `n` ranked symbols (`self._top_n`). This is consistent with the rationale.\n\n2. **Potential Fails**:\n   - If all symbols have negative average returns, no symbols will be selected for investment (line 36). This can occur if there's a market-wide downturn or a lack of outperforming stocks.\n   - The strategy assumes that all top-ranked symbols are equally weighted (`weight = 1.0 / len(top_symbols)`), which might not align with the intention to exploit momentum effectively.\n\n3. **Fragile Parameters**:\n   - `window`: If the window size is too short, the returns might be too volatile and unreliable (line 8). Conversely, if it\u2019s too long, it may miss recent trends.\n   - `top_n`: This parameter directly affects which stocks are selected for investment. A very high value could result in no selection, while a low value might overweight riskier but less persistent performers.\n\n4. **Potential Stops**:\n   - The code assumes that the view's history always contains data (line 21). If the `view.history()` returns an empty DataFrame or if there are missing dates, this would cause issues.\n   - Ensure that all necessary columns (`symbol`, `adj_close`) exist in `closes` before running calculations to avoid errors.\n\nOverall, the strategy is sound but could benefit from additional robustness checks and possibly more nuanced weight assignment based on return variability."
+  ],
+  "seconds": 36.50735789999999,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 511
+}

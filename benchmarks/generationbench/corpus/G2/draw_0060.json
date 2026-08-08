@@ -1,0 +1,23 @@
+{
+  "index": 60,
+  "paradigm": "G2_cot",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed well \"\n        \"relative to their peers in recent periods to continue outperforming. This strategy \"\n        \"buys top performers and sells laggards.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        rank_df = (\n            history\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window - 1) - 1.0).alias(\"return\"),\n            )\n            .sort(\"return\", descending=True)\n            .select([\"symbol\", \"return\"])\n            .head(5)\n        )\n\n        top_symbols = rank_df[\"symbol\"].to_list()\n        bottom_symbols = rank_df.sort(\"return\").tail(5)[\"symbol\"].to_list()\n\n        if not top_symbols or not bottom_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_top = 0.6 / len(top_symbols)\n        weight_bottom = -0.4 / len(bottom_symbols)\n\n        weights = {s: weight_top for s in top_symbols}\n        for s in bottom_symbols:\n            weights[s] = weight_bottom\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1342,
+    "output_tokens": 444
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.34427929999947,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 63
+}

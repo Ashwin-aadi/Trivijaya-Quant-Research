@@ -1,0 +1,23 @@
+{
+  "index": 342,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrengthStrategy(Strategy):\n    rationale = (\n        \"Firms with high relative strength to the broader market tend to outperform. \"\n        \"This is based on the idea that strong companies can maintain higher growth rates and \"\n        \"may have better fundamentals compared to weaker firms.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or len(view.symbols) < 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        relative_strengths = {}\n        for symbol in view.symbols:\n            closes = history.select(\n                pl.col(\"symbol\") == symbol\n            ).select(pl.col(\"adj_close\")).to_series()\n            if closes.is_empty():\n                continue\n\n            avg_price = closes.mean().item()\n            strength_score = (\n                (history.select(\n                    pl.col(\"symbol\") == symbol\n                ).select(pl.col(\"adj_close\"))\n                 / avg_price - 1).mean().item()\n            )\n            relative_strengths[symbol] = strength_score\n\n        top_symbols = sorted(relative_strengths.items(), key=lambda x: x[1], reverse=True)[:3]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, _ in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\")).max().item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrengthStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 442
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.302580900002795,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 350
+}

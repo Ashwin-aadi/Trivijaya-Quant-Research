@@ -1,0 +1,26 @@
+{
+  "index": 84,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum suggests that securities with higher returns in the recent \"\n        \"past will continue to outperform. This strategy exploits this phenomenon by investing \"\n        \"in the top performing stocks over a lookback period.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (\n            (closes.with_columns((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"returns\"))\n              .select(pl.exclude(\"symbol\", \"session_date\")))\n        )\n\n        # Handle division by zero and NaN values\n        returns[\"returns\"] = returns[\"returns\"].fill_null(0)\n\n        # Find the top performing symbols by summing their daily returns\n        ranked_symbols = (\n            returns.select(\n                pl.sum(\"returns\").over(\"symbol\")\n                .rank(method=\"dense\", descending=True)\n                .alias(\"rank\")\n            )\n            .select([\"symbol\", \"rank\"])\n            .filter(pl.col(\"rank\") <= self._top_n)\n        )\n\n        # Extract the top performing symbols\n        picks = ranked_symbols[\"symbol\"].to_list()\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights=dict(zip(picks, [weight] * len(picks)))\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3974,
+    "output_tokens": 1356
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale of cross-sectional momentum but has several issues and potential weaknesses:\n\n1. **Rationale vs. Code Mismatch:**\n   - The rationale states that \"securities with higher returns in the recent past will continue to outperform,\" which is a forward-looking assumption.\n   - However, the code only ranks symbols based on their cumulative returns over the lookback period without explicitly considering future performance.\n\n2. **Potential Failures and Fragilities:**\n   - **Line 38:** `if closes.height < self._window or closes.width == 0:` This check could return an empty weights dictionary even when data is available but not sufficient for ranking.\n   - **Line 46:** `pl.sum(\"returns\").over(\"symbol\")` might introduce NaN values if any daily return calculation results in division by zero. Consider adding a safeguard here.\n   - **Line 50:** The use of dense ranking could lead to ties, which the current implementation does not handle.\n\n3. **Fragile Parameters:**\n   - `top_n`: Setting this parameter without considering market conditions might result in suboptimal performance. For instance, if only a few symbols outperform consistently, setting `top_n` too high could dilute returns.\n   - The strategy assumes that the top `n` performers will continue to outperform, which may not always hold true.\n\n4. **Code Execution Issues:**\n   - Line 16: Ensure that `MarketView`, `Signal`, and related dependencies are correctly defined in the `src.backtest.strategy` module.\n   - Line 23: Ensure `pl` (PolaR) is correctly imported and the DataFrame operations align with expected data structures.\n\nOverall, while the strategy is conceptually sound for cross-sectional momentum, it needs adjustments to handle edge cases, ensure robustness, and address potential logical flaws."
+  ],
+  "seconds": 35.113954999999805,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 171
+}

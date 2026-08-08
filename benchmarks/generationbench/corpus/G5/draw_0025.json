@@ -1,0 +1,26 @@
+{
+  "index": 25,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion(Strategy):\n    rationale = (\n        \"Mean reversion strategies exploit the tendency of financial assets to return to their \"\n        \"mean price level over time. Short-term deviations from this mean are expected to revert, \"\n        \"offering trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 5, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        means = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"mean\"))\n            .with_column(\n                (pl.col(\"adj_close\") - pl.col(\"mean\")).abs()\n                .rank(method=\"ordinal\", descending=True)\n                .alias(\"deviation_rank\")\n            )\n        )\n\n        # Filter to get symbols with deviations within a threshold\n        filtered_means = (\n            means.filter(pl.col(\"deviation_rank\").lt(self._threshold))\n            .select([\"symbol\"])\n            .to_dict(as_series=False)[\"symbol\"]\n        )\n\n        if not filtered_means:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(filtered_means)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in filtered_means},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3939,
+    "output_tokens": 1278
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy is a mean reversion approach aimed at exploiting short-term deviations from the mean price level of assets. The rationale states the intention to find assets deviating significantly from their historical means and betting on their return to that mean. However, there are several issues with both the rationale and the implementation:\n\n1. **Rationale vs Code Disagreement**:\n   - The strategy is designed to identify a single asset with the highest deviation (max rank) as the reversion candidate. This might not align well with the stated rationale of exploiting \"short-term deviations from this mean,\" which would imply finding multiple assets close to their mean.\n   - **Line 32**: `max_deviation = means[\"deviation_rank\"].max().to_list()[0]` focuses on the single highest deviation, whereas a true mean reversion strategy might benefit from considering a broader range of deviations.\n\n2. **Potential Failures**:\n   - The method may fail if all assets have similar deviations, making it difficult to select a candidate for reversion.\n   - If there are no visible historical prices within the window, the strategy fails (`if history.is_empty()`), leading to `Signal(weights={})`.\n   - **Line 39**: This check does not handle the case where there is only one asset with a non-zero deviation.\n\n3. **Fragile Parameters**:\n   - The parameters (`window` and `threshold`) are hardcoded, which can make the strategy sensitive to market conditions.\n   - The threshold (0.1) might be too low or high depending on the data distribution; it should ideally be dynamically determined based on historical volatility.\n\n4. **Implementation Issues**:\n   - There is no handling for cases where there could be multiple assets with similar deviations, potentially missing out on profitable trades.\n   - The use of `polars` for a backtest strategy might not be ideal if the intention is to integrate this into a larger, possibly more complex trading environment.\n\nOverall, while the core idea is sound, the implementation lacks robustness and could benefit from additional checks and dynamic parameter tuning."
+  ],
+  "seconds": 33.547063300000445,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 53
+}

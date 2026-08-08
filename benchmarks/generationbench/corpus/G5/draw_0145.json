@@ -1,0 +1,26 @@
+{
+  "index": 145,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"Mean reversion identifies stocks that have moved far from their mean price and \"\n        \"predicts they will move back. Short-horizon mean reversion looks at recent prices \"\n        \"to identify extreme deviations over a 5-day window.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_reversion_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            rolling_mean = sum(values[-self._window:]) / self._window\n            current_price = values[-1]\n            score = (current_price - rolling_mean) / rolling_mean\n\n            if abs(score) > 0.2:  # Consider stocks with a score greater than \u00b120% from mean as candidates\n                mean_reversion_scores[symbol] = score\n\n        picks: list[str] = [s for s, _ in sorted(mean_reversion_scores.items(), key=lambda item: abs(item[1]), reverse=True)]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4057,
+    "output_tokens": 1412
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "### Critique of the Mean Reversion 5d Strategy\n\nThe provided strategy aims to identify stocks with extreme price deviations from their recent mean using a simple moving average approach. However, several issues can arise:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale states that short-horizon mean reversion looks at recent prices to identify extreme deviations. While the code indeed uses a 5-day window, it doesn't explicitly define what \"short horizon\" means or how this period was chosen.\n   - **Line**: `window: int = 5`\n\n2. **Potential Failure Cases**:\n   - The strategy only considers stocks with scores greater than \u00b120%. This threshold might be too strict in markets where prices rarely deviate significantly from their mean, leading to no trades.\n   - **Lines**: `if abs(score) > 0.2:`\n   - If the market is highly volatile or mean-reverting, this could lead to frequent trades.\n\n3. **Fragile Parameters**:\n   - The choice of the window size (5 days) might not be optimal for all markets or time periods.\n   - **Line**: `window: int = 5`\n   - A more dynamic approach, such as tuning the window based on market conditions or using a rolling optimization process, could improve performance.\n\n4. **Potential Run-Time Issues**:\n   - The code assumes that `closes` will always contain all symbols in `view.symbols`. If any symbol is missing, the strategy will return an empty weights dictionary.\n   - **Line**: `if symbol not in closes.columns: continue`\n   - Adding logging or error handling could help identify and resolve such issues.\n\n5. **Data Quality**:\n   - The code does not validate that the data provided by `view.closes` is complete or accurate, which could lead to incorrect signals.\n   - **Line**: `closes = view.closes(lookback=self._window)`\n\n6. **No Consideration for Market Volume or Other Factors**:\n   - The strategy only uses price data without considering volume or other market factors that might affect the mean reversion signal.\n   - **Lines**: None in this snippet, but relevant elsewhere.\n\n### Sound Components\n- The overall structure and logic of the strategy are sound, with clear separation between rationale and implementation.\n- The sorting mechanism to pick stocks based on their score is well-defined."
+  ],
+  "seconds": 36.737819500000114,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 294
+}

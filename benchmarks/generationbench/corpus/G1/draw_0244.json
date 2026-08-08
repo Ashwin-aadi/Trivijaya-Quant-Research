@@ -1,0 +1,23 @@
+{
+  "index": 244,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Price reversion is a principle that after a significant move in price, the \"\n        \"price will tend to revert back towards its mean. This strategy identifies stocks\"\n        \"that have moved significantly and bets on their reversion.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width == 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = closes.mean().to_dict().popitem()[1]\n        std_close = (\n            (closes - mean_close).abs()\n            .mean()\n            .to_dict()\n            .popitem()[1]\n        )\n\n        symbols_with_high_volatility: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window or abs(values[-1] - mean_close) > 2 * std_close:\n                symbols_with_high_volatility.append(symbol)\n\n        weight = 1.0 / len(symbols_with_high_volatility)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in symbols_with_high_volatility}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 425
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.638219600004959,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 249
+}

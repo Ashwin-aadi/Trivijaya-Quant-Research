@@ -1,0 +1,26 @@
+{
+  "index": 217,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that security prices and financial returns eventually \"\n        \"return to the long-term mean. In a short horizon, extreme deviations from this mean are \"\n        \"likely to be followed by a return toward it.\"\n    )\n\n    def __init__(self, window: int = 10, threshold_factor: float = 2.0) -> None:\n        self._window = window\n        self._threshold_factor = threshold_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = float(closes.mean().select(pl.col(\"adj_close\").mean()).to_series()[0])\n        std_close = float(closes.std().select(pl.col(\"adj_close\").std()).to_series()[0])\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if abs(values[-1] - mean_close) >= self._threshold_factor * std_close:\n                signals[symbol] = 1.0\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_weight = sum(signals.values())\n        weight_per_symbol = {s: w / total_weight for s, w in signals.items()}\n        return Signal(\n            information_available_at=stamp, weights=weight_per_symbol\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_series()[0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3855,
+    "output_tokens": 1236
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to implement a mean reversion approach over a 10-day window. The rationale and code align reasonably well in concept but have some potential issues:\n\n1. **Rationale vs Code**: \n   - Rationale states \"extreme deviations from this mean are likely to be followed by a return toward it,\" but the code uses `2 * std` as the threshold, which is somewhat arbitrary without empirical validation (line 18).\n\n2. **Potential Failure**:\n   - The strategy assumes that all symbols will have enough data points within the window (`closes.height < self._window`), which might not always be true (lines 7-9). This can lead to errors if there are missing values.\n\n3. **Fragile Parameters**:\n   - The `2 * std` threshold is hardcoded and may need tuning based on market conditions or data characteristics (line 18).\n\n4. **Code Fragility**:\n   - The function `_latest_visible` assumes that the view history contains a \"session_date\" column, which might not be universal across all datasets (line 7 of `_latest_visible`).\n\n5. **Running Issues**:\n   - `pl.col(\"adj_close\").mean().alias(\"mean\")` and `pl.col(\"adj_close\").std().alias(\"std\")[0]` assume that \"adj_close\" is always a column in the dataset, which could fail if not consistently named (lines 15-16).\n\nOverall, while the strategy aims to capture mean reversion, its implementation has some hardcoded assumptions and potential fragilities. A more robust approach would include parameter tuning based on backtesting results and ensuring consistency across different datasets."
+  ],
+  "seconds": 32.562767400000666,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 440
+}

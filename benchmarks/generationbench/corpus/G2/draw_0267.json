@@ -1,0 +1,23 @@
+{
+  "index": 267,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqualWeighting(Strategy):\n    rationale = (\n        \"High liquidity stocks are more likely to be continuously priced and have less \"\n        \"idiosyncratic risk. By equal-weighting these liquid assets, we can capture the \"\n        \"average performance of the most traded stocks in the market.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = _calculate_liquidity_score(history)\n        weights = _equal_weighting_with_liquidity(liquidity_scores)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight\n                for symbol, weight in zip(view.symbols, weights)\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_liquidity_score(history: pl.DataFrame) -> pl.Series:\n    volume = history.select(pl.col(\"volume\").sum()).to_series()\n    average_volume = volume / len(view.symbols)\n\n    liquidity_scores = (\n        history.select(\n            (pl.col(\"volume\") - pl.col(\"volume\").shift(1)).abs().mean().alias(\"avg_abs_change\")\n        )\n        .with_column((pl.col(\"avg_abs_change\") / average_volume).rank(method=\"ordinal\", descending=True))\n        .select(pl.col(\"symbol\"), \"r\")\n    )\n\n    return liquidity_scores.explode(\"r\")\n\n\ndef _equal_weighting_with_liquidity(liquidity_scores: pl.DataFrame) -> list[float]:\n    symbols = [row[0] for row in liquidity_scores.to_list()]\n    scores = [row[1] for row in liquidity_scores.to_list()]\n\n    total_score = sum(scores)\n    if total_score == 0:\n        return [1.0 / len(symbols)] * len(symbols)\n\n    weights = [(score / total_score) for score in scores]\n    normalized_weights = [weight / max(weights) for weight in weights]\n\n    return normalized_weights",
+  "class_name": "LiquidityWeightedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 550
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.535197999997763,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 273
+}

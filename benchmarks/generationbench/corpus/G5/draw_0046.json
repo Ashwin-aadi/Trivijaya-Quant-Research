@@ -1,0 +1,26 @@
+{
+  "index": 46,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Historical data often shows that certain stocks exhibit seasonality effects. \"\n        \"By identifying and exploiting these patterns, we can potentially generate alpha.\"\n    )\n\n    def __init__(self, window: int = 365, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality_factors: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.symbol.unique().to_list():\n                continue\n            close_series = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].to_list()]\n            if len(close_series) < self._window:\n                continue\n\n            # Calculate the mean closing price over the last window days\n            recent_mean = sum(close_series[-self._window:]) / self._window\n            current_close = view.latest_close()[symbol]\n            factor = (current_close - recent_mean) / recent_mean\n            if abs(factor) >= self._threshold:\n                seasonality_factors[symbol] = factor\n\n        selected_symbols = [s for s, f in seasonality_factors.items() if f > 0]\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in selected_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3918,
+    "output_tokens": 1294
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains some areas for improvement and potential issues:\n\n1. **Rationale vs. Code**: The rationale states the strategy aims to exploit seasonality effects in stock prices. However, the code focuses on identifying symbols with significant deviations from their recent mean closing price within a 365-day window. This may not fully capture seasonal patterns since it doesn't explicitly account for periodic trends over time.\n\n2. **Potential Fails**:\n   - The strategy relies heavily on historical data (`history`), which might miss short-term anomalies or sudden shifts in market conditions.\n   - If the `threshold` is too high, it might overfit to noise; if too low, it might not generate any trades.\n\n3. **Fragile Parameters**:\n   - The `window` parameter (line 12) sets a fixed lookback period of one year. This might be too long for some markets or industries that exhibit shorter-term trends.\n   - The `threshold` parameter (line 14) is also hardcoded. A better approach would be to dynamically adjust the threshold based on historical data.\n\n4. **Potential Issues**:\n   - Line 29: The code assumes there are enough symbols in history (`history.height < self._window`). If not, it returns an empty `Signal` (line 30), which might lead to issues if this function is part of a larger backtest where missing data is problematic.\n   - Line 41: This line checks the mean closing price over the last 365 days (`close_series[-365:]`). If there are less than 365 days available, it will still attempt to calculate the mean, leading to potential errors.\n\nOverall, the strategy has a sound basic idea but needs more robust handling of edge cases and dynamic parameter adjustment."
+  ],
+  "seconds": 33.80468200000087,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 95
+}

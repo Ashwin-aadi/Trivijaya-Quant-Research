@@ -1,0 +1,26 @@
+{
+  "index": 6,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Investing in stocks that have outperformed the broad market over a recent period \"\n        \"can lead to higher returns. This strategy identifies such stocks by comparing \"\n        \"individual stock performance against the average performance of the S&P 500 index.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        market_avg = (\n            history.select(pl.col(\"adj_close\").mean().alias(\"market_avg\"))\n            .group_by(pl.lit(True))\n            .agg(pl.col(\"market_avg\"))\n            .collect()\n            .get_column(\"market_avg\")\n            .to_list()[0]\n        )\n        if market_avg == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_performance = {}\n        for symbol in view.symbols:\n            symbol_data = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .select(\n                    pl.col(\"adj_close\"),\n                    (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n                )\n                .sort(\"session_date\")\n            )\n\n            if symbol_data.height < self._window:\n                continue\n\n            avg_return = (\n                symbol_data.select(pl.col(\"return\").mean().alias(\"avg_return\"))\n                .collect()\n                .get_column(\"avg_return\")\n                .to_list()[0]\n            )\n\n            symbol_performance[symbol] = avg_return / market_avg\n\n        sorted_symbols = [\n            s for _, s in sorted(\n                symbol_performance.items(), key=lambda item: item[1], reverse=True\n            )\n        ][:5]\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4112,
+    "output_tokens": 1513
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its stated rationale of identifying outperforming stocks relative to the market average. However, there are several issues and potential improvements:\n\n1. **Fragility in Parameters:**\n   - The `window` parameter's default value is 20. This might be arbitrary; a more robust approach would involve dynamic selection based on historical data or backtesting (line 7).\n\n2. **Potential Failures:**\n   - Line 35: If the market average (`market_avg`) is zero, division by zero occurs, leading to an error.\n   - Lines 41-46: The loop over `view.symbols` could encounter issues if symbols are not present in the history data.\n\n3. **Potential Fragility and Improvements:**\n   - Line 25: The condition `history.height < self._window` is checked, but it does not ensure that all symbols have enough historical data.\n   - Line 41: `if len(symbol_data[\"return\"]) < self._window`: This checks if there's enough return data for the symbol. However, this check should be performed before computing the average (lines 39-40).\n   - Line 56: The strategy currently picks only top 5 symbols but does not consider the performance of the market or other factors.\n\n4. **Potential Errors and Issues:**\n   - Line 28: `history.select(pl.col(\"adj_close\").mean().alias(\"market_avg\"))` should be moved to a separate variable for clarity.\n   - Line 60: The use of `.collect()` could lead to performance issues if the DataFrame is large, as it forces the computation.\n\n5. **Code vs. Rationale Disagreement:**\n   - While the rationale mentions \"outperformed the broad market,\" the code measures relative returns against a simple average (`market_avg`). A more sophisticated approach might be warranted (e.g., using benchmarks or index returns).\n\nOverall, the strategy is sound in its basic concept but could benefit from improvements to handle edge cases and ensure robustness."
+  ],
+  "seconds": 38.34674450000011,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 14
+}

@@ -1,0 +1,48 @@
+{
+  "index": 17,
+  "paradigm": "G7_mcts",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation20d(Strategy):\n    rationale = (\n        \"A breakout from a 20-day high or low often indicates a continuation of the trend. \"\n        \"By identifying such breakouts, we can capture potential momentum in the market.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            data = [float(v) for v in history[symbol].to_list()]\n            high20 = max(data[-self._window:])\n            low20 = min(data[-self._window:])\n            latest_close = float(history[history[\"session_date\"] == stamp][\"adj_close\"][symbol])\n            if latest_close > high20:\n                breakout_symbols.append(symbol)\n            elif latest_close < low20:\n                breakout_symbols.append(symbol)\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20945,
+    "output_tokens": 7144
+  },
+  "calls": 25,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will measure the daily closing price breakout over a 20-day lookback period. A trade is triggered when the closing price breaches the 20-day high or low, indicating a continuation pattern.",
+    "The signal will measure the daily high price breakout over a 15-day lookback period. A trade is triggered when the intraday high surpasses the 15-day high, signaling a potential continuation of the upward trend.",
+    "The portfolio will hold a maximum of three equity names at any time, with weights of 40%, 35%, and 25% respectively for the top-three breakout continuations identified.",
+    "For this systematic equity strategy on the Indian market with a breakout continuation theme, I will hold a portfolio of 5 names. Each name will be equally weighted at 20% to ensure diversification while maintaining simplicity in management.",
+    "The portfolio will hold a maximum of three equity names at any time, with weights of 40%, 35%, and 25% respectively for the top-three breakout continuations identified. This weighting reflects a bias towards the strongest signals while still giving each position a meaningful allocation.",
+    "For this systematic equity strategy on the Indian market with a breakout continuation theme, I will hold a portfolio of 5 names. Each name will be equally weighted at 20% to ensure diversification while maintaining simplicity in management.",
+    "For the risk rule, I propose setting a stop-loss of 5% on an individual position and a portfolio-wide stop-loss of 3%. This will limit potential losses on any single stock to 5%, while capping overall portfolio risk at 3%, ensuring disciplined trading.",
+    "For this strategy, I will set an individual position loss limit of -5% to prevent significant exposure to any single stock, ensuring that no single trade can lose more than 5% of the portfolio value before exiting the position. This rule also serves as a stop-loss mechanism to halt trading when a position falls below this threshold.",
+    "For each individual position, set a stop-loss at 5% below the entry price to limit potential losses. This rule ensures that no single trade can significantly impact the overall portfolio while allowing for reasonable market movement before exiting a position.",
+    "For this systematic equity strategy, I will set an individual position loss limit of -5%, which will stop the strategy from trading further on that position if this threshold is breached. This rule bounds the maximum potential loss per position while keeping the strategy manageable and responsive to market changes.",
+    "For the risk rule, I propose setting a trailing stop-loss that moves with the highest high of the top-three equity names by 5% for each position. This ensures dynamic protection as prices move in favor of the trades, while still limiting potential losses to 5% per position. Portfolio-wide, we will use a hard stop at 3% loss to prevent significant overall portfolio drawdowns.",
+    "For this strategy, I will set an individual position loss limit of -5%, preventing significant exposure to any single stock and ensuring that no single trade can lose more than 5% of the portfolio value before exiting the position. This rule also serves as a stop-loss mechanism to halt trading when a position falls below this threshold."
+  ],
+  "seconds": 227.30629310000222,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 220
+}

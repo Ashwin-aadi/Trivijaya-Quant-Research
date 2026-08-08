@@ -1,0 +1,23 @@
+{
+  "index": 496,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Price reversion occurs when prices return to the mean after deviating from it. \"\n        \"This strategy identifies symbols that have moved away from their recent price range \"\n        \"and bets on a return towards the mean.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = history.groupby(\"symbol\").agg(\n            pl.col(\"adj_close\").mean().alias(\"mean\")\n        )\n        price_deviation = (\n            history.lazy()\n            .join(mean_close, on=\"symbol\", how=\"left\")\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"mean\")).abs().alias(\"deviation\")\n            )\n            .collect()\n        )\n\n        top_n_symbols = _select_top_deviators(price_deviation, n=self._window)\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _select_top_deviators(df: pl.DataFrame, n: int) -> list[str]:\n    top_symbols = (\n        df.sort(\"deviation\", descending=True).head(n)[\"symbol\"].to_list()\n    )\n    return top_symbols",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 446
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.834247799997684,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 502
+}

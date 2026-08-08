@@ -1,0 +1,26 @@
+{
+  "index": 123,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy screens for the most liquid stocks in the NIFTY 100 by looking at \"\n        \"volume. It then equal weights these stocks to exploit liquidity and reduce transaction costs.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_df = history.select(\n            pl.col(\"symbol\"), pl.col(\"volume\").sum().alias(\"total_volume\")\n        )\n        sorted_volume = volume_df.sort(\"total_volume\", descending=True).head(50)\n        \n        if sorted_volume.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [row[\"symbol\"] for row in sorted_volume.iter_rows()]\n        weight = 1.0 / len(symbols)\n\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3825,
+    "output_tokens": 1186
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also some weaknesses and potential issues:\n\n### Strengths:\n1. **Rationale Alignment**: The rationale clearly states that the strategy screens for liquid stocks based on volume and then equal-weights them to reduce transaction costs. This aligns well with the code, which sums up volumes over a window period and selects the top 50 most liquid symbols.\n\n2. **Equal Weighting**: The strategy correctly implements equal weighting by dividing the weight equally among the selected symbols.\n\n### Potential Issues:\n\n1. **Rationale vs. Code Disagreement**:\n   - Rationale: \"It then equal weights these stocks to exploit liquidity and reduce transaction costs.\"\n   - Code: While it does equal-weight, there's no explicit mention of exploiting liquidity or reducing transaction costs in the code logic.\n     ```python\n     weight = 1.0 / len(symbols)\n     return Signal(information_available_at=stamp, weights={s: weight for s in symbols})\n     ```\n\n2. **Fragility and Robustness**:\n   - The strategy assumes that there are always at least 50 non-empty symbols to process.\n     ```python\n     sorted_volume = volume_df.sort(\"total_volume\", descending=True).head(50)\n     ```\n   - If the historical data does not provide enough symbols, this will return an empty weights dictionary.\n\n3. **Parameter Sensitivity**:\n   - The window size (`20` in this case) could be a fragile parameter.\n     ```python\n     self._window = window\n     ```\n   - A shorter or longer window might affect the liquidity metric significantly, making it less robust to changes in market conditions.\n\n4. **Missing Error Handling**:\n   - There is no handling for scenarios where `history` might not contain any data.\n     ```python\n     if history.is_empty():\n         return Signal(information_available_at=stamp, weights={})\n     ```\n   - This could be improved by adding more specific error handling or logging.\n\n5. **Dependent Functions**:\n   - `_latest_visible` is referenced but defined outside the class. Ensure it's correctly implemented and imported.\n     ```python\n     def _latest_visible(view: MarketView) -> date:\n     ```\n\nOverall, while the strategy has a clear rationale and a straightforward implementation, improvements can be made to handle edge cases more gracefully and ensure robustness in different market conditions."
+  ],
+  "seconds": 31.66127150000011,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 250
+}

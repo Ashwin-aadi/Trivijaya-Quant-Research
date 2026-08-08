@@ -1,0 +1,23 @@
+{
+  "index": 182,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"High-volatility stocks are more likely to continue their recent trends due to \"\n        \"momentum effects. By investing in the most volatile stocks, we aim to capture \"\n        \"these trending opportunities.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"returns\")\n            )\n            .sort(\"session_date\", descending=False)\n            .drop_nulls(subset=[\"returns\"])\n        )\n\n        # Calculate volatility\n        volatilities = (\n            history.groupby(\"symbol\")\n            .agg(\n                (pl.col(\"returns\").std().alias(f\"volatility_{self._window}\"))\n            )\n            .sort(pl.col(f\"volatility_{self._window}\"), descending=True)\n            .head(5)\n        )\n\n        if volatilities.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Select top 3 most volatile symbols\n        picks = [row[\"symbol\"] for row in volatilities.to_dicts()[:3]]\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 455
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.60856860000058,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 188
+}

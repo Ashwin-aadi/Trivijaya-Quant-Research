@@ -1,0 +1,23 @@
+{
+  "index": 34,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Seasonal effects in equity markets can be attributed to various factors such \"\n        \"as economic activities, regulatory calendars, and investor behavior. This strategy \"\n        \"exploits historical patterns where certain stocks exhibit higher returns at specific times of the year.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            # Identify the highest close within a specific season (e.g., summer months)\n            summer_highs = [\n                values[i]\n                for i in range(len(values))\n                if 6 <= int(view.history(lookback=self._window)[\"session_date\"][i].month) < 9\n            ]\n            if len(summer_highs) > 0 and max(values) >= max(summer_highs):\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 473
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.881999000004726,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 37
+}

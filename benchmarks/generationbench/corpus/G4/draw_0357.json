@@ -1,0 +1,27 @@
+{
+  "index": 357,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility tilting exploits the empirical observation that stocks with lower \"\n        \"volatility tend to outperform high-volatility stocks over the long term. This is due \"\n        \"to risk-averse investor behavior and market inefficiencies, where low volatility may \"\n        \"persist as a result of reduced risk perception.\"\n    )\n\n    def __init__(self, window: int = 60, portfolio_size: int = 50) -> None:\n        self._window = window\n        self._portfolio_size = portfolio_size\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            returns = [(pl.col(\"close\") / pl.col(\"open\").shift(1)).log() - 1.0]\n            daily_returns = (\n                view.history(lookback=self._window)\n                .select([\"session_date\", symbol])\n                .with_columns(returns)\n                .sort(\"session_date\")\n                .tail(self._window)\n                .lazy()\n                .select((pl.col(symbol) / pl.col(symbol).shift(1)).log() - 1.0)\n                .collect()\n            )\n            volatilities[symbol] = daily_returns.std()\n\n        ranked_symbols = sorted(volatilities, key=lambda x: volatilities[x])[: self._portfolio_size]\n        weights = {s: 1.0 / len(ranked_symbols) for s in ranked_symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weights[s] for s in view.symbols if s in weights},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2454,
+    "output_tokens": 959
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To implement a systematic equity trading strategy focused on low-volatility tilting in the Indian market, we aim to exploit the empirical observation that low-volatility stocks tend to outperform high-volatility stocks over the long term. This phenomenon is attributed to several economic mechanisms: risk-averse investor behavior, market inefficiencies, and the cost of capital. Low volatility may persist due to reduced risk perception and potentially lower management attention required for stable companies.\n\nThe trading rule would involve selecting a portfolio of stocks based on their historical volatility, favoring those with lower volatility scores while maintaining a diversified exposure across sectors. We could rank stocks using standard deviation over a certain period, then allocate funds proportionally to the top-ranked low-volatility stocks, ensuring no single sector dominates the portfolio to mitigate sector-specific risks.",
+    "The signal for this systematic equity strategy is based on the historical volatility of stocks. Each stock's volatility is calculated using the standard deviation of its daily returns over a specific lookback period, such as 60 days. Daily returns are computed as the natural logarithm of the ratio between the closing price and the opening price (ln(Close/Open)). The standard deviation of these returns provides a measure of each stock's volatility.\n\nOn any given day, stocks are ranked based on their calculated volatility scores in ascending order. Lower volatility scores indicate less risky stocks and are preferred for inclusion in the portfolio. This ranking ensures that the portfolio is composed of low-volatility stocks while maintaining diversification across sectors to minimize sector-specific risks.",
+    "For this systematic equity strategy focused on low-volatility tilting in the Indian market, we aim to maintain a portfolio of approximately 30-50 stocks to ensure diversification while focusing on low volatility. Each stock is weighted based on its rank in terms of historical volatility, with higher ranks (lower volatility) receiving larger weights. The total portfolio weight is capped at 70% to limit sector-specific risks and preserve capital. Risk limits are set such that the maximum allowable loss per trading day does not exceed 1%, ensuring a conservative approach to risk management."
+  ],
+  "seconds": 29.190057099993282,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 363
+}

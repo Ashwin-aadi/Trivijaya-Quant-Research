@@ -1,0 +1,23 @@
+{
+  "index": 354,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks based on their relative strength against the broader market can \"\n        \"help in identifying outperformers. This strategy focuses on selecting symbols that have \"\n        \"outperformed the average performance of the NIFTY 100 constituents.\"\n    )\n\n    def __init__(self, lookback: int = 60) -> None:\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_mean = (history[\"adj_close\"] / history[\"adj_close\"].shift(1) - 1.0).mean()\n        symbols_history = history.select(\n            pl.col(\"symbol\").alias(\"Symbol\"), \"adj_close\"\n        ).pivot(index=\"session_date\", columns=\"Symbol\", values=\"adj_close\")\n\n        if symbols_history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_returns = (symbols_history.to_numpy() / symbols_history.shift(1).to_numpy() - 1.0)\n        outperformers: list[str] = []\n        for _, row in pl.DataFrame(symbol_returns).rows():\n            if any(ret > nifty_mean for ret in row):\n                outperformers.extend([symb for symb, ret in zip(symbols_history.columns, row) if ret > nifty_mean])\n\n        unique_outperformers = set(outperformers)\n        weight = 1.0 / len(unique_outperformers)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in unique_outperformers},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 471
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.563376300007803,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 360
+}

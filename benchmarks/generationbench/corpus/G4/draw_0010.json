@@ -1,0 +1,27 @@
+{
+  "index": 10,
+  "paradigm": "G4_planning",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalityStrategy(Strategy):\n    rationale = (\n        \"By exploiting historical seasonality in Indian equity markets, this strategy \"\n        \"identifies stocks with positive returns during specific months. This is based on the \"\n        \"historical observation that certain months exhibit stronger performance due to factors like \"\n        \"earnings announcements and regulatory calendars.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window or len(history.columns) != 21:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        monthly_returns: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            daily_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            month_dates = [\n                d for d in daily_closes[0::21]\n                if isinstance(d, date) and 2019 <= d.year <= 2023\n            ]\n            monthly_closes = [daily_closes[i * 21 + 20] for i in range(len(month_dates))]\n\n            avg_monthly_return = sum(\n                (close - prev_close) / prev_close\n                for close, prev_close in zip(monthly_closes[1:], monthly_closes[:-1])\n            )\n            monthly_returns[symbol] = avg_monthly_return\n\n        top_symbols = sorted(monthly_returns.items(), key=lambda x: x[1], reverse=True)[:self._top_n]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s, _ in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalityStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2420,
+    "output_tokens": 926
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To leverage seasonality or calendar effects in Indian equity markets, we will focus on exploiting certain patterns observed historically. The economic mechanism involves identifying specific months or days when market performance tends to deviate from normal trends due to factors like corporate actions, regulatory calendars, and seasonal economic activities. For instance, post-earnings announcements (PEA) during the fiscal year-end could lead to abnormal returns.\n\nThis pattern might persist because of psychological biases among investors, such as herd behavior or the tendency to react differently at specific times. Additionally, regulatory events and company-specific announcements can create predictable anomalies.\n\nThe trading rule would involve constructing a portfolio that buys stocks with positive seasonal tendencies leading up to identified months (e.g., December) and selling them after these periods, when abnormal returns tend to revert. This strategy should be backtested for historical Indian market data to confirm its effectiveness before implementation.",
+    "The signal for this strategy involves identifying stocks with positive seasonal tendencies. Specifically, compute the average monthly returns over the past 5 years for each stock in the Indian equity market. Focus on months that historically show strong performance (e.g., December). Rank the stocks daily based on their expected return for the upcoming target month. Candidates are ranked by their historical average excess returns during the target period, adjusted for risk using metrics like beta or volatility. This ranking helps select a portfolio of top-performing stocks leading up to the target month and sells them post-target month when returns tend to revert.",
+    "For this strategy, maintain a portfolio of 20-30 top-ranked stocks based on their historical positive seasonal tendencies leading up to target months. Weight these positions equally to ensure diversification while allowing for potential larger returns from outperformers. Set position limits to prevent any single stock from exceeding 5% of the total portfolio value to manage risk. Implement stop-loss orders at a 10% level below the purchase price to limit potential losses, ensuring overall portfolio volatility remains within acceptable bounds."
+  ],
+  "seconds": 28.581906999999774,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 11
+}

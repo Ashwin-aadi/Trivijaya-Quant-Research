@@ -1,0 +1,23 @@
+{
+  "index": 630,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength tend to outperform over the medium term. \"\n        \"Relative strength is defined here as the ratio of a stock's price momentum to the \"\n        \"momentum of the market index. Stocks that consistently have stronger relative \"\n        \"strength are more likely to continue performing well.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        market_index_symbol = \"NIFTY100\"  # Assuming NIFTY100 is the index symbol\n        if market_index_symbol not in view.history().column_names:\n            return Signal(information_available_at=stamp, weights={})\n\n        market_history = view.history(symbol=market_index_symbol)\n        market_moments = (\n            market_history.sort(\"session_date\")\n            .with_columns((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"r\"))\n            .select(pl.col(\"r\").to_list())\n        )\n        if len(market_moments.to_list()) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        market_momentum = max(market_moments.to_list())\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.column_names:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window * 2:\n                continue\n\n            stock_moments = (pl.DataFrame(values).sort(\"session_date\")\n                             .with_columns((pl.col(0) / pl.col(0).shift(self._window) - 1.0).alias(\"r\"))\n                             .select(pl.col(\"r\").to_list()))\n            if len(stock_moments.to_list()) < self._window:\n                continue\n\n            stock_momentum = max(stock_moments.to_list())\n            relative_strength = (stock_momentum / market_momentum) * 100\n            signals[symbol] = relative_strength\n\n        top_symbols = sorted(signals.items(), key=lambda x: x[1], reverse=True)[:5]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in [symbol for symbol, _ in top_symbols]}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 677
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.74149000000034,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 641
+}

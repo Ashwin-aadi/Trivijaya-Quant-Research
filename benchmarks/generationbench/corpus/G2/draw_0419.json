@@ -1,0 +1,23 @@
+{
+  "index": 419,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy aims to capture momentum by identifying stocks that have shown both \"\n        \"strong recent price action and high trading volume. Strong price action suggests a \"\n        \"positive market sentiment, while high volume indicates significant investor activity.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        high_volume_symbols = self._find_high_volume_symbols(history)\n        strong_momentum_symbols = self._find_strong_momentum_symbols(history)\n\n        intersection = set(high_volume_symbols) & set(strong_momentum_symbols)\n        if not intersection:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(intersection)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in intersection},\n        )\n\n\n    def _find_high_volume_symbols(self, history: pl.DataFrame) -> list[str]:\n        volume_threshold = float(history[\"volume\"].max()) * 0.5\n        high_volume_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            symbol_history = history.select(\n                [pl.col(\"session_date\"), pl.col(symbol).alias(\"adj_close\")]\n            )\n            if symbol_history.height < self._window:\n                continue\n            daily_volumes = (\n                symbol_history.with_columns(pl.col(\"volume\").alias(f\"{symbol}_vol\"))\n                .sort(\"session_date\")\n                .select([f\"{symbol}_vol\"])\n                .to_list()\n            )\n            if any(v > volume_threshold for v in daily_volumes):\n                high_volume_symbols.append(symbol)\n        return high_volume_symbols\n\n    def _find_strong_momentum_symbols(self, history: pl.DataFrame) -> list[str]:\n        momentum_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            symbol_history = history.select(\n                [pl.col(\"session_date\"), pl.col(symbol).alias(\"adj_close\")]\n            )\n            if symbol_history.height < self._window:\n                continue\n\n            returns = (\n                symbol_history.sort(\"session_date\")\n                .select(\n                    (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0)\n                    .alias(\"return\")\n                )\n                .to_list()\n            )\n\n            if max([float(r[0]) for r in returns]) > 0.05:\n                momentum_symbols.append(symbol)\n\n        return momentum_symbols\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 680
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.05641640000249,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 427
+}

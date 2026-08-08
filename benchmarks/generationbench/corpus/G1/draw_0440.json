@@ -1,0 +1,23 @@
+{
+  "index": 440,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirm(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong momentum. When a stock's price\"\n        \"moves in a clear direction and is accompanied by higher volume, it suggests \"\n        \"increased investor interest and potentially stronger future performance.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        top_risers, top_fallers = self._find_top_movers(history)\n\n        weight = 1.0 / max(len(top_risers), len(top_fallers))\n        weights: dict[str, float] = {}\n\n        if top_risers:\n            for symbol in top_risers:\n                weights[symbol] = weight\n\n        if not weights and history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights,\n        )\n\n    def _find_top_movers(self, history: pl.DataFrame) -> tuple[list[str], list[str]]:\n        top_risers = []\n        top_fallers = []\n\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n\n            daily_returns = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .select(\n                    pl.col(\"session_date\"),\n                    (pl.col(\"close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n                )\n                .sort(\"session_date\", descending=False)\n            )\n\n            if daily_returns.height < self._window:\n                continue\n\n            returns = [float(v) for v in daily_returns[\"return\"].to_list()]\n            volume_changes = history.filter(pl.col(\"symbol\") == symbol).select(\n                pl.col(\"session_date\"), \"volume\"\n            ).sort(\"session_date\", descending=False)\n\n            if volume_changes.height < self._window:\n                continue\n\n            volumes = [float(v) for v in volume_changes[\"volume\"].to_list()]\n\n            for i in range(self._window - 1, len(returns)):\n                if all(\n                    volumes[i - w] < volumes[i]\n                    and returns[i - w] > returns[i]\n                    for w in range(1, self._window)\n                ):\n                    top_fallers.append(symbol)\n                    break\n\n            for i in range(self._window - 1, len(returns)):\n                if all(\n                    volumes[i - w] < volumes[i]\n                    and returns[i - w] < returns[i]\n                    for w in range(1, self._window)\n                ):\n                    top_risers.append(symbol)\n                    break\n\n        return top_risers, top_fallers\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirm",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 712
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.83662679999543,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 446
+}

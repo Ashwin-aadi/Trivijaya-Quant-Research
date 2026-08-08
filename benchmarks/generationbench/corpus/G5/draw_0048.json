@@ -1,0 +1,26 @@
+{
+  "index": 48,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy selects the top performers across a cross-section of symbols over a \"\n        \"lookback period. The idea is that stocks with strong recent performance are more \"\n        \"likely to continue outperforming due to momentum effects.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window or len(view.symbols) <= 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the returns for each symbol over the window period\n        history = (\n            history\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window - 1) - 1.0).alias(\"return\")\n            )\n            .drop_nulls()\n        )\n\n        # Sort by return in descending order to get the top performers\n        sorted_history = history.sort(\"return\", descending=True)\n        symbols_with_high_momentum: list[str] = [row[\"symbol\"] for row in sorted_history.select(\"symbol\").to_dicts()[:self._top_n]]\n\n        if not symbols_with_high_momentum:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols_with_high_momentum)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols_with_high_momentum}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3908,
+    "output_tokens": 1265
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears well-structured and generally aligns with its stated rationale of selecting top performers based on recent momentum. However, there are a few areas for improvement and critique:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale mentions \"selecting the top performers across a cross-section of symbols,\" but the code only considers historical returns without explicitly handling multiple symbols in the `history` DataFrame. Line 20 should ensure that `history` contains all relevant symbols for comparison.\n\n2. **Potential Failures and Fragility**:\n   - The strategy fails if there are no visible sessions (Line 36). This can happen if the data is not sufficiently historical.\n   - The `history` DataFrame's height must be exactly equal to the window size, or else it will fail when calculating returns (Line 20).\n   - There\u2019s a potential issue in Line 34 where sorting and slicing might return fewer symbols than expected.\n\n3. **Fragile Parameters**:\n   - The parameters `window` and `top_n` are fixed at class initialization but should be configurable via methods or attributes for more flexibility.\n   - No validation is performed on the input parameters, which could lead to runtime errors (e.g., negative values).\n\n4. **Running Issues**:\n   - Ensure that `MarketView`, `Signal`, and related functions are correctly defined elsewhere in the codebase.\n   - The `polars` library must be installed for this script to run without errors.\n\nIn summary, while the strategy has a clear rationale, it needs enhancements in handling edge cases and parameter flexibility. Improving these aspects would make the implementation more robust and maintainable."
+  ],
+  "seconds": 33.409504399999605,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 99
+}

@@ -1,0 +1,26 @@
+{
+  "index": 264,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have outperformed in \"\n        \"the recent past to continue to outperform. This strategy ranks stocks by their returns \"\n        \"over a short period and allocates capital accordingly, while considering liquidity constraints.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=True)\n            .select([\"symbol\", \"session_date\", \"return\"])\n        )\n\n        # Filter out null returns\n        history = history.filter(pl.col(\"return\").is_not_null())\n\n        # Rank by return, considering liquidity constraints\n        ranks = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"return\").rank(method=\"ordinal\", descending=True).alias(\"rank\")),\n                (pl.col(\"volume\").mean().alias(\"avg_volume\"))\n            )\n            .sort(\"rank\")\n        )\n\n        # Filter out symbols with very low liquidity\n        min_avg_volume = 10_000  # Adjust based on market conditions\n        ranks = ranks.filter(pl.col(\"avg_volume\") > min_avg_volume)\n\n        top_symbols = [row.symbol for row in ranks.rows()][:self._top_n]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3904,
+    "output_tokens": 1354
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy largely aligns with its stated rationale of exploiting cross-sectional momentum by ranking stocks based on recent returns. However, there are a few issues and potential fragilities worth noting:\n\n1. **Rationale vs. Code Discrepancy**: The code ranks stocks by their return over a fixed window but does not explicitly mention dealing with volume or liquidity constraints in the rationale. This could be an oversight, as high-liquidity stocks might perform better.\n\n2. **Potential Failures**:\n   - Line 30: `history.filter(pl.col(\"return\").is_not_null())` assumes that all non-null returns are valid for ranking. Missing data should be handled more robustly.\n   - Line 42: The strategy only considers the top 5 symbols, which might not always be sufficient. A dynamic number of symbols or a different threshold could improve flexibility.\n\n3. **Fragile Parameters**:\n   - The window size is hardcoded to 20 (line 7). While this parameter can be adjusted based on market conditions, it should be tuned carefully as shorter windows may lead to overfitting.\n   - The strategy does not account for rebalancing frequency or transaction costs, which are critical in real-world applications.\n\n4. **Potential Blocking Issues**:\n   - Line 19: `_latest_visible` function assumes that `view.history()` always contains data. If no history is available, the function returns an arbitrary date (line 23), which might not be ideal.\n   - Line 50: The strategy does not handle situations where the top-ranked symbols are identical or very similar in return rankings, leading to equal weights.\n\nOverall, while the basic structure of the strategy is sound and aligns with momentum trading principles, improvements can be made by addressing these issues."
+  ],
+  "seconds": 35.128999399999884,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 536
+}

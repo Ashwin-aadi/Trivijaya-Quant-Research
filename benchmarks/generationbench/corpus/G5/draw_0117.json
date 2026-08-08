@@ -1,0 +1,26 @@
+{
+  "index": 117,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"By tilting towards low volatility, we can potentially capture this market anomaly.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_prices = (\n            history\n            .group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\").std().alias(\"volatility\")))\n            .filter(pl.col(\"volatility\") > 0)\n            .sort(by=\"volatility\", descending=False)\n        )\n\n        if symbol_prices.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility_rank = (\n            symbol_prices\n            .with_column(\n                (pl.col(\"volatility\").rank(method=\"ordinal\", descending=True)).alias(\"rank\")\n            )\n            .select([\"symbol\", \"rank\"])\n        )\n\n        symbols = [row[\"symbol\"] for row in volatility_rank.to_dicts()]\n        ranks = [float(row[\"rank\"]) for row in volatility_rank.to_dicts()]\n\n        total_rank = sum(ranks)\n        weights = {s: (r / total_rank) * 1.0 for s, r in zip(symbols, ranks)}\n\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, weight in weights.items() if weight > 0},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3726,
+    "output_tokens": 1180
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears to be a low-volatility tilting approach aimed at outperforming high-volatility stocks by allocating weights based on historical volatility. Here are some critiques:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states that low-volatility stocks tend to outperform over the long term, but the code generates equal weights for all selected symbols after sorting them by volatility. This could imply a neutral or even random allocation if not interpreted correctly. Line 19 should use a more nuanced approach where lower volatility gets higher weight.\n\n2. **Potential Failures**:\n   - If `history` has fewer rows than the window size (line 15), the code returns an empty weights dictionary, which might lead to undefined behavior in backtesting or live trading.\n   \n3. **Fragile Parameters**:\n   - The `window` parameter is hardcoded as 20 but not validated for meaningfulness. A user should ensure that this window size makes sense given their data and market conditions.\n\n4. **Potential Issues**:\n   - Line 18 assumes that the volatility column can be computed without issues, which might fail if there are missing values or non-numeric entries.\n   - The `assert` statement on line 27 is unnecessary as it checks a condition that should always hold true based on the logic.\n\n5. **Code Soundness**:\n   - Lines 13-18 generate weights for the selected symbols, but this section could be improved to ensure logical allocation of weights based on volatility.\n   - The `Signal` object construction (line 20) is sound in structure but should handle edge cases better.\n\nTo improve, consider implementing a more sophisticated weight allocation method and ensuring robust handling of potential data issues."
+  ],
+  "seconds": 31.34992389999934,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 238
+}

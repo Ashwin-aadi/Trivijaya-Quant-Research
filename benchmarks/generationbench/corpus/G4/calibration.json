@@ -1,0 +1,85 @@
+{
+  "arm": "G4",
+  "paradigm": "G4_planning",
+  "n_strategies": 25,
+  "tolerance": 1e-09,
+  "wall_minutes": 3.4159528133333272,
+  "criterion_nondeterministic": "net Sharpe changes across a replicate at fixed PYTHONHASHSEED, or across two hash seeds; tolerance 1e-9",
+  "criterion_knife_edge": "deterministic by the above, yet net Sharpe differs by more than the tolerance between the real panel and its identity reconstruction",
+  "n_unseeded_random": 5,
+  "unseeded_random": [
+    {
+      "name": "candidate_012",
+      "left": -0.5106734630315919,
+      "right": -0.487504311217217,
+      "abs_diff": 0.0231691518143749
+    },
+    {
+      "name": "candidate_225",
+      "left": 0.8032544622264749,
+      "right": 0.8077182339676443,
+      "abs_diff": 0.004463771741169409
+    },
+    {
+      "name": "candidate_333",
+      "left": 0.8158265841213657,
+      "right": 0.8196715547324116,
+      "abs_diff": 0.003844970611045939
+    },
+    {
+      "name": "candidate_237",
+      "left": 0.9340475501847043,
+      "right": 0.9367344692086557,
+      "abs_diff": 0.0026869190239513507
+    },
+    {
+      "name": "candidate_187",
+      "left": 0.3155510250485991,
+      "right": 0.31551126810639396,
+      "abs_diff": 3.975694220514914e-05
+    }
+  ],
+  "n_nondeterministic": 5,
+  "nondeterministic": [
+    {
+      "name": "candidate_012",
+      "left": -0.5106734630315919,
+      "right": -0.49439044001999427,
+      "abs_diff": 0.01628302301159762
+    },
+    {
+      "name": "candidate_187",
+      "left": 0.3155510250485991,
+      "right": 0.326086268650819,
+      "abs_diff": 0.010535243602219913
+    },
+    {
+      "name": "candidate_237",
+      "left": 0.9340475501847043,
+      "right": 0.9378670634871441,
+      "abs_diff": 0.003819513302439792
+    },
+    {
+      "name": "candidate_333",
+      "left": 0.8158265841213657,
+      "right": 0.8191865041036953,
+      "abs_diff": 0.003359919982329651
+    },
+    {
+      "name": "candidate_225",
+      "left": 0.8032544622264749,
+      "right": 0.8028153666007738,
+      "abs_diff": 0.0004390956257011025
+    }
+  ],
+  "n_reconstruction_sensitive": 6,
+  "n_knife_edge": 1,
+  "knife_edge": [
+    {
+      "name": "candidate_085",
+      "left": -0.6059257087831883,
+      "right": -0.600463109425008,
+      "abs_diff": 0.005462599358180276
+    }
+  ]
+}

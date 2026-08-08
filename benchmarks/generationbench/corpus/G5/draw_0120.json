@@ -1,0 +1,26 @@
+{
+  "index": 120,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum is the tendency for recent leaders to continue outperforming \"\n        \"recent laggards. This strategy allocates capital to symbols that have performed well \"\n        \"relative to their peers in the recent past.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate returns\n        returns = (closes[closes.columns[1:]] / closes[closes.columns[0]].shift(1) - 1.0).fillna(\n            0.0\n        )\n\n        # Compute mean and quantiles to identify top performers relative to peers\n        mean_return = returns.mean(axis=1)\n        quartile_thresholds = mean_return.quantile([0.75, 0.5])\n        high_quartile_mask = mean_return > quartile_thresholds[0.75]\n        medium_quartile_mask = (mean_return >= quartile_thresholds[0.5]) & (\n            mean_return <= quartile_thresholds[0.75]\n        )\n\n        # Select symbols from the top two quantiles\n        high_quartile_symbols = [symbol for symbol, mask in zip(closes.columns, high_quartile_mask.to_list()) if mask]\n        medium_quartile_symbols = [\n            symbol for symbol, mask in zip(closes.columns, medium_quartile_mask.to_list()) if mask\n        ]\n        top_symbols = high_quartile_symbols + medium_quartile_symbols\n\n        # Limit to the top_n symbols\n        top_symbols = top_symbols[: self._top_n]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3958,
+    "output_tokens": 1429
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy implementation generally aligns with its rationale but has several areas for improvement and potential issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale mentions \"outperforming recent laggards,\" yet the code only considers symbols that have performed well (\"top_n\" top performers) without explicitly addressing lagging stocks.\n\n2. **Potential Failures**:\n   - Line 36: `mean_return >= 0.5 * (recent_returns.mean(axis=1).mean() - 1e-9)` uses a hardcoded threshold of `0.5` which may be too high and could result in no symbols being selected.\n   - Line 28: The strategy does not consider the performance relative to peers, only the absolute returns.\n\n3. **Fragile Parameters**:\n   - The parameter `window` (line 14) should be carefully chosen as it determines the lookback period for calculating returns. A too short or long window could lead to overfitting or missing trends.\n   - `top_n` (line 15) is also fragile; a very small value might not provide enough diversification, while a large value could include noisy data.\n\n4. **Potential Issues**:\n   - Line 23: The code assumes that the DataFrame columns are in chronological order of sessions, which may not always be the case.\n   - Line 27: The `recent_returns` variable is created but never used; it should be utilized to filter symbols based on their performance.\n\n5. **Stopping It from Running**:\n   - If `view.closes()` returns an empty DataFrame (line 16), the strategy would fail without handling this edge case properly.\n\nIn summary, while the core idea of cross-sectional momentum is sound, the implementation needs adjustments to better reflect its rationale and address potential issues with parameters and code logic."
+  ],
+  "seconds": 36.802877199999784,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 244
+}

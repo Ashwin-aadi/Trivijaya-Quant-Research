@@ -1,0 +1,26 @@
+{
+  "index": 88,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass TrailingReversion(Strategy):\n    rationale = (\n        \"Price reverts to the mean after a strong move. By using a trailing reference, we can \"\n        \"identify when prices have moved too far and are likely to correct back towards the \"\n        \"mean.\"\n    )\n\n    def __init__(self, window: int = 50, mean_window: int = 20) -> None:\n        self._window = window\n        self._mean_window = mean_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_prices = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            prices = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            mean_price = sum(prices[-self._mean_window:]) / self._mean_window\n\n            last_price = prices[-1]\n            change_ratio = (last_price - mean_price) / mean_price if mean_price != 0 else 0\n            trend_strength = abs(change_ratio)\n\n            # Check if the price move is significant compared to its recent range\n            if trend_strength > 2 * (max(prices) - min(prices)) / 5:\n                symbol_prices[symbol] = last_price\n\n        picks = sorted(symbol_prices.keys(), key=lambda s: symbol_prices[s], reverse=True)\n        weight = 1.0 / len(picks) if picks else 0\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "TrailingReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3898,
+    "output_tokens": 1287
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy largely aligns with its rationale but has a few areas for improvement and potential issues:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states that the strategy uses a trailing reference to identify reversions towards the mean after strong price movements. However, the code simply checks if the last closing price is significantly different from the moving average of recent prices (`mean_price`). This might not fully capture the concept of \"after a strong move\" since it doesn't account for whether there was a significant price increase or decrease in the past.\n\n2. **Potential Failure Scenarios**:\n   - The strategy might fail if the market experiences prolonged periods where no symbols meet the criteria to be selected (i.e., `symbol_prices` is empty). This could lead to a situation where all weights are zero, potentially causing issues during backtesting and live trading.\n   - If the `_mean_window` is too small relative to `_window`, it might not effectively capture the underlying trend, leading to frequent false positives.\n\n3. **Fragile Parameters**:\n   - The parameters `window` and `mean_window` could be fragile if not tuned properly. For instance, a very short `mean_window` could lead to noise in mean calculations, while an excessively long one might miss recent trends.\n   - The threshold for reversion (`2 * (max(prices) - min(prices)) / 5`) is hardcoded and might need adjustment based on market conditions.\n\n4. **Potential Issues**:\n   - Line 18: `_latest_visible(view)` assumes that the `MarketView` object has a `history()` method, which isn't explicitly defined in the snippet.\n   - The logic for determining whether to pick symbols could be optimized; currently, it sorts all symbols even if only one meets the criteria.\n\nOverall, while the strategy's core concept is sound and aligned with market behaviors, improvements can be made to address the above concerns."
+  ],
+  "seconds": 33.83626600000025,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 179
+}

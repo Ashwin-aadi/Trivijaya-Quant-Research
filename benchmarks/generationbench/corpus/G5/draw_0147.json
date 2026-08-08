@@ -1,0 +1,26 @@
+{
+  "index": 147,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity-weighted equal weighting involves allocating capital based on the liquidity \"\n        \"of stocks. More liquid assets are given more weight to ensure that trades do not significantly impact their price.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_list = [symbol for symbol in view.symbols if symbol in history.columns]\n        if not symbol_list:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"volume\").sum() / pl.col(\"adj_close\").mean()).alias(\"liquidity_score\"),\n            )\n            .sort(by=\"liquidity_score\", descending=True)\n            .select([\"symbol\", \"liquidity_score\"])\n            .to_dicts()\n        )\n\n        if not liquidity_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_liquidity = sum(score[\"liquidity_score\"] for score in liquidity_scores)\n        weight_per_symbol = {\n            score[\"symbol\"]: score[\"liquidity_score\"] / total_liquidity\n            for score in liquidity_scores[:self._window]\n        }\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight_per_symbol[s] if s in weight_per_symbol else 0.0 for s in view.symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3872,
+    "output_tokens": 1302
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy, `LiquidityWeightedEqual`, generally aligns with its stated rationale of allocating capital based on liquidity. However, there are several issues and potential improvements:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale states that more liquid assets should be given more weight to avoid significant price impact. However, the code currently uses equal weighting for all selected symbols (`weight = 1.0 / len(liquidity_scores)`). This contradicts the stated rationale.\n\n2. **Potential Failures and Fragilities**:\n   - **Empty History Check**: Line `43` checks if `history.is_empty()`, but it should also check if `symbol_list` is empty after filtering in line `51`. If no symbols pass this filter, the strategy will return an empty weights dictionary.\n   - **Window Size Selection**: The window size (`_window`) parameter might be too small or large depending on the market dynamics. A fixed value of 30 could limit the liquidity scores to only the most recent trades, which may not always capture long-term trends.\n   - **Data Availability**: Line `29` assumes that all symbols in `view.symbols` will be present in `history`. If any symbol is missing, it might lead to an error or incorrect weights. This should be handled with a more robust check.\n\n3. **Code Fragility and Potential Issues**:\n   - **Type Annotations**: The code uses type annotations (`from __future__ import annotations`) which are not necessary unless used in specific contexts (e.g., custom classes within the same file).\n   - **Error Handling**: There is no explicit error handling for cases where `history` might contain unexpected data types or missing values.\n\n4. **Running Issues**:\n   - The code assumes that all required libraries (`polars`, `src.backtest.strategy`) are correctly imported and available in the environment.\n   - The function `_latest_visible(view)` could return an incorrect date if there are no visible sessions, which might be problematic for time-based backtesting.\n\nIn summary, while the strategy aims to allocate weights based on liquidity, its current implementation does not fully reflect this intent due to equal weighting. Addressing these issues would improve the robustness and accuracy of the strategy."
+  ],
+  "seconds": 34.06557099999918,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 298
+}

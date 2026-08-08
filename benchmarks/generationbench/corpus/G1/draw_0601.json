@@ -1,0 +1,23 @@
+{
+  "index": 601,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"Mean reversion seeks to capitalize on mean returns of asset prices over a short period. \"\n        \"If an asset's price is significantly above or below its historical average, it is expected to revert.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol = \"NIFTY_100\"  # Assuming we are interested in the NIFTY 100 constituent\n        data = history.filter(pl.col(\"symbol\") == symbol).select(\n            pl.col(\"session_date\"), pl.col(\"adj_close\")\n        )\n        if data.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        adj_closes = [float(v) for v in data[\"adj_close\"].to_list()]\n        mean_price = sum(adj_closes) / len(adj_closes)\n        z_score = (adj_closes[-1] - mean_price) / mean_price\n\n        if abs(z_score) > 2:  # Triggering signal based on Z-score\n            weights = {symbol: 1.0}\n        else:\n            return Signal(information_available_at=stamp, weights={})\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 436
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.825229999987641,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 613
+}

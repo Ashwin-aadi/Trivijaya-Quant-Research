@@ -1,0 +1,27 @@
+{
+  "index": 9,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"This strategy exploits the low-volatility anomaly by tilting towards stocks with lower \"\n        \"historical volatility. The empirical evidence suggests that these stocks provide higher \"\n        \"risk-adjusted returns over time.\"\n    )\n\n    def __init__(self, window: int = 252, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility_scores = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            prices = [float(v) for v in history[symbol][\"adj_close\"].drop_nulls().to_list()]\n            returns = [(prices[i] / prices[i - 1] - 1.0) for i in range(1, len(prices))]\n            volatility_score = pl.Series(returns).std()\n            volatility_scores[symbol] = float(volatility_score)\n\n        ranked_symbols = sorted(volatility_scores.items(), key=lambda item: item[1])\n        selected_symbols = [symbol for symbol, _ in ranked_symbols[: self._top_n]]\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in selected_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2697,
+    "output_tokens": 966
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy on the Indian market will focus on low-volatility tilting by exploiting the empirical phenomenon known as the \"low volatility anomaly.\" This anomaly suggests that stocks with lower historical volatility tend to provide higher risk-adjusted returns over time. The persistence of this effect may stem from investors' tendency to overreact to short-term price fluctuations, leading them to undervalue low-volatility stocks.\n\nTo exploit this mechanism, the strategy will follow a rule-based approach:\n1. **Selection**: Identify a universe of equities listed on major Indian stock exchanges.\n2. **Volatility Screening**: Filter stocks based on their historical volatility over a specified period (e.g., 1-year).\n3. **Weighting**: Allocate capital to the low-volatility stocks, giving them higher weights in the portfolio than their market value would suggest.\n4. **Rebalancing**: Periodically rebalance the portfolio by recalculating volatilities and adjusting weights accordingly.\n\nThis approach aims to capture superior risk-adjusted returns by systematically tilting towards less volatile assets, which are often undervalued in the market.",
+    "The signal for this systematic equity strategy focuses on identifying low-volatility stocks. The key steps to compute the signal are as follows:\n\n1. **Data Collection**: Collect daily open, high, low, close prices, and volume data for the equities listed on major Indian stock exchanges over a lookback period of 1 year.\n2. **Volatility Calculation**: Compute the historical volatility (e.g., using the standard deviation method) for each stock's daily returns over the past year.\n3. **Ranking**: Rank all candidate stocks based on their calculated volatility, with lower volatilities receiving higher ranks.\n\nOn a given day, candidates are ranked from lowest to highest volatility. Stocks with the lowest historical volatility scores are selected and given higher weights in the portfolio, leveraging the low-volatility anomaly to potentially achieve better risk-adjusted returns.",
+    "The strategy will hold a diversified portfolio of approximately 30-50 low-volatility stocks selected based on their historical volatility over the past year. These stocks will be weighted higher than their market value to exploit the low-volatility anomaly. Position sizing will ensure that no single stock holds more than 2% of the total portfolio weight, with the remaining weights distributed among the selected stocks to maintain a well-diversified portfolio. The strategy aims to limit maximum drawdown to around 10% over any 12-month period, balancing risk exposure and potential returns."
+  ],
+  "seconds": 29.65719550000358,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 10
+}

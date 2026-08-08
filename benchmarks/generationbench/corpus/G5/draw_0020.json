@@ -1,0 +1,26 @@
+{
+  "index": 20,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are often indicative of strong momentum \"\n        \"and can be used to enter positions that align with the prevailing trend.\"\n    )\n\n    def __init__(self, window: int = 20, volume_threshold: float = 0.7) -> None:\n        self._window = window\n        self._volume_threshold = volume_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            df = history.filter(pl.col(\"symbol\") == symbol)\n            if df.height < self._window:\n                continue\n\n            close_ratio = (df.select((pl.col(\"close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\"))\n                           .select(pl.col(\"r\").mean())\n                           .to_series()[0])\n            \n            volume_ratio = df.filter(\n                (pl.col(\"volume\") > df.select(pl.col(\"volume\").median())) &\n                (pl.col(\"close\") / pl.col(\"adj_close\").shift(1) - 1.0) > 0\n            ).height / self._window\n\n            if close_ratio > 0 and volume_ratio >= self._volume_threshold:\n                signals.append(symbol)\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(signals)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_series()[0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3964,
+    "output_tokens": 1364
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify volume-confirmed directional moves as signals for entering positions aligned with the prevailing trend. However, there are several issues and potential improvements:\n\n1. **Rationale vs Code Discrepancies**:\n   - The rationale states that \"volume-confirmed directional moves\" indicate strong momentum. However, in line 25, the code checks if `close_ratio > 0.02`, which is a fixed threshold for directionality, not volume-confirmation. This discrepancy could mislead users.\n\n2. **Potential Failure Cases**:\n   - Line 18: The strategy might fail if there are no symbols in the history that meet the lookback period.\n   - Line 37: If `close_ratio` is negative (i.e., the closing price decreased by more than 2% from the previous day), it will still be considered a \"move\" and trigger a signal, which might not align with the rationale.\n\n3. **Fragile Parameters**:\n   - The window size (`_window`) is hardcoded to 20 (line 6). While this can be adjusted via the constructor, users must choose an appropriate value that balances between sensitivity and robustness.\n   - The threshold `0.7` for volume ratio (line 34) might not be universally applicable across different markets or time periods.\n\n4. **Code Fragility**:\n   - Line 18: If history is empty, the function returns without generating a signal, which could lead to missing important market events.\n   - Line 25: The fixed `0.02` threshold for `close_ratio` might not be optimal; it should consider historical volatility or use a more dynamic approach.\n\n5. **Potential Issues with Polars**:\n   - Line 14: Ensure that the DataFrame operations are efficient and handle large datasets without performance bottlenecks.\n   - Line 37: The volume ratio calculation could lead to division by zero if no symbols meet the condition, causing an error.\n\nOverall, while the strategy has a clear rationale, several specific issues need addressing to ensure it performs as intended."
+  ],
+  "seconds": 35.277174199999536,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 43
+}

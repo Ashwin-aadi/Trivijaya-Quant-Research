@@ -1,0 +1,23 @@
+{
+  "index": 527,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"Combining the strength of 20-day momentum with the volatility of 10-day price \"\n        \"range provides a more robust entry signal by leveraging both trend and market \"\n        \"volatility.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, vol_window: int = 10) -> None:\n        self._momentum_window = momentum_window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._momentum_window + self._vol_window)\n        if history.height < self._momentum_window + self._vol_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_ranks: list[str] = []\n        volatilities: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            close_series = history[symbol]\n            if len(close_series.to_list()) < self._momentum_window + self._vol_window:\n                continue\n\n            momentum_close = float(close_series[-1])\n            momentum_rank = _ranked_strength(momentum_close, close_series)\n\n            daily_range = (\n                pl.col(\"high\") - pl.col(\"low\")\n            ).mean().item()\n            volatility = (daily_range / close_series.iloc[0]).log2()\n\n            if momentum_rank >= self._top_n_momentum and volatilities.get(symbol) < volatility:\n                momentum_ranks.append(symbol)\n                volatilities[symbol] = volatility\n\n        picks = [symbol for symbol in momentum_ranks if volatilities[symbol] > 1.0]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _ranked_strength(close: float, series: pl.Series) -> int:\n    rank = (\n        (series.rank(method=\"dense\", descending=True)[\"adj_close\"] == 1).filter(\n            pl.col(\"adj_close\") <= close\n        )\n        .height\n    )\n    return max(rank, 1)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 590
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.644491400002153,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 535
+}

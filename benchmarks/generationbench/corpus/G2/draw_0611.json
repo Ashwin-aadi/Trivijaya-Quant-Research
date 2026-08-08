@@ -1,0 +1,24 @@
+{
+  "index": 611,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"This strategy aims to capture momentum by combining two signals: a long-term \"\n        \"momentum signal based on a 60-day return and a short-term momentum signal based on \"\n        \"a 20-day return. The idea is that securities with strong positive returns over both \"\n        \"timeframes are likely to continue outperforming the market.\"\n    )\n\n    def __init__(self, long_window: int = 60, short_window: int = 20) -> None:\n        self._long_window = long_window\n        self._short_window = short_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._long_window)\n        if closes.height < self._long_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        long_mom_signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            returns = [float(v) for v in (closes[symbol].drop_nulls().to_list()[1:] / closes[symbol].drop_nulls().to_list()[:-1])]\n            long_mom_signals[symbol] = sum(returns[-self._long_window:]) / self._long_window\n\n        closes_short = view.closes(lookback=self._short_window)\n        if closes_short.height < self._short_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        short_mom_signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes_short.columns:\n                continue\n            returns = [float(v) for v in (closes_short[symbol].drop_nulls().to_list()[1:] / closes_short[symbol].drop_nulls().to_list()[:-1])]\n            short_mom_signals[symbol] = sum(returns[-self._short_window:]) / self._short_window\n\n        combined_signal: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in long_mom_signals or symbol not in short_mom_signals:\n                continue\n            combined_signal[symbol] = (long_mom_signals[symbol] + short_mom_signals[symbol]) / 2.0\n\n        top_symbols = sorted(combined_signal.items(), key=lambda x: x[1], reverse=True)\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in [symbol for symbol, _ in top_symbols[:5]]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2694,
+    "output_tokens": 1284
+  },
+  "calls": 2,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 30.50991919999069,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 621
+}

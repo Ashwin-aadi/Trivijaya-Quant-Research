@@ -1,0 +1,23 @@
+{
+  "index": 484,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Price reverts to the mean over time. By identifying assets that are far from their \"\n        \"trailing average, we can identify potential reversions and profit from such movements.\"\n    )\n\n    def __init__(self, window: int = 20, zscore_threshold: float = 1.5) -> None:\n        self._window = window\n        self._zscore_threshold = zscore_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in closes.columns]\n        means = closes.select(pl.col(symbols).mean()).to_dict(True)\n        zscores = closes.with_columns(\n            (pl.col(symbols) - pl.col(symbols).shift(self._window)).over(symbols) / (\n                pl.col(symbols).std().over(symbols) * self._window ** 0.5\n            ).alias(f\"zscore_{self._window}\")\n        )\n        zscores = {symbol: float(zs[0]) for symbol, zs in zscores.to_dict(True).items()}\n\n        filtered_symbols = [symbol for symbol, score in zscores.items() if abs(score) > self._zscore_threshold]\n        weight = 1.0 / len(filtered_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in filtered_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 444
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.276170500001172,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 490
+}

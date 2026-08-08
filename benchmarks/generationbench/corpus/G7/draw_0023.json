@@ -1,0 +1,47 @@
+{
+  "index": 23,
+  "paradigm": "G7_mcts",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeTrendVolatility(Strategy):\n    rationale = (\n        \"By combining a 5-day moving average of daily closing prices with the 7-day volatility (standard deviation of daily returns), we aim to capture both the price trend and market sentiment. A strong upward trend combined with low volatility suggests a robust bullish momentum, while a weak trend or high volatility may indicate caution.\"\n    )\n\n    def __init__(self, ma_window: int = 5, vol_window: int = 7) -> None:\n        self._ma_window = ma_window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._ma_window + self._vol_window - 1)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(pl.col(\"adj_close\").to_list())\n\n        ma_values = [float(v) for v in (\n            (closes[\"adj_close\"].shift(-i).rolling_mean(self._ma_window))\n        ).drop_nulls().to_list()]\n\n        returns = [(close - open_) / open_ for open_, close in zip(\n            closes[\"adj_close\"].shift(1).drop_nulls().to_list(),\n            closes[\"adj_close\"].drop_nulls().to_list()\n        )]\n\n        vol_values = [float(v) for v in (\n            (pl.Series(returns).rolling_std(self._vol_window))\n        ).drop_nulls().to_list()]\n\n        if len(ma_values) < self._ma_window or len(vol_values) < self._vol_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            ma_last = ma_values[-1][symbol]\n            vol_last = vol_values[-1][symbol]\n\n            if ma_last >= max(ma_values) and vol_last <= min(vol_values):\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeTrendVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19466,
+    "output_tokens": 7943
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the 5-day moving average of daily closing prices combined with the 7-day volatility (standard deviation of daily returns). This composite characteristic measures both price trend and market sentiment over distinct lookback periods.",
+    "The signal will be the 3-day moving average of daily high prices combined with the 10-day volume. This composite characteristic measures both price momentum and trading activity intensity over distinct lookback periods.",
+    "For this strategy, we will hold a fixed portfolio of 10 equities, each weighted equally at 10% in the portfolio, ensuring balanced exposure while simplifying position management.",
+    "The portfolio will hold a maximum of 30 names, with equal weights assigned to each name upon entry, ensuring a balanced exposure across the selected stocks.",
+    "For this strategy, we will hold a fixed portfolio of 10 equities, each weighted equally at 10% in the portfolio, ensuring balanced exposure while simplifying position management. This approach balances risk and provides a straightforward way to implement the trading rules derived from the composite characteristic without overcomplicating the portfolio structure.",
+    "The portfolio will hold a maximum of 30 names, with equal weights assigned to each name upon entry, ensuring a balanced exposure across the selected stocks.",
+    "For this strategy, we will set an individual position risk limit of -3% to +3%, meaning any single equity position's loss exceeds 3% or gain exceeds 3%, the trade will be closed. Additionally, if the portfolio loss exceeds -5%, trading will be halted until the next trading day.",
+    "For each individual stock position, set a stop-loss at 5% below the entry price to limit potential losses. For the entire portfolio, impose a maximum drawdown threshold of -10%, beyond which trading will be paused until the portfolio recovers to the previous peak value.",
+    "The loss on each position will be capped at 5% of the total portfolio value, preventing any single equity from causing excessive portfolio volatility. This limit ensures that no single position can lead to a significant portfolio drawdown, maintaining overall risk management. The strategy will stop trading if the composite characteristic signals a reversal for more than three consecutive days, avoiding prolonged exposure during potentially volatile periods.",
+    "For this systematic equity strategy, I propose setting an individual position loss limit of -5% to cap potential losses on each stock holding. Additionally, the strategy will stop trading if the portfolio's cumulative loss exceeds -10%. These bounds ensure risk management while maintaining flexibility in market conditions.",
+    "For this strategy, we will set an individual position risk limit of -3% to +3%, meaning any single equity position's loss exceeds 3% or gain exceeds 3%, the trade will be closed. Additionally, if the portfolio loss exceeds -5%, trading will be halted until the next trading day.",
+    "For each individual stock position, set a stop-loss at 5% below the entry price to limit potential losses. For the entire portfolio, impose a maximum drawdown threshold of -10%, beyond which trading will be paused until the portfolio recovers to the previous peak value."
+  ],
+  "seconds": 220.86824330000672,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 293
+}

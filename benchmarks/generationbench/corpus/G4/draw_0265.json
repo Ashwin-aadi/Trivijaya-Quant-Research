@@ -1,0 +1,27 @@
+{
+  "index": 265,
+  "paradigm": "G4_planning",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion60d(Strategy):\n    rationale = (\n        \"This strategy exploits short-horizon mean reversion by identifying stocks that have \"\n        \"deviated significantly from their historical price levels. It aims to profit from the \"\n        \"tendency of stock prices to revert to their long-term averages, leveraging historical \"\n        \"price patterns and market dynamics.\"\n    )\n\n    def __init__(self, lookback: int = 60, top_n: int = 20) -> None:\n        self._lookback = lookback\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback)\n        if closes.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        sma_column = f\"sma_{self._lookback}\"\n        std_dev_column = f\"std_dev_{self._lookback}\"\n\n        sma = (\n            closes.sort(\"session_date\")\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\").mean().alias(sma_column)),\n                (pl.col(\"adj_close\").std().alias(std_dev_column))\n            )\n        )\n\n        z_scores: pl.DataFrame = (\n            closes.join(sma, on=\"symbol\")\n            .with_columns((pl.col(\"adj_close\") - pl.col(sma_column)) / pl.col(std_dev_column).alias(\"z_score\"))\n        )\n\n        top_symbols = [str(symbol) for symbol in z_scores.sort(\"z_score\", descending=False)[\"symbol\"].to_list()[: self._top_n]]\n        bottom_symbols = [str(symbol) for symbol in z_scores.sort(\"z_score\")[\"symbol\"].to_list()[: self._top_n]]\n\n        weights: dict[str, float] = {s: 0.025 for s in top_symbols + bottom_symbols}\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion60d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2702,
+    "output_tokens": 1029
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To exploit short-horizon mean reversion in the Indian equity market, the strategy will capitalize on the tendency for stock prices to revert to their historical means. The plan involves identifying stocks that have deviated significantly from their average price levels over a short period (e.g., 30-60 days). This deviation can be due to temporary market conditions or news events.\n\nThe economic mechanism is based on the efficient market hypothesis's limitations, where prices may temporarily overshoot their intrinsic values. Mean reversion suggests that prices will eventually adjust back towards historical norms.\n\nThe trading rule would involve:\n1. Selecting stocks with high volatility and large price deviations.\n2. Buying underpriced (below mean) and selling overpriced (above mean) stocks.\n3. Holding positions for a short period before exiting when the stock returns to its mean price level or a predefined profit target is met.\n\nThis approach aims to capture profits from reversionary movements, leveraging historical price patterns that may persist due to investor behavior and market dynamics.",
+    "The signal for this strategy involves computing the deviation of a stock's recent price from its historical mean price over a 30-60 day lookback period. Specifically:\n\n1. Calculate the simple moving average (SMA) of the daily closing prices over the 30-60 day lookback.\n2. Compute the Z-score for each stock by dividing the difference between the current close and the SMA by the standard deviation of the closing prices over the same period.\n\nStocks with a low Z-score (indicating they are below their mean price) are considered underpriced, while those with a high Z-score (above their mean price) are seen as overpriced. \n\nOn each trading day, rank all eligible stocks based on their absolute Z-scores. Stocks with the lowest and highest Z-scores will be prioritized for buying (underpriced) and selling (overpriced), respectively. This ranking helps in selecting the top N candidates for long and short positions, ensuring that trades are made only in the most deviated stocks relative to their historical norms.",
+    "For this strategy, maintain a portfolio of up to 20 long and 20 short positions, totaling 40 stocks. Weight each position equally at 2.5% to balance risk exposure. Implement stop-loss orders to limit potential losses, setting them at 3% below the entry price for both long and short positions. This approach ensures diversification while managing risk effectively."
+  ],
+  "seconds": 30.821962599999097,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 270
+}

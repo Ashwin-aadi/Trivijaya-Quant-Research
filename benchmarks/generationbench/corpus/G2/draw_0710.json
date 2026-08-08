@@ -1,0 +1,23 @@
+{
+  "index": 710,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility can be an indicator of future price movements. High volatility suggests \"\n        \"that the market is uncertain and could experience a trend in either direction. By \"\n        \"focusing on stocks with high recent volatility, we may identify those that are more \"\n        \"likely to continue trending.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (\n            (history[\"adj_close\"] / history[\"adj_close\"].shift(1) - 1.0)\n            .with_columns(pl.col(\"adj_close\").first().over(history[\"symbol\"]).alias(\"prev_close\"))\n            .drop_nulls()\n        )\n\n        # Group by symbol and calculate the standard deviation of daily returns\n        volatility = (\n            returns.group_by(\"symbol\")\n                   .agg(\n                       (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).mean().alias(\"avg_return\"),\n                       (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).std().alias(\"volatility\")\n                   )\n        )\n\n        # Sort by volatility in descending order\n        ranked_volatility = volatility.sort(\"volatility\", descending=True)\n\n        if ranked_volatility.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = ranked_volatility.head(self._window)[\"symbol\"].to_list()\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 510
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.674098700008471,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 722
+}

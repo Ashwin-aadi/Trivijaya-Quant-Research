@@ -1,0 +1,26 @@
+{
+  "index": 90,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks that have outperformed the broader market over a certain period \"\n        \"are likely to continue outperforming due to momentum effects.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes()\n        if any(symbol not in closes.columns for symbol in view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        def compute_rsi(df: pl.DataFrame) -> float:\n            deltas = df[\"adj_close\"].to_list()[1:] - df[\"adj_close\"].to_list()[:-1]\n            gains = [g if g > 0 else 0 for g in deltas]\n            losses = [-l if l < 0 else 0 for l in deltas]\n\n            avg_gain = sum(gains) / len(gains)\n            avg_loss = sum(losses) / len(losses)\n\n            rs = avg_gain / avg_loss\n            rsi = 100 - (100 / (1 + rs))\n            return rsi\n\n        symbols_rsi: dict[str, float] = {}\n        for symbol in view.symbols:\n            df = history.select([\"session_date\", pl.col(symbol).alias(\"adj_close\")])\n            if not df.height or any(pl.isnan(val) for val in df[\"adj_close\"].to_list()):\n                continue\n            rsi = compute_rsi(df)\n            symbols_rsi[symbol] = rsi\n\n        sorted_symbols = sorted(symbols_rsi.items(), key=lambda x: x[1], reverse=True)\n        top_n_symbols = [s for s, _ in sorted_symbols[:5]]\n\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4182,
+    "output_tokens": 1558
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify stocks outperforming the broader market using Relative Strength Index (RSI). Here are some critiques:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale mentions \"outperformed the broader market,\" but the code calculates RSI without directly comparing each stock's performance against a broad market index like the S&P 500 or a custom benchmark. This discrepancy can lead to misinterpretation and suboptimal trading decisions.\n\n2. **Potential Failure Cases**:\n   - Line 36: The `compute_rsi` function assumes that daily adjusted closing prices are available for each symbol in the historical data, which might not always be accurate or up-to-date.\n   - Lines 49-50: The RSI calculation logic is simplistic and may not capture complex market behaviors. For instance, using only gains and losses without considering the time component (like Williams %R) could lead to misleading signals.\n\n3. **Fragile Parameters**:\n   - Line 17: The `window` parameter is hardcoded as 20. While this might be a reasonable starting point, it's static and may need tuning based on different market conditions.\n   - Line 49: The threshold for selecting top N symbols (5 in this case) is arbitrary and could impact performance.\n\n4. **Potential Stopping Points**:\n   - Line 36: If `compute_rsi` encounters any NaN or missing values, it will fail to calculate RSI, leading to an empty weight dictionary.\n   - Line 69: If no top N symbols are found after sorting (due to ties in RSI values), the strategy returns an empty weights dictionary.\n\n5. **Sound Parts**:\n   - The overall structure and logic for generating signals based on historical data and ranking stocks by RSI are conceptually sound.\n   - Using Polars (`pl`) for efficient data manipulation is a good choice, especially for large datasets.\n\nIn summary, while the strategy framework is logically sound, it requires addressing the discrepancies in rationale vs. implementation, ensuring robust handling of edge cases, and tuning parameters based on empirical testing."
+  ],
+  "seconds": 39.4599760000001,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 183
+}

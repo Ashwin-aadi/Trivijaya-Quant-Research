@@ -1,0 +1,23 @@
+{
+  "index": 500,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are indicative of strong market sentiment. \"\n        \"By identifying symbols that show significant price movement alongside increased \"\n        \"volume, we can capture momentum-driven profits.\"\n    )\n\n    def __init__(self, window: int = 20, threshold_volume_increase: float = 1.5) -> None:\n        self._window = window\n        self._threshold_volume_increase = threshold_volume_increase\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history[\"symbol\"]]\n        volume_signals = []\n        price_signals = []\n\n        for symbol in symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol)\n            latest_close = float(df.select(\"adj_close\").tail(1).to_list()[0][0])\n            prev_close = float(df.select(\"adj_close\").shift(1).tail(20).head(1).to_list()[0][0])\n\n            volume_change = df.filter(pl.col(\"symbol\") == symbol)[\"volume\"].last() / \\\n                            df.filter(pl.col(\"symbol\") == symbol)[\"volume\"].first()\n\n            if latest_close > prev_close:\n                price_signal = 1.0\n            elif latest_close < prev_close:\n                price_signal = -1.0\n            else:\n                price_signal = 0.0\n\n            if volume_change >= self._threshold_volume_increase:\n                volume_signal = 1.0\n            else:\n                volume_signal = 0.0\n\n            volume_signals.append(volume_signal)\n            price_signals.append(price_signal)\n\n        positive_signals = sum([price * vol for price, vol in zip(price_signals, volume_signals)])\n        if not symbols or positive_signals == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols)\n        selected_symbols = [symbol for symbol, signal in zip(symbols, volume_signals) if signal > 0]\n        weights = {s: weight * (positive_signals / len(selected_symbols)) for s in selected_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 595
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 21.826805799995782,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 507
+}

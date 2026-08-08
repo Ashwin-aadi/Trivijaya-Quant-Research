@@ -1,0 +1,23 @@
+{
+  "index": 370,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Stock markets often exhibit seasonality where certain months of the year are more \"\n        \"favorable for returns than others. For instance, December can see strong performance \"\n        \"due to holiday-related buying or the January effect, where markets experience positive \"\n        \"returns following a significant downturn in late December.\"\n    )\n\n    def __init__(self, lookback_period: int = 5, forward_period: int = 10) -> None:\n        self._lookback_period = lookback_period\n        self._forward_period = forward_period\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback_period + self._forward_period)\n\n        if closes.height < self._lookback_period + self._forward_period:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter symbols that have data for the entire period\n        valid_symbols = [\n            symbol\n            for symbol in view.symbols\n            if all(closes.get_column(symbol).to_list()[-self._lookback_period - self._forward_period :])\n        ]\n\n        if not valid_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate returns over the lookback and forward periods\n        returns = []\n        for symbol in valid_symbols:\n            close_series = closes.get_column(symbol).to_list()\n            lookback_close = float(close_series[-self._lookback_period - 1])\n            forward_close = float(close_series[-1])\n            return_ = (forward_close - lookback_close) / lookback_close\n            returns.append((symbol, return_))\n\n        # Rank symbols by their return and select the top ones\n        ranked_returns = sorted(returns, key=lambda x: x[1], reverse=True)\n        top_symbols = [s for s, _ in ranked_returns[: self._forward_period]]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 561
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.682416900002863,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 378
+}

@@ -1,0 +1,23 @@
+{
+  "index": 686,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySctf(Strategy):\n    rationale = (\n        \"Trend following with a volatility-scaled threshold aims to capture the momentum of \"\n        \"strong trends while adjusting for periods of high market volatility. This strategy \"\n        \"is designed to be more conservative in volatile markets and aggressive when markets \"\n        \"are calm.\"\n    )\n\n    def __init__(self, window: int = 20, threshold_multiplier: float = 1.5) -> None:\n        self._window = window\n        self._threshold_multiplier = threshold_multiplier\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the 20-day log returns\n        log_returns = (history[\"adj_close\"] / history[\"adj_close\"].shift(1) - 1.0).alias(\"r\")\n        history = history.with_columns(log_returns)\n        \n        # Calculate the rolling mean and standard deviation of returns\n        rolling_mean = history.select(\n            pl.col(\"r\").rolling_mean(window_size=self._window, center=False).alias(\"mean_r\")\n        )\n        rolling_std = history.select(\n            pl.col(\"r\").rolling_std(window_size=self._window, center=False).alias(\"std_r\")\n        )\n        \n        # Combine the mean and standard deviation\n        combined_history = history.join(rolling_mean, on=\"session_date\", how=\"left\") \\\n                                  .join(rolling_std, on=\"session_date\", how=\"left\")\n        \n        # Calculate the threshold for entry\n        threshold = combined_history[\"mean_r\"] + self._threshold_multiplier * combined_history[\"std_r\"]\n        \n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or symbol not in combined_history.columns:\n                continue\n            \n            latest_close = float(view.latest_close()[symbol])\n            latest_mean_r = float(combined_history[combined_history[\"session_date\"] == stamp][\"mean_r\"][0])\n            latest_threshold = float(threshold[threshold[\"session_date\"] == stamp][\"std_r\"][0]) + latest_mean_r\n            if combined_history.select((pl.col(\"r\") >= pl.lit(latest_threshold))).filter(pl.col(\"symbol\") == symbol).height > 0:\n                picks.append(symbol)\n        \n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilitySctf",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 659
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.58266040000308,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 699
+}

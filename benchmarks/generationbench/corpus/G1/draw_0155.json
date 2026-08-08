@@ -1,0 +1,23 @@
+{
+  "index": 155,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related signals: the 20-day momentum and the 50-day moving average \"\n        \"crossover. The combination aims to capture both short-term trends and longer-term support/resistance levels.\"\n    )\n\n    def __init__(self, window_20d: int = 20, window_50d: int = 50) -> None:\n        self._window_20d = window_20d\n        self._window_50d = window_50d\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=max(self._window_20d, self._window_50d))\n        if closes.height < max(self._window_20d, self._window_50d):\n            return Signal(information_available_at=stamp, weights={})\n\n        twenty_day_moments: list[float] = []\n        fifty_day_signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window_20d:\n                continue\n\n            twenty_day_moments.append(\n                (values[-1] / values[-self._window_20d - 1]) - 1.0\n            )\n\n            if len(values) < self._window_50d:\n                fifty_day_signals.append(\"neutral\")\n                continue\n\n            avg_50 = sum(values[-self._window_50d : -1]) / (self._window_50d - 1)\n            if values[-1] > avg_50:\n                fifty_day_signals.append(\"bullish\")\n            else:\n                fifty_day_signals.append(\"bearish\")\n\n        top_20 = sorted(twenty_day_moments, reverse=True)[:3]\n        bullish_count = sum(1 for signal in fifty_day_signals if signal == \"bullish\")\n\n        picks: list[str] = []\n        weight = 1.0 / len(top_20) * (0.6 + 0.4 * bullish_count / self._window_50d)\n        for symbol, moment in zip(view.symbols, twenty_day_moments):\n            if moment in top_20:\n                picks.append(symbol)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 649
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.446167499991134,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 159
+}

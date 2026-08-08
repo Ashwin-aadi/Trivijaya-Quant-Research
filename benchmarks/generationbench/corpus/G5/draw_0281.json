@@ -1,0 +1,26 @@
+{
+  "index": 281,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"A breakout followed by a confirmation day where the price closes above the high of \"\n        \"the previous trading range suggests continued momentum and strength in the asset. \"\n        \"This strategy aims to capitalize on such confirmatory signals.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            values = [float(v) for v in history[symbol].to_list()]\n            high_value = max(values[-self._window:])\n            last_close = float(history[symbol][-1])\n            if last_close > high_value:\n                breakout_symbols.append(symbol)\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        continuation_symbols: list[str] = []\n        for symbol in breakout_symbols:\n            history_symbol = view.history(lookback=self._window)[symbol]\n            confirmation_high = float(history_symbol[-1])\n            previous_high = float(history_symbol[len(history_symbol) - 2])\n            if confirmation_high > previous_high and confirmation_high > (previous_high + high_value) / 2:\n                continuation_symbols.append(symbol)\n\n        weight = 1.0 / len(continuation_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in continuation_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4139,
+    "output_tokens": 1465
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several potential issues and areas for improvement:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale suggests a breakout followed by a confirmation day closing above the previous high. However, in line 27, the code checks if `last_close > (high_value + low_value) / 2`, which is not directly related to the high value. This discrepancy could lead to incorrect signals.\n   - Specifically, lines 19-23 should be:\n     ```python\n     high_value = max(values[-self._window:])\n     last_close = float(history[symbol][-1])\n     if last_close > high_value:\n         breakout_symbols.append(symbol)\n     ```\n\n2. **Potential Failures**:\n   - Line 45: `float(history_symbol[-1]) > float(history_symbol[len(history_symbol) - 2])` and the comparison to `(float(history_symbol[-2]) + low_value[symbol]) / 2` might fail if `history_symbol` is not properly defined or has missing values. Ensure that all symbols in `continuation_symbols` have valid data.\n   - Line 48: The use of `low_value[symbol]` assumes `low_value` is a dictionary, which is not explicitly defined in the code.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window`) is hardcoded and might need tuning based on different market conditions.\n   - The strategy's effectiveness heavily depends on how recent data is available for each symbol.\n\n4. **Code Issues That Could Prevent It from Running**:\n   - Line 30: `history[\"close\"][0]` assumes that the `close` column exists and has at least one value. Ensure robust handling of missing symbols or columns.\n   - Line 38: `float(history_symbol[-1]) > (float(history_symbol[-2]) + low_value[symbol]) / 2` might fail if `low_value` is not defined correctly.\n\n5. **Sound Parts**:\n   - The overall structure of the strategy, including the use of `generate` method and handling of `MarketView` and `Signal`, appears sound.\n   - The rationale could be improved to align more closely with the actual logic in the code.\n\nIn summary, while the core idea is sound, there are several areas where the implementation deviates from the stated rationale or contains potential bugs that need addressing."
+  ],
+  "seconds": 43.37634010000147,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 570
+}

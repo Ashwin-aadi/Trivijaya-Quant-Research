@@ -1,0 +1,23 @@
+{
+  "index": 417,
+  "paradigm": "G1_plain",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks are generally more stable and less prone to extreme movements. \"\n        \"By tilting towards low-volatility stocks, we aim to reduce overall portfolio risk.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns or \"symbol\" in history.columns and len(history[history[\"symbol\"] == symbol].select(\"adj_close\").to_numpy().flatten()) < self._window:\n                continue\n            values = [float(v) for v in history[symbol].select(\"adj_close\").drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            volatility = (pl.Series(values).std() * 252**0.5).item()\n            volatilities[symbol] = volatility\n\n        sorted_symbols = [k for k, v in sorted(volatilities.items(), key=lambda item: item[1])]\n        \n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_n = 5\n        weight = 1.0 / top_n\n        selected_symbols = sorted_symbols[:top_n]\n        weights = {s: weight for s in selected_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 468
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.133714800002053,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 423
+}

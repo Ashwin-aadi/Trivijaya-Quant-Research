@@ -1,0 +1,23 @@
+{
+  "index": 594,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Assets that have outperformed their peers in recent history tend to continue \"\n        \"outperforming them over the next few days. This strategy seeks to identify and \"\n        \"capitalize on such relative strengths.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 10) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._lookback - 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        relative_strengths: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns or symbol not in history[\"symbol\"].to_list():\n                continue\n\n            recent_closes = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(recent_closes) < self._window:\n                continue\n\n            current_close = view.latest_close()[symbol]\n            past_closes = [\n                float(row[\"adj_close\"])\n                for row in history.filter(pl.col(\"symbol\") == symbol).sort(\n                    \"session_date\", descending=False\n                ).rows()\n            ]\n            if len(past_closes) < self._lookback:\n                continue\n\n            recent_return = (current_close - recent_closes[-1]) / recent_closes[-1]\n            past_return = sum((pct_change / 100.0 for pct_change in past_closes)) / len(\n                past_closes\n            )\n            relative_strength = (recent_return + 1) / (past_return + 1)\n            if not pl.is_nan(relative_strength):\n                relative_strengths[symbol] = relative_strength\n\n        sorted_symbols = [\n            k for k, _ in sorted(relative_strengths.items(), key=lambda item: -item[1])\n        ][:5]\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 582
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.146868800002267,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 603
+}

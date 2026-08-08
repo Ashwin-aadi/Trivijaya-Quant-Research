@@ -1,0 +1,26 @@
+{
+  "index": 13,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion occurs when a stock's price returns to its historical average. \"\n        \"By identifying stocks that have deviated significantly from their mean, we can predict \"\n        \"a future return to the mean, generating profitable trades.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 2.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        means: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            mean_price = sum(prices[-self._window:]) / self._window\n            means[symbol] = mean_price\n\n        deviations: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in means or symbol not in history.columns:\n                continue\n            latest_close = float(history[history[\"symbol\"] == symbol][\"adj_close\"].max())\n            deviation = (latest_close - means[symbol]) / mean_price\n            deviations[symbol] = deviation\n\n        sorted_symbols = [\n            s for s, d in sorted(deviations.items(), key=lambda item: abs(item[1]), reverse=True) if abs(d) > self._threshold\n        ][:5]\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4012,
+    "output_tokens": 1398
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy largely aligns with its stated rationale of identifying mean-reverting stocks by comparing current prices to historical means. However, there are several areas for improvement and potential issues:\n\n1. **Potential Issues:**\n   - **Line 20-23:** `mean_price` is calculated as the simple average of the last 10 days' closing prices, which may not accurately represent the true mean due to short-term fluctuations.\n   - **Line 29-34:** The deviation calculation `(latest_close - means[symbol]) / mean_price` seems incorrect. It should be `(latest_close - mean_price) / mean_price`. The current implementation uses the most recent close relative to the last window's average, which is not a standard deviation-based measure.\n   - **Line 37-42:** Limiting the sorted symbols to only the top 5 might miss out on other potentially strong signals if more than five symbols are found.\n\n2. **Rationale vs Code Disagreement:**\n   - The rationale mentions mean reversion towards a historical average but the code calculates deviations from a recent window's average, which is not exactly mean reversion as typically understood in finance.\n\n3. **Fragile Parameters:**\n   - The `window` parameter (line 12) might be too small to capture meaningful trends or could be too large and cause delays.\n   - The decision to limit the output to only top 5 symbols (line 39-42) is arbitrary and can be improved by using a threshold.\n\n4. **Potential Failures:**\n   - If `history` contains missing data, the code might fail at lines 17 and 28.\n   - The strategy assumes that the latest close price always exists; if not (e.g., due to market closure), it would fail.\n\nOverall, while the core idea of mean reversion is sound, the implementation has several issues that need addressing for robustness and accuracy."
+  ],
+  "seconds": 36.00328069999978,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 28
+}

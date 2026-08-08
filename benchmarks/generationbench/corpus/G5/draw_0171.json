@@ -1,0 +1,26 @@
+{
+  "index": 171,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity is a proxy for marketability and information efficiency. \"\n        \"Highly liquid stocks are more likely to be fairly priced and provide better diversification. \"\n        \"This strategy screens for high liquidity based on traded value and applies equal weights among selected assets.\"\n    )\n\n    def __init__(self, min_traded_value: float = 10_000_000) -> None:\n        self._min_traded_value = min_traded_value\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=365)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        traded_values = (\n            history.group_by(\"symbol\")\n                   .agg(pl.col(\"adj_close\").last().alias(\"last_price\"),\n                        pl.col(\"volume\").sum().alias(\"total_volume\"))\n                   .with_columns(((pl.col(\"total_volume\") * pl.col(\"last_price\")).alias(\"traded_value\")))\n        )\n\n        screened_symbols = traded_values.filter(\n            (pl.col(\"traded_value\") > self._min_traded_value)\n        ).select(\"symbol\")\n\n        if screened_symbols.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_5_symbols = [str(symbol) for symbol in screened_symbols[\"symbol\"].to_list()[:5]]\n        weight = 1.0 / len(top_5_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_5_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3950,
+    "output_tokens": 1307
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code generally aligns with its rationale but has some areas for improvement and potential issues:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale states that the strategy screens for high liquidity to ensure fair pricing and better diversification. However, in line 38, only the traded value is used as a criterion for screening symbols. This might not fully capture marketability (e.g., bid-ask spread). \n   \n2. **Potential Failures:**\n   - Line 16: The `history.is_empty()` check may return an error if `history` is not properly defined or contains non-empty data but with no symbols.\n   - Line 38: The `traded_values` DataFrame might be empty even when `history` has data, leading to incorrect logic in the following steps.\n\n3. **Fragile Parameters:**\n   - The minimum traded value (`min_traded_value`) is set to 10 million (line 9). This value could be too high or too low depending on market conditions and stock characteristics.\n   - The number of top symbols selected is hard-coded as 5 (line 47). A more dynamic approach might be beneficial.\n\n4. **Possible Issues:**\n   - Line 26: The `with_columns` method uses `.alias()`, which may not work if the column names are not unique or if there are conflicts.\n   - Line 38: If no symbols meet the traded value threshold, the strategy returns an empty weights dictionary (line 45), but it should handle this case more gracefully.\n\n5. **General Soundness:**\n   - The core logic of filtering based on liquidity and equal weighting is sound, as long as the input data is correctly formatted.\n   - The `Signal` object construction in lines 42-45 is correct for the strategy's purpose.\n\nIn summary, while the overall approach is sound, there are specific areas that could be improved for robustness and flexibility."
+  ],
+  "seconds": 34.109831900001154,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 347
+}

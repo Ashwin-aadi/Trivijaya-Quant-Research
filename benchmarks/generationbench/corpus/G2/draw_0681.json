@@ -1,0 +1,23 @@
+{
+  "index": 681,
+  "paradigm": "G2_cot",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over time due to \"\n        \"reduced uncertainty and potentially higher risk-adjusted returns. By tilting the portfolio towards lower volatility stocks, we can benefit from this systematic anomaly.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns and s in closes.columns]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (\n            history.lazy()\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n        ).collect()\n\n        # Calculate the historical volatility for each stock\n        volatilities = (\n            history.lazy()\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"return\").std().alias(\"volatility\"))\n        ).collect()\n\n        # Sort symbols by volatility\n        sorted_symbols = volatilities.sort(\"volatility\", descending=False)[\"symbol\"].to_list()\n        \n        weights: dict[str, float] = {}\n        weight_per_symbol = 1.0 / len(sorted_symbols)\n        for symbol in sorted_symbols:\n            weights[symbol] = weight_per_symbol\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 562
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.741743999999017,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 692
+}

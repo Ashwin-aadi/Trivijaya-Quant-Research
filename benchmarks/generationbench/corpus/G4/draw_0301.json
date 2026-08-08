@@ -1,0 +1,27 @@
+{
+  "index": 301,
+  "paradigm": "G4_planning",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion50d(Strategy):\n    rationale = (\n        \"This strategy aims to capitalize on short-horizon mean reversion in the Indian market. \"\n        \"Stock prices tend to revert to their historical average due to market inefficiencies and \"\n        \"behavioral biases. By identifying stocks that have deviated significantly from their 50-day moving averages, we can exploit this persistence.\"\n    )\n\n    def __init__(self, window: int = 50, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        moving_average = (\n            view.history()\n            .group_by(\"symbol\")\n            .agg(\n                pl.col(\"adj_close\").mean().alias(\"ma\"),\n                (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(1)).abs().mean().alias(\"volatility\"),\n            )\n        )\n\n        price_to_moving_average_ratio = (\n            view.closes()\n            .join(moving_average, on=\"symbol\")\n            .with_columns(\n                (pl.col(\"close\") / pl.col(\"ma\")).alias(\"p_m_a_ratio\"),\n                ((pl.col(\"adj_close\").shift(1) - pl.col(\"ma\")) / pl.col(\"volatility\")).abs().rank(method=\"dense\", descending=True).alias(\"reversion_rank\")\n            )\n        )\n\n        ranked = price_to_moving_average_ratio.sort(\"reversion_rank\").select([\"symbol\", \"p_m_a_ratio\"])\n\n        top_symbols = [row[\"symbol\"] for row in ranked.to_dict(orient=\"records\")[: self._top_n]]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion50d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2548,
+    "output_tokens": 1013
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy aims to capitalize on short-horizon mean reversion in the Indian market. The core idea is based on the economic mechanism where stock prices tend to revert to their historical average over a short period due to market inefficiencies and investor psychology. This persistence can be attributed to factors such as mean-reverting volatility, liquidity imbalances, and behavioral biases among investors.\n\nThe strategy would exploit this by identifying stocks that have deviated significantly from their moving averages or other technical indicators. A rule-based approach could involve setting thresholds for deviation metrics (e.g., price-to-moving-average ratio). When a stock's price crosses these thresholds, a trade is generated, selling overvalued stocks and buying undervalued ones with the expectation of prices reverting to the mean. Regular rebalancing ensures that positions are adjusted as new data becomes available, maintaining exposure to potential reversion opportunities.",
+    "The signal for this strategy is derived by computing the price-to-moving-average ratio (P/MAR) of each stock. The moving average used can be a simple or exponential moving average over a 50-day period. For each stock, the daily P/MAR is calculated as the ratio of the closing price to the 50-day moving average.\n\nOn any given day, stocks are ranked based on their P/MAR values. Stocks with higher P/MAR ratios (indicating overvaluation) are identified for short-selling, while those with lower P/MAR ratios (indicating undervaluation) are selected for buying. This ranking helps in identifying the top candidates for trading actions.\n\nRegular rebalancing ensures that positions are adjusted as new data comes in, allowing the strategy to capitalize on mean reversion opportunities continuously.",
+    "This strategy aims for a balanced approach with prudent risk management. Typically, positions might be held in a portfolio of around 30-50 stocks to diversify risk while maintaining enough exposure to mean-reversion opportunities. Each stock could have an equal weight or weights adjusted based on their P/MAR values, giving more weight to undervalued stocks. Position sizing should limit total portfolio risk, with a loss threshold not exceeding 10% over any single trading day to protect against extreme market movements. Regular rebalancing ensures adherence to these limits and responsiveness to changing conditions."
+  ],
+  "seconds": 30.316462399998272,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 306
+}

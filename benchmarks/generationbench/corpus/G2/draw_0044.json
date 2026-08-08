@@ -1,0 +1,23 @@
+{
+  "index": 44,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are signals of strong buying or selling pressure. \"\n        \"If a stock's volume and price move in the same direction significantly over several sessions, \"\n        \"it suggests that market participants are aligning their trades with the prevailing trend.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 2)\n        if history.is_empty() or history.height < self._window + 3:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_changes = []\n        price_changes = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            volumes = [\n                float(v)\n                for _, v in (\n                    history[[symbol, \"volume\"]]\n                    .sort(\"session_date\")\n                    .row_by_row()\n                )\n            ]\n            if len(adj_closes) < self._window + 3:\n                continue\n\n            price_change = adj_closes[-1] - adj_closes[0]\n            volume_change = volumes[-1] - volumes[0]\n\n            if (price_change > 0 and volume_change > 0) or (\n                price_change < 0 and volume_change < 0\n            ):\n                volume_changes.append(volume_change)\n                price_changes.append(price_change)\n\n        if not volume_changes or not price_changes:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_volume_change = sum(volume_changes) / len(volume_changes)\n        avg_price_change = sum(price_changes) / len(price_changes)\n        score = abs(avg_volume_change) / (avg_price_change + 1e-9)\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            volumes = [\n                float(v)\n                for _, v in (\n                    history[[symbol, \"volume\"]]\n                    .sort(\"session_date\")\n                    .row_by_row()\n                )\n            ]\n            if len(adj_closes) < self._window + 3:\n                continue\n\n            price_change = adj_closes[-1] - adj_closes[0]\n            volume_change = volumes[-1] - volumes[0]\n\n            if (price_change > 0 and volume_change > 0) or (\n                price_change < 0 and volume_change < 0\n            ):\n                score_symbol = abs(volume_change) / (abs(price_change) + 1e-9)\n                if score_symbol >= score:\n                    picks.append(symbol)\n\n        top_n_symbols = picks[:5]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 781
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 18.17290409999987,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 47
+}

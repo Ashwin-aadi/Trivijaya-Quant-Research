@@ -1,0 +1,139 @@
+{
+  "arm": "G5",
+  "paradigm": "G5_reflection",
+  "n_strategies": 29,
+  "tolerance": 1e-09,
+  "wall_minutes": 5.290777006666758,
+  "criterion_nondeterministic": "net Sharpe changes across a replicate at fixed PYTHONHASHSEED, or across two hash seeds; tolerance 1e-9",
+  "criterion_knife_edge": "deterministic by the above, yet net Sharpe differs by more than the tolerance between the real panel and its identity reconstruction",
+  "n_unseeded_random": 6,
+  "unseeded_random": [
+    {
+      "name": "candidate_171",
+      "left": -2.637024132272625,
+      "right": -3.5356021690544934,
+      "abs_diff": 0.8985780367818683
+    },
+    {
+      "name": "candidate_015",
+      "left": -2.2907193461049173,
+      "right": -2.815883566680461,
+      "abs_diff": 0.5251642205755438
+    },
+    {
+      "name": "candidate_186",
+      "left": -3.8113058434564846,
+      "right": -3.9507323795037297,
+      "abs_diff": 0.1394265360472451
+    },
+    {
+      "name": "candidate_243",
+      "left": 0.30623975340366716,
+      "right": 0.3265819682714204,
+      "abs_diff": 0.020342214867753228
+    },
+    {
+      "name": "candidate_033",
+      "left": -0.021505747492613688,
+      "right": -0.015772933291464303,
+      "abs_diff": 0.005732814201149385
+    },
+    {
+      "name": "candidate_141",
+      "left": -0.024936978113886364,
+      "right": -0.02274888415068206,
+      "abs_diff": 0.002188093963204303
+    }
+  ],
+  "n_nondeterministic": 6,
+  "nondeterministic": [
+    {
+      "name": "candidate_171",
+      "left": -2.637024132272625,
+      "right": -1.3377858578894302,
+      "abs_diff": 1.299238274383195
+    },
+    {
+      "name": "candidate_186",
+      "left": -3.8113058434564846,
+      "right": -3.5562693200120683,
+      "abs_diff": 0.2550365234444163
+    },
+    {
+      "name": "candidate_243",
+      "left": 0.30623975340366716,
+      "right": 0.3352779248197396,
+      "abs_diff": 0.029038171416072456
+    },
+    {
+      "name": "candidate_015",
+      "left": -2.2907193461049173,
+      "right": -2.3113282574754574,
+      "abs_diff": 0.020608911370540106
+    },
+    {
+      "name": "candidate_141",
+      "left": -0.024936978113886364,
+      "right": -0.020335812283326073,
+      "abs_diff": 0.0046011658305602915
+    },
+    {
+      "name": "candidate_033",
+      "left": -0.021505747492613688,
+      "right": -0.020251264094425077,
+      "abs_diff": 0.0012544833981886112
+    }
+  ],
+  "n_reconstruction_sensitive": 14,
+  "n_knife_edge": 8,
+  "knife_edge": [
+    {
+      "name": "candidate_022",
+      "left": -2.395745420907175,
+      "right": -1.6807857052857742,
+      "abs_diff": 0.7149597156214009
+    },
+    {
+      "name": "candidate_068",
+      "left": -2.0642803619690455,
+      "right": -2.4027577477692037,
+      "abs_diff": 0.3384773858001582
+    },
+    {
+      "name": "candidate_269",
+      "left": -1.2916782556221793,
+      "right": -1.2341887321009288,
+      "abs_diff": 0.057489523521250474
+    },
+    {
+      "name": "candidate_109",
+      "left": -2.443488503335859,
+      "right": -2.4188754791382907,
+      "abs_diff": 0.02461302419756839
+    },
+    {
+      "name": "candidate_113",
+      "left": -2.7512938172404513,
+      "right": -2.770186303536538,
+      "abs_diff": 0.01889248629608664
+    },
+    {
+      "name": "candidate_248",
+      "left": -0.5442746427685632,
+      "right": -0.5420050983664966,
+      "abs_diff": 0.0022695444020666145
+    },
+    {
+      "name": "candidate_244",
+      "left": -0.5165517657834658,
+      "right": -0.5174262602087686,
+      "abs_diff": 0.0008744944253027409
+    },
+    {
+      "name": "candidate_008",
+      "left": -1.7691882256986555,
+      "right": -1.769146817093346,
+      "abs_diff": 4.1408605309545266e-05
+    }
+  ]
+}

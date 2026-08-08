@@ -1,0 +1,23 @@
+{
+  "index": 183,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqualWeighting(Strategy):\n    rationale = (\n        \"High liquidity stocks are often more efficient in price discovery and trading. \"\n        \"By equal-weighting these highly liquid stocks, the strategy aims to benefit from \"\n        \"the efficiency of the market while diversifying risk across a subset of the most active \"\n        \"stocks in the NIFTY 100 index.\"\n    )\n\n    def __init__(self, top_n: int = 5) -> None:\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=365)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_df = _calculate_liquidity(history)\n        ranked_symbols = (\n            liquidity_df.sort(\"liquidity\", descending=True)[\"symbol\"].to_list()[: self._top_n]\n        )\n        if not ranked_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(ranked_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in ranked_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_liquidity(history: pl.DataFrame) -> pl.DataFrame:\n    volume_df = history.select(\n        pl.col(\"symbol\"), pl.col(\"volume\").sum().alias(\"total_volume\")\n    )\n    liquidity_df = (\n        volume_df.with_columns(\n            (pl.col(\"total_volume\") / 1000000).cast(pl.Int64).alias(\"volume_million\")\n        )\n        .group_by(\"symbol\")\n        .agg((pl.col(\"volume_million\").sum().alias(\"total_volume_million\"),))\n    )\n\n    return liquidity_df.sort(\"total_volume_million\", descending=True)",
+  "class_name": "LiquidityWeightedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 487
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.245309999998426,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 189
+}

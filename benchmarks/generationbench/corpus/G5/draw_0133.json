@@ -1,0 +1,26 @@
+{
+  "index": 133,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"Mean reversion strategies aim to profit from the tendency of prices to return to their \"\n        \"mean over a given period. This strategy identifies stocks that have deviated significantly \"\n        \"from their mean price and bets on a reversal towards the mean.\"\n    )\n\n    def __init__(self, window: int = 5, deviation_threshold: float = 0.1) -> None:\n        self._window = window\n        self._deviation_threshold = deviation_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_prices = (\n            history.group_by(\"symbol\")\n                   .agg(pl.col(\"adj_close\").mean().alias(\"mean_price\"))\n        )\n        \n        recent_closes = view.closes(lookback=None)\n        symbols_with_mean = set(mean_prices[\"symbol\"])\n        symbols_to_consider = [s for s in view.symbols if s in symbols_with_mean]\n        \n        picks: list[str] = [\n            symbol\n            for symbol in symbols_to_consider\n            if (recent_closes[symbol].to_list()[-1] - mean_prices.filter(pl.col(\"symbol\") == symbol)[\"mean_price\"].item()) / mean_prices.filter(pl.col(\"symbol\") == symbol)[\"mean_price\"].item() < -self._deviation_threshold or \n               (mean_prices.filter(pl.col(\"symbol\") == symbol)[\"mean_price\"].item() - recent_closes[symbol].to_list()[-1]) / mean_prices.filter(pl.col(\"symbol\") == symbol)[\"mean_price\"].item() > self._deviation_threshold\n        ]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3986,
+    "output_tokens": 1394
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy code generally aligns with its rationale of identifying stocks that have deviated significantly from their mean price to bet on a reversal. However, there are several issues and potential improvements:\n\n1. **Rationale vs Code Mismatch**:\n   - The rationale mentions \"significant\" deviations without quantifying this term. Line 9 (`if (recent_close - mean_price) / mean_price < -0.15 or ...`), uses a hard-coded threshold of \u00b115%. This hardcoded value could be inappropriate for different markets or asset classes.\n\n2. **Fragility and Potential Failures**:\n   - Line 4: The `history.is_empty()` check is redundant since the `_latest_visible` function already ensures there's data.\n   - Line 8: Using `pl.col(\"adj_close\").mean().alias(\"mean_price\")` could be problematic if the history contains missing values. Consider handling or imputing these before calculating the mean.\n   - Line 14: The `symbols_with_mean = set(mean_prices[\"symbol\"])` step is unnecessary and can be simplified.\n\n3. **Potential Issues**:\n   - Lines 16-27: The nested loop could be optimized by using a dictionary comprehension or filtering directly within Polars expressions.\n   - Line 30: The check `assert isinstance(newest, date)` might fail if the data doesn't strictly conform to the expected type. A more robust approach would involve handling potential conversion issues.\n\n4. **Robustness**:\n   - Ensure that historical data is consistently available and properly formatted before running the strategy.\n   - Consider adding logging or error handling to manage edge cases, such as missing symbols in `view.symbols`.\n\nIn summary, while the strategy conceptually aligns with its stated rationale, the implementation has several potential weaknesses. Improving parameterization, handling data inconsistencies, and optimizing code structure would enhance robustness and maintainability."
+  ],
+  "seconds": 36.557889600000635,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 270
+}

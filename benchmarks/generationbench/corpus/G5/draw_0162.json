@@ -1,0 +1,26 @@
+{
+  "index": 162,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks with the highest relative strength against the broad universe \"\n        \"helps to identify outperformers. This strategy focuses on selecting the top N \"\n        \"stocks based on their performance compared to the average performance of all \"\n        \"stocks in the market.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history[\"symbol\"].to_list()]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        avg_close = float(closes.select(pl.mean(\"adj_close\")).to_numpy()[0][0])\n        relative_strengths: list[tuple[str, float]] = []\n\n        for symbol in symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            latest_closes = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            avg_latest_close = sum(latest_closes) / len(latest_closes)\n            strength = (avg_latest_close - avg_close) / avg_close\n            relative_strengths.append((symbol, strength))\n\n        sorted_strengths = sorted(relative_strengths, key=lambda x: x[1], reverse=True)\n        top_symbols = [x[0] for x in sorted_strengths[: self._top_n]]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4024,
+    "output_tokens": 1428
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy generally aligns with its stated rationale of selecting outperforming stocks based on relative strength. However, there are several areas for critique and potential issues:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states that the strategy focuses on top \\(N\\) stocks based on their performance compared to the average market performance. However, the code actually selects the top \\(N\\) relative strength symbols without explicitly calculating the average market performance for comparison.\n\n2. **Potential Failure Scenarios**:\n   - If all stock prices in `closes` are identical (e.g., due to market-wide liquidity issues), the calculation of `relative_strengths` will fail because `avg_close` would be a single value, leading to incorrect relative strengths.\n   - If `view.history()` does not contain enough data for the specified lookback period, the code may return an empty weights dictionary.\n\n3. **Fragile Parameters**:\n   - The parameters `window` and `top_n` are hardcoded within the class definition. While these values could be passed as arguments to the `generate` method, hardcoding them makes the strategy less flexible.\n   - The calculation of `avg_close` assumes that the maximum close price in the lookback period is used for comparison, which might not always reflect the true average performance.\n\n4. **Potential Issues**:\n   - Line 32: If `history.height < self._window`, it returns an empty weights dictionary without checking if there are any symbols available.\n   - Lines 45-49: The calculation of relative strengths is done using the maximum close price, which might not be representative of average performance.\n   - Lines 51-63: Sorting and selecting top \\(N\\) symbols could fail if `relative_strengths` list is empty or contains no valid symbols.\n\nOverall, while the strategy aims to select outperforming stocks based on relative strength, the implementation details and assumptions need careful review and potential adjustments."
+  ],
+  "seconds": 36.55312380000032,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 329
+}

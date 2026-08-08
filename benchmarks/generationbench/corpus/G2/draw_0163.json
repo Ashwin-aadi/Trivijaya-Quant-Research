@@ -1,0 +1,23 @@
+{
+  "index": 163,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompressionStrategy(Strategy):\n    rationale = (\n        \"Range compression indicates that the market is consolidating and preparing for a \"\n        \"potential breakout. This strategy aims to identify stocks with high range compression \"\n        \"indicating strong buying or selling pressure.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression = (\n            history.select(\n                pl.col(\"high\").max() - pl.col(\"low\").min().alias(\"range\")\n            )\n            .with_columns((pl.col(\"range\") / pl.col(\"adj_close\").shift(1) * 100).alias(\"compression\"))\n            .sort(\"session_date\", descending=False)\n        )\n\n        if range_compression.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_n_symbols = range_compression[\"symbol\"].to_list()[-self._window :]\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight\n                for symbol in set(top_n_symbols) & view.symbols\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompressionStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 397
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.510531799998716,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 168
+}

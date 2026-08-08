@@ -1,0 +1,23 @@
+{
+  "index": 148,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion(Strategy):\n    rationale = (\n        \"Reversion to the mean suggests that prices which are far from their historical \"\n        \"averages will tend to move back towards them over time. By identifying stocks \"\n        \"that have moved too far in one direction and betting on a return to the mean, we \"\n        \"can profit.\"\n    )\n\n    def __init__(self, window: int = 50) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = history.groupby(\"symbol\").agg(\n            (pl.col(\"adj_close\").mean().alias(\"mean\"))\n        )\n        latest_closes = view.closes()\n        \n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in mean_close[\"symbol\"].to_list() or symbol not in latest_closes.columns:\n                continue\n            mean_value = float(mean_close.filter(pl.col(\"symbol\") == symbol)[\"mean\"][0])\n            recent_close = float(latest_closes[symbol].item())\n            \n            z_score = (recent_close - mean_value) / mean_value\n            \n            if abs(z_score) > 2.0:  # Consider using a different threshold\n                signals[symbol] = -1.0 * z_score\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n        \n        total_weight = sum(signals.values())\n        adjusted_weights = {s: w / total_weight for s, w in signals.items()}\n        return Signal(\n            information_available_at=stamp, \n            weights=adjusted_weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 478
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.114012200006982,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 152
+}

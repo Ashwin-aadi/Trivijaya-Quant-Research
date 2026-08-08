@@ -1,0 +1,27 @@
+{
+  "index": 177,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilt(Strategy):\n    rationale = (\n        \"Historically, low-volatility stocks tend to outperform high-volatility counterparts \"\n        \"over long periods due to their lower risk and potentially higher stability during \"\n        \"economic downturns. This strategy selects a portfolio of the least volatile stocks to \"\n        \"capitalize on this anomaly.\"\n    )\n\n    def __init__(self, window: int = 252, num_stocks: int = 30) -> None:\n        self._window = window\n        self._num_stocks = num_stocks\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate log returns\n        history = history.with_columns(\n            (pl.col(\"close\").rolling_window(pl.col(\"open\") / pl.col(\"open\").shift(1) - 1.0).mean()).alias(\"r\")\n        ).sort(\"session_date\")\n\n        # Compute volatility over the window\n        volatilities = (\n            history.drop([\"symbol\", \"session_date\"])\n                .group_by(\"symbol\")\n                .agg((pl.col(\"r\") ** 2).mean().alias(\"volatility\"))\n                .sort(\"volatility\")\n                .select(\"symbol\", \"volatility\")\n        )\n\n        # Select the top N least volatile stocks\n        picks = volatilities.head(self._num_stocks)[\"symbol\"].to_list()\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilt",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2488,
+    "output_tokens": 904
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan involves leveraging the low-volatility anomaly in the Indian stock market. Historically, low-volatility stocks tend to outperform high-volatility counterparts over long periods due to their lower risk and potentially higher stability during economic downturns. This anomaly persists because low-volatility stocks often include companies with established businesses and defensive sectors that are less sensitive to market fluctuations.\n\nThe trading strategy would involve systematically selecting a portfolio of low-volatility stocks, typically those with the lowest historical volatility, while rebalancing periodically to ensure the portfolio maintains its low-volatility characteristics. The rule would identify stocks based on their historical volatility metrics, such as standard deviation over a specified lookback period, and weight them inversely proportional to their volatilities to tilt towards less volatile assets.\n\nThis approach aims to capitalize on the persistent outperformance of low-volatility securities, offering potentially higher returns with lower risk compared to a market-cap-weighted portfolio.",
+    "The signal for this strategy is based on historical volatility. Specifically, compute the standard deviation of daily returns (calculated as log return: \\( \\log\\left(\\frac{P_t}{P_{t-1}}\\right) \\)) over a lookback period of 252 trading days (approximately one year). Daily open, high, low, close prices are used to calculate these returns. Candidates are then ranked inversely proportional to their volatility metrics; stocks with the lowest standard deviation have the highest rank and are selected for inclusion in the portfolio. This process is repeated on a daily basis to ensure the portfolio remains composed of the least volatile stocks.",
+    "This strategy suggests holding approximately 30-50 low-volatility stocks in the portfolio to diversify risk while capturing the anomaly. Positions can be weighted inversely proportional to historical volatility, ensuring higher weights for less volatile stocks. Position sizes should limit potential losses: consider a maximum drawdown of 10% over any single trading day and an overall portfolio loss cap of 5% per month to manage risk effectively."
+  ],
+  "seconds": 28.112785299999814,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 180
+}

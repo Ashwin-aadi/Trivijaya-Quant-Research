@@ -1,0 +1,23 @@
+{
+  "index": 478,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalBreakout(Strategy):\n    rationale = (\n        \"Seasonality effects can provide predictable patterns in stock prices due to \"\n        \"recurring events or human behavior. For instance, certain sectors might perform\"\n        \" better during specific times of the year. This strategy aims to exploit such \"\n        \"patterns by identifying breakout opportunities from seasonal lows.\"\n    )\n\n    def __init__(self, window: int = 30, breakout_threshold: float = 1.05) -> None:\n        self._window = window\n        self._breakout_threshold = breakout_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 365 * 2)\n        if history.height < self._window + 365 * 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(\n            pl.col(\"session_date\").alias(\"date\"),\n            pl.col(\"adj_close\").alias(\"close\"),\n        )\n\n        # Filter by year to isolate seasonal effects\n        for year in [view.as_of.year - 1, view.as_of.year]:\n            mask = (closes[\"date\"].dt.year() == year) & (\n                closes[\"date\"].dt.month() == view.as_of.month()\n            )\n            yearly_closes = closes.filter(mask)\n            if not yearly_closes.height:\n                continue\n\n            # Identify seasonal low\n            lowest_close = min(yearly_closes[\"close\"])\n            breakout_high = (yearly_closes[\"close\"] >= lowest_close * self._breakout_threshold).sum()\n\n            if breakout_high > 0.5 * len(yearly_closes):\n                picks: list[str] = []\n                for symbol in view.symbols:\n                    if not history.select(pl.col(\"symbol\") == symbol).is_empty():\n                        pick_history = history.filter(\n                            (pl.col(\"symbol\") == symbol) & mask\n                        ).select([\"close\"])\n                        if (\n                            pick_history.height >= self._window\n                            and pick_history[\"close\"].to_list()[-1] > max(pick_history[\"close\"].to_list())\n                        ):\n                            picks.append(symbol)\n\n                if picks:\n                    weight = 1.0 / len(picks)\n                    return Signal(\n                        information_available_at=stamp,\n                        weights={s: weight for s in picks},\n                    )\n\n        return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 611
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.671670100004121,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 486
+}

@@ -1,0 +1,23 @@
+{
+  "index": 419,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: a 20-day closing price \"\n        \"breakout and the volume trend. A breakout indicates strong momentum, while rising \"\n        \"volume suggests increased interest in the stock. Together, they can signal a potential\"\n        \" continuation of the upward trend.\"\n    )\n\n    def __init__(self, window_breakout: int = 20, top_n_breakout: int = 5) -> None:\n        self._window_breakout = window_breakout\n        self._top_n_breakout = top_n_breakout\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_breakout)\n        if history.height < self._window_breakout:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            values = [float(v) for v in history[symbol].select(\"close\").drop_nulls().to_list()]\n            if len(values) < self._window_breakout:\n                continue\n            if values[-1] >= max(values):\n                breakout_picks.append(symbol)\n\n        breakout_picks = breakout_picks[: self._top_n_breakout]\n        if not breakout_picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_trend_picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            values = [float(v) for v in history[symbol].select(\"volume\").drop_nulls().to_list()]\n            if len(values) < self._window_breakout - 1:\n                continue\n            volume_trend = all(\n                values[i] > values[i + 1] for i in range(len(values) - 1)\n            )\n            if volume_trend:\n                volume_trend_picks.append(symbol)\n\n        combined_picks: list[str] = []\n        for symbol in breakout_picks:\n            if symbol in volume_trend_picks:\n                combined_picks.append(symbol)\n\n        if not combined_picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(combined_picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in combined_picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 622
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.353759699995862,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 425
+}

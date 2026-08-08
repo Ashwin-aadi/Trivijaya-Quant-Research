@@ -1,0 +1,26 @@
+{
+  "index": 174,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks based on their relative strength against the broader market \"\n        \"can provide an edge. Stocks that have outperformed their peers are more likely to \"\n        \"continue to perform well.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window).to_series()\n        symbols = [str(s) for s in view.symbols]\n        universe_size = len(view.symbols)\n\n        # Calculate daily returns\n        returns = (\n            history.lazy()\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"),\n            )\n            .collect()\n        )\n\n        # Filter out symbols with insufficient data\n        valid_returns = returns.filter(pl.col(\"return\").is_not_null()).to_pandas()\n\n        # Calculate average return for each symbol\n        avg_returns = {}\n        for symbol in symbols:\n            if symbol not in valid_returns[\"symbol\"].values:\n                continue\n            avg_return = float(valid_returns[valid_returns[\"symbol\"] == symbol][\"return\"].mean())\n            avg_returns[symbol] = avg_return\n\n        # Rank symbols based on their average returns against the universe\n        ranked_symbols = sorted(avg_returns.items(), key=lambda x: x[1], reverse=True)\n        top_symbols = [s for s, _ in ranked_symbols[: self._top_n]]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4197,
+    "output_tokens": 1548
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several merits but also some issues that could impact its reliability and robustness:\n\n### Merits:\n- **Rationale**: The rationale aligns well with the strategy's logic, aiming to select stocks based on their relative strength against the broader market. This approach can potentially provide an edge by identifying outperforming assets.\n- **Parameterization**: Parameters like `window` (60) and `top_n` (5) are reasonable for a 60-day lookback period and selecting top 5 performers.\n\n### Issues:\n1. **Missing Import Statements**:\n   - The code snippet is incomplete, missing critical imports such as `MarketView`, `Signal`, and possibly others from the `src.backtest.strategy` module.\n   \n2. **Data Quality Check**:\n   - Line 37: There\u2019s no check for whether there are enough valid returns to compute averages (`avg_returns`). If not, the strategy might return an empty weights dictionary without signaling any issues.\n\n3. **Potential Data Issues**:\n   - Lines 48-51: The code assumes that all symbols will have returns calculated, but this is not guaranteed. A better approach would be to explicitly handle cases where data is insufficient.\n   \n4. **Type Annotations and Asserts**:\n   - While the type annotation for `stamp` (Line 23) is good practice, there are no asserts or checks to ensure that the returned `Signal` object has meaningful weights.\n\n5. **Universe Size Consideration**:\n   - The code does not consider scenarios where the universe size might be less than `top_n`. This could lead to errors if fewer top symbols are available than specified.\n   \n6. **Lack of Error Handling**:\n   - There is no error handling for cases where critical data might be missing or invalid, which can cause unexpected behavior.\n\n### Fragile Parameters:\n- The parameters `window` and `top_n` are hardcoded. If the market conditions change significantly, these values may need adjustment.\n  \nIn summary, while the strategy\u2019s core logic aligns with its rationale, there are several areas where the code could fail or produce unreliable results without additional checks and error handling."
+  ],
+  "seconds": 39.14873049999915,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 353
+}

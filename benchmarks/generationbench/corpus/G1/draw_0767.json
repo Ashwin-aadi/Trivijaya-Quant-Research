@@ -1,0 +1,23 @@
+{
+  "index": 767,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"Combining short-term and long-term momentum signals can capture both the \"\n        \"immediate trend strength and the sustained price movement of stocks.\"\n    )\n\n    def __init__(self, short_window: int = 10, long_window: int = 50) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._short_window + self._long_window - 1)\n        if closes.height < self._short_window + self._long_window - 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        short_momentum = (closes[closes.columns[0]] / closes[closes.columns[0]].shift(self._short_window) - 1.0).alias(\"short_r\")\n        long_momentum = (closes[closes.columns[0]] / closes[closes.columns[0]].shift(self._long_window) - 1.0).alias(\"long_r\")\n\n        short_df = closes.with_columns(short_momentum)\n        long_df = closes.with_columns(long_momentum)\n\n        short_top_gainers = [symbol for symbol in view.symbols if float((short_df[short_df[\"session_date\"] == stamp].select(short_momentum)[symbol]) > 0.05)]\n        long_top_gainers = [symbol for symbol in view.symbols if float((long_df[long_df[\"session_date\"] == stamp].select(long_momentum)[symbol]) > 0.1)]\n\n        common_symbols = set(short_top_gainers) & set(long_top_gainers)\n\n        if not common_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(common_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in common_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 518
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.163841000001412,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 782
+}

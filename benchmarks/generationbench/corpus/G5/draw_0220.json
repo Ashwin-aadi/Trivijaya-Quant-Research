@@ -1,0 +1,26 @@
+{
+  "index": 220,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass TrailingReversion(Strategy):\n    rationale = (\n        \"Price reverts towards historical means; buy undervalued stocks and sell overvalued ones \"\n        \"based on a trailing reference price level.\"\n    )\n\n    def __init__(self, window: int = 50) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = history.select(pl.col(\"adj_close\").mean().alias(\"mean\")).to_series().to_list()[0]\n        std_close = history.select(pl.col(\"adj_close\").std()).to_series().to_list()[0]\n\n        symbols_with_price = [\n            (symbol, float(price))\n            for symbol, price in view.latest_close().items()\n            if symbol in history.columns\n        ]\n\n        weights: dict[str, float] = {}\n        for symbol, latest_close in symbols_with_price:\n            trailing_mean = (\n                history.select(pl.col(symbol).mean()).to_series().to_list()[0]\n            )\n            z_score = (latest_close - trailing_mean) / std_close if std_close > 0 else 0\n            weights[symbol] = max(0.1, min(0.9, 1 + z_score))\n\n        return Signal(\n            information_available_at=stamp,\n            weights={k: v for k, v in weights.items() if v > 0}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "TrailingReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3894,
+    "output_tokens": 1265
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy implements a Trailing Reversion approach with some notable issues and potential improvements:\n\n1. **Rationale vs. Code Disagreement**:\n   - Line 26: `weights[symbol] = 1.0 if z_score < -2 else 0.0` only assigns weights of 1 or 0 based on a Z-score threshold, ignoring intermediate values. This contradicts the rationale's statement that it buys undervalued stocks and sells overvalued ones. A more nuanced approach would be to assign weights between 0 and 1.\n\n2. **Potential Failures**:\n   - Line 34: `mean_close = history.select(pl.col(\"adj_close\").mean().alias(\"mean\")).to_series().to_list()[0]` assumes that the mean close price can always be calculated. If there are no closing prices in the historical data, this will raise an error.\n   - Line 26: The Z-score calculation is based on a simple average and standard deviation of the 'adj_close' column. This might not accurately capture the trailing reference level if the data contains significant noise or outliers.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window`) is hardcoded as 50 but could be made more flexible by allowing dynamic adjustment based on market conditions.\n   - Line 27: `weights[symbol] = 1.0 if z_score < -2 else 0.0` is a fixed threshold, which may not perform well in different market environments.\n\n4. **Run-time Issues**:\n   - The function `_latest_visible(view)` assumes that there are visible sessions. If the history is empty, it returns an arbitrary date (line 38). This could lead to incorrect signals if no recent data is available.\n   - Line 26: The Z-score calculation uses a simple statistical method which might not be appropriate for all datasets or market conditions.\n\nIn summary, while the strategy aims to capture reversion towards historical means, it has limitations in its execution and potential improvements in handling edge cases and parameter flexibility."
+  ],
+  "seconds": 32.997937599999204,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 446
+}

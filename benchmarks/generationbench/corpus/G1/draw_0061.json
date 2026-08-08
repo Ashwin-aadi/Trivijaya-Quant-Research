@@ -1,0 +1,23 @@
+{
+  "index": 61,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion exploits the tendency of stock prices to revert to their \"\n        \"mean over a short period. This strategy buys underperforming stocks and sells outperforming ones.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = closes.mean().to_dict().get(\"adj_close\", 0.0)\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            price_series = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(price_series) < self._window:\n                continue\n\n            mean_reversion_score = (price_series[-1] - mean_close) / mean_close\n            if abs(mean_reversion_score) > 0.2:  # Threshold for significant reversion\n                signals[symbol] = mean_reversion_score\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(signals)\n        adjusted_signals = {s: (weight * v) for s, v in signals.items()}\n        return Signal(\n            information_available_at=stamp, weights=adjusted_signals\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 442
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.225591100010206,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 65
+}

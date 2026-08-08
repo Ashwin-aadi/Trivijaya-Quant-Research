@@ -1,0 +1,27 @@
+{
+  "index": 96,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum20d(Strategy):\n    rationale = (\n        \"This strategy identifies stocks with positive past performance relative to their peers, \"\n        \"expecting these outperformers to continue their upward trend. By selecting top-performing \"\n        \"stocks based on recent returns and diversifying across sectors, the portfolio capitalizes \"\n        \"on momentum while managing risk.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1).sort(\"session_date\", descending=True)\n\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        latest_closes = {symbol: float(close) for symbol, close in zip(symbols, view.closes(lookback=self._window).to_dict().values())}\n\n        # Calculate daily returns for each stock\n        returns = history.with_columns(\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n        ).select(pl.exclude([\"symbol\", \"session_date\"]))\n\n        # Compute rank based on return over the lookback period\n        ranked_returns = returns.groupby(\"symbol\").agg(\n            (pl.col(\"return\").mean().alias(\"avg_return\")).rank(method=\"dense\", descending=True)\n        )\n\n        if ranked_returns.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row[0] for row in ranked_returns.sort(by=\"avg_return\").head(self._top_n).rows()]\n\n        # Ensure sectoral balance\n        sectors = {symbol: \"sector\" for symbol in symbols}  # Replace with actual sector information if available\n        selected_sectors = set(sectors[symbol] for symbol in top_symbols)\n\n        if len(selected_sectors) < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        weights = {symbol: 0.04 / self._top_n for symbol in top_symbols}  # Capped at 4% per stock\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, weight in weights.items() if symbol in latest_closes},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2335,
+    "output_tokens": 998
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan is to develop a systematic equity trading strategy leveraging cross-sectional momentum in the Indian market. The economic mechanism involves identifying stocks with positive past performance relative to their peers, expecting these outperformers to continue their upward trend due to investor sentiment and market inefficiencies. This persistence could stem from various factors such as delayed price adjustments or herding behavior among investors. The rule would select top-performing stocks based on recent returns, while also considering sectoral diversification to manage risk. Weights for each stock would be adjusted based on their relative performance, ensuring a dynamic and responsive portfolio that capitalizes on the momentum effect across multiple assets.",
+    "The signal for this systematic equity strategy involves computing the return of each stock relative to its peers over a specific lookback period. Specifically, the returns can be calculated as the percentage change in daily closing prices from one trading session to another. The lookback period could be 20 days, for instance.\n\nOn any given day, stocks are ranked based on their recent performance, with higher positive returns indicating better past performance. This ranking is done across all eligible stocks within a selected sector or market index to ensure diversification and risk management. Stocks with the highest positive returns over the lookback period are then selected as candidates for inclusion in the portfolio.\n\nThis approach captures momentum by favoring stocks that have shown strong recent performance, while also considering sectoral balance to distribute risks effectively.",
+    "The strategy will hold positions in a diversified portfolio of 20-30 stocks to manage concentration risk. Position weights are dynamically adjusted based on each stock's recent performance rank but capped at 5% to limit individual risk exposure. The total portfolio risk, measured by the volatility, is set to not exceed 15%. This ensures that while leveraging momentum for potential gains, the strategy remains within acceptable loss bounds to protect capital."
+  ],
+  "seconds": 29.837383799997042,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 99
+}

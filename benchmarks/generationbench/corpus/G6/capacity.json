@@ -1,0 +1,454 @@
+{
+  "arm": "G6",
+  "paradigm": "G6_graph_of_thoughts",
+  "participation_limit": 0.01,
+  "min_traded_fraction": 1e-09,
+  "n_strategies": 13,
+  "measure": "constraint-based deployment capacity, never impact erosion",
+  "capacity": [
+    {
+      "factor": "candidate_001",
+      "binding_capacity_inr": 9158765.238095239,
+      "entry_capacity_inr": 17165068.57142857,
+      "median_capacity_inr": 35401745.952380955,
+      "p05_capacity_inr": 12619842.214285715,
+      "p95_capacity_inr": 115986523.4523808,
+      "n_rebalance_sessions": 602,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.22259136212624583,
+      "median_relaxed_capacity_inr": 73828816.1904762,
+      "relaxed_over_constrained": 2.085456923220218
+    },
+    {
+      "factor": "candidate_010",
+      "binding_capacity_inr": 92022035.71428572,
+      "entry_capacity_inr": 187794178.5714286,
+      "median_capacity_inr": 275376539.2857143,
+      "p05_capacity_inr": 127271426.78571428,
+      "p95_capacity_inr": 573317150.8888571,
+      "n_rebalance_sessions": 60,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.45,
+      "median_relaxed_capacity_inr": 605750557.1428572,
+      "relaxed_over_constrained": 2.1997173714002063
+    },
+    {
+      "factor": "candidate_015",
+      "binding_capacity_inr": 5476019.523809523,
+      "entry_capacity_inr": 13902852.380952382,
+      "median_capacity_inr": 24902108.095238097,
+      "p05_capacity_inr": 8772484.142652381,
+      "p95_capacity_inr": 72367755.42857133,
+      "n_rebalance_sessions": 348,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.47413793103448276,
+      "median_relaxed_capacity_inr": 56474380.47619047,
+      "relaxed_over_constrained": 2.2678554064661607
+    },
+    {
+      "factor": "candidate_060",
+      "binding_capacity_inr": 99061523.8095238,
+      "entry_capacity_inr": 146823580.95238096,
+      "median_capacity_inr": 331394209.52380955,
+      "p05_capacity_inr": 161159337.61904764,
+      "p95_capacity_inr": 779085073.8095226,
+      "n_rebalance_sessions": 1198,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.1335559265442404,
+      "median_relaxed_capacity_inr": 457794638.0952381,
+      "relaxed_over_constrained": 1.3814201483877981
+    },
+    {
+      "factor": "candidate_068",
+      "binding_capacity_inr": 2487290.476190476,
+      "entry_capacity_inr": 15623975.714285715,
+      "median_capacity_inr": 45431194.28571428,
+      "p05_capacity_inr": 14124741.69047619,
+      "p95_capacity_inr": 156139235.49999997,
+      "n_rebalance_sessions": 1008,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.2896825396825397,
+      "median_relaxed_capacity_inr": 84821914.28571428,
+      "relaxed_over_constrained": 1.8670412613913234
+    },
+    {
+      "factor": "candidate_069",
+      "binding_capacity_inr": 141477733.3333334,
+      "entry_capacity_inr": 336382038.0952383,
+      "median_capacity_inr": 783536247.6190481,
+      "p05_capacity_inr": 283869447.6190478,
+      "p95_capacity_inr": 2648196872.380954,
+      "n_rebalance_sessions": 313,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.476038338658147,
+      "median_relaxed_capacity_inr": 2019289371.4285727,
+      "relaxed_over_constrained": 2.577148635515765
+    },
+    {
+      "factor": "candidate_073",
+      "binding_capacity_inr": 10415983.80952381,
+      "entry_capacity_inr": 10415983.80952381,
+      "median_capacity_inr": 75078425.71428572,
+      "p05_capacity_inr": 20320099.36507937,
+      "p95_capacity_inr": 288650658.0952378,
+      "n_rebalance_sessions": 837,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.25448028673835127,
+      "median_relaxed_capacity_inr": 149440395.23809525,
+      "relaxed_over_constrained": 1.990457229441615
+    },
+    {
+      "factor": "candidate_075",
+      "binding_capacity_inr": 368771885.7142858,
+      "entry_capacity_inr": 1258637214.2857144,
+      "median_capacity_inr": 916510222.7507143,
+      "p05_capacity_inr": 444399975.71428573,
+      "p95_capacity_inr": 1903701125.7142856,
+      "n_rebalance_sessions": 67,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.1791044776119403,
+      "median_relaxed_capacity_inr": 1473370028.5714285,
+      "relaxed_over_constrained": 1.6075871190497097
+    },
+    {
+      "factor": "candidate_079",
+      "binding_capacity_inr": 33989942.857142866,
+      "entry_capacity_inr": 364866194.2857143,
+      "median_capacity_inr": 452492694.28571427,
+      "p05_capacity_inr": 221927528.5714286,
+      "p95_capacity_inr": 826450367.1428571,
+      "n_rebalance_sessions": 531,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.21657250470809794,
+      "median_relaxed_capacity_inr": 686851337.1428573,
+      "relaxed_over_constrained": 1.51792801478727
+    },
+    {
+      "factor": "candidate_084",
+      "binding_capacity_inr": 163145071.42857143,
+      "entry_capacity_inr": 220235371.42857143,
+      "median_capacity_inr": 507143914.2857144,
+      "p05_capacity_inr": 235680605.7142857,
+      "p95_capacity_inr": 1425142279.9999998,
+      "n_rebalance_sessions": 1105,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.2398190045248869,
+      "median_relaxed_capacity_inr": 784798250.0,
+      "relaxed_over_constrained": 1.547486281296202
+    },
+    {
+      "factor": "candidate_118",
+      "binding_capacity_inr": 106071200.00000001,
+      "entry_capacity_inr": 1944284514.2857144,
+      "median_capacity_inr": 683592935.7142857,
+      "p05_capacity_inr": 330113160.0,
+      "p95_capacity_inr": 1626964859.2857134,
+      "n_rebalance_sessions": 662,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.33534743202416917,
+      "median_relaxed_capacity_inr": 1226550442.857143,
+      "relaxed_over_constrained": 1.7942702137135478
+    },
+    {
+      "factor": "candidate_135",
+      "binding_capacity_inr": 213839785.71428582,
+      "entry_capacity_inr": 227470095.23809534,
+      "median_capacity_inr": 386349095.2380954,
+      "p05_capacity_inr": 265603490.4761906,
+      "p95_capacity_inr": 3944683510.714286,
+      "n_rebalance_sessions": 34,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.058823529411764705,
+      "median_relaxed_capacity_inr": 467108095.23809546,
+      "relaxed_over_constrained": 1.2090311611839824
+    },
+    {
+      "factor": "candidate_144",
+      "binding_capacity_inr": 12830387142.857143,
+      "entry_capacity_inr": 41817584285.71429,
+      "median_capacity_inr": 34267033571.42857,
+      "p05_capacity_inr": 19235771952.38095,
+      "p95_capacity_inr": 193190954476.1904,
+      "n_rebalance_sessions": 78,
+      "participation_limit": 0.01,
+      "fraction_bound_by_one_name": 0.4230769230769231,
+      "median_relaxed_capacity_inr": 74861524285.7143,
+      "relaxed_over_constrained": 2.1846514414405838
+    }
+  ],
+  "by_flow_state": [
+    {
+      "factor": "candidate_001",
+      "flow_state": "inflow",
+      "median_capacity_inr": 36537027.61904762,
+      "p05_capacity_inr": 13679829.047619047,
+      "n_sessions": 99
+    },
+    {
+      "factor": "candidate_001",
+      "flow_state": "neutral",
+      "median_capacity_inr": 37398140.23809524,
+      "p05_capacity_inr": 14111379.523809524,
+      "n_sessions": 236
+    },
+    {
+      "factor": "candidate_001",
+      "flow_state": "outflow",
+      "median_capacity_inr": 36823250.0,
+      "p05_capacity_inr": 13221883.333333332,
+      "n_sessions": 132
+    },
+    {
+      "factor": "candidate_010",
+      "flow_state": "inflow",
+      "median_capacity_inr": 336535257.1428572,
+      "p05_capacity_inr": 97016199.99999999,
+      "n_sessions": 9
+    },
+    {
+      "factor": "candidate_010",
+      "flow_state": "neutral",
+      "median_capacity_inr": 286891871.4285714,
+      "p05_capacity_inr": 151804335.7142857,
+      "n_sessions": 31
+    },
+    {
+      "factor": "candidate_010",
+      "flow_state": "outflow",
+      "median_capacity_inr": 211166378.57142857,
+      "p05_capacity_inr": 92022035.71428572,
+      "n_sessions": 9
+    },
+    {
+      "factor": "candidate_015",
+      "flow_state": "inflow",
+      "median_capacity_inr": 14425429.523809524,
+      "p05_capacity_inr": 7233762.380952381,
+      "n_sessions": 59
+    },
+    {
+      "factor": "candidate_015",
+      "flow_state": "neutral",
+      "median_capacity_inr": 25153756.428571425,
+      "p05_capacity_inr": 7565055.238095239,
+      "n_sessions": 154
+    },
+    {
+      "factor": "candidate_015",
+      "flow_state": "outflow",
+      "median_capacity_inr": 28530863.333333336,
+      "p05_capacity_inr": 10886370.0,
+      "n_sessions": 92
+    },
+    {
+      "factor": "candidate_060",
+      "flow_state": "inflow",
+      "median_capacity_inr": 354299566.6666666,
+      "p05_capacity_inr": 167283009.52380952,
+      "n_sessions": 230
+    },
+    {
+      "factor": "candidate_060",
+      "flow_state": "neutral",
+      "median_capacity_inr": 344735763.5847619,
+      "p05_capacity_inr": 165933923.80952382,
+      "n_sessions": 504
+    },
+    {
+      "factor": "candidate_060",
+      "flow_state": "outflow",
+      "median_capacity_inr": 321757504.7619048,
+      "p05_capacity_inr": 160781228.57142857,
+      "n_sessions": 233
+    },
+    {
+      "factor": "candidate_068",
+      "flow_state": "inflow",
+      "median_capacity_inr": 46443787.93309524,
+      "p05_capacity_inr": 15867178.095238095,
+      "n_sessions": 176
+    },
+    {
+      "factor": "candidate_068",
+      "flow_state": "neutral",
+      "median_capacity_inr": 43327222.85714286,
+      "p05_capacity_inr": 14111379.523809524,
+      "n_sessions": 399
+    },
+    {
+      "factor": "candidate_068",
+      "flow_state": "outflow",
+      "median_capacity_inr": 38880271.42857143,
+      "p05_capacity_inr": 13706186.666666668,
+      "n_sessions": 199
+    },
+    {
+      "factor": "candidate_069",
+      "flow_state": "inflow",
+      "median_capacity_inr": 968100800.0000006,
+      "p05_capacity_inr": 378640780.9523812,
+      "n_sessions": 63
+    },
+    {
+      "factor": "candidate_069",
+      "flow_state": "neutral",
+      "median_capacity_inr": 786866709.8442862,
+      "p05_capacity_inr": 339463009.5238098,
+      "n_sessions": 142
+    },
+    {
+      "factor": "candidate_069",
+      "flow_state": "outflow",
+      "median_capacity_inr": 823396514.2857147,
+      "p05_capacity_inr": 281277028.5714288,
+      "n_sessions": 52
+    },
+    {
+      "factor": "candidate_073",
+      "flow_state": "inflow",
+      "median_capacity_inr": 62298622.38095239,
+      "p05_capacity_inr": 19812504.285714287,
+      "n_sessions": 136
+    },
+    {
+      "factor": "candidate_073",
+      "flow_state": "neutral",
+      "median_capacity_inr": 75689097.14285713,
+      "p05_capacity_inr": 18364498.57142857,
+      "n_sessions": 352
+    },
+    {
+      "factor": "candidate_073",
+      "flow_state": "outflow",
+      "median_capacity_inr": 76785194.28571428,
+      "p05_capacity_inr": 21366964.76190476,
+      "n_sessions": 156
+    },
+    {
+      "factor": "candidate_075",
+      "flow_state": "inflow",
+      "median_capacity_inr": 990536157.1428572,
+      "p05_capacity_inr": 546941849.8842857,
+      "n_sessions": 13
+    },
+    {
+      "factor": "candidate_075",
+      "flow_state": "neutral",
+      "median_capacity_inr": 972189614.2857144,
+      "p05_capacity_inr": 480400785.71428573,
+      "n_sessions": 33
+    },
+    {
+      "factor": "candidate_075",
+      "flow_state": "outflow",
+      "median_capacity_inr": 895384457.1428572,
+      "p05_capacity_inr": 488165685.71428573,
+      "n_sessions": 15
+    },
+    {
+      "factor": "candidate_079",
+      "flow_state": "inflow",
+      "median_capacity_inr": 470591454.28571427,
+      "p05_capacity_inr": 222312111.42857146,
+      "n_sessions": 113
+    },
+    {
+      "factor": "candidate_079",
+      "flow_state": "neutral",
+      "median_capacity_inr": 444764095.71428573,
+      "p05_capacity_inr": 219641708.5714286,
+      "n_sessions": 218
+    },
+    {
+      "factor": "candidate_079",
+      "flow_state": "outflow",
+      "median_capacity_inr": 439139965.71428573,
+      "p05_capacity_inr": 234468280.0,
+      "n_sessions": 97
+    },
+    {
+      "factor": "candidate_084",
+      "flow_state": "inflow",
+      "median_capacity_inr": 524436664.2857143,
+      "p05_capacity_inr": 261368442.85714287,
+      "n_sessions": 214
+    },
+    {
+      "factor": "candidate_084",
+      "flow_state": "neutral",
+      "median_capacity_inr": 540576571.4285715,
+      "p05_capacity_inr": 272102757.14285713,
+      "n_sessions": 465
+    },
+    {
+      "factor": "candidate_084",
+      "flow_state": "outflow",
+      "median_capacity_inr": 531479471.42857146,
+      "p05_capacity_inr": 211280514.28571427,
+      "n_sessions": 214
+    },
+    {
+      "factor": "candidate_118",
+      "flow_state": "inflow",
+      "median_capacity_inr": 807564142.8571429,
+      "p05_capacity_inr": 337424221.8592857,
+      "n_sessions": 110
+    },
+    {
+      "factor": "candidate_118",
+      "flow_state": "neutral",
+      "median_capacity_inr": 670334278.5714285,
+      "p05_capacity_inr": 325935957.1428572,
+      "n_sessions": 278
+    },
+    {
+      "factor": "candidate_118",
+      "flow_state": "outflow",
+      "median_capacity_inr": 671628814.2857141,
+      "p05_capacity_inr": 342658542.85714287,
+      "n_sessions": 146
+    },
+    {
+      "factor": "candidate_135",
+      "flow_state": "inflow",
+      "median_capacity_inr": 426807464.2857145,
+      "p05_capacity_inr": 286136857.14285725,
+      "n_sessions": 6
+    },
+    {
+      "factor": "candidate_135",
+      "flow_state": "neutral",
+      "median_capacity_inr": 506014452.3809526,
+      "p05_capacity_inr": 303151166.66666687,
+      "n_sessions": 9
+    },
+    {
+      "factor": "candidate_135",
+      "flow_state": "outflow",
+      "median_capacity_inr": 363675261.90476215,
+      "p05_capacity_inr": 306740119.04761916,
+      "n_sessions": 14
+    },
+    {
+      "factor": "candidate_144",
+      "flow_state": "inflow",
+      "median_capacity_inr": 35336546428.571434,
+      "p05_capacity_inr": 20823521904.761906,
+      "n_sessions": 16
+    },
+    {
+      "factor": "candidate_144",
+      "flow_state": "neutral",
+      "median_capacity_inr": 43693517142.85715,
+      "p05_capacity_inr": 22254680952.38095,
+      "n_sessions": 34
+    },
+    {
+      "factor": "candidate_144",
+      "flow_state": "outflow",
+      "median_capacity_inr": 27178705000.0,
+      "p05_capacity_inr": 19342143809.523808,
+      "n_sessions": 14
+    }
+  ]
+}

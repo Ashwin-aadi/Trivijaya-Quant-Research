@@ -1,0 +1,23 @@
+{
+  "index": 569,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakout continuation strategies exploit the phenomenon where stocks that have recently \"\n        \"broken out of a consolidation pattern often continue in their breakout direction. This \"\n        \"is based on the idea that breakout signals are not random and can be profitable if followed.\"\n    )\n\n    def __init__(self, window: int = 20, continuation_window: int = 10) -> None:\n        self._window = window\n        self._continuation_window = continuation_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._continuation_window)\n        if history.is_empty() or history.height < self._window + self._continuation_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.symbol.to_list():\n                continue\n            history_for_symbol = history.filter(pl.col(\"symbol\") == symbol)\n            adj_close_series = history_for_symbol[\"adj_close\"].to_list()\n            if len(adj_close_series) < self._window + self._continuation_window:\n                continue\n\n            breakout_price = max(adj_close_series[-self._window:])\n            last_day_price = adj_close_series[-1]\n\n            if last_day_price > breakout_price:\n                # Bullish breakout\n                if all(last_day_price > adj_close >= breakout_price for adj_close in adj_close_series[-self._continuation_window:]):\n                    breakout_symbols.append(symbol)\n            elif last_day_price < breakout_price:\n                # Bearish breakout\n                if all(last_day_price < adj_close <= breakout_price for adj_close in adj_close_series[-self._continuation_window:]):\n                    breakout_symbols.append(symbol)\n\n        breakout_symbols = list(set(breakout_symbols))[: self._top_n(20)]\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 557
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.586407800001325,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 578
+}

@@ -1,0 +1,23 @@
+{
+  "index": 643,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression occurs when the high-low range of stock prices decreases over time. \"\n        \"This can indicate that the market is consolidating and may be setting up for a breakout. \"\n        \"High compression often precedes price action that could lead to a significant move.\"\n    )\n\n    def __init__(self, lookback_days: int = 20) -> None:\n        self._lookback_days = lookback_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        range_values = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            data = [float(v) for v in history[symbol].to_list()]\n            high_low_range = (max(data) - min(data)) / max(data)\n            range_values.append((symbol, high_low_range))\n\n        range_df = pl.DataFrame(range_values).with_columns(\n            (pl.col(1) / pl.col(1).shift(1) - 1.0).alias(\"range_change\")\n        ).sort(\"range_change\", descending=True)\n\n        if range_df.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row[0] for row in range_df.to_numpy()[:5]]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 447
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.011277500001597,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 654
+}

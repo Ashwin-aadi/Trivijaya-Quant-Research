@@ -1,0 +1,23 @@
+{
+  "index": 545,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After a breakout occurs, if it is followed by further price movement in the \"\n        \"direction of the breakout, this could indicate continuation rather than reversal. \"\n        \"This strategy aims to capture profits from such continuations.\"\n    )\n\n    def __init__(self, window: int = 20, min_breakout: float = 1.05) -> None:\n        self._window = window\n        self._min_breakout = min_breakout\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            symbol_history = history.filter(pl.col(\"symbol\") == symbol).sort(\n                \"session_date\"\n            )\n            open_price = float(symbol_history[\"open\"][0])\n            close_price = float(symbol_history[\"close\"][-1])\n\n            if (close_price - open_price) / open_price >= self._min_breakout:\n                breakout_symbols.append(symbol)\n\n        breakout_symbols = list(set(breakout_symbols))  # Remove duplicates\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        for symbol in breakout_symbols:\n            continuation_history = history.filter(\n                (pl.col(\"symbol\") == symbol) & (\n                    pl.col(\"session_date\").is_after(symbol_history[\"session_date\"][-1]))\n            )\n            if continuation_history.height < 2:  # Need at least two more days\n                break\n            last_close = float(continuation_history.sort(\"session_date\").tail(1)[\"close\"][0])\n            second_last_close = float(\n                continuation_history.sort(\"session_date\").tail(2)[\"close\"][-2]\n            )\n            if (last_close - second_last_close) / second_last_close >= 0.01:\n                break\n\n        continuation_symbols: list[str] = [symbol for symbol in breakout_symbols if symbol == breakout_symbols[0]]\n        weight = 1.0 / len(continuation_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in continuation_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 592
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.283161500003189,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 554
+}

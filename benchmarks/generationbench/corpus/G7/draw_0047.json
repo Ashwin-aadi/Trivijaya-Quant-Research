@@ -1,0 +1,46 @@
+{
+  "index": 47,
+  "paradigm": "G7_mcts",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MovingAverageAndStopLoss(Strategy):\n    rationale = (\n        \"Combining a 50-day simple moving average to identify long-term trends with a stop-loss \"\n        \"mechanism can help in managing risk. The moving average provides a basis for potential \"\n        \"buy and sell signals while the stop-loss ensures that losses are contained within \"\n        \"manageable levels.\"\n    )\n\n    def __init__(self, window: int = 50, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_closes: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns or symbol not in closes.columns:\n                continue\n            daily_closes = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            mean_close = sum(daily_closes[-self._window:]) / self._window\n            mean_closes[symbol] = mean_close\n\n        # Filter symbols based on their proximity to the 50-day moving average\n        picks: list[str] = [symbol for symbol, close in mean_closes.items() if close >= 1.02 * history[symbol][-1]]\n        \n        if len(picks) < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MovingAverageAndStopLoss",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19176,
+    "output_tokens": 7076
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the signal in this systematic equity strategy for the Indian market, I propose using the 50-day simple moving average of daily closing prices as the first characteristic. This measures the long-term trend over a medium time frame.",
+    "For the second characteristic, I propose using the 7-day volatility derived from the daily high-low range to capture short-term price fluctuations and market sentiment. This complements the long-term trend measurement with an indicator of recent price action intensity.",
+    "For the portfolio rule, we will hold a total of 20 equally-weighted names when a position is opened or closed. This ensures a balanced exposure across the selected stocks while simplifying rebalancing and management.",
+    "For each portfolio, hold 5 names with equal weighting (20% each). This balanced approach ensures diversification while simplifying management.",
+    "For the portfolio rule, we will hold a total of 20 equally-weighted names when a position is opened or closed. This approach balances risk and simplifies management by ensuring each stock contributes equally to the overall portfolio performance.",
+    "For each portfolio, hold 5 names with equal weighting (20% each). This balanced approach ensures diversification while simplifying management.",
+    "For the risk rule, we will set a stop-loss at 5% on an individual position and limit the portfolio loss to -10%, after which the strategy will pause trading for one week to reassess market conditions.",
+    "For each position, set a stop-loss at -3% to limit potential losses on individual stocks. For the entire portfolio, impose a maximum drawdown of -10% to control overall risk exposure. These bounds will stop trading if either threshold is breached, ensuring risk is managed effectively.",
+    "For the risk rule, we will set a stop-loss at 5% on an individual position and limit the overall portfolio loss to -10%. Once this threshold is reached, the strategy will halt trading for one week to reassess market conditions.",
+    "To bound the loss on a position, we will set a stop-loss trigger at 5% below the entry price. This ensures that no single position can cause an excessive drop in portfolio value without triggering an exit. For the portfolio, we will cap potential losses at 10%, stopping trading if this threshold is reached to prevent further capital erosion.",
+    "For each position, limit the potential loss to no more than a 10% drawdown from the purchase price. This rule caps individual risk while maintaining flexibility in portfolio management. Additionally, if the overall portfolio volatility exceeds 25%, halt trading until market conditions stabilize."
+  ],
+  "seconds": 429.2850279000122,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 588
+}

@@ -1,0 +1,23 @@
+{
+  "index": 126,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"The relative strength (RS) strategy exploits the idea that stocks \"\n        \"with strong past performance are more likely to continue outperforming. \"\n        \"This is based on the assumption that successful firms tend to maintain their \"\n        \"growth trajectory over time.\"\n    )\n\n    def __init__(self, lookback: int = 60, top_n: int = 10) -> None:\n        self._lookback = lookback\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n\n        if history.height < self._lookback or len(history.columns) <= 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"returns\")\n            )\n            .sort(\"session_date\", descending=False)\n            .drop_nulls()\n        )\n\n        # Compute the average returns for each symbol\n        avg_returns = (\n            history.groupby(\"symbol\")\n            .agg(\n                pl.col(\"returns\").mean().alias(\"avg_return\"),\n                (pl.col(\"returns\") >= 0).sum().alias(\"win_count\"),\n            )\n            .sort(\"avg_return\", descending=True)\n            .head(self._top_n + 1)  # Take top n and an extra to handle ties\n        )\n\n        if avg_returns.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        winners: list[str] = [row.symbol for row in avg_returns.rows()][:self._top_n]\n\n        weight = 1.0 / len(winners)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in winners},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 514
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.773899500003608,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 130
+}

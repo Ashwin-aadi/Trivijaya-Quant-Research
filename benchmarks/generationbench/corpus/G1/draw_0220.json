@@ -1,0 +1,23 @@
+{
+  "index": 220,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass TrailingReversion(Strategy):\n    rationale = (\n        \"Price reverts towards historical means; stocks that have moved far from their \"\n        \"historical price levels are expected to move back. This strategy identifies such \"\n        \"over-moved stocks and allocates capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 60, z_score_threshold: float = 2.0) -> None:\n        self._window = window\n        self._z_score_threshold = z_score_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_to_stats = (\n            history.group_by(\"symbol\")\n            .agg(\n                pl.col(\"adj_close\").mean().alias(\"mean\"),\n                (pl.col(\"adj_close\") - pl.col(\"adj_close\").mean()).std()\n                * 2.0\n                .alias(\"std_dev\"),\n            )\n            .collect()\n        )\n\n        closes = view.closes(lookback=self._window)\n        symbol_to_z_score = {\n            symbol: float((closes[symbol][-1] - stat[\"mean\"]) / stat[\"std_dev\"])\n            for symbol, stat in zip(closes.columns, symbol_to_stats.to_dict())\n        }\n\n        symbols_within_threshold = [\n            symbol\n            for symbol, z_score in symbol_to_z_score.items()\n            if abs(z_score) > self._z_score_threshold\n        ]\n\n        if not symbols_within_threshold:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols_within_threshold)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in symbols_within_threshold},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "TrailingReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 489
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.98421569999482,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 224
+}

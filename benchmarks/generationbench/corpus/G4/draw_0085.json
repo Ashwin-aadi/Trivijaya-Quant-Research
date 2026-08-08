@@ -1,0 +1,27 @@
+{
+  "index": 85,
+  "paradigm": "G4_planning",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion520(Strategy):\n    rationale = (\n        \"This strategy exploits short-horizon mean reversion by identifying stocks \"\n        \"where the 5-day moving average crosses below the 20-day moving average, \"\n        \"suggesting a potential upward trend reversal.\"\n    )\n\n    def __init__(self, short_window: int = 5, long_window: int = 20) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._long_window + 1)\n        if closes.height < self._long_window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            prices = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            short_ma = sum(prices[-self._short_window:]) / self._short_window\n            long_ma = sum(prices[-self._long_window:]) / self._long_window\n            if short_ma < long_ma:\n                symbols.append(symbol)\n\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion520",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2894,
+    "output_tokens": 1035
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To implement a systematic equity trading strategy based on short-horizon mean reversion in the Indian market, we will exploit the phenomenon where stock prices tend to revert to historical averages. This mechanism may persist due to market inefficiencies, investor sentiment, and the presence of noise traders who overreact to news or events.\n\nThe rule for this strategy would involve:\n1. **Data Collection**: Gather daily closing price data for a selected set of stocks.\n2. **Calculation of Moving Averages**: Compute short-term (e.g., 5-day) and long-term (e.g., 20-day) moving averages.\n3. **Identification of Deviations**: Detect when the short-term average deviates significantly from the long-term average, indicating a potential mean reversion opportunity.\n4. **Entry/Exit Signals**: Buy stocks where the short-term price is below its long-term moving average (indicating a downward trend), and sell when it rises above (suggesting an upward trend).\n5. **Risk Management**: Implement stop-loss orders to limit losses if prices continue to move against the expected reversion.\n\nThis approach aims to capitalize on temporary market anomalies and revert back to historical price levels, leveraging the inherent tendency of financial markets towards mean reversion.",
+    "For this systematic equity trading strategy based on short-horizon mean reversion in the Indian market:\n\n1. **Daily Price Data**: Collect daily open, high, low, close prices, and volume for a selected set of stocks.\n2. **Moving Averages Calculation**: Compute 5-day (short-term) and 20-day (long-term) simple moving averages based on closing prices.\n3. **Deviation Detection**: Identify instances where the short-term moving average is below the long-term moving average, signaling a potential upward mean reversion opportunity.\n4. **Entry Signal**: Rank stocks where the 5-day moving average crosses below the 20-day moving average (indicating a bearish signal) as candidates for buying on the next trading day.\n5. **Ranking Method**: On each trading day, rank these candidate stocks by their current price relative to their long-term moving average, prioritizing those with the largest downward deviation.\n\nThis ranking helps in selecting the most promising candidates for entry based on the degree of mean reversion observed.",
+    "For this systematic equity trading strategy, position sizing and risk management should be carefully defined to ensure effective risk control. Typically, you might hold a maximum of 20 positions at any given time to diversify risk while maintaining sufficient liquidity. Each position can be equally weighted, meaning each stock in the portfolio contributes roughly 5% to the total capital, unless specific stocks are deemed more attractive based on their ranking criteria.\n\nRisk limits should include stop-loss orders to limit potential losses. For instance, you could set a stop-loss at 2-3 standard deviations below the entry price for each position. Additionally, ensure that the overall portfolio risk does not exceed 10% of the capital in any single day to manage drawdowns and maintain long-term sustainability."
+  ],
+  "seconds": 31.02565670000331,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 88
+}

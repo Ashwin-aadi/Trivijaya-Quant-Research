@@ -1,0 +1,23 @@
+{
+  "index": 275,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignal(Strategy):\n    rationale = (\n        \"This strategy combines two characteristics: a 20-day closing price increase and \"\n        \"a relative strength index (RSI) reading below 30. These conditions suggest overbought \"\n        \"conditions have eased and the stock may be poised for a rebound.\"\n    )\n\n    def __init__(self, rsi_window: int = 14, breakout_window: int = 20) -> None:\n        self._rsi_window = rsi_window\n        self._breakout_window = breakout_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._breakout_window)\n\n        if history.height < self._breakout_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        rsi_history = view.history(lookback=self._rsi_window)\n\n        if rsi_history.height < self._rsi_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_closes = [float(v) for v in history[symbol][\"adj_close\"].drop_nulls().to_list()]\n            last_adj_close = adj_closes[-1]\n            second_last_adj_close = adj_closes[-2]\n\n            if (last_adj_close > second_last_adj_close and\n                    all(adj_close >= second_last_adj_close for adj_close in adj_closes[:-2])):\n                breakout_symbols.append(symbol)\n\n        rsi_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in rsi_history.columns:\n                continue\n            rsi_values = [float(v) for v in rsi_history[symbol][\"adj_close\"].drop_nulls().to_list()]\n            last_rsi_value = rsi_values[-1]\n\n            if last_rsi_value < 30.0:\n                rsi_symbols.append(symbol)\n\n        combined_symbols = list(set(breakout_symbols).intersection(rsi_symbols))\n        if not combined_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(combined_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in combined_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignal",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 595
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.23609310000029,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 280
+}

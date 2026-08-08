@@ -1,0 +1,27 @@
+{
+  "index": 126,
+  "paradigm": "G4_planning",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength20d(Strategy):\n    rationale = (\n        \"This strategy exploits the 'momentum effect' by selecting stocks with recent \"\n        \"outperformance against the broader market index. Stocks showing strong relative \"\n        \"strength are longed while others are held in cash.\"\n    )\n\n    def __init__(self, window: int = 20, top_n_percentage: float = 0.2) -> None:\n        self._window = window\n        self._top_n_percentage = top_n_percentage\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        cumulative_returns = (\n            history.select(pl.col(\"symbol\"), pl.col(\"close\").rolling_sum())\n                   .with_columns(\n                       (pl.col(\"close\") / pl.col(\"close\").shift(self._window) - 1.0).alias(\"cumulative_return\")\n                   )\n        ).sort(\"session_date\", descending=True)\n\n        ranked_stocks = cumulative_returns.sort(\"cumulative_return\", descending=True)\n        top_n_count = int(len(view.symbols) * self._top_n_percentage)\n        picks: list[str] = [row[\"symbol\"] for row in ranked_stocks.head(top_n_count).to_dicts()]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2547,
+    "output_tokens": 905
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To exploit relative strength in the Indian equity market, we will develop a systematic strategy focusing on stocks outperforming the broader market index. The economic mechanism is based on the \"momentum effect,\" where securities with positive past returns tend to continue performing well. This phenomenon might persist due to investor behavior and market inefficiencies.\n\nThe trading rule would be: \n\n1. Rank all stocks in the universe by their recent performance.\n2. Select the top N% of stocks with the highest relative strength.\n3. Long these selected stocks while shorting or holding cash for the rest, rebalancing periodically (e.g., monthly).\n\nThis approach capitalizes on stocks that are currently outperforming the broader market, potentially benefiting from continued positive momentum and market sentiment.",
+    "The signal for this systematic equity strategy can be defined as follows:\n\n1. **Signal Calculation**: Compute the 20-day cumulative return for each stock in the Indian equity market universe using the daily open, high, low, close prices. Volume is not directly used but could inform the weighting if necessary.\n   \n2. **Lookback Period**: The lookback period is 20 trading days to capture recent performance trends.\n\n3. **Ranking Process**: On a given day, rank all stocks in the universe based on their 20-day cumulative return, from highest to lowest. This ranking determines which stocks are considered outperforming and eligible for inclusion in the long portfolio.\n\n4. **Selection and Portfolio Construction**: Select the top N% of ranked stocks with the highest relative strength (based on recent performance) for long positions. The rest are either shorted or held in cash, depending on risk management and trading constraints.\n\nThis ranking system ensures that only stocks showing strong momentum over the past 20 days are selected, capitalizing on the \"momentum effect\" observed in equity markets.",
+    "For this strategy, hold a portfolio of top 20% ranked stocks based on their recent performance. Weight these positions equally to simplify implementation and management. This approach maintains a balanced exposure while leveraging momentum. To manage risk, limit the maximum drawdown to 5%, and set stop-loss orders at 3% below the entry price for each stock to protect against adverse market movements. This setup ensures a manageable position size and limits potential losses."
+  ],
+  "seconds": 28.43214359999547,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 129
+}

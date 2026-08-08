@@ -1,0 +1,23 @@
+{
+  "index": 110,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to capture trends by adjusting the magnitude of \"\n        \"trades based on recent volatility. Higher volatility suggests a stronger trend, which can \"\n        \"lead to better risk-adjusted returns.\"\n    )\n\n    def __init__(self, window: int = 20, vol_window: int = 10) -> None:\n        self._window = window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_closes = history[\"adj_close\"].to_list()\n        recent_highs = history[\"high\"].to_list()\n        recent_lows = history[\"low\"].to_list()\n\n        if len(recent_closes) < self._window or len(recent_highs) < self._vol_window or len(recent_lows) < self._vol_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        daily_returns = [(recent_closes[i] - recent_closes[i-1]) / recent_closes[i-1] for i in range(1, self._window)]\n        \n        # Calculate volatility using historical high and low prices\n        vol = [abs(high - low) for high, low in zip(recent_highs[self._vol_window:], recent_lows[:self._window-self._vol_window])]\n        avg_volatility = sum(vol) / len(vol)\n        \n        trend_score = 0.0\n        if max(daily_returns) > 0:\n            trend_score += (max(daily_returns) - min(daily_returns)) * 2\n        \n        # Scale the trend score by volatility\n        scaled_trend = trend_score / avg_volatility\n\n        top_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            latest_close = float(view.latest_close()[symbol])\n            latest_high = max(float(high) for high in recent_highs)\n            latest_low = min(float(low) for low in recent_lows)\n\n            if scaled_trend > 0 and latest_close >= latest_high:\n                top_symbols.append(symbol)\n            elif scaled_trend < 0 and latest_close <= latest_low:\n                top_symbols.append(symbol)\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 684
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.25827769999887,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 114
+}

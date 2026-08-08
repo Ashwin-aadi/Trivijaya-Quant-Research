@@ -1,0 +1,23 @@
+{
+  "index": 553,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion exploits the tendency of stock prices to revert \"\n        \"to their historical means. Identifying stocks that have deviated significantly \"\n        \"from their moving averages can provide profitable trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = history.groupby(\"symbol\").agg(\n            pl.col(\"adj_close\").mean().alias(\"mean\")\n        )\n        latest_close = view.closes().select(pl.exclude(\"session_date\"))\n        spread = (latest_close - mean_close[\"mean\"]).rename(\"spread\")\n\n        # Filter out symbols with insufficient data\n        symbols_with_data = history.select(\"symbol\").distinct().to_dict()[\"symbol\"]\n        filtered_spread = spread.filter(spread[\"symbol\"].is_in(symbols_with_data))\n        if filtered_spread.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Identify top absolute spreads\n        abs_spread = filtered_spread.with_columns(\n            (pl.col(\"spread\").abs()).alias(\"abs_spread\")\n        )\n        top_abs_spreads = abs_spread.sort(\"abs_spread\", descending=True).select(\n            [\"symbol\"]\n        )\n\n        top_n_symbols = [row[\"symbol\"] for row in top_abs_spreads.slice(0, 5)]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 506
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.347108700007084,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 563
+}

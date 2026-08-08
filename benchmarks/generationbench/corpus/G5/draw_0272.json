@@ -1,0 +1,26 @@
+{
+  "index": 272,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong momentum. \"\n        \"By identifying symbols that show a significant price move with high volume, we can capitalize on trending behavior.\"\n    )\n\n    def __init__(self, window: int = 30, threshold: float = 0.02) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (\n            history.lazy()\n            .with_columns((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\"))\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"r\").mean().alias(\"avg_return\")),\n                (pl.col(\"volume\").sum().alias(\"total_volume\")),\n                (pl.col(\"r\").std().alias(\"std_return\")),\n            )\n            .collect()\n        )\n\n        # Filter to find symbols with significant returns\n        significant_returns = (\n            returns.filter(\n                ((pl.col(\"avg_return\") > self._threshold) & (pl.col(\"total_volume\") >= 10_000))\n                | ((pl.col(\"avg_return\") < -self._threshold) & (pl.col(\"total_volume\") >= 10_000))\n            ).sort(\"symbol\").select(pl.col(\"symbol\"))\n        )\n\n        if significant_returns.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = significant_returns[\"symbol\"].to_list()[:5]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3948,
+    "output_tokens": 1371
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy, `VolumeConfirmMove`, generally aligns with its stated rationale of identifying strong momentum through volume-confirmed directional moves. However, there are several points to critique:\n\n1. **Rationale vs. Code Discrepancy**: The rationale suggests focusing on significant price moves and high volume, but the code only considers daily returns greater than 2% or less than -2%. This discrepancy might miss broader trends that are still momentum-driven.\n\n2. **Potential Failure Cases**:\n   - The strategy could fail if the market shows a significant average return within the lookback window but not exactly \u00b12%, which is an arbitrary threshold.\n   - It assumes that only top-performing symbols (based on `avg_return`) should be considered, ignoring any other potentially relevant metrics like volatility or liquidity.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window = 20`) might be too short for capturing long-term trends.\n   - The return threshold of \u00b12% is arbitrary and may not generalize well across different market conditions.\n\n4. **Potential Issues**:\n   - Line 39, `pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0`: This calculation assumes that the first row in each symbol's history has a valid adj_close value to shift by.\n   - Line 28: If there are no symbols with significant returns (`returns.is_empty()`), the code might return an empty weights dictionary, which could cause issues if this signal is directly used for trading.\n\n5. **Stability and Robustness**:\n   - The strategy would benefit from incorporating more sophisticated criteria beyond simple thresholds (e.g., using volatility or volume ratios).\n   - A longer lookback period could help in identifying sustained trends rather than just short-term noise.\n   - Adding checks to handle edge cases, such as missing data or extremely low volume days, would improve robustness.\n\nOverall, the strategy is a good starting point but needs refinement for better performance and stability."
+  ],
+  "seconds": 35.49706810000134,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 552
+}

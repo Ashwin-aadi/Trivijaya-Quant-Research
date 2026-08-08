@@ -1,0 +1,23 @@
+{
+  "index": 391,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression can indicate increased market volatility and potential for breakout \"\n        \"in either direction. High dispersion in recent prices suggests that the current price is \"\n        \"likely near a support or resistance level, which could lead to a strong move.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes()\n        symbols = closes.columns\n\n        dispersion_scores: dict[str, float] = {}\n        for symbol in symbols:\n            if symbol not in closes.columns:\n                continue\n            prices = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            high_low_diff = max(prices) - min(prices)\n            recent_high_low_diff = (max(prices[-self._window:]) - min(prices[-self._window:])) / 2.0\n            if recent_high_low_diff == 0:\n                continue\n            dispersion_score = high_low_diff / recent_high_low_diff\n            dispersion_scores[symbol] = dispersion_score\n\n        sorted_scores = sorted(dispersion_scores.items(), key=lambda item: -item[1])\n        top_symbols = [s for s, _ in sorted_scores[:5]]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 481
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.052897999994457,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 399
+}

@@ -1,0 +1,26 @@
+{
+  "index": 141,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long run. \"\n        \"By tilting our portfolio towards low-volatility stocks, we aim to capture this premium.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\")\n            )\n            .sort(\"session_date\")\n            .select([\"symbol\", \"session_date\", \"r\"])\n        )\n\n        # Calculate historical volatility\n        volatilities = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"r\").std().alias(\"volatility\"))\n            .sort(by=\"volatility\")\n        )\n\n        if volatilities.height < 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Select top N low-volatility stocks\n        num_low_vol_symbols = min(len(view.symbols), 5)\n        low_vol_symbols = [row[\"symbol\"] for row in volatilities.to_dicts()[:num_low_vol_symbols]]\n\n        weight = 1.0 / len(low_vol_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in low_vol_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3893,
+    "output_tokens": 1259
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify low-volatility stocks by calculating historical volatility over a specified window and then tilting the portfolio towards these stocks. Here are some criticisms:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale mentions \"long-run\" outperformance, but the code focuses on daily returns for volatility calculation. This discrepancy could lead to misleading results if short-term fluctuations dominate the calculations.\n\n2. **Potential Failures and Fragilities**:\n   - **Line 30**: `history = view.history(lookback=self._window)` might not always provide enough data. If there are gaps in the historical data, this could result in insufficient observations for volatility calculation.\n   - **Line 46**: The method to select top N low-volatility stocks is hardcoded to choose only 5 symbols. This parameter is fragile and may not be optimal for different market conditions or datasets.\n\n3. **Potential Issues**:\n   - **Line 19-20**: If `history.height < self._window`, the function returns an empty weight dictionary, which could lead to missing trades.\n   - **Line 54**: The volatility calculation uses standard deviation on daily returns, but it does not consider the mean return or risk-adjusted measures like the Sharpe ratio.\n\n4. **Other Concerns**:\n   - The strategy assumes that a simple equal-weight distribution among low-volatility stocks is optimal without any further optimization techniques.\n   - There's no handling for missing data in `history` (e.g., if some symbols have missing dates).\n\nOverall, while the concept of tilting towards low volatility is sound, the implementation has several potential issues and fragilities that could affect its performance."
+  ],
+  "seconds": 33.09864970000126,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 286
+}

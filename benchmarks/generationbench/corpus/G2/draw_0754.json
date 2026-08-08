@@ -1,0 +1,23 @@
+{
+  "index": 754,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffectStrategy(Strategy):\n    rationale = (\n        \"Seasonal effects can arise from various factors such as corporate earnings reports, \"\n        \"government policies, or cultural events. These periodic patterns can lead to predictable \"\n        \"price movements that can be exploited through quantitative strategies.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(\n            pl.col(\"session_date\").cast(pl.Date),\n            pl.col(\"symbol\"),\n            pl.col(\"adj_close\")\n        ).with_columns(\n            (pl.col(\"session_date\") - pl.col(\"session_date\").shift(self._window)).alias(\"days_diff\")\n        )\n\n        seasonality_map: dict[date, list[str]] = {}\n        for row in closes.rows():\n            date_ = row[\"session_date\"]\n            symbol = row[\"symbol\"]\n            if not isinstance(date_, date):\n                continue\n            day_of_year = date_.timetuple().tm_yday\n\n            if day_of_year not in seasonality_map:\n                seasonality_map[day_of_year] = []\n\n            seasonality_map[day_of_year].append(symbol)\n\n        top_days: list[date] = sorted(seasonality_map.keys(), key=lambda x: len(seasonality_map[x]), reverse=True)[:self._top_n]\n\n        picks: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            for day_of_year in top_days:\n                date_ = pl.date(year=date.today().year, month=1, day=day_of_year).cast(pl.Date)\n                if len(values) >= self._window and values[-self._window] > max(values[:-self._window]):\n                    picks[symbol] = 1.0 / len(top_days)\n\n        return Signal(\n            information_available_at=stamp,\n            weights=picks\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date).to_python_data()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffectStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 593
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.47562189999735,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 766
+}

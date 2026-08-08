@@ -1,0 +1,26 @@
+{
+  "index": 236,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Large volume movements in a single direction are often indicative of strong market \"\n        \"sentiment and can lead to continuation of the trend. By identifying such moves, we aim \"\n        \"to capture potentially profitable opportunities.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 3)  # Look back a bit more for volume\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        signals: dict[str, float] = {}\n        \n        for symbol in symbols:\n            symbol_history = history.select([\"session_date\", \"close\", \"volume\"])\n            recent_closes = symbol_history[\"close\"].to_list()[-self._window:]\n            recent_volumes = symbol_history[\"volume\"].to_list()[-self._window:]\n\n            if len(recent_closes) < self._window or any(pl.col(\"volume\").is_null().sum()):\n                continue\n\n            direction = [1 if recent_closes[i] > recent_closes[i + 1] else -1 for i in range(self._window - 1)]\n            volume_trend = pl.Series(recent_volumes).rolling_sum(window=self._window // 2)\n\n            if any(direction) and all(volume_trend.to_list()):\n                signals[symbol] = 1.0 / len(symbols)\n        \n        return Signal(information_available_at=stamp, weights=signals)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().date()  # Handle the type explicitly\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4009,
+    "output_tokens": 1363
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also some weaknesses and potential issues:\n\n**Strengths:**\n- The rationale aligns with a common market belief that large volume movements can indicate strong market sentiment and trends.\n- It uses historical data to identify patterns, making it potentially effective.\n\n**Weaknesses and Issues:**\n\n1. **Rationale vs. Code Disagreement:**\n   - Line 20: `recent_closes = symbol_history[\"close\"].to_list()[-self._window:]` and line 24: `direction = [1 if recent_closes[i] > recent_closes[i + 1] else -1 for i in range(self._window - 1)]`. The rationale mentions \"large volume movements,\" but the code checks only close prices, not volumes. This discrepancy could lead to suboptimal trading decisions.\n\n2. **Potential Failures:**\n   - Line 26-29: `if any(direction) and all(volume_trend.to_list()):` This logic is flawed because it assumes that a positive trend in volume will always align with the price direction, which may not be true.\n\n3. **Fragile Parameters:**\n   - The parameter `window` (line 6) sets the lookback period for both prices and volumes. If the window size is too small or large, it could lead to false positives or negatives. A more dynamic approach might be needed based on the market conditions.\n   - Line 14: `history = view.history(lookback=self._window + 3)`. Adding an extra lookback for volume might introduce noise and complicate the analysis.\n\n4. **Execution Issues:**\n   - Line 28: The use of `assert isinstance(newest, date)` is unnecessary since it could be handled by a simple type check or exception handling.\n   - Line 13: `_latest_visible(view) -> date` might return an incorrect date if the view history is entirely empty. Consider returning `None` instead.\n\nOverall, while the strategy has a solid rationale and uses historical data effectively, there are several areas where improvements could be made to better align with the stated purpose and ensure robustness."
+  ],
+  "seconds": 35.26094709999961,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 478
+}

@@ -1,0 +1,23 @@
+{
+  "index": 27,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity is a key driver of market efficiency. Highly liquid stocks are more likely \"\n        \"to have prices that reflect their true intrinsic value and less susceptible to price \"\n        \"distortions due to small trades. By equal-weighting the most liquid stocks, we can \"\n        \"potentially benefit from this liquidity premium.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volume\").sum() / pl.col(\"adj_close\").mean()).alias(\"liquidity_score\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"liquidity_score\").mean().alias(\"avg_liquidity_score\"))\n            .sort(\"avg_liquidity_score\", descending=True)\n        )\n\n        if liquidity_scores.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row[0] for row in liquidity_scores.to_pandas().head(5).values]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 426
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.988614299996698,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 30
+}

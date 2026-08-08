@@ -1,0 +1,26 @@
+{
+  "index": 122,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrend(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following seeks to capture trends by scaling positions \"\n        \"based on historical volatility. High volatility periods suggest increased risk, \"\n        \"thus reducing exposure; low volatility periods indicate reduced risk, allowing for \"\n        \"larger positions.\"\n    )\n\n    def __init__(self, window: int = 20, scale_factor: float = 1.0) -> None:\n        self._window = window\n        self._scale_factor = scale_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * 2 - 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility = _compute_volatility(closes)\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in volatility.columns:\n                continue\n            latest_vol = float(volatility[symbol][-1])\n            if latest_vol < 0.2 * self._scale_factor:\n                picks.append(symbol)\n            else:\n                weight = min(1.0, (latest_vol / self._scale_factor) ** -self._window)\n                picks.append((symbol, weight))\n\n        weights = {s: w for s, w in picks if w > 0}\n        return Signal(\n            information_available_at=stamp, weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _compute_volatility(closes: pl.DataFrame) -> pl.DataFrame:\n    returns = (closes / closes.shift(1).fill_null(1.0) - 1.0).drop_nulls().sort(\"session_date\").tail(self._window).select(pl.all().mean().alias(\"volatility\"))\n    return returns",
+  "class_name": "VolatilityScaledTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3957,
+    "output_tokens": 1336
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to scale positions based on historical volatility to capture trends more effectively in high-volatility periods while reducing exposure during low-volatility times. The code largely aligns with this rationale but has several potential issues:\n\n1. **Rationale vs Code Mismatch**: \n   - The rationale mentions scaling positions, yet the implementation only returns a fixed weight for selected symbols (`weight = 1.0 / len(picks)`). This means that the volatility is not directly used to scale weights as described.\n\n2. **Potential Failures**:\n   - Line `if closes.height < self._window * 2 - 1:` might prematurely terminate signal generation if there are fewer than two full windows of data available.\n   - The volatility calculation assumes daily returns, which may be inaccurate if the underlying data is not precisely at regular intervals (Line `_compute_volatility`).\n\n3. **Fragile Parameters**:\n   - `self._window`: This parameter controls how much history to consider for computing volatility but its value can significantly impact results without clear justification.\n   - `self._scale_factor`: While it\u2019s used in the rationale, the actual implementation does not utilize this parameter.\n\n4. **Code Issues**:\n   - `_compute_volatility` uses pandas operations (`closes.to_pandas()` and `closes.shift(1).to_pandas()`) which are not necessary given that polars is being used; these could be directly handled within polars.\n   - The volatility calculation ignores the window parameter, meaning it always computes based on the entire history.\n\n5. **Potential Stops**:\n   - If `view.closes` returns an empty DataFrame or no data for a symbol, `_compute_volatility` will fail due to `.iloc[1:]` operation which removes NaNs from the first row (though this might not be intentional).\n\nOverall, while the strategy concept is sound, the current implementation does not fully realize its stated rationale and contains several practical issues."
+  ],
+  "seconds": 35.089465399999426,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 248
+}

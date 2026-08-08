@@ -1,0 +1,23 @@
+{
+  "index": 489,
+  "paradigm": "G1_plain",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform the market over long horizons. By \"\n        \"allocating more weight to these stocks, we aim to capture this effect.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities = {\n            symbol: float(\n                pl.col(symbol).std()\n            ) for symbol in view.symbols if symbol in closes.columns\n        }\n\n        sorted_symbols = [\n            s for _, s in sorted(volatilities.items(), key=lambda item: item[1])\n        ]\n        top_low_volatility = sorted_symbols[:5]\n\n        weight = 0.2 / len(top_low_volatility)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_low_volatility}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 343
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 9.665218499998446,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 495
+}

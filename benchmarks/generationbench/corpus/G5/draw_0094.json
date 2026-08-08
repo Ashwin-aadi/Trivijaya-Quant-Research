@@ -1,0 +1,26 @@
+{
+  "index": 94,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalityStrategy(Strategy):\n    rationale = (\n        \"Seasonal effects can significantly impact stock prices. This strategy \"\n        \"exploits historical patterns by identifying stocks that have historically \"\n        \"performed well during certain times of the year.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality_factors = {symbol: {} for symbol in view.symbols}\n\n        for session_date in set(closes[\"session_date\"].to_list()):\n            dates_in_window = [date.fromordinal(d.to_timestamp(\"D\").date().toordinal()) for d in closes[closes[\"session_date\"] == session_date].columns[1:]]\n            if len(dates_in_window) < self._window:\n                continue\n\n            month_of_year = [d.month for d in dates_in_window]\n            mean_closes = [float(c) for c in closes[closes[\"session_date\"] == session_date][\"adj_close\"].drop_nulls().to_list()]\n\n            for i, symbol in enumerate(view.symbols):\n                seasonality_factors[symbol][date.fromordinal(session_date.to_timestamp(\"D\").date().toordinal())] = mean_closes[i]\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            monthly_values = [seasonality_factors[symbol].get(d, 0.0) for d in sorted(seasonality_factors[symbol])]\n            if len(monthly_values) < 12:\n                continue\n\n            max_value = max(monthly_values[-6:])\n            picks.extend([s for s, v in seasonality_factors[symbol].items() if v == max_value])\n\n        unique_picks = list(set(picks))\n        weight = 1.0 / len(unique_picks) if unique_picks else 0\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in unique_picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalityStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4147,
+    "output_tokens": 1530
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also some weaknesses and potential issues:\n\n### Strengths:\n1. **Rationale Alignment**: The rationale aligns well with the code's objective of identifying stocks that perform well during certain times of the year based on historical patterns.\n2. **Use of Historical Data**: It leverages a lookback window to analyze past performance, which is a sound approach for seasonal strategies.\n\n### Weaknesses and Potential Issues:\n\n1. **Fragile Parameters**:\n   - The `window` parameter is hardcoded as 60 in the code but mentioned as an input in the class definition (line 5). This inconsistency might lead to confusion.\n   \n2. **Handling Missing Data**:\n   - Line 38: The code assumes that there are at least 60 dates within the window for each symbol, which could fail if the data is sparse or unevenly distributed across months.\n\n3. **Session Date Parsing**:\n   - Line 40-42: Converting `ordinal` dates to Python `date` objects and then back to `month_of_year` might introduce errors due to potential discrepancies in date calculations.\n   \n4. **Seasonality Factor Calculation**:\n   - Lines 53-61: The logic for calculating seasonality factors is complex and could be simplified or optimized. It assumes that all symbols have data for every session, which might not always be true.\n\n5. **Picking Logic**:\n   - Line 70: Picking stocks based on the latest six months' highest values is simplistic and may overlook other important seasonal patterns.\n   \n6. **Potential Issues with `Signal` Generation**:\n   - Lines 81-82: The `weights` dictionary generation might be overly simplistic, giving equal weight to all selected symbols without considering their relative performance or risk.\n\n7. **Code Readability and Maintenance**:\n   - Some parts of the code could benefit from clearer variable names and comments for better readability.\n   \nIn summary, while the strategy has a solid foundation, it would benefit from more robust handling of missing data, simpler and clearer logic, and a more nuanced approach to picking stocks based on seasonal factors."
+  ],
+  "seconds": 38.7003696999991,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 191
+}

@@ -1,0 +1,26 @@
+{
+  "index": 211,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Stocks with compressed ranges may indicate a lack of directionality and can be \"\n        \"potential candidates for breakout or mean reversion strategies. By identifying \"\n        \"such stocks, we aim to capture the potential for price movement.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        range_compression = {\n            symbol: float(history[(\"session_date\", \"close\")].group_by(\"symbol\").agg(\n                (pl.col(\"close\").max() - pl.col(\"close\").min()).alias(\"range\")\n            ).sort(\"range\").first()[\"range\"])\n            for symbol in symbols\n        }\n\n        sorted_symbols = [k for k, v in sorted(range_compression.items(), key=lambda item: item[1])]\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_n_symbols = sorted_symbols[:5]\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_n_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        raise ValueError(\"No historical data available.\")\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3888,
+    "output_tokens": 1237
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "### Critique of the `RangeCompression` Strategy\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale suggests identifying stocks with compressed ranges for potential breakout or mean reversion strategies. However, the code only focuses on selecting top 5 symbols based on range compression, without explicitly mentioning these strategies.\n     - Line 28: `range_compression` calculation does not include any breakout or mean reversion logic.\n\n2. **Potential Failures**:\n   - If there are no symbols in the history (line 31), the code returns an empty weights dictionary, which might lead to errors if this signal is used directly.\n     - Line 35: `if not sorted_symbols:` check should return a clear message or handle this case differently.\n\n3. **Fragile Parameters**:\n   - The window size (20 days) hard-coded in the strategy can be fragile as market conditions change.\n     - Line 11: `self._window = window` should allow for parameter tuning if necessary.\n\n4. **Potential Issues with Execution**:\n   - The function `_latest_visible(view)` returns a date (`1900-01-01`) if the view history is empty, which might lead to issues downstream.\n     - Line 38: Consider raising an exception or returning `None` instead of a fixed date.\n\n5. **Code Soundness**:\n   - The code logic for selecting top symbols based on range compression seems sound (line 29-40), provided the rationale aligns with this approach.\n   - The use of `polars` for data manipulation is efficient and well-suited for backtesting strategies.\n\n### Summary\n\nThe strategy is mostly sound in its implementation but lacks explicit mention of breakout or mean reversion in the rationale, which could mislead users. Additionally, handling edge cases (empty history) needs improvement to ensure robustness. The window size should be configurable, and the return value from `_latest_visible` function should be more appropriate for downstream use."
+  ],
+  "seconds": 32.61460810000062,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 428
+}

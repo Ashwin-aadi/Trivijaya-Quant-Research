@@ -1,0 +1,26 @@
+{
+  "index": 234,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks with the highest relative strength against the broader NIFTY 100 index \"\n        \"tends to outperform over time. This strategy identifies and invests in the top-performing \"\n        \"stocks relative to the NIFTY 100.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_closes = view.closes().select(\"NIFTY 100\").rename({\"NIFTY 100\": \"nifty\"})\n        non_nifty_symbols = [s for s in view.symbols if s != \"NIFTY 100\"]\n        symbol_history = history.select(non_nifty_symbols).with_columns(\n            (pl.col(symbol) / pl.col(\"NIFTY 100\") - 1.0).alias(f\"rel_strength_{symbol}\")\n            for symbol in non_nifty_symbols\n        )\n\n        rel_strength_scores = symbol_history.select(\n            *[\n                pl.col(f\"rel_strength_{s}\").mean().alias(s)\n                for s in non_nifty_symbols\n            ]\n        ).to_numpy()\n\n        if rel_strength_scores.size == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [non_nifty_symbols[i] for i in rel_strength_scores.argsort()[::-1][:3]]\n        weight = 1.0 / len(top_symbols) if top_symbols else 0.0\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4028,
+    "output_tokens": 1404
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy implementation generally aligns well with its rationale but contains a few potential issues and areas for improvement:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states that the strategy selects stocks based on relative strength against the NIFTY 100 index, whereas the code focuses on selecting the top-performing stocks by mean relative strength over the last `window` days (default 20). This discrepancy might cause confusion.\n\n2. **Potential Failures and Fragilities**:\n   - **Fragile Parameters**: The window size is hardcoded as a parameter (`self._window = window`). While this can be adjusted, it should consider dynamic windowing based on market conditions.\n   - **Empty History Check**: The check for `history.height < self._window` is necessary but the handling of such cases could be improved. Instead of returning an empty weights dictionary, you might want to log a warning or handle it differently.\n   - **Symbol Handling**: The code assumes that \"NIFTY 100\" will always exist in the symbols list and that non-NIFTY stocks are selected for relative strength calculation.\n\n3. **Potential Issues**:\n   - **Data Availability**: The function `_latest_visible` returns a date if no data is available, which might not be optimal depending on your use case.\n   - **Weight Allocation**: The current approach allocates equal weights to the top 3 stocks, ignoring any potential performance differences among them. This could lead to suboptimal portfolio allocation.\n\n4. **Code Execution**:\n   - Ensure that `view.history()` returns a Polars DataFrame with expected columns (`\"session_date\"`, non-NIFTY symbols, and \"NIFTY 100\").\n   - The use of `.to_numpy()[0]` to extract the top relative strength scores might raise an error if there are no stocks or if the data structure changes.\n\nIn summary, while the strategy is sound in its core concept, it could benefit from more robust parameter handling, improved error management, and dynamic window adjustment based on market conditions."
+  ],
+  "seconds": 36.14020569999957,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 474
+}

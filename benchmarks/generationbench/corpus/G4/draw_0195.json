@@ -1,0 +1,27 @@
+{
+  "index": 195,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy aims to exploit the tendency for stocks with higher liquidity to outperform \"\n        \"those with lower liquidity in the Indian market. By equal weighting stocks that pass a \"\n        \"liquidity screen (e.g., trading volume and turnover ratio thresholds), we seek to capture \"\n        \"the positive returns associated with liquidity while maintaining diversification across \"\n        \"stocks.\"\n    )\n\n    def __init__(self, window: int = 30, volume_threshold: float = 5_000_000) -> None:\n        self._window = window\n        self._volume_threshold = volume_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute liquidity metrics\n        history = (\n            history.with_columns(\n                (pl.col(\"volume\") / pl.col(\"adj_close\").mean().over(\"symbol\")).alias(\"turnover_ratio\")\n            )\n            .sort(\"session_date\", descending=True)\n            .group_by(\"symbol\")\n            .agg(\n                pl.col(\"volume\").sum().alias(\"total_volume\"),\n                (pl.col(\"volume\") / pl.col(\"adj_close\").mean().over(\"symbol\")).alias(\"turnover_ratio\"),\n            )\n        )\n\n        # Filter by volume threshold\n        history = history.filter(pl.col(\"total_volume\") > self._volume_threshold)\n\n        # Equal weighting of the remaining stocks\n        symbols = [s for s in view.symbols if s in history.columns]\n        weights = {s: 1.0 / len(symbols) for s in symbols}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2383,
+    "output_tokens": 890
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to exploit the tendency for stocks with higher liquidity to outperform those with lower liquidity in the Indian market. This phenomenon persists because liquid stocks are more efficiently priced, potentially offering better return-to-risk ratios. The plan involves creating a portfolio by equal weighting stocks that pass a liquidity screen (e.g., trading volume or turnover ratio thresholds). By focusing on equally weighted liquid stocks, the strategy aims to capture the positive returns associated with liquidity while maintaining diversification across stocks. This approach seeks to balance the benefits of equal weighting with the reduced risk and higher expected returns offered by more liquid assets in the Indian equity market.",
+    "The signal for this systematic equity strategy is based on liquidity metrics. Specifically, the plan involves computing two key liquidity measures for each stock daily: trading volume and turnover ratio (volume divided by market capitalization). The lookback period could be a recent trading day or a rolling window of 30-60 days to smooth out short-term volatility.\n\nOn a given day, stocks are ranked based on these liquidity metrics. For example, a simple ranking method could assign higher ranks to stocks with higher volume and turnover ratio values. Alternatively, the inverse of these ratios (e.g., 1/volume, 1/turnover) can be used to rank stocks from most liquid to least liquid. Stocks that pass predefined thresholds for both metrics are then equally weighted in the portfolio on that day, ensuring diversification while focusing on more efficiently priced assets.",
+    "The strategy holds a diversified portfolio of approximately 20-30 liquid stocks, equally weighted to ensure balanced exposure. Each stock is assigned an equal weight of around 3.4% to 1.7%, respectively, promoting diversification while focusing on efficiently priced assets. Risk limits are set to limit daily drawdowns to no more than 1%, and total portfolio losses over any single month to no more than 5%. These parameters balance the need for liquidity exposure with risk management, ensuring the strategy remains robust under various market conditions."
+  ],
+  "seconds": 27.763329800000065,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 198
+}

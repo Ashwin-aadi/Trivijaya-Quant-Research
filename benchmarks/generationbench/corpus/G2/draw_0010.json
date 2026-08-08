@@ -1,0 +1,23 @@
+{
+  "index": 10,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain stocks in India exhibit seasonal patterns in their performance. \"\n        \"By identifying these patterns and trading accordingly, we can take advantage of \"\n        \"the predictable swings in stock prices.\"\n    )\n\n    def __init__(self, window: int = 365, lookback_periods: int = 4) -> None:\n        self._window = window\n        self._lookback_periods = lookback_periods\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(\n            pl.col(\"session_date\").dt.year(),\n            pl.col(\"adj_close\"),\n        ).pivot(index=\"session_date\", columns=\"year\", values=\"adj_close\")\n\n        seasonal_patterns: dict[int, float] = {}\n        for year in set(closes.columns) - {\"session_date\"}:\n            avg_closes = closes[[\"session_date\", year]].group_by(\n                \"session_date\"\n            ).agg(pl.col(year).mean()).sort(\"session_date\")\n            if avg_closes.height >= self._lookback_periods:\n                seasonal_patterns[int(year)] = float(avg_closes.sort(\"session_date\").select(\n                    pl.col(year).rank(method=\"dense\", descending=True)\n                )[0, 0])\n\n        if not seasonal_patterns:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_weights: dict[str, float] = {}\n        for symbol in view.symbols:\n            year = history.select(pl.col(\"session_date\").dt.year()).filter(\n                pl.col(\"symbol\") == symbol\n            ).tail(self._lookback_periods).select(\n                pl.col(0).last()\n            )[0, 0]\n            if year not in seasonal_patterns:\n                continue\n\n            rank = seasonal_patterns[year]\n            symbol_weights[symbol] = (2.0 / len(view.symbols)) * rank\n\n        return Signal(information_available_at=stamp, weights=symbol_weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 542
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.374137300001166,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 11
+}

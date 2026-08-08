@@ -1,0 +1,27 @@
+{
+  "index": 360,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy exploits the persistence of stock returns by investing in stocks with \"\n        \"positive past performance and shorting those with negative momentum. It aims to benefit \"\n        \"from market inefficiencies in Indian equities.\"\n    )\n\n    def __init__(self, lookback_days: int = 180) -> None:\n        self._lookback_days = lookback_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._lookback_days)\n        symbols = [s for s in view.symbols if s in closes.columns]\n\n        returns = (\n            history.filter(pl.col(\"session_date\") < pl.lit(stamp))\n                     .select([pl.col(\"symbol\"), \"close\"])\n                     .pivot(index=\"symbol\", columns=\"session_date\", values=\"close\")\n                     .with_columns(\n                         (pl.col(pl.arange(0, self._lookback_days + 1)) /\n                          pl.col(pl.arange(self._lookback_days, -1, -1)))\n                              .alias(\"return\")\n                     )\n        )\n\n        returns = (\n            returns.select([pl.col(\"symbol\"), \"return\"])\n                   .filter((pl.col(\"return\") > 0) & (pl.col(\"session_date\") < stamp))\n                   .group_by(\"symbol\")\n                   .agg(pl.col(\"return\").sum().alias(\"cumulative_return\"))\n                   .sort(\"cumulative_return\", descending=True)\n        )\n\n        top_decile = returns.height // 10\n        bottom_decile = -returns.height // 10\n\n        long_positions = {s: 5.0 / top_decile for s in returns.slice(0, top_decile).select(\"symbol\").to_series().to_list()}\n        short_positions = {s: -5.0 / (-bottom_decile) for s in returns.slice(bottom_decile + 1, bottom_decile).select(\"symbol\").to_series().to_list()}\n\n        weights = {**long_positions, **short_positions}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2467,
+    "output_tokens": 1002
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The cross-sectional momentum strategy in India leverages the observation that stocks with strong past performance tend to continue outperforming in the near future. This phenomenon is supported by the efficient market hypothesis's limitations, which suggest that not all information is immediately reflected in stock prices. The strategy involves identifying a subset of stocks with positive recent returns and investing in them, while selling or avoiding those with negative momentum.\n\nThe rule would involve: \n1. Ranking stocks based on their past 3-6 month performance.\n2. Selecting the top decile for long positions and bottom decile for short positions.\n3. Rebalancing monthly to capture ongoing momentum effects.\n\nThis approach exploits the persistence of stock returns and aims to benefit from market inefficiencies in Indian equities.",
+    "The signal for this cross-sectional momentum strategy in India is calculated based on the cumulative return of each stock over the past 3-6 months. Specifically:\n\n1. **Data Collection**: Daily open, high, low, close, and volume data are collected.\n2. **Lookback Period**: The lookback period is set to 3-6 months (approximately 90-180 days).\n3. **Return Calculation**: For each stock, compute the cumulative return over the last 3-6 months using the daily closing prices.\n4. **Ranking**: On a given day, rank all stocks based on their calculated returns over the lookback period. The top decile of stocks with the highest returns are selected for long positions, while the bottom decile with the lowest returns are chosen for short positions.\n\nThis ranking helps in identifying which stocks have shown strong momentum and are likely to continue performing well or poorly, respectively.",
+    "This strategy holds positions in 20 stocks\u201410 for long and 10 for short based on their momentum rankings. Long positions are allocated equal weights of 5% each, while short positions are also given equal weights of -5% each. Risk limits ensure that any single day's loss does not exceed 3%, thereby limiting overall portfolio risk to manageable levels."
+  ],
+  "seconds": 30.150729600005434,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 366
+}

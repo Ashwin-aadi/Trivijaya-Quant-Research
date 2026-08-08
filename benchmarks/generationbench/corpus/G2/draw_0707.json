@@ -1,0 +1,23 @@
+{
+  "index": 707,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy leverages a composite of two signals: one based on high momentum \"\n        \"and another based on value. The idea is that combining these can provide a more \"\n        \"robust signal for entry.\"\n    )\n\n    def __init__(self, momentum_window: int = 10, value_threshold: float = 0.5) -> None:\n        self._momentum_window = momentum_window\n        self._value_threshold = value_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._momentum_window + 1)\n\n        if history.height < self._momentum_window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns or \"adj_close\" not in history[symbol]:\n                continue\n\n            adj_closes = [float(v) for v in history[symbol][\"adj_close\"].drop_nulls().to_list()]\n            if len(adj_closes) < self._momentum_window + 1:\n                continue\n            momentum_score = (adj_closes[-1] - adj_closes[0]) / sum(\n                adj_closes[i] > adj_closes[i + 1] for i in range(len(adj_closes) - 1)\n            )\n            if momentum_score >= self._value_threshold:\n                momentum_scores[symbol] = momentum_score\n\n        value_scores = {}\n        closes = view.closes(lookback=self._momentum_window)\n        for symbol in view.symbols:\n            if symbol not in closes.columns or \"adj_close\" not in closes[symbol]:\n                continue\n            adj_closes = [float(v) for v in closes[symbol].to_list()]\n            value_score = min(adj_closes) / sum(\n                adj_closes[i] < adj_closes[i + 1] for i in range(len(adj_closes) - 1)\n            )\n            if value_score >= self._value_threshold:\n                value_scores[symbol] = value_score\n\n        final_selections = []\n        combined_scores = {}\n        for symbol in momentum_scores.keys() & value_scores.keys():\n            combined_scores[symbol] = (momentum_scores[symbol] + value_scores[symbol]) / 2\n            if combined_scores[symbol] > self._value_threshold:\n                final_selections.append(symbol)\n\n        weights = {symbol: 1.0 / len(final_selections) for symbol in final_selections}\n        return Signal(\n            information_available_at=stamp, weights={s: weights[s] for s in final_selections if s in weights}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 671
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.964027000009082,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 718
+}

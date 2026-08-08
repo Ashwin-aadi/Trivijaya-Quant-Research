@@ -1,0 +1,23 @@
+{
+  "index": 632,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate a strong market sentiment and a \"\n        \"potential for continuation of the trend. High volume on a price move suggests \"\n        \"real buying or selling pressure.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_prices = history.to_dict(False)\n        top_moves = {}\n        for symbol, data in symbol_prices.items():\n            if data[\"volume\"].to_list()[-1] > max(data[\"volume\"].to_list()) * 0.8:\n                move = (data[\"close\"] / data[\"open\"] - 1).sum()\n                if abs(move) > 0.05:  # Filter out small moves\n                    top_moves[symbol] = move\n\n        top_symbols = sorted(top_moves, key=top_moves.get, reverse=True)[:3]\n        weights = {symbol: 1 / len(top_symbols) for symbol in top_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 376
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.340118899999652,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 645
+}

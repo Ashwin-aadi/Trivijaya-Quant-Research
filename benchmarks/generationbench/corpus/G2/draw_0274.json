@@ -1,0 +1,23 @@
+{
+  "index": 274,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrendStrategy(Strategy):\n    rationale = (\n        \"Seasonality effects in equity markets suggest that certain times of the year are more \"\n        \"favorable for particular sectors or stocks. By identifying trends based on historical \"\n        \"performance around specific dates, we can construct a strategy that profits from these \"\n        \"recurring patterns.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        trend_scores = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            # Calculate the mean close price around each date of interest (e.g., 1st, 15th of the month)\n            dates_of_interest = {date(year=stamp.year, month=m, day=d): values[m * 30 + d] for m in range(12) for d in [0, 14]}\n            \n            # Compute the trend score as the difference between the mean close on date of interest and the overall window mean\n            if len(dates_of_interest) > 0:\n                mean_close = sum(v for v in dates_of_interest.values()) / len(dates_of_interest)\n                trend_scores[symbol] = max([dates_of_interest[date(2020, m + 1, d)] - mean_close for m in range(12) for d in [0, 14]], default=0)\n\n        # Select top performing symbols based on their trend scores\n        sorted_symbols = sorted(trend_scores.items(), key=lambda x: x[1], reverse=True)\n        picks = [s[0] for s in sorted_symbols[:5]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrendStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 595
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.494732699997257,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 280
+}

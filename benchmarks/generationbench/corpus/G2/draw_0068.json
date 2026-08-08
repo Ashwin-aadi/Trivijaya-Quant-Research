@@ -1,0 +1,23 @@
+{
+  "index": 68,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves can signal strong momentum and continuation of \"\n        \"price trends. By identifying instances where a stock's volume significantly increases \"\n        \"on the day following an up or down move, we can generate potentially profitable trades.\"\n    )\n\n    def __init__(self, window_up: int = 10, window_down: int = 10) -> None:\n        self._window_up = window_up\n        self._window_down = window_down\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_up + self._window_down)\n\n        if history.height < self._window_up + self._window_down:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.symbol.to_list():\n                continue\n            hist = history.filter(pl.col(\"symbol\") == symbol).sort(by=\"session_date\")\n            last_close = hist[\"close\"].last()\n            volume_yesterday = hist.select(pl.col(\"volume\").last())\n            volume_window_up = hist.sort(by=\"session_date\", descending=False).head(self._window_up + 1)\n            volume_window_down = hist.sort(by=\"session_date\", descending=True).head(self._window_down + 1)\n\n            if last_close.is_nan():\n                continue\n\n            # Calculate up and down moves\n            up_move = (last_close - hist[\"close\"].shift(1)).alias(\"up_move\")\n            down_move = ((hist[\"close\"].shift(1) - last_close).abs()).alias(\"down_move\")\n\n            # Check for volume increase after an up move or down move\n            if (up_move.last() > 0 and\n                volume_yesterday[0] > volume_window_up.select(pl.col(\"volume\").mean().alias(\"avg_volume\")).item()):\n                signals[symbol] = 1.0 / len(signals) + 1e-6\n\n            elif (down_move.last() > 0 and\n                  volume_yesterday[0] > volume_window_down.select(pl.col(\"volume\").mean().alias(\"avg_volume\")).item()):\n                signals[symbol] = -1.0 / len(signals) - 1e-6\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        return Signal(information_available_at=stamp, weights=signals)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 624
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.963454600001569,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 71
+}

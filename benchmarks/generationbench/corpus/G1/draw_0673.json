@@ -1,0 +1,23 @@
+{
+  "index": 673,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion suggests that asset prices will revert to the average \"\n        \"price level after a deviation from it. We can exploit this by identifying stocks that\"\n        \" have moved significantly away from their recent average price and betting on them \"\n        \"to return to the mean.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        means = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"mean\"))\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"mean\")).abs().alias(\"deviation\")\n            )\n        )\n\n        signal_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in means.columns:\n                continue\n            mean_deviation = float(means[means[\"symbol\"] == symbol][\"deviation\"])\n            if mean_deviation >= self._threshold * (float(means[means[\"symbol\"] == symbol][\"mean\"]) / 100):\n                signal_symbols.append(symbol)\n\n        weights = {s: 1.0 / len(signal_symbols) for s in signal_symbols}\n        return Signal(\n            information_available_at=stamp, weights={k: v for k, v in weights.items() if v != 0}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 463
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.123803299997235,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 686
+}

@@ -1,0 +1,47 @@
+{
+  "index": 14,
+  "paradigm": "G7_mcts",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySCTF(Strategy):\n    rationale = (\n        \"This strategy leverages volatility-scaled trend-following to identify medium-term \"\n        \"trends. By correlating daily close and volume with historical volatility, it aims to \"\n        \"capture trading activity that is more likely to indicate sustained price movements.\"\n    )\n\n    def __init__(self, window_close_volume: int = 30, window_volatility: int = 100, top_n: int = 5) -> None:\n        self._window_close_volume = window_close_volume\n        self._window_volatility = window_volatility\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_close_volume + self._window_volatility - 1)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_close_vol_df = view.closes(lookback=self._window_close_volume)\n        volatility_df = _calculate_volatility(view.history(), self._window_volatility)\n        \n        signals: dict[str, float] = {}\n        \n        for symbol in view.symbols:\n            if symbol not in latest_close_vol_df.columns or symbol not in volatility_df.columns:\n                continue\n            \n            close = [float(v) for v in latest_close_vol_df[symbol].drop_nulls().to_list()]\n            volume = [float(v) for v in history.select(pl.col(symbol)).to_series().to_list()]\n            \n            if len(close) < self._window_close_volume or len(volume) < self._window_close_volume:\n                continue\n            \n            corr = _compute_corr(close, volume)\n            vol = float(volatility_df[volatility_df[\"symbol\"] == symbol][\"vol\"].item())\n            \n            if vol > 0.0:\n                scaled_corr = corr / vol\n                if abs(scaled_corr) >= 0.3:  # Threshold for significant trend\n                    signals[symbol] = 1.0 / self._top_n\n\n        sorted_signals = sorted(signals.items(), key=lambda x: abs(x[1]), reverse=True)\n        \n        picks = [symbol for symbol, _ in sorted_signals[:self._top_n]]\n        \n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_volatility(history: pl.DataFrame, window: int) -> pl.DataFrame:\n    volatility_df = history.group_by(\"symbol\").agg(\n        (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(1)).pow(2).mean().alias(\"vol_sq\"),\n        (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(1)).abs().mean().alias(\"vol_abs\")\n    ).with_columns(\n        ((pl.col(\"vol_sq\") + 1e-8).sqrt() * 100 / window).alias(\"vol\")\n    )\n    \n    return volatility_df\n\n\ndef _compute_corr(close: list[float], volume: list[float]) -> float:\n    n = len(close)\n    mean_close = sum(close) / n\n    mean_volume = sum(volume) / n\n    \n    cov = sum((close[i] - mean_close) * (volume[i] - mean_volume) for i in range(n)) / n\n    std_close = (sum((close[i] - mean_close) ** 2 for i in range(n)) / n) ** 0.5\n    std_volume = (sum((volume[i] - mean_volume) ** 2 for i in range(n)) / n) ** 0.5\n    \n    if std_close * std_volume == 0:\n        return 0.0\n    \n    corr = cov / (std_close * std_volume)\n    \n    return corr",
+  "class_name": "VolatilitySCTF",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19673,
+    "output_tokens": 8420
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the 20-day percentage price change of the closing price, scaled by the 50-day historical volatility of the asset. This choice focuses on recent trends while adjusting for volatility to capture robust signals in varying market conditions.",
+    "The signal will be the 30-day rolling correlation between the daily close and volume, scaled by the 100-day historical volatility. This approach captures how trading activity relates to price movements over a medium-term period, adjusting for overall market volatility to identify more reliable trend signals.",
+    "The portfolio will hold positions in a single asset at any given time, with equal weighting of 50% when a position is opened. This approach simplifies the strategy while ensuring balanced exposure to the selected trend-following signal.",
+    "The portfolio will hold up to five equities, each weighted equally at 20% of the total portfolio, to balance exposure while maintaining simplicity in management and risk diversification.",
+    "The portfolio will hold positions in a single asset at any given time, with equal weighting of 50% when a position is opened. This ensures balanced exposure and simplifies the strategy by avoiding diversification across multiple assets.",
+    "The portfolio will hold up to five equities, each weighted equally at 20% of the total portfolio, to balance exposure while maintaining simplicity in management and risk diversification. This approach ensures a balanced distribution of risk across selected stocks and simplifies rebalancing efforts.",
+    "The maximum loss allowed on a single position will be capped at -15% of the portfolio value to prevent excessive risk exposure while allowing for some volatility capture. This limit also halts trading when this threshold is reached, ensuring that no single trade can significantly impact the overall portfolio.",
+    "For the risk rule, I propose setting an individual equity position loss limit to -15%, which will stop the strategy from trading further if any single equity position reaches this threshold, to manage drawdowns while maintaining flexibility in trend following.",
+    "For this systematic equity strategy in the Indian market, the risk rule will be set to limit the maximum loss on a single position to 3% of the portfolio value, and to stop trading if the cumulative loss exceeds 5% of the total portfolio value. This ensures that individual risks are contained while providing flexibility in the overall portfolio management.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent significant exposure to any single stock. This limit will also apply to the overall portfolio loss, stopping trading if either bound is breached. This ensures manageable risk while maintaining the strategy's simplicity and robustness.",
+    "The maximum loss allowed on a single position will be capped at -15% of the portfolio value. This limit prevents excessive risk exposure and ensures trading stops when this threshold is hit, protecting the portfolio from significant losses due to a single trade.",
+    "For the risk rule, I propose setting a portfolio-wide loss limit to -20%. This bound will halt the strategy's trading activities if the total loss across all positions exceeds 20%, ensuring significant market downturns do not disproportionately impact the portfolio."
+  ],
+  "seconds": 241.46425840002485,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 183
+}

@@ -1,0 +1,26 @@
+{
+  "index": 280,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass TrailingReversion(Strategy):\n    rationale = (\n        \"Price reverts towards its recent mean. By using a trailing window, we capture \"\n        \"the recent price action and adjust our view on the asset's fair value.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty() or (history.height - 1) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate trailing mean\n        trailing_mean_adj_close = (\n            history.select(pl.col(\"adj_close\").mean())\n            .to_series()\n            .item()\n        )\n        \n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            latest_close = float(closes[symbol].max().item())\n            spread = (latest_close - trailing_mean_adj_close) / trailing_mean_adj_close\n\n            # Calculate the score based on how far away from the mean the latest close is\n            signal_strength = abs(spread)\n            signals[symbol] = signal_strength\n\n        sorted_signals = {k: v for k, v in sorted(signals.items(), key=lambda item: item[1], reverse=True)}\n        \n        top_symbols = list(sorted_signals.keys())[:5]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_series().item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "TrailingReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4068,
+    "output_tokens": 1414
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several potential issues that need addressing:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states that the strategy aims to revert towards a recent mean price. However, the code uses the latest close directly to calculate the spread without explicitly considering the trailing window for both mean and current prices.\n     - Line 24: `mean_adj_close = (history.select(pl.col(\"adj_close\").mean()).to_series().item())`\n     - Line 38: `spread = (latest_close - mean_adj_close) / mean_adj_close`\n\n2. **Potential Failures**:\n   - The strategy might fail if the dataset does not have enough history to compute a meaningful trailing window, as indicated in lines 19 and 20.\n     ```python\n     if history.is_empty() or (history.height - 1) < self._window:\n         return Signal(information_available_at=stamp, weights={})\n     ```\n   - Line 38 calculates the spread using the latest close directly, which might not align with the stated rationale of reverting to a mean.\n\n3. **Fragile Parameters**:\n   - The window parameter is hardcoded in multiple places (lines 20 and 29), making it less flexible.\n     ```python\n     if history.is_empty() or (history.height - 1) < self._window:\n         return Signal(information_available_at=stamp, weights={})\n     ```\n\n4. **Potential Issues with Code Execution**:\n   - If the `view.history()` returns an empty DataFrame, the strategy might fail because of the implicit assumption that there is always a valid session date.\n     ```python\n     newest = visible.select(pl.col(\"session_date\").max()).to_series().item()\n     assert isinstance(newest, date)\n     return newest\n     ```\n\nTo improve this strategy:\n- Ensure the spread calculation considers both trailing mean and current prices.\n- Make the window parameter more flexible by allowing it to be set dynamically based on data availability.\n- Add robust error handling for edge cases where data might not be sufficient."
+  ],
+  "seconds": 36.85755160000008,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 568
+}

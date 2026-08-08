@@ -1,0 +1,26 @@
+{
+  "index": 153,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks are often associated with higher risk-adjusted returns. By \"\n        \"tilting towards low-volatility assets, we aim to capture these potential excess \"\n        \"returns while reducing overall portfolio volatility.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(1)).abs().alias(\"return_abs\"),\n                ((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0) * 100).alias(\"return_pct\")\n            )\n        )\n\n        # Calculate mean absolute returns and standard deviation for each symbol\n        stats = (\n            history\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"return_abs\").mean().alias(\"mean_return\")),\n                (pl.col(\"return_abs\").std().alias(\"volatility\"))\n            )\n        )\n\n        # Filter out symbols with missing values\n        stats = stats.filter(pl.all().not_null())\n\n        if stats.height < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Sort by volatility and select top_n low-volatility symbols\n        low_vol_symbols = [row[\"symbol\"] for row in stats.sort(\"volatility\", descending=False).rows()[:self._top_n]]\n\n        if not low_vol_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(low_vol_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in low_vol_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3764,
+    "output_tokens": 1292
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to tilt towards low-volatility stocks, but there are several issues with both the rationale and the implementation:\n\n1. **Rationale vs Implementation:**\n   - The rationale mentions \"higher risk-adjusted returns,\" but the code only focuses on selecting the five lowest volatility symbols without explicitly addressing return considerations. Line 24 where `low_vol_symbols` is selected only considers volatility, not return.\n\n2. **Potential Fails:**\n   - If all symbols have similar volatilities, the strategy might fail to generate a valid signal (line 37), returning an empty weights dictionary.\n   - The code assumes that there are always at least five low-volatility stocks available for selection, which may not be true if the number of historical data points is insufficient.\n\n3. **Fragile Parameters:**\n   - The window size (`self._window`) is hardcoded to 20 (line 7). This might not be optimal for all market conditions and could benefit from a more dynamic approach or tuning.\n   - The cutoff of selecting the top 5 symbols based on volatility (line 34) might be too arbitrary. A different number, or a range, could provide better performance.\n\n4. **Potential Stops:**\n   - Line 29 checks if `history` has enough data points but does not handle cases where no valid signals can be generated.\n   - The function `_latest_visible(view)` assumes that the latest date is always present in `view.history()` (line 15), which might fail if there are missing dates or sessions.\n\nOverall, while the strategy conceptually makes sense, the implementation could benefit from more robust handling of edge cases and a broader consideration of return metrics alongside volatility."
+  ],
+  "seconds": 33.59585800000059,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 310
+}

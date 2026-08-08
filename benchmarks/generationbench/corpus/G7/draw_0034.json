@@ -1,0 +1,46 @@
+{
+  "index": 34,
+  "paradigm": "G7_mcts",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalReturn(Strategy):\n    rationale = (\n        \"Market returns exhibit seasonality due to various factors such as earnings seasons, \"\n        \"holiday effects, and macroeconomic events. By focusing on the monthly average return over a 5-year period, we aim to capture these seasonal trends.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        if stamp < date(2019, 1, 1):\n            return Signal(information_available_at=stamp, weights={})\n\n        history = view.history(lookback=self._window)\n        closes = view.closes(lookback=self._window)\n\n        if history.is_empty() or closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_returns: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            returns = [(c / p - 1.0) for c, p in zip(values[1:], values[:-1])]\n            avg_return = sum(returns) / len(returns)\n            avg_returns[symbol] = avg_return\n\n        # Select the market index symbol\n        selected_symbol = list(avg_returns.keys())[0]\n\n        signal = Signal(\n            information_available_at=stamp, weights={selected_symbol: 1.0}\n        )\n        return signal\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(2019, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalReturn",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19056,
+    "output_tokens": 6598
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the monthly average return of the market index, calculated from the closing price over a 5-year lookback period. This focuses on capturing seasonal trends in the market's performance.",
+    "The signal will be the weekly closing price deviation from the historical average closing price over a 3-year lookback period, focusing on short-term calendar effects and their impact on stock prices.",
+    "The portfolio will consist of a single name: the market index itself, with equal weighting. This simplifies execution while fully capturing the seasonal trends reflected in the monthly average return over the 5-year lookback period.",
+    "The portfolio will consist of the top 5 stocks ranked by weekly closing price deviation from the historical average, with weights of 20%, 15%, 12%, 10%, and 6% respectively.",
+    "The portfolio will consist of a single name: the market index itself, with equal weighting. This approach simplifies execution and directly aligns with the focus on capturing seasonal trends through the monthly average return over a 5-year lookback period.",
+    "The portfolio will consist of the top 3 stocks ranked by weekly closing price deviation from the historical average, with equal weights of approximately 33.33% each. This approach simplifies management while still capturing significant market movements.",
+    "The stop-loss rule for this strategy will be set at a 10% drawdown from the portfolio's highest price since inception, both for individual position loss bounds and overall portfolio risk management, halting trading if this threshold is breached.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% for each of the top 5 stocks, and a portfolio-wide loss limit of -10%. Exceeding either bound would stop trading for that week.",
+    "To manage risk, I propose setting a stop-loss rule: if the market index falls below a 95% confidence interval of its 5-year average return in any given month, trading will be halted for that month. This limits potential losses to 5% from the monthly average return's downside.",
+    "For this systematic equity strategy in the Indian market, I propose setting a loss bound of -5% on any individual position to stop trading that position if the weekly closing price deviation from the historical average exceeds this threshold. This rule limits potential losses while allowing the portfolio to capture significant calendar effects.",
+    "The stop-loss rule for this strategy will be set at a 10% drawdown from the portfolio\u2019s highest price since inception. This ensures that the strategy exits when significant losses occur, safeguarding capital while allowing participation in potential recovery periods."
+  ],
+  "seconds": 394.33665770001244,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 428
+}

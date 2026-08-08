@@ -1,0 +1,23 @@
+{
+  "index": 556,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass PriceLevelReversion(Strategy):\n    rationale = (\n        \"Price levels that revert to their mean over time can be exploited by buying \"\n        \"underperformers and selling outperformers. This strategy aims to capture the reversionary \"\n        \"momentum in a crowded market.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or len(history.columns) < 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        # Calculate the simple moving average of close prices\n        sma_close = (\n            history.with_columns(\n                (pl.col(\"adj_close\").rolling_mean(window=self._window).alias(f\"sma_{self._window}\"))\n            )\n            .select([\"symbol\", \"session_date\", f\"sma_{self._window}\"])\n            .drop_nulls()\n        )\n\n        # Calculate the z-score for each symbol\n        z_scores = (\n            closes.join(sma_close, on=\"symbol\", how=\"inner\")\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(f\"sma_{self._window}\") - 1.0).alias(\"z_score\")\n            )\n            .select([\"symbol\", \"session_date\", \"z_score\"])\n        )\n\n        # Get the latest z-scores\n        latest_z_scores = _latest_z_scores(z_scores)\n\n        # Identify outperformers and underperformers based on their z-scores\n        outperformers: list[str] = []\n        underperformers: list[str] = []\n        for symbol, z_score in latest_z_scores.items():\n            if z_score > 0.5:\n                outperformers.append(symbol)\n            elif z_score < -0.5:\n                underperformers.append(symbol)\n\n        # Determine weights based on the reversionary signal\n        weight_out = 1.0 / len(outperformers) if outperformers else 0\n        weight_under = 1.0 / len(underperformers) if underperformers else 0\n\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                s: weight_out for s in outperformers\n            } | {s: -weight_under for s in underperformers}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _latest_z_scores(z_scores: pl.DataFrame) -> dict[str, float]:\n    latest_closes = z_scores.sort(\"session_date\", descending=True).select([\"symbol\", \"z_score\"])\n    return {row[0]: row[1] for row in latest_closes.iter_rows()}",
+  "class_name": "PriceLevelReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 681
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.17922230000113,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 565
+}

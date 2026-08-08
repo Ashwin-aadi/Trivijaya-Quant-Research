@@ -1,0 +1,26 @@
+{
+  "index": 160,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Price levels revert to the mean over time. This strategy identifies symbols whose \"\n        \"prices have deviated significantly from their trailing 20-day average and bets on a \"\n        \"reversion towards that average.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.groupby(\"symbol\")\n            .agg((pl.col(\"adj_close\").mean()).alias(\"trailing_mean\"))\n            .with_columns(\n                (pl.col(\"close\") / pl.col(\"trailing_mean\") - 1.0).alias(\"deviation\")\n            )\n            .sort(\"deviation\", descending=True)\n        )\n\n        if mean_close.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [row[\"symbol\"] for row in mean_close.to_dicts()[:5]]\n        weight = 1.0 / len(symbols)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3817,
+    "output_tokens": 1169
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears to be generally sound but has some areas for improvement and potential issues:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale mentions reversion towards the mean over 20 days, while the code uses a variable `window` in the `__init__` method (line 7). This is fine as long as this parameter is consistently used.\n\n2. **Potential Failures and Fragilities:**\n   - **Data Availability Check:** The check for history length (`if history.height < self._window + 1`) is good, but it should also handle cases where the dataset might be empty initially (line 18).\n   - **Empty DataFrame Handling:** The strategy returns an empty `weights` dictionary when the `mean_close` DataFrame is empty (lines 25-26). This is correct.\n   - **Top Symbols Selection:** The strategy selects only the top 5 symbols with the highest deviation (line 34), which might be too restrictive. Consider adding a filter to select more than just the top 5.\n\n3. **Fragile Parameters:**\n   - The window size (`self._window`) is hardcoded as 20 in the rationale but could vary based on user input. Ensure this parameter is well-documented and tested (line 7).\n   - The `close` and `adj_close` columns are used, which should be validated to ensure they exist in the dataset.\n\n4. **Potential Issues:**\n   - **Date Handling:** `_latest_visible` function assumes that the maximum date is a valid `date`. Ensure this assumption holds by handling edge cases (line 51).\n   - **Type Checking and Assertions:** While assertions are used, consider adding more explicit type checking and robust error handling to manage unexpected data inputs.\n\nOverall, the strategy is sound but could benefit from additional checks and parameter flexibility."
+  ],
+  "seconds": 31.17080569999962,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 324
+}

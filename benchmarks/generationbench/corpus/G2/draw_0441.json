@@ -1,0 +1,23 @@
+{
+  "index": 441,
+  "paradigm": "G2_cot",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks are often considered less risky and can have better risk-adjusted \"\n        \"returns. By tilting our portfolio towards low-volatility stocks, we aim to capture the \"\n        \"outperformance typically associated with this style.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        # Calculate daily returns\n        rets = (\n            history\n            .with_columns((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"ret\"))\n            .sort(\"session_date\")\n            .select([\"symbol\", \"session_date\", \"ret\"])\n        )\n\n        # Calculate historical volatility for each stock\n        volatilities = (\n            rets.groupby(\"symbol\")\n            .agg(\n                (pl.col(\"ret\").std().alias(\"volatility\")),\n            )\n            .collect()\n        ).to_dict(False)\n\n        # Filter out symbols without enough data\n        valid_symbols = [\n            symbol\n            for symbol in closes.columns\n            if symbol in volatilities and len(volatilities[symbol]) >= self._window\n        ]\n\n        # Sort by volatility to get the lowest ones\n        low_volatility_symbols = sorted(valid_symbols, key=lambda x: volatilities[x])\n\n        # Select top 5 symbols for tilting\n        picks = low_volatility_symbols[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 525
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.014313800005766,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 449
+}

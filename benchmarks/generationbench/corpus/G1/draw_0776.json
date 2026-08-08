@@ -1,0 +1,23 @@
+{
+  "index": 776,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves can indicate a stronger trend in the market. \"\n        \"When there is an increase in volume alongside a price move, it often suggests \"\n        \"greater investor conviction and potential continuation of the trend.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_changes = {}\n        for symbol in view.symbols:\n            if symbol not in history.symbol.unique().to_list():\n                continue\n            symbol_history = history.filter(pl.col(\"symbol\") == symbol).sort(\n                \"session_date\"\n            )\n            opens = [float(v) for v in symbol_history[\"open\"].to_list()]\n            closes = [float(v) for v in symbol_history[\"close\"].to_list()]\n            volumes = [int(v) for v in symbol_history[\"volume\"].to_list()]\n\n            # Calculate price change\n            price_changes = [\n                (c - o) / o if o != 0 else float(\"nan\") for o, c in zip(opens[:-1], closes[1:])\n            ]\n            price_change = max(price_changes, default=0)\n\n            # Calculate volume increase\n            last_volume = volumes[-1]\n            prev_volume = volumes[-2] if len(volumes) > 1 else 0\n            volume_increase = (last_volume - prev_volume) / prev_volume if prev_volume != 0 else float(\"nan\")\n\n            # Check for volume-confirmed move\n            if price_change >= 0.05 and volume_increase >= 0.2:\n                volume_changes[symbol] = price_change\n\n        if not volume_changes:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbol = max(volume_changes, key=lambda k: volume_changes[k])\n        weight = 1.0\n        return Signal(\n            information_available_at=stamp,\n            weights={top_symbol: weight},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 558
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.988088900005096,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 791
+}

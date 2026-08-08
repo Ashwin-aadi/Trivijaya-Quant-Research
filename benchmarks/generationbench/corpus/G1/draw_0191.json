@@ -1,0 +1,23 @@
+{
+  "index": 191,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"This strategy combines a breakout signal with a momentum indicator to select stocks \"\n        \"that have both recently broken out and show strong relative strength.\"\n    )\n\n    def __init__(self, window_breakout: int = 20, top_n_breakout: int = 5, lookback_momentum: int = 60) -> None:\n        self._window_breakout = window_breakout\n        self._top_n_breakout = top_n_breakout\n        self._lookback_momentum = lookback_momentum\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window_breakout)\n        if closes.height < self._window_breakout:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window_breakout:\n                continue\n            if values[-1] >= max(values):\n                breakout_picks.append(symbol)\n\n        breakout_picks = breakout_picks[:self._top_n_breakout]\n        if not breakout_picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores: dict[str, float] = {}\n        history = view.history(lookback=self._lookback_momentum)\n        for symbol in breakout_picks:\n            recent_closes = [float(v) for v in history[\"close\"][symbol].drop_nulls().to_list()]\n            if len(recent_closes) < self._lookback_momentum:\n                continue\n            momentum_score = sum(recent_closes[-10:]) / 10.0\n            momentum_scores[symbol] = momentum_score\n\n        top_picks: list[str] = []\n        for symbol, score in sorted(momentum_scores.items(), key=lambda x: x[1], reverse=True):\n            if len(top_picks) >= self._top_n_breakout:\n                break\n            top_picks.append(symbol)\n\n        weight = 1.0 / len(top_picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 599
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.041458200008492,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 195
+}

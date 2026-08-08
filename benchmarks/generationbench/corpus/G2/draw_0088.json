@@ -1,0 +1,23 @@
+{
+  "index": 88,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass TrailingReversion(Strategy):\n    rationale = (\n        \"Price reversion is a classical trading strategy where prices are expected to revert \"\n        \"to the mean after extreme movements. This can be observed in equity markets when \"\n        \"prices overshoot their historical average levels.\"\n    )\n\n    def __init__(self, window: int = 60, trailing_window: int = 30) -> None:\n        self._window = window\n        self._trailing_window = trailing_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._trailing_window - 1)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        recent_closes = view.closes().drop_nulls().to_dict(as_series=False)\n        trailing_means: dict[str, float] = {}\n        for symbol in symbols:\n            if symbol not in history.columns:\n                continue\n            adj_close_values = [float(v) for v in history[symbol].to_list()]\n            trailing_mean = sum(adj_close_values[-self._trailing_window:]) / self._trailing_window\n            trailing_means[symbol] = trailing_mean\n\n        signals: dict[str, float] = {}\n        for symbol in symbols:\n            if symbol not in recent_closes or symbol not in trailing_means:\n                continue\n            current_price = recent_closes[symbol]\n            trailing_mean = trailing_means[symbol]\n            z_score = (current_price - trailing_mean) / max(abs(current_price - trailing_mean), 1e-8)\n            if abs(z_score) > 2:  # Consider only extreme deviations for reversion\n                signals[symbol] = -0.5 * z_score\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_weight = sum(signals.values())\n        normalized_weights = {s: w / total_weight for s, w in signals.items()}\n        return Signal(\n            information_available_at=stamp,\n            weights=normalized_weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "TrailingReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 544
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.55893179999839,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 92
+}

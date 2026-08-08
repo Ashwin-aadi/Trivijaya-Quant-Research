@@ -1,0 +1,26 @@
+{
+  "index": 243,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity is a measure of the ease with which an asset can be bought or sold without \"\n        \"causing significant movement in its price. A screen based on liquidity ensures that only \"\n        \"the most liquid stocks are selected, reducing transaction costs and execution risk.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_screened = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volume\").sum() / 100_000).alias(\"total_volume\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"total_volume\").mean().alias(\"avg_volume\"))\n            .sort(by=\"avg_volume\", descending=True)\n        )\n\n        symbols = liquidity_screened[\"symbol\"].to_list()\n        if len(symbols) < 10:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 0.1\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols[:10]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(\"session_date\").max().item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3832,
+    "output_tokens": 1190
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale of focusing on liquidity to reduce transaction costs and execution risk. However, there are a few issues and potential improvements:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale mentions selecting the most liquid stocks based on volume, but the code uses the average volume over a window period rather than just the latest data (line 20). This could introduce lag in responsiveness to recent liquidity changes.\n\n2. **Potential Failure Cases**:\n   - Line 19: If `history` contains fewer rows than the lookback window (`self._window`), the function returns an empty weights dictionary, which might not be useful for trading decisions.\n   - Line 34-36: The code assumes that selecting only the top 10 symbols is sufficient. In practice, you might want to consider more factors or a larger number of stocks.\n\n3. **Fragile Parameters**:\n   - The parameter `window` (line 7) could be too small or large depending on market conditions and data availability. A window size that's too small may not capture enough historical volume data, while one that's too large might introduce unnecessary lag.\n   - The hardcoded value of `10` for the number of selected symbols in line 36 is a fixed parameter that could be adjusted based on backtesting results.\n\n4. **Potential Issues**:\n   - Line 28: If the `total_volume` column contains null values, this will cause issues when calculating the mean.\n   - The function `_latest_visible` (line 57) might return an incorrect date if `view.history()` is empty or does not contain a session_date column.\n\nOverall, the strategy is sound in its core idea but could benefit from more robust handling of edge cases and parameter tuning based on backtesting."
+  ],
+  "seconds": 31.69460810000055,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 492
+}

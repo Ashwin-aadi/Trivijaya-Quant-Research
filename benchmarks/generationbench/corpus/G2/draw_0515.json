@@ -1,0 +1,23 @@
+{
+  "index": 515,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: the 20-day momentum of a stock \"\n        \"and its relative strength compared to the NIFTY 100 index. The idea is that stocks with \"\n        \"both strong momentum and outperforming relative strength may exhibit higher returns.\"\n    )\n\n    def __init__(self, window_momentum: int = 20, threshold_rel_strength: float = 0.8) -> None:\n        self._window_momentum = window_momentum\n        self._threshold_rel_strength = threshold_rel_strength\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window_momentum + 1)\n\n        if closes.height < self._window_momentum + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate momentum\n        momentum_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window_momentum + 1:\n                continue\n            last_close = values[-1]\n            mean_close = sum(values[:-1]) / (self._window_momentum - 1)\n            momentum_score = (last_close - mean_close) / mean_close\n            momentum_scores[symbol] = momentum_score\n\n        # Calculate relative strength compared to NIFTY 100 index\n        nifty_100_closes = closes.get_column(view.symbols[0]).to_list()\n        if len(nifty_100_closes) < self._window_momentum + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        last_nifty_100_close = nifty_100_closes[-1]\n        mean_nifty_100_close = sum(nifty_100_closes[:-1]) / (self._window_momentum - 1)\n        rel_strength_score = (last_nifty_100_close - mean_nifty_100_close) / mean_nifty_100_close\n\n        # Find symbols with both high momentum and relative strength\n        picks: list[str] = []\n        for symbol, momentum in momentum_scores.items():\n            if momentum >= 0.2 and rel_strength_score > self._threshold_rel_strength:\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 685
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.233750399995188,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 524
+}

@@ -1,0 +1,27 @@
+{
+  "arm": "G7",
+  "paradigm": "G7_mcts",
+  "updated_at_utc": "2026-08-07T12:37:18Z",
+  "requested": 120,
+  "completed": 60,
+  "usable": 60,
+  "trials_before_this_sitting": 736,
+  "trials_after": 736,
+  "seconds_this_sitting": 112.7815513000096,
+  "draws_this_sitting": 0,
+  "tokens": {
+    "G7_mcts": {
+      "prompt_tokens": 4731,
+      "output_tokens": 1402,
+      "calls": 7,
+      "draws": 0,
+      "accepted": 0,
+      "output_tokens_per_accepted": null
+    }
+  },
+  "fitness": {
+    "scored": 3,
+    "unscoreable": 1,
+    "timeouts": 0
+  }
+}

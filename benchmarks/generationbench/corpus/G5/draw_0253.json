@@ -1,0 +1,27 @@
+{
+  "index": 253,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that stock prices and financial returns are prone to revert \"\n        \"to a long-term mean or average. For short horizons, deviations from the mean can be\"\n        \" exploited for profits.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = float(closes.mean().to_series().item())\n        mean_reversion_signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            latest_close = float(view.latest_close()[symbol])\n            if abs(latest_close - mean_close) > 0.1 * mean_close:\n                mean_reversion_signals[symbol] = 1.0\n\n        weight = 1.0 / len(mean_reversion_signals)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in mean_reversion_signals},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 5104,
+    "output_tokens": 1727
+  },
+  "calls": 4,
+  "candidates_evaluated": 3,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy for mean reversion has several strengths but also some weaknesses and potential issues:\n\n**Strengths:**\n- The rationale aligns well with the code implementation, as both focus on identifying stocks that deviate from their mean price over a 10-day window.\n- The use of `polars` (`pl`) is appropriate for handling large datasets efficiently.\n\n**Weaknesses and Potential Issues:**\n\n1. **Rationale vs. Code Disagreement:**\n   - Line 27: The rationale mentions \"short horizons,\" but the implementation uses a relatively long window of 10 days, which may not align with typical short-term mean reversion strategies (often shorter than 5-14 days).\n\n2. **Potential Failure Scenarios:**\n   - Line 36: If `closes` contains missing values or non-numeric data for the latest close price, the code will raise an error when trying to convert it to a float.\n   - Line 40: The condition checks whether the absolute difference between the latest close and mean is more than 10% of the mean. This might be too strict in volatile markets or during periods of high volatility.\n\n3. **Fragile Parameters:**\n   - Line 7: The default window size is hardcoded to 10 days, which may not be optimal for all market conditions. A parameter that can be adjusted dynamically based on historical data or current market conditions would improve the robustness.\n   - Line 45: If the number of symbols in `mean_reversion_signals` becomes zero (no stocks meet the criteria), the weights will be undefined, leading to an error when trying to create a signal.\n\n4. **Potential Issues for Running:**\n   - Lines 10-12 and 26: Ensure that `MarketView`, `Signal`, and related methods are properly defined elsewhere in your codebase.\n   - Line 38: The assertion may fail if `newest` is not a date object, though the use of `isinstance(newest, date)` should mitigate this risk.\n\nOverall, while the strategy's core logic aligns with its rationale, there are several areas where improvements could be made to enhance robustness and adaptability."
+  ],
+  "seconds": 44.592668199999025,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 514
+}

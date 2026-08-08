@@ -1,0 +1,26 @@
+{
+  "index": 227,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentumAndVolume(Strategy):\n    rationale = (\n        \"Combining momentum and volume signals can provide a more robust strategy. \"\n        \"High momentum stocks with increasing trading volumes often indicate strong buying interest.\"\n    )\n\n    def __init__(self, window1: int = 20, window2: int = 5) -> None:\n        self._window1 = window1\n        self._window2 = window2\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._window1, self._window2))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = [float(v) for v in history[\"adj_close\"].to_list()]\n        volume = [float(v) for v in history[\"volume\"].drop_nulls().to_list()]\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes or symbol not in volume:\n                continue\n            adj_closes = closes[history.columns.index(symbol)]\n            volumes = volume[history.columns.index(symbol)]\n\n            if len(adj_closes) < self._window1 or len(volumes) < self._window2:\n                continue\n\n            momentum_score = (adj_closes[-1] - adj_closes[0]) / max(adj_closes[0], 1e-6)\n            volume_score = sum(volumes[-self._window2:]) / max(sum(volumes), 1)\n\n            if momentum_score > 0.05 and volume_score > 0.8:\n                picks.append(symbol)\n\n        picks = picks[:5]  # Select top 5 stocks based on the composite score\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentumAndVolume",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4066,
+    "output_tokens": 1427
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy draft provided generally aligns with its stated rationale of combining momentum and volume signals to identify strong buying interest. However, there are several areas for improvement and potential issues:\n\n1. **Rationale vs. Code Discrepancy:**\n   - The rationale mentions high momentum stocks with increasing trading volumes. While the code does consider both factors, it uses a fixed threshold (`0.05` for momentum score) without justifying its choice. This could be improved by using more dynamic or adaptive thresholds.\n   - Line 26: `if momentum_score > 0.05 and volume_score > 0.8:`\n\n2. **Potential Failures:**\n   - The strategy assumes that the most recent data point is always significant, which might not hold if there are sudden market anomalies or data gaps.\n   - Line 43: `momentum_score = (adj_closes[-1] - adj_closes[0]) / adj_closes[0]`: This could lead to division by zero if all prices in the window are identical.\n\n3. **Fragile Parameters:**\n   - The choice of windows (`_window1` and `_window2`) is hardcoded, which may not always be optimal for different market conditions or asset classes.\n   - Lines 9-10: `self._window1 = window1` and `self._window2 = window2`: These should consider default values that could be adjusted based on historical data analysis.\n\n4. **Code Issues:**\n   - The function `_latest_visible(view)` is not used in the strategy logic, which might indicate a potential oversight.\n   - Line 75: `return Signal(information_available_at=stamp, weights={})`: This line assumes no suitable picks were found; consider providing an empty set or default weight distribution if necessary.\n\nOverall, while the core idea of combining momentum and volume signals is sound, improvements could be made in threshold selection, handling edge cases, and ensuring robust parameter settings."
+  ],
+  "seconds": 36.5992499999993,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 460
+}

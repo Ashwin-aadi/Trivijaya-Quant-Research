@@ -1,0 +1,27 @@
+{
+  "index": 96,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy selects the top-performing assets based on their \"\n        \"10-day momentum to capture short-term trending behavior in the market.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_n = min(self._window, len(view.symbols))\n        momentum_scores: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.columns or history[symbol].is_empty():\n                continue\n            prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(prices) < self._window + 1:\n                continue\n            momentum = (prices[-1] / prices[0]) - 1.0\n            momentum_scores[symbol] = momentum\n\n        top_symbols = sorted(momentum_scores.items(), key=lambda x: x[1], reverse=True)[:top_n]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weights = {symbol: 1.0 / len(top_symbols) for symbol, _ in top_symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, weight in weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 5212,
+    "output_tokens": 1826
+  },
+  "calls": 4,
+  "candidates_evaluated": 3,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears to be well-structured for identifying top-performing assets based on 10-day momentum. However, several aspects can be critiqued or improved:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states that the strategy selects \"top-performing assets based on their 10-day momentum.\" While this is reflected in the code where a window of `self._window = 10` is used, it does not specify what criteria are used to determine \"top-performing.\" In line 32, only the last price relative to the first price is considered for each symbol, which might be overly simplistic.\n\n2. **Potential Failure**:\n   - Line 46: If any of the symbols in `view.symbols` do not have a history within the lookback period (`self._window + 1`), they are ignored without generating a signal. This could lead to missed opportunities if new or recently listed assets are potentially strong performers.\n   - Lines 50-53: The momentum score calculation assumes that all prices are non-null and numeric, which might not always be the case (e.g., due to missing data). Handling null values more robustly would improve reliability.\n\n3. **Fragile Parameters**:\n   - Line 18: The default window size is fixed at 10 days but could benefit from being configurable or dynamically adjusted based on market conditions.\n   - Line 24: The `top_n` calculation, which is the minimum of `self._window` and the number of symbols, might not always capture enough assets for meaningful diversification. A more flexible approach to determining `top_symbols` would be beneficial.\n\n4. **Running Issues**:\n   - Lines 57-61: The assumption that all columns in `history` are relevant (i.e., numeric and non-null) could fail if the data is not properly cleaned or structured.\n   - Line 28: The use of `float(v)` for converting values to float might raise errors if non-numeric values are present, indicating a need for more robust type checking.\n\nOverall, while the core logic is sound, there are areas where improvements can be made to enhance robustness and flexibility."
+  ],
+  "seconds": 46.76648600000044,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 196
+}

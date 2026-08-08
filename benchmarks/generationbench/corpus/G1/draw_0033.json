@@ -1,0 +1,23 @@
+{
+  "index": 33,
+  "paradigm": "G1_plain",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over time. \"\n        \"By tilting our portfolio towards low volatility, we aim to capture this anomaly.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(sym) for sym in view.symbols]\n        symbol_prices = {sym: float(prices[-1]) for sym, prices in\n                         history[symbols].select(pl.col(\"symbol\"), pl.col(\"adj_close\").tail(1)).iter_rows()}\n        \n        volatility_series = {}\n        for symbol in symbols:\n            prices = [float(p) for p in view.closes(lookback=self._window)[symbol]]\n            if len(prices) < self._window:\n                continue\n            returns = [(prices[i] - prices[i-1]) / prices[i-1] for i in range(1, len(prices))]\n            volatility_series[symbol] = sum([r**2 for r in returns])**0.5\n\n        sorted_symbols = [symbol for symbol, _ in sorted(volatility_series.items(), key=lambda item: item[1])]\n        \n        top_5_low_volatility = sorted_symbols[:5]\n        weight = 1.0 / len(top_5_low_volatility)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_5_low_volatility}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 468
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.84849309999845,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 36
+}

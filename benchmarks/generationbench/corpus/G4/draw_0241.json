@@ -1,0 +1,27 @@
+{
+  "index": 241,
+  "paradigm": "G4_planning",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion6m(Strategy):\n    rationale = (\n        \"This strategy exploits short-horizon mean reversion by identifying stocks that have \"\n        \"deviated significantly from their historical price trends. High volatility and recent \"\n        \"price deviations suggest temporary market inefficiencies, offering opportunities for \"\n        \"profit through short positions.\"\n    )\n\n    def __init__(self, window: int = 180, threshold: float = 2.0, max_positions: int = 20) -> None:\n        self._window = window\n        self._threshold = threshold\n        self._max_positions = max_positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history[\"symbol\"].unique().to_list()]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        z_scores = []\n        for symbol in symbols:\n            close_prices = history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"]\n            mean_price = close_prices.mean()\n            std_deviation = close_prices.std()\n\n            daily_z_score = (history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"] - mean_price) / std_deviation\n            z_scores.append((symbol, daily_z_score.max().item()))\n\n        ranked_stocks = sorted(z_scores, key=lambda x: abs(x[1]), reverse=True)[: self._max_positions]\n        weights = {stock[0]: 0.05 for stock in ranked_stocks}\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, _ in ranked_stocks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date).item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion6m",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2513,
+    "output_tokens": 947
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To exploit the short-horizon mean reversion theme in the Indian equity market, we'll focus on stocks that have deviated significantly from their historical price trends. The economic mechanism is based on the tendency of financial markets to revert to long-term means after extreme price movements. This persistence could stem from investor psychology, information asymmetry, or regulatory factors. Our trading rule would involve identifying stocks with high volatility and using statistical methods like Z-scores or moving average crossovers to detect deviations. When a stock's price deviates beyond a certain threshold (e.g., 2 standard deviations), we initiate a short position, expecting the price to revert to its mean within a few weeks. This strategy aims to profit from the temporary mispricing caused by market inefficiencies.",
+    "The signal for this strategy can be defined as follows:\n\n1. **Compute Daily Metrics**: Calculate the Z-score of the stock price relative to its historical mean price over a 6-month lookback period using daily close prices. Additionally, consider the average daily volume over the same period.\n\n2. **Identify Deviations**: A candidate stock is identified if its Z-score exceeds 2 or falls below -2, indicating significant deviation from its historical mean price. High volume on these days can also be considered as a filter to further confirm market activity and relevance.\n\n3. **Ranking Candidates**: On each trading day, rank the candidates based on their absolute value of Z-score. The stocks with the highest (absolute) Z-scores are prioritized for short positions, as they represent the most extreme deviations from historical trends.\n\nThis ranking ensures that we focus on the most out-of-sync stocks, increasing the likelihood of mean reversion within a few weeks.",
+    "For this strategy, position sizing will be constrained to hold no more than 20 stocks at a time, with each stock receiving an equal weight of 5% to maintain diversification. Risk management includes setting a stop-loss at 3 standard deviations from the entry price to limit potential losses per trade. Additionally, a total portfolio loss cap of 10% is imposed to safeguard against significant market downturns. This approach balances exposure and risk, ensuring that no single stock can dominate the portfolio's performance or losses."
+  ],
+  "seconds": 29.16316519999964,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 245
+}

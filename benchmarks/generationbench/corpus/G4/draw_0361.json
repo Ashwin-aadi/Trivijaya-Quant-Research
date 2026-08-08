@@ -1,0 +1,27 @@
+{
+  "index": 361,
+  "paradigm": "G4_planning",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"Short-term price deviations from historical averages are driven by noise trader behavior \"\n        \"and market inefficiencies. Stocks that deviate significantly from their 20-day moving average \"\n        \"are likely to revert to their mean prices in the short term, providing trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = history[\"symbol\"].to_list()\n        closes = {symbol: [] for symbol in symbols}\n        for symbol in symbols:\n            series = (\n                history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"]\n                .sort(by=\"session_date\")\n                .to_series()\n            )\n            closes[symbol] = [float(v) for v in series.to_list()]\n\n        sma_values = []\n        for symbol, close_values in closes.items():\n            if len(close_values) < self._window:\n                continue\n            sma = sum(close_values[-self._window:]) / self._window\n            sma_values.append((symbol, sma))\n\n        sma_values.sort(key=lambda x: (x[1] - float(view.latest_close()[x[0]])), reverse=True)\n        top_symbols = [s for s, _ in sma_values[: self._top_n]]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2389,
+    "output_tokens": 905
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan exploits the economic mechanism of short-term price deviations from historical averages in Indian equity markets, driven by noise trader behavior and market inefficiencies. Mean reversion may persist due to investors' overreactions to news, leading to temporary mispricing. The trading strategy would involve identifying stocks that deviate significantly from their moving average prices within a short horizon (e.g., 1-5 days). A rule could be: Buy underperforming stocks below their 20-day moving average and sell when they return to or exceed the average, with strict stop-loss limits to manage risk. This approach aims to capitalize on the tendency of stock prices to revert to historical norms in the short term.",
+    "The signal for this strategy involves computing the difference between the daily closing price of each stock and its 20-day simple moving average (SMA) price. This is done using the historical high, low, open, close, and volume data over the past 20 trading days to calculate the SMA. On a given day, stocks are ranked based on whether their closing price is below their 20-day SMA, indicating an underperforming stock that could potentially revert to its mean price. The top candidates (e.g., those with the lowest prices relative to their SMAs) are then selected for buying, while those that have closed above or near their SMAs are sold. Stop-loss limits are set to manage risk effectively.",
+    "This strategy can hold a diversified portfolio of approximately 20-30 stocks to spread risk while leveraging mean reversion. Each stock's weight could be equal, around 3-5% per position. Position sizing is crucial; limit total market exposure to 100%, with individual name limits to prevent any single stock from dominating the portfolio. Implement strict stop-loss orders at a threshold of 5-7% below entry price to manage downside risk effectively. This approach ensures that losses are contained while allowing for potential gains from mean reversion."
+  ],
+  "seconds": 28.148215599998366,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 367
+}

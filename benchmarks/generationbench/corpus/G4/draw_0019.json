@@ -1,0 +1,27 @@
+{
+  "index": 19,
+  "paradigm": "G4_planning",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression20d(Strategy):\n    rationale = (\n        \"During periods of high uncertainty or news-driven events, stock prices may spread out \"\n        \"(increase in dispersion), while during calm periods, they tend to trade within a narrower range. \"\n        \"This strategy exploits this pattern by entering long positions when the price breaks above the upper boundary \"\n        \"of its recent range and short positions when it falls below the lower boundary.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_range = (\n            history.select(\n                pl.col(\"high\").subtract(pl.col(\"low\")).alias(\"range\")\n            ).group_by(\"symbol\")\n            .agg(pl.col(\"range\").mean().alias(\"avg_range\"))\n            .select(\"avg_range\")\n        )\n        latest_closes = view.latest_close()\n        signals: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in avg_range.height or symbol not in latest_closes.keys():\n                continue\n\n            avg_range_val = avg_range.select(pl.col(\"avg_range\").filter(pl.col(\"symbol\") == symbol)).item()\n            high = history.select(pl.col(\"high\").filter(pl.col(\"symbol\") == symbol)).item()\n            low = history.select(pl.col(\"low\").filter(pl.col(\"symbol\") == symbol)).item()\n            close = latest_closes[symbol]\n\n            upper_boundary = avg_range_val * 1.5 + close\n            lower_boundary = close - (avg_range_val * 1.5)\n\n            if high > upper_boundary:\n                signals[symbol] = 0.05\n\n            elif low < lower_boundary:\n                signals[symbol] = -0.05\n\n        return Signal(information_available_at=stamp, weights={s: w for s, w in signals.items() if w != 0})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2567,
+    "output_tokens": 1015
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy based on the theme of dispersion or range compression in the Indian market, we will focus on exploiting volatility changes. The economic mechanism involves observing how stocks' price ranges fluctuate over time\u2014during periods of high uncertainty or news-driven events, stock prices may spread out (increase in dispersion), while during calm periods, they tend to trade within a narrower range (range compression). This pattern has persisted due to the inherent nature of financial markets and the varying levels of market sentiment.\n\nThe trading rule would be: \n1. Identify stocks showing signs of increased dispersion.\n2. Enter long positions when the stock price breaks out above the upper boundary of its recent range, expecting a continuation of the bullish trend.\n3. Conversely, enter short positions when the stock price falls below the lower boundary, anticipating a bearish correction.\n\nThis strategy leverages the tendency for stocks to revert to their mean price action post-range compression and during periods of heightened volatility.",
+    "To develop the trading strategy, compute the following signals for each stock:\n\n1. **Range Calculation**: Calculate the average range (High - Low) over a 30-day lookback period.\n2. **Dispersion Signal**:\n   - Compute the current day's high and low relative to the recent average range.\n   - Define upper and lower boundaries as \\( \\text{Average Range} \\times 1.5 \\) above and below the recent average price, respectively.\n\nOn a given day, rank stocks based on:\n\n- **Breakout Candidates**: Long positions for stocks where the current high exceeds the upper boundary.\n- **Bust Candidates**: Short positions for stocks where the current low falls below the lower boundary.\n\nThis ranking helps identify the most promising candidates for long and short entries based on their deviation from historical price ranges.",
+    "For this strategy, we will hold up to 20 stocks in the portfolio, with each stock weighted equally at 5% to maintain diversification. Position sizing is determined by the rank of breakout and bust candidates; higher-ranked names receive priority entry. Risk management limits total portfolio exposure to a maximum drawdown of -10%, ensuring that losses are controlled within manageable bounds. This approach balances exposure to volatile stocks while mitigating potential large losses."
+  ],
+  "seconds": 30.330157500000496,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 20
+}

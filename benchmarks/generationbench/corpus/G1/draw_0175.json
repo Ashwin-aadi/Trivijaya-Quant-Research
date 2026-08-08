@@ -1,0 +1,23 @@
+{
+  "index": 175,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression suggests that the price action is consolidating in a tight range, \"\n        \"indicating potential for breakout. By identifying stocks with reduced daily price \"\n        \"range over a lookback period, we can find candidates for future moves.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compressed: list[str] = []\n        for symbol in view.symbols:\n            opens = history.select(pl.col(symbol).alias(\"open\")).to_pandas()[\"open\"]\n            closes = history.select(pl.col(symbol).alias(\"close\")).to_pandas()[\"close\"]\n            highs = history.select(pl.col(symbol).alias(\"high\")).to_pandas()[\"high\"]\n            lows = history.select(pl.col(symbol).alias(\"low\")).to_pandas()[\"low\"]\n\n            daily_ranges = (highs - lows).dropna().values\n            mean_range = daily_ranges.mean()\n\n            if (opens[-1] - closes[-1]) / mean_range < self._threshold:\n                range_compressed.append(symbol)\n\n        range_compressed = range_compressed[:5]\n        if not range_compressed:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(range_compressed)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in range_compressed}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_pandas()[\"session_date\"].iloc[0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1245,
+    "output_tokens": 483
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.014588100006222,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 179
+}

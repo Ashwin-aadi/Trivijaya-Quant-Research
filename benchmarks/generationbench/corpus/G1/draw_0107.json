@@ -1,0 +1,23 @@
+{
+  "index": 107,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: the 50-day moving \"\n        \"average of the stock price and the number of consecutive sessions where the volume \"\n        \"exceeds its 21-day average. These indicators are used to identify stocks with both\"\n        \" strong momentum and sustained interest.\"\n    )\n\n    def __init__(self, ma_window: int = 50, vol_window: int = 21) -> None:\n        self._ma_window = ma_window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._ma_window, self._vol_window))\n        if history.is_empty() or history.height < max(self._ma_window, self._vol_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.symbol.unique()]\n        signals: list[str] = []\n\n        for symbol in symbols:\n            ma_close = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .select(\n                    (pl.col(\"adj_close\").mean().over(\"session_date\").alias(f\"ma_{self._ma_window}\"))\n                )\n                .with_column(\n                    pl.col(f\"ma_{self._ma_window}\") / pl.col(\"adj_close\") - 1.0\n                )\n            )[\"diff\"].to_list()\n\n            if len(ma_close) < self._ma_window:\n                continue\n\n            ma_condition = all([abs(val) <= 0.05 for val in ma_close[-self._ma_window:]])\n\n            vol_history = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .group_by(\"session_date\")\n                .agg(\n                    (pl.col(\"volume\").mean().alias(f\"vol_{self._vol_window}\"))\n                )\n            )\n\n            if len(vol_history) < self._vol_window:\n                continue\n\n            vol_diffs = (\n                vol_history.with_column(\n                    (pl.col(\"volume\") / pl.col(f\"vol_{self._vol_window}\") - 1.0).alias(\"vol_ratio\")\n                )[\"vol_ratio\"].to_list()\n            )\n\n            vol_condition = any([abs(val) > 0.2 for val in vol_diffs[-self._vol_window:]])\n\n            if ma_condition and vol_condition:\n                signals.append(symbol)\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(signals)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 671
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.886862200000905,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 111
+}

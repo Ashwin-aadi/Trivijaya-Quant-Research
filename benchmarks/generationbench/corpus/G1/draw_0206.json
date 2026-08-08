@@ -1,0 +1,23 @@
+{
+  "index": 206,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to identify and ride strong trends while \"\n        \"adjusting position size based on the recent volatility. High volatility indicates \"\n        \"greater uncertainty and risk, so we adjust our positions accordingly.\"\n    )\n\n    def __init__(self, window: int = 20, factor: float = 1.5) -> None:\n        self._window = window\n        self._factor = factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_volatility = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            daily_returns = [(v - values[i-1]) / values[i-1] for i, v in enumerate(values) if i > 0]\n            volatility = pl.Series(daily_returns).std()\n            symbol_volatility[symbol] = volatility\n\n        top_symbols = sorted(symbol_volatility.keys(), key=lambda x: abs(symbol_volatility[x]), reverse=True)[:5]\n\n        weight = self._factor / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 428
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.740902699995786,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 210
+}

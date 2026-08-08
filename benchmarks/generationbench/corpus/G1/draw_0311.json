@@ -1,0 +1,23 @@
+{
+  "index": 311,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrend(Strategy):\n    rationale = (\n        \"This strategy identifies symbols with a recent trend in volatility. A rising trend \"\n        \"in volatility often precedes price reversals or significant moves. By identifying such \"\n        \"symbols, we aim to capture potential turning points in the market.\"\n    )\n\n    def __init__(self, window1: int = 20, window2: int = 60) -> None:\n        self._window1 = window1\n        self._window2 = window2\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window2)\n\n        if history.height < self._window2:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols_with_trend = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n\n            open_prices = [float(v) for v in history[symbol][[\"open\"]].to_list()]\n            adj_closes = [float(v) for v in history[symbol][[\"adj_close\"]].to_list()]\n\n            vol1 = _rolling_std(adj_closes, window=self._window1)\n            vol2 = _rolling_std(adj_closes, window=self._window2)\n\n            if len(vol1) < self._window2:\n                continue\n\n            trend = [vol1[i] <= vol2[i] for i in range(len(vol1))]\n            if all(trend):\n                symbols_with_trend.append(symbol)\n\n        weight = 1.0 / len(symbols_with_trend)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in symbols_with_trend}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _rolling_std(adj_closes: list[float], window: int) -> list[float]:\n    stds = []\n    for i in range(len(adj_closes) - window + 1):\n        subset = adj_closes[i : i + window]\n        mean = sum(subset) / len(subset)\n        variance = sum((x - mean) ** 2 for x in subset) / (len(subset) - 1)\n        stds.append(variance**0.5)\n    return stds",
+  "class_name": "VolatilityTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 568
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.659417899994878,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 316
+}

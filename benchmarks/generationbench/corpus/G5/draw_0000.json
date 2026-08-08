@@ -1,0 +1,26 @@
+{
+  "index": 0,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed well \"\n        \"relative to the market in the recent past to continue performing well. This strategy \"\n        \"selects the top-performing stocks based on their relative strength over a 20-day period.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n\n        if closes.height < self._window or not all(symbol in closes.columns for symbol in view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_values: dict[str, float] = {}\n        for symbol in view.symbols:\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            recent_close = float(closes[stamp, symbol])\n            returns = [(recent_close / value - 1.0) * 100.0 for value in values[:-1]]\n            momentum_score = max(returns)\n            symbol_values[symbol] = momentum_score\n\n        top_symbols = sorted(symbol_values.items(), key=lambda x: x[1], reverse=True)[: self._top_n]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, _ in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3963,
+    "output_tokens": 1335
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears to be a well-structured implementation of a cross-sectional momentum trading strategy. However, there are several areas where improvements or clarifications could enhance its robustness and accuracy.\n\n1. **Rationale vs Code Mismatch:**\n   - The rationale states that the strategy selects top-performing stocks based on their relative strength but does not explicitly mention how \"recent\" performances are measured. Line 9 of the code sets `window` as 20, which implies recent performance is considered over a 20-day period.\n\n2. **Potential Failure Scenarios:**\n   - If there are no symbols available in `closes.columns`, the strategy returns an empty weights dictionary (line 38). This could be misleading if it incorrectly suggests that no information was available.\n   - The handling of missing or null values is not robust; line 24 checks for non-null data but does not handle cases where all data points are null.\n\n3. **Fragile Parameters:**\n   - The `window` and `top_n` parameters (lines 5-6) could be problematic if not chosen carefully. A small window might lead to noisy signals, while a large one might miss short-term momentum.\n   - If the number of symbols (`len(top_symbols)`) is less than `top_n`, the strategy returns an empty weights dictionary, which might indicate a failure mode that needs better handling.\n\n4. **Code Fragility:**\n   - The function `_latest_visible` assumes that `visible.history()` contains the \"session_date\" column (line 35), which could be fragile if this assumption is not always true.\n   - There's no error handling for cases where the strategy might encounter unexpected data types or structures, such as non-date values in `session_date`.\n\nOverall, the core logic of selecting top-performing stocks based on relative strength over a recent period is sound. However, the implementation could benefit from more robust error handling and clearer documentation to enhance its reliability."
+  ],
+  "seconds": 40.41404610000018,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 2
+}

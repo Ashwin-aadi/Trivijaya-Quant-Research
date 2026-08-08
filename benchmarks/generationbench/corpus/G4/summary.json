@@ -1,0 +1,23 @@
+{
+  "arm": "G4",
+  "paradigm": "G4_planning",
+  "updated_at_utc": "2026-08-07T06:03:03Z",
+  "requested": 450,
+  "completed": 365,
+  "usable": 365,
+  "trials_before_this_sitting": 299,
+  "trials_after": 370,
+  "seconds_this_sitting": 2296.923295200002,
+  "draws_this_sitting": 70,
+  "tokens": {
+    "G4_planning": {
+      "prompt_tokens": 182932,
+      "output_tokens": 79185,
+      "calls": 281,
+      "draws": 70,
+      "accepted": 70,
+      "output_tokens_per_accepted": 1131.2142857142858
+    }
+  },
+  "fitness": null
+}

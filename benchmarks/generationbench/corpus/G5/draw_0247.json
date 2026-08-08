@@ -1,0 +1,26 @@
+{
+  "index": 247,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates reduced volatility and increased consolidation. \"\n        \"Stocks that have been consolidating might be due for a breakout or correction. \"\n        \"By identifying such stocks, we can potentially profit from the upcoming price movement.\"\n    )\n\n    def __init__(self, window: int = 30, threshold: float = 0.15) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.select(\"symbol\").unique().to_list():\n                continue\n            high_low_diff = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .select((pl.col(\"high\") - pl.col(\"low\")).alias(\"range\"))\n                .item()\n            )\n            recent_high_low_diff = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .sort(\"session_date\", descending=True)\n                .head(10)\n                .select(\n                    (pl.col(\"high\").max() - pl.col(\"low\").min()).alias(\"recent_range\")\n                )\n                .item()\n            )\n            if recent_high_low_diff / high_low_diff <= self._threshold:\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Adjusting the number of picked symbols dynamically\n        top_n = min(len(picks), 10)\n        weight = 1.0 / top_n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks[:top_n]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4093,
+    "output_tokens": 1464
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy, `RangeCompression`, generally aligns with its stated rationale but has some issues and potential fragilities:\n\n1. **Alignment with Rationale**: The strategy correctly aims to identify stocks that have experienced range compression, indicating reduced volatility and potential for a breakout or correction.\n\n2. **Potential Issues**:\n   - **Line 35 (Code Fragment):**\n     ```python\n     recent_high_low_diff = (\n         history.filter(pl.col(\"symbol\") == symbol)\n         .sort(\"session_date\", descending=True)\n         .head(10)\n         .select(\n             (pl.col(\"high\").max() - pl.col(\"low\").min()).alias(\"recent_range\")\n         )\n         .item()\n     )\n     ```\n     This line assumes that there are at least 10 sessions in the history. If not, it could lead to an error or incorrect calculation.\n\n   - **Line 45 (Code Fragment):**\n     ```python\n     picks = picks[:5]\n     ```\n     Limiting the number of stocks to 5 might miss out on relevant opportunities if more compressed ranges exist beyond the top 5. The threshold and window size could be better tuned to capture a wider range.\n\n   - **Line 49 (Code Fragment):**\n     ```python\n     weight = 1.0 / len(picks)\n     ```\n     Assigning equal weights to all selected stocks is simplistic. It might be more effective to use a different weighting strategy, such as relative compression ratio or other quantitative measures.\n\n3. **Fragilities**:\n   - The `threshold` parameter (line 8) could be too static and might not work well across different market conditions.\n   - The window size (`window`) is also fixed (line 7), which may need to be adjusted based on the specific characteristics of the markets being analyzed.\n\n4. **Potential Failures**:\n   - If `history.height < self._window` (line 16) and there's no recent history, the function returns an empty weights dictionary without generating a signal.\n   - The `.item()` method call assumes that the resulting value is a single scalar. This could fail if multiple rows are returned.\n\nOverall, while the strategy conceptually aligns with its rationale, it would benefit from more flexible parameter tuning and additional robustness checks to handle various edge cases."
+  ],
+  "seconds": 37.41658749999988,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 501
+}

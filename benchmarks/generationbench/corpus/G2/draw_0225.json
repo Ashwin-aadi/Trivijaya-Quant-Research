@@ -1,0 +1,23 @@
+{
+  "index": 225,
+  "paradigm": "G2_cot",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"This is because investors often demand higher returns for taking on additional risk. \"\n        \"By tilting towards low-volatility stocks, we can capture this risk premium.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        daily_returns = (\n            (history[\"adj_close\"] / history[\"adj_close\"].shift(1) - 1.0).alias(\"r\")\n        )\n        returns_df = history.with_columns(daily_returns)\n        volatilities = returns_df.groupby(\"symbol\").agg(\n            pl.col(\"r\").std().alias(\"volatility\")\n        )\n\n        sorted_symbols = (\n            volatilities.sort(pl.col(\"volatility\"), descending=False)[\"symbol\"]\n            .to_list()\n            [: len(symbols) // 2]\n        )\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in sorted_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 412
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.796559000002162,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 231
+}

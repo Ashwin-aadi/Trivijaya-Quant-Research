@@ -1,0 +1,23 @@
+{
+  "index": 756,
+  "paradigm": "G1_plain",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy identifies and invests in stocks with the strongest relative momentum \"\n        \"over a specified period. The idea is to capture the excess returns associated with \"\n        \"stocks that have performed well recently.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 60) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.is_empty() or history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        momentum_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            recent_closes = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(recent_closes) < self._window:\n                continue\n\n            # Calculate daily returns\n            returns = [(recent_closes[i] / recent_closes[i - 1] - 1.0) for i in range(1, self._window)]\n            avg_return = sum(returns) / self._window\n\n            momentum_scores[symbol] = avg_return\n\n        # Sort by momentum score and pick top N\n        sorted_symbols = [s for s, v in sorted(momentum_scores.items(), key=lambda item: -item[1])]\n        picks = sorted_symbols[: self._lookback]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1244,
+    "output_tokens": 507
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.945494900006452,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 770
+}

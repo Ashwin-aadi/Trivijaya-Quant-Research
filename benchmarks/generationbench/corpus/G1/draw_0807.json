@@ -1,0 +1,23 @@
+{
+  "index": 807,
+  "paradigm": "G1_plain",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity is a key driver of market efficiency. Assets with higher liquidity \"\n        \"are less prone to price manipulation and are easier to trade without significant impact.\"\n    )\n\n    def __init__(self, lookback_days: int = 20) -> None:\n        self._lookback_days = lookback_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history.filter(pl.col(\"symbol\").is_in(view.symbols))\n            .group_by(\"symbol\")\n            .agg((pl.col(\"volume\").mean().alias(\"mean_volume\"),))\n            .sort(\"mean_volume\", descending=True)\n            .head(self._lookback_days)\n            .select(\"symbol\", \"mean_volume\")\n        )\n\n        symbols = liquidity_scores[\"symbol\"].to_list()\n        weights = {s: 1.0 / len(symbols) for s in symbols}\n        return Signal(\n            information_available_at=stamp, weights={k: float(v) for k, v in weights.items()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 365
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.875137399998493,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 822
+}

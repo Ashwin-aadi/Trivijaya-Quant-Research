@@ -1,0 +1,23 @@
+{
+  "index": 577,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion in financial markets suggests that asset prices and earnings will \"\n        \"tend to move back towards the long-term mean or average level over time. Short-horizon \"\n        \"mean reversion strategies look for stocks that have deviated significantly from their \"\n        \"historical means and are expected to revert to those means.\"\n    )\n\n    def __init__(self, window: int = 10, deviation_threshold: float = 2.0) -> None:\n        self._window = window\n        self._deviation_threshold = deviation_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_reversion_scores = {}\n        for symbol in view.symbols:\n            symbol_history = history.select(\n                pl.col(\"session_date\"), pl.col(symbol).alias(f\"{symbol}_close\")\n            )\n            if symbol_history.is_empty():\n                continue\n\n            close_prices = [float(v) for v in symbol_history[f\"{symbol}_close\"].to_list()]\n            mean_price = float(pl.DataFrame(close_prices).mean().item())\n            latest_close = view.latest_close()[symbol]\n            deviation = (latest_close - mean_price) / mean_price\n            if abs(deviation) > self._deviation_threshold:\n                mean_reversion_scores[symbol] = deviation\n\n        # Filter out symbols that do not meet the threshold\n        mean_reversion_scores = {k: v for k, v in mean_reversion_scores.items() if abs(v) > self._deviation_threshold}\n\n        if not mean_reversion_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate equal-weighted positions based on the reversion scores\n        weights = {}\n        total_score = sum(abs(score) for score in mean_reversion_scores.values())\n        for symbol, score in mean_reversion_scores.items():\n            weight = 1.0 / len(mean_reversion_scores)\n            if score > 0:\n                weights[symbol] = -weight\n            else:\n                weights[symbol] = weight\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 590
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.315670099997078,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 586
+}

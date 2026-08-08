@@ -1,0 +1,23 @@
+{
+  "index": 269,
+  "paradigm": "G1_plain",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After a price breakout, the continuation of the trend can often be observed. \"\n        \"This strategy identifies stocks that have broken out and are likely to continue in the same direction.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < (self._window * len(view.symbols)):\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = self._find_breakout_symbols(history)\n\n        continuation_symbols = []\n        for symbol in breakout_symbols:\n            last_close = view.latest_close()[symbol]\n            relevant_data = history.filter(pl.col(\"symbol\") == symbol)\n            if relevant_data.height < (self._window + 1):\n                continue\n            open_price = float(relevant_data.select(pl.col(\"open\")).item())\n            close_price = float(relevant_data.select(pl.col(\"close\"))[-1].item())\n            if (last_close > open_price and last_close > close_price) or \\\n               (last_close < open_price and last_close < close_price):\n                continuation_symbols.append(symbol)\n\n        continuation_symbols = continuation_symbols[: self._top_n]\n        if not continuation_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(continuation_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in continuation_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).item()\n    assert isinstance(newest, date)\n    return newest\n\ndef _find_breakout_symbols(history: pl.DataFrame) -> list[str]:\n    breakout_symbols = []\n    for symbol in view.symbols:\n        relevant_data = history.filter(pl.col(\"symbol\") == symbol)\n        if relevant_data.height < (self._window + 1):\n            continue\n        open_price = float(relevant_data.select(pl.col(\"open\")).item())\n        close_price = float(relevant_data.select(pl.col(\"close\"))[-1].item())\n        if close_price >= max(relevant_data.filter(pl.col(\"session_date\") < relevant_data.select(pl.col(\"session_date\").max())).select(pl.col(\"adj_close\")).to_list()[0]):\n            breakout_symbols.append(symbol)\n    return breakout_symbols",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1243,
+    "output_tokens": 609
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.607100699999137,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 274
+}

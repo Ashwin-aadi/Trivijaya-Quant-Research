@@ -1,0 +1,26 @@
+{
+  "index": 37,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"Mean reversion occurs when an asset's price moves towards its historical mean. \"\n        \"Short-horizon mean reversion strategies exploit deviations from this mean by betting \"\n        \"that the price will revert to a long-term average.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        mean_close = (history[symbols] / 100).mean().to_dict(False)\n        latest_closes = {symbol: float(close) for symbol, close in view.latest_close().items()}\n\n        deviations = {\n            symbol: abs(latest_closes[symbol] - mean_close[symbol])\n            for symbol in symbols\n        }\n\n        sorted_symbols = [\n            s for _, s in sorted(deviations.items(), key=lambda item: item[1], reverse=True)\n        ][:5]\n        \n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in sorted_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3873,
+    "output_tokens": 1225
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has a solid rationale for mean reversion trading but contains some issues in its implementation:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale mentions short-horizon mean reversion strategies betting on price reverting to the long-term average, but the code focuses only on the latest 5 symbols with the highest deviations from the 20-day moving average. This discrepancy suggests the strategy might be more of a deviation-following approach rather than pure mean reversion.\n\n2. **Potential Failure Scenarios**:\n   - The `generate` method does not account for cases where there are no significant deviations or when all symbols have similar deviations, leading to an empty weight dictionary.\n   - The code assumes that the latest close prices and history are available in a format that can be directly manipulated without errors. If this assumption fails (e.g., missing data), the strategy will produce invalid signals.\n\n3. **Fragile Parameters**:\n   - The `window` parameter is hardcoded to 20, which might not work well for all market conditions or asset types.\n   - The threshold of selecting only the top 5 symbols based on deviations could be too strict or too lenient depending on the market's volatility and liquidity.\n\n4. **Potential Stops**:\n   - Line 23: `history = view.history(lookback=self._window)` might fail if the view object does not support this method.\n   - Line 26: `symbols = [s for s in view.symbols if s in history.columns]` assumes that all symbols are present in the history, which could be false if data is missing or delayed.\n\nOverall, while the strategy aims to capture mean reversion, it would benefit from a more robust handling of edge cases and a clearer definition between its rationale and implementation."
+  ],
+  "seconds": 32.355449800000315,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 77
+}

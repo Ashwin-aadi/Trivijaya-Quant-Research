@@ -1,0 +1,24 @@
+{
+  "index": 331,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates that the market is consolidating and may be ready for \"\n        \"a breakout in either direction. By identifying symbols with reduced price range over a \"\n        \"recent period, we can prepare to enter trades when the market breaks out.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            hist = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            open_prices = [float(v) for v in hist[\"open\"].to_list()]\n            close_prices = [float(v) for v in hist[\"close\"].to_list()]\n\n            if len(open_prices) < self._window or len(close_prices) < self._window:\n                continue\n\n            high = max([float(v) for v in hist[\"high\"].to_list()])\n            low = min([float(v) for v in hist[\"low\"].to_list()])\n            range_ratio = (high - low) / close_prices[-1]\n\n            if range_ratio <= self._threshold:\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2490,
+    "output_tokens": 918
+  },
+  "calls": 2,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 24.37836009998864,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 337
+}

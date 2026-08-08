@@ -1,0 +1,23 @@
+{
+  "index": 727,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression occurs when a stock's price volatility decreases significantly. \"\n        \"During such periods, the market may experience reduced uncertainty and higher trading \"\n        \"opportunities. Identifying stocks with high range compression can potentially lead to \"\n        \"above-average returns.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the high-low range for each day\n        history = (\n            history.with_columns(\n                (pl.col(\"high\") - pl.col(\"low\")).alias(\"range\")\n            )\n            .sort(\"session_date\", descending=False)\n            .tail(self._window)\n        )\n\n        # Compute the mean and standard deviation of the ranges\n        range_mean = history.select(pl.col(\"range\").mean().alias(\"mean_range\"))[0][0]\n        range_std_dev = (\n            history.with_columns((pl.col(\"range\") - pl.col(\"range\").mean()).pow(2))\n            .select(pl.col(\"range\").sum() / self._window)\n            .select(((pl.col(\"range\") ** 0.5).alias(\"std_range\")))[0][0]\n        )\n\n        # Identify stocks with high range compression\n        compressed_stocks = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            daily_ranges = [float(v) for v in history[symbol].to_list()]\n            std_dev = sum([(x - range_mean) ** 2 for x in daily_ranges]) / self._window\n            std_dev = std_dev**0.5\n            if std_dev < 1.3 * range_std_dev:\n                compressed_stocks.append(symbol)\n\n        # Select the top N stocks based on range compression\n        compressed_stocks = sorted(compressed_stocks, key=lambda s: -range_std_dev[symbol])\n        weight = 1.0 / len(compressed_stocks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in compressed_stocks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 586
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.200827699998626,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 739
+}

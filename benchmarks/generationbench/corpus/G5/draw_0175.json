@@ -1,0 +1,26 @@
+{
+  "index": 175,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression suggests that the price action is consolidating in a narrow range, \"\n        \"which often precedes a breakout. By identifying symbols with significant recent range \"\n        \"compression, we can capture potential breakouts.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            daily_data = history.filter(pl.col(\"symbol\") == symbol)\n            price_range = (daily_data.select(\"high\").max() - daily_data.select(\"low\").min()).to_list()[0]\n            if price_range <= 0:\n                continue\n            recent_high = daily_data.sort(\"session_date\", descending=True).head(2)[\"high\"].max()\n            recent_low = daily_data.sort(\"session_date\", descending=True).head(2)[\"low\"].min()\n            recent_range = recent_high - recent_low\n\n            if recent_range / price_range < 0.5:\n                signals[symbol] = 1.0\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        selected_symbols = sorted(signals.keys(), key=lambda k: -signals[k])[:self._top_n]\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in selected_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3998,
+    "output_tokens": 1355
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears to be well-structured and logically coherent in its implementation of the range compression rationale. However, there are several areas where the code and the stated rationale may disagree or contain potential issues:\n\n1. **Rationale vs Code**: The rationale states that range compression suggests a price action consolidating in a narrow range, often preceding a breakout. The code checks if `recent_range / price_range < 0.5`, which is not entirely accurate for identifying true range compression. This criterion could misidentify cases where recent ranges are smaller but still significant.\n\n2. **Fragile Parameters**:\n   - Line 19: Setting `window` to 20 might be too broad, as it looks back over a long period that may include market conditions not related to range compression.\n   - Line 23: The choice of `top_n = 5` could miss out on more relevant symbols if the top 5 selected do not have strong signals.\n\n3. **Potential Failures**:\n   - Lines 17-20: If no symbols meet the criteria, an empty signal is returned, which might be too permissive in scenarios where all symbols fail to meet the range compression condition.\n   - Line 46: The function `_latest_visible` assumes that `visible['session_date']` will always contain a maximum value. This could lead to errors if the dataset is incomplete or if no data exists for any symbol.\n\n4. **Code Fragility**:\n   - Line 30-31: Checking if `price_range > 0` before calculating `recent_range / price_range` might miss symbols with significant but non-positive ranges.\n   - Line 52: The sorting and slicing of the DataFrame could fail if there are ties in the values, leading to unpredictable behavior.\n\nOverall, while the core idea is sound, the specific implementation has several areas that need refinement for robustness and accuracy."
+  ],
+  "seconds": 35.10674470000049,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 355
+}

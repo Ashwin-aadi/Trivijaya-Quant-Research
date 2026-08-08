@@ -1,0 +1,23 @@
+{
+  "index": 556,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass PriceLevelReversion(Strategy):\n    rationale = (\n        \"Price levels that revert to the mean after a significant move are often good \"\n        \"entry points. This strategy identifies symbols where the current price has moved \"\n        \"significantly from its 20-day average and is now close to that average, indicating \"\n        \"a potential reversion.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            closes.groupby(pl.col(\"symbol\")).agg(\n                (pl.col(\"adj_close\").mean()).alias(\"20d_mean\")\n            )\n            .select(\n                pl.col(\"symbol\"), \"20d_mean\"\n            )  # Ensure these columns are selected for later joining\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"20d_mean\")).alias(\"deviation\"),\n                (pl.col(\"adj_close\") / pl.col(\"20d_mean\")).alias(\"price_ratio\"),\n            )\n        )\n\n        # Join mean_close with the latest closes to get recent prices\n        joined = (\n            closes.lazy()\n            .join(mean_close, on=\"symbol\", how=\"inner\")\n            .select(\n                pl.col(\"session_date\"), \"symbol\", \"adj_close\", \"20d_mean\", \"deviation\", \"price_ratio\"\n            )\n            .sort(\"session_date\", descending=True)\n        ).collect()\n\n        # Get the latest deviation and price ratio\n        recent_data = joined.to_pandas().iloc[0]\n        symbol = recent_data[\"symbol\"]\n        deviation = recent_data[\"deviation\"]\n        price_ratio = recent_data[\"price_ratio\"]\n\n        if abs(deviation) > 1.5 and price_ratio < 0.95:\n            return Signal(\n                information_available_at=stamp,\n                weights={symbol: 1.0},\n            )\n        else:\n            return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "PriceLevelReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 563
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.756828300000052,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 566
+}

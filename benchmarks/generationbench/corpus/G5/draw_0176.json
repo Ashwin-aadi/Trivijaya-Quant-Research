@@ -1,0 +1,26 @@
+{
+  "index": 176,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves suggest strong market sentiment. \"\n        \"A significant volume increase on a price move indicates potential continuation of the trend.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.select(\"symbol\", \"session_date\").to_pandas().values.tolist():\n                continue\n            history_df = history.filter((pl.col(\"symbol\") == symbol))\n            recent_closes = [float(v) for v in history_df[\"close\"].to_list()]\n            recent_volumes = [int(v) for v in history_df[\"volume\"].to_list()]\n\n            if len(recent_closes) < self._window + 1 or len(recent_volumes) < self._window + 1:\n                continue\n\n            # Calculate the price change and volume change\n            price_change = (recent_closes[-1] - recent_closes[0]) / recent_closes[0]\n            volume_change = (recent_volumes[-1] - recent_volumes[0]) / recent_volumes[0]\n\n            if price_change > 0.05 and volume_change > 0.3:\n                signals.append(symbol)\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(signals)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(\"session_date\").max().cast(pl.Date).to_numpy()[0].item().date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4155,
+    "output_tokens": 1518
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy, `VolumeConfirmMove`, has several strengths but also some potential weaknesses and issues:\n\n### Strengths:\n1. **Rationale Alignment**: The rationale aligns with the idea that significant volume confirmation on price movements can indicate a strong trend continuation, making it relevant for traders looking to capitalize on such patterns.\n\n2. **Parameter Flexibility**: The `window` parameter allows users to customize the lookback period, providing flexibility in adapting the strategy to different market conditions or asset types.\n\n### Issues and Criticisms:\n1. **Data Availability Check**:\n   - Line 30: `_latest_visible(view)` is used to check if data is available for a symbol, but this function might return `date(1900, 1, 1)` even if there are some records in the history (lines 26-28). This could lead to unnecessary filtering out of symbols that have some recent data.\n\n2. **Volume Change Calculation**:\n   - Line 53: The volume change calculation uses a threshold of `0.2` without any context or justification for this value. This might be overly strict, missing mild but still significant volume increases.\n   - Line 47: The price change threshold is set to `0.01`, which might be too high depending on the asset class and market conditions.\n\n3. **Fragmented Data Handling**:\n   - Lines 39-46: If the number of records in `recent_closes` or `recent_volumes` is less than `self._window + 1`, the function skips that symbol without considering if it has any recent data, which could be misleading.\n\n4. **Potential Fragility**:\n   - The strategy might fail to generate signals for symbols with no significant price movement (even with a large volume increase) or those where both conditions are barely met.\n   - Line 57: Using `1.0 / len(signals)` as the weight might not be optimal; equal weighting assumes all selected symbols have the same importance, which might not always be true.\n\n### Fragile Parameters:\n- The thresholds for price and volume changes (`0.01` and `0.2`, respectively) are hardcoded without context or tuning mechanisms based on historical data.\n- The strategy\u2019s sensitivity to missing recent data could be improved by handling such cases more robustly, perhaps by interpolating missing values or using a different method to assess the signal.\n\nOverall, while the core idea is sound, improvements in parameterization and data handling can enhance its reliability and effectiveness."
+  ],
+  "seconds": 38.452084900000045,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 357
+}

@@ -1,0 +1,23 @@
+{
+  "index": 826,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Certain stocks exhibit stronger performance at specific times of the year due to seasonal \"\n        \"effects. By identifying these patterns, we can allocate capital more effectively during \"\n        \"favorable periods.\"\n    )\n\n    def __init__(self, window: int = 365, seasonality_periods: list[tuple[str, int]] = []) -> None:\n        self._window = window\n        self._seasonality_periods = seasonality_periods\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(pl.col(\"symbol\").alias(\"close\"))\n\n        seasonality_scores = {s: 0.0 for s in self._seasonality_periods}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            date_field = history.select(pl.col(\"session_date\")).to_numpy().flatten()\n            dates = [date.fromisoformat(d.decode()) for d in date_field]\n\n            seasonal_scores = {s: 0.0 for s in self._seasonality_periods}\n            for i, (period_name, period_length) in enumerate(self._seasonality_periods):\n                start_date = stamp - date(1, 1, 1) + date.fromisoformat(period_name)\n                end_date = start_date + date(1, 1, 1) * period_length\n                season_indices = [j for j, d in enumerate(dates) if start_date <= d < end_date]\n                seasonal_scores[period_name] = sum(values[j] for j in season_indices)\n\n            max_score = max(seasonal_scores.values())\n            best_period = next(k for k, v in seasonal_scores.items() if v == max_score)\n            seasonality_scores[best_period] += 1.0\n\n        top_period = max(seasonality_scores, key=seasonality_scores.get)\n        picks = [symbol for symbol in view.symbols if symbol in closes.columns]\n        weight = 1.0 / len(picks) if picks else 0.0\n        return Signal(\n            information_available_at=stamp,\n            weights={s: seasonality_scores[s] * weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 633
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.514495199997327,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 841
+}

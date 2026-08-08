@@ -1,0 +1,23 @@
+{
+  "index": 786,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength to the NIFTY 100 index are expected to outperform \"\n        \"the broader market. This strategy identifies such stocks based on their recent price \"\n        \"performance compared to the overall market.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.2) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window).select([\"symbol\", \"session_date\", pl.col(\"adj_close\").alias(\"close\")])\n\n        # Calculate the average close for NIFTY 100 symbols\n        nifty_100_history = history.filter(pl.col(\"symbol\").is_in(view.symbols))\n        nifty_100_closes = nifty_100_history.select(\"adj_close\")\n        avg_nifty_100_close = (nifty_100_closes.sum() / nifty_100_history.height).item()\n\n        # Calculate relative strength for each symbol\n        relative_strength: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            close_values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(close_values) < self._window:\n                continue\n\n            last_close = close_values[-1]\n            relative_strength[symbol] = last_close / avg_nifty_100_close\n\n        # Select symbols with a relative strength above the threshold\n        strong_symbols = [symbol for symbol, rs in relative_strength.items() if rs >= self._threshold]\n\n        if not strong_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(strong_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in strong_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 575
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.364099900005385,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 801
+}

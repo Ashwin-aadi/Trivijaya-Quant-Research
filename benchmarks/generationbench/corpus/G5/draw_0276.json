@@ -1,0 +1,26 @@
+{
+  "index": 276,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum involves buying stocks that have outperformed their peers \"\n        \"in the recent past. This strategy leverages the idea that stocks with strong relative performance are more likely to continue performing well.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 10) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\")\n            )\n            .sort(\"session_date\", descending=True)\n            .select([\"symbol\", \"session_date\", \"r\"])\n        )\n\n        # Compute cumulative returns over the lookback period\n        history = (\n            history.group_by(\"symbol\")\n            .agg(\n                pl.col(\"r\").sum().alias(\"total_return\"),\n                pl.col(\"adj_close\").last().alias(\"latest_close\"),\n            )\n            .sort(\"total_return\", descending=True)\n        )\n\n        symbols = [row[\"symbol\"] for row in history.to_dicts()][: self._lookback]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        raise ValueError(\"No historical data available to generate signal.\")\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4045,
+    "output_tokens": 1396
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is well-structured but contains a few potential issues and areas for improvement:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states that the strategy buys stocks outperforming their peers recently. However, the code calculates cumulative returns over the lookback period, which might not always align with recent performance. Specifically, line 23 calculates daily returns but lines 41-45 compute cumulative returns over a longer period.\n\n2. **Potential Failure**:\n   - The strategy may fail if the `history` DataFrame does not contain enough data to calculate meaningful signals. For example, if the lookback period is too large relative to the available history (line 39).\n\n3. **Fragile Parameters**:\n   - The parameters `window` and `lookback` are hardcoded in the class definition. If these parameters change, they need to be adjusted across the entire codebase. Consider making them instance variables or configurable through a constructor argument.\n   - Line 20 uses `pl.col(\"adj_close\").shift(1)`, which assumes there is always a previous row available. This could fail if the first entry in the DataFrame does not have a previous value.\n\n4. **Potential Issues**:\n   - The `_latest_visible` function (line 53) returns a default date of `1900-01-01` if no data is available, which might be misleading. It would be better to raise an exception or return None.\n   - Line 46 assumes that the group-by operation will always produce at least one row, potentially leading to errors if the input data does not meet expectations.\n\n5. **Running Concerns**:\n   - Ensure `polars` is properly installed and imported.\n   - The strategy relies on `MarketView`, which should be defined elsewhere in the codebase.\n   - The strategy assumes that all necessary columns (`symbol`, `session_date`, `adj_close`) are present in the data.\n\nOverall, while the strategy aims to capture cross-sectional momentum, there are potential issues with parameter handling and assumptions about input data. These could be addressed by making parameters more flexible, adding checks for edge cases, and ensuring robust handling of input data."
+  ],
+  "seconds": 35.93197170000167,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 560
+}

@@ -1,0 +1,23 @@
+{
+  "index": 202,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Certain sectors or industries may exhibit strong seasonal trends due to specific \"\n        \"economic drivers. For instance, tourism-related stocks might experience higher returns \"\n        \"during holiday seasons, while agricultural companies could see increased activity and \"\n        \"prices during planting and harvest times.\"\n    )\n\n    def __init__(self, window: int = 20, lookback_periods: int = 12) -> None:\n        self._window = window\n        self._lookback_periods = lookback_periods\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback_periods)\n\n        if closes.height < self._lookback_periods or len(view.symbols) == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality: dict[str, float] = {}\n        for symbol in view.symbols:\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._lookback_periods:\n                continue\n            avg_returns = sum((v / values[i - 1] - 1.0 for i, v in enumerate(values)), start=0)\n            seasonality[symbol] = (avg_returns / (self._lookback_periods - 1)) * 100\n\n        sorted_symbols = sorted(seasonality.items(), key=lambda x: abs(x[1]), reverse=True)\n        top_symbols = [s for s, _ in sorted_symbols[: self._window]]\n\n        weight = 1.0 / len(top_symbols) if top_symbols else 0\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 478
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.040692500006116,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 208
+}

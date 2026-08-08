@@ -1,0 +1,23 @@
+{
+  "index": 679,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression occurs when a stock's price movement becomes less volatile over \"\n        \"a period. This can indicate that the market is consolidating and may be setting up for \"\n        \"a potential breakout or trend continuation. Identifying stocks with reduced volatility \"\n        \"can help predict such movements.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        ranges = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            highs = [float(h) for h in history[symbol + \"_high\"].to_list()]\n            lows = [float(l) for l in history[symbol + \"_low\"].to_list()]\n            range_series = pl.Series(highs).sub(pl.Series(lows)).alias(\"range\")\n            range_value = range_series.sum()\n            ranges.append((symbol, range_value))\n\n        if not ranges:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_range = sum(r[1] for r in ranges) / len(ranges)\n        compressed_stocks = [r[0] for r in ranges if r[1] < 0.75 * avg_range]\n\n        weight = 1.0 / len(compressed_stocks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in compressed_stocks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 451
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.559989700006554,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 690
+}

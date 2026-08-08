@@ -1,0 +1,23 @@
+{
+  "index": 443,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: the strength of a stock's \"\n        \"recent momentum and its valuation relative to historical levels. A strong momentum and \"\n        \"a low valuation are indicators that the stock may be undervalued but showing signs of \"\n        \"strength, potentially leading to future gains.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, valuation_window: int = 50) -> None:\n        self._momentum_window = momentum_window\n        self._valuation_window = valuation_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._momentum_window, self._valuation_window))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores: dict[str, float] = {}\n        valuation_scores: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            recent_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(recent_closes) < self._momentum_window:\n                continue\n            momentum_score = (recent_closes[-1] - recent_closes[0]) / sum(\n                abs(r - recent_closes[0]) for r in recent_closes\n            )\n            momentum_scores[symbol] = momentum_score\n\n        valuation_history = view.closes(lookback=self._valuation_window)\n        for symbol in view.symbols:\n            if symbol not in valuation_history.columns:\n                continue\n            values = [float(v) for v in valuation_history[symbol].drop_nulls().to_list()]\n            if len(values) < self._valuation_window:\n                continue\n            min_value, max_value = min(values), max(values)\n            recent_close = float(view.latest_close()[symbol])\n            if recent_close >= 0.9 * min_value and recent_close <= 1.1 * max_value:\n                valuation_score = (recent_close - min_value) / (max_value - min_value)\n            else:\n                valuation_score = 0.0\n            valuation_scores[symbol] = valuation_score\n\n        combined_scores = {\n            symbol: momentum_scores.get(symbol, 0.0) + valuation_scores.get(symbol, 0.0)\n            for symbol in view.symbols\n        }\n\n        sorted_symbols = [\n            s for _, s in sorted(combined_scores.items(), key=lambda item: -item[1])\n        ][:5]\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in sorted_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 688
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.326203599994187,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 451
+}

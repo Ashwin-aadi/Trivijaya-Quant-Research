@@ -1,0 +1,23 @@
+{
+  "index": 644,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirm(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are indicative of strong market sentiment and \"\n        \"greater likelihood of continued movement in the direction of the initial move.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            symbol_history = history[symbol]\n            recent_close = float(symbol_history[\"close\"].max())\n            recent_volume = int(symbol_history[\"volume\"].max())\n\n            # Check for a directional move with sufficient volume confirmation\n            moves = [float(v) for v in symbol_history[\"close\"].to_list()]\n            if len(moves) < self._window:\n                continue\n\n            latest_move = recent_close - float(symbol_history[\"close\"][1])\n            if not (latest_move > 0 and recent_volume >= max([int(volume) for volume in symbol_history[\"volume\"]])):\n                continue\n\n            # Check the previous window to ensure it was a downward move\n            prev_window_moves = [moves[i] - moves[i + 1] for i in range(len(moves) - 1)]\n            if not all(move < 0 for move in prev_window_moves):\n                continue\n\n            breakout_symbols.append(symbol)\n\n        weights: dict[str, float] = {symbol: 1.0 / len(breakout_symbols) for symbol in breakout_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirm",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 474
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.820024000000558,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 657
+}

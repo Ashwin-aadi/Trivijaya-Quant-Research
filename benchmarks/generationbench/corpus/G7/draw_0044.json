@@ -1,0 +1,47 @@
+{
+  "index": 44,
+  "paradigm": "G7_mcts",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are indicative of strong market sentiment and \"\n        \"can lead to sustainable price movements. By focusing on the last 3 hours of trading, \"\n        \"we can identify such moves with confidence.\"\n    )\n\n    def __init__(self, window: int = 3) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_changes: dict[str, float] = {}\n        for symbol in symbols:\n            adj_close_series = history[symbol].select(\"adj_close\").to_numpy().flatten()\n            volume_series = history[symbol].select(\"volume\").to_numpy().flatten()\n\n            if len(adj_close_series) < self._window * 2 or len(volume_series) < self._window * 2:\n                continue\n\n            # Calculate VWAP for the last window periods\n            vwap_changes = []\n            for i in range(self._window, len(adj_close_series), 1):\n                volume_sum = sum(volume_series[i - self._window : i])\n                if volume_sum == 0:\n                    continue\n                vwap_change = (adj_close_series[i] - adj_close_series[i - self._window]) / adj_close_series[i - self.window]\n                vwap_changes.append(vwap_change * volume_series[i])\n\n            if not vwap_changes:\n                continue\n\n            avg_vwap_change = sum(vwap_changes) / sum(volume_series[-self._window:])\n            volume_changes[symbol] = avg_vwap_change\n\n        top_symbols = sorted(volume_changes, key=volume_changes.get, reverse=True)[:3]\n        weights = {s: 1.0 / 3 for s in top_symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weights[s] for s in view.symbols if s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19464,
+    "output_tokens": 7738
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the percentage change in daily closing price, looking back over the past 5 days. This measures the directional move confirmed by volume, as significant changes in close are filtered through recent trading activity.",
+    "The signal will be the volume-weighted average price (VWAP) percentage change over the last 3 hours of trading, confirming directional moves with both price and volume data.",
+    "The portfolio will hold a maximum of 10 names at any given time, with each name equally weighted at 10%. This equal weighting ensures diversification while keeping the portfolio manageable and responsive to market changes.",
+    "The portfolio will hold three equities, each weighted equally at 33.33%, based on the volume-weighted average price (VWAP) percentage change over the last 3 hours of trading, confirming directional moves with both price and volume data.",
+    "The portfolio will hold a maximum of 10 names at any given time, with each name equally weighted at 10%. This equal weighting ensures diversification while keeping the portfolio manageable and responsive to market changes.",
+    "The portfolio will hold three equities, each weighted equally at 33.33%, based on the volume-weighted average price (VWAP) percentage change over the last 3 hours of trading, confirming directional moves with both price and volume data.",
+    "For the risk rule, I will set an individual position loss limit of -5% to prevent any single stock from causing excessive portfolio volatility. This limit ensures that no single investment can lead to significant losses, maintaining overall portfolio stability.",
+    "For this strategy, I propose setting a stop-loss rule at -5% for each individual equity position and -8% for the total portfolio value. This ensures that no single equity can lose more than 5% of its value before exiting the trade, while the entire portfolio's loss is capped at 8%, effectively stopping further trading if exceeded.",
+    "To limit risk, I propose setting a stop-loss rule of 5% on individual positions. This means if any stock in the portfolio drops by more than 5%, the position will be exited to prevent further losses. Additionally, if the overall portfolio value declines by 10% from its peak, the strategy will pause trading to reassess before resuming.",
+    "For the risk rule, I propose setting an individual position loss bound of -3% on each equity, with a portfolio-wide loss limit of -5%. This will stop trading when either bound is breached, ensuring manageable risk exposure.",
+    "For the risk rule, I will set a stop-loss at -3% for each position to quickly mitigate potential losses and protect the portfolio from extended declines in individual stocks. This limit balances rapid risk management with the need for strategic holding periods.",
+    "For this strategy, I propose setting a stop-loss rule at -5% for each individual equity position and -8% for the total portfolio value. This ensures that no single equity can lose more than 5% of its value before exiting the trade, while the entire portfolio's loss is capped at 8%, effectively stopping further trading if exceeded."
+  ],
+  "seconds": 224.15545040002326,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 551
+}

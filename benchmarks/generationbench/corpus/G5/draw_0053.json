@@ -1,0 +1,26 @@
+{
+  "index": 53,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"Breakouts that are sustained by further price movements in the breakout direction \"\n        \"indicate a strong trend continuation. This strategy identifies symbols that have \"\n        \"recently broken out and continue to move in that direction.\"\n    )\n\n    def __init__(self, window: int = 20, continuation_window: int = 5, min_cont_factor: float = 0.1) -> None:\n        self._window = window\n        self._continuation_window = continuation_window\n        self._min_cont_factor = min_cont_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._continuation_window)\n        if history.height < self._window + self._continuation_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = set()\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            breakouts = adj_closes[-self._window - 1 : -self._continuation_window]\n            continuations = adj_closes[-self._continuation_window:]\n            if len(breakouts) < self._window or len(continuations) < self._continuation_window:\n                continue\n\n            breakout_price = breakouts[0]\n            max_continuation_price = max(continuations)\n            cont_factor = (max_continuation_price - breakout_price) / breakout_price\n            if cont_factor > self._min_cont_factor:\n                breakout_symbols.add(symbol)\n\n        weights = {s: 1.0 / len(breakout_symbols) for s in breakout_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4054,
+    "output_tokens": 1443
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy outlined in the provided code generally aligns with its stated rationale but has several areas for improvement and potential issues:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale suggests identifying symbols that have broken out recently and are continuing to move in that direction, which is reflected in the logic of finding breakouts followed by continuations.\n   - However, the code does not explicitly check if the breakout price was indeed a recent high or low before the continuation period. This could be improved for better accuracy.\n\n2. **Potential Failures**:\n   - Line 31: The condition `if continuity_factor := (continuation_price - breakout_price) / breakout_price > 0.1:` uses an arbitrary threshold of 0.1, which may not universally apply to all markets or timeframes.\n   - Lines 26-35: The logic assumes that the first price in the breakouts list and the maximum price in the continuations list are meaningful. This could fail if there are missing values (handled by `drop_nulls()`) or if the data is highly volatile.\n\n3. **Fragile Parameters**:\n   - Lines 8-9: The parameters `window` and `continuation_window` can significantly impact the strategy's performance. Choosing overly large windows might miss short-term trends, while small values could lead to noise in signals.\n   - Line 25: The use of a fixed threshold (0.1) for continuity factor is fragile. This value should be calibrated based on historical data or through backtesting.\n\n4. **Potential Issues**:\n   - Line 7: The `generate` method's return type hints at using `weights`, but the implementation uses a single weight for all selected symbols, which might not be optimal.\n   - Line 20: The code assumes that history contains the required columns for each symbol, which could fail if data is missing or improperly structured.\n\n5. **Code Soundness**:\n   - Lines 36-41: The `weights` assignment uses a simple averaging approach, which might not capture nuanced market conditions.\n   - Line 28: The strategy does not handle scenarios where there are no breakouts within the given window and continuation period, potentially leading to uninformative signals.\n\nOverall, while the core logic is sound, the strategy could benefit from more rigorous testing and parameter tuning."
+  ],
+  "seconds": 36.8042461999994,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 109
+}

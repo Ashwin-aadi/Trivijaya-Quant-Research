@@ -1,0 +1,47 @@
+{
+  "index": 32,
+  "paradigm": "G7_mcts",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"This strategy identifies stocks with volume-confirmed directional moves. \"\n        \"By focusing on sustained upward trends supported by increased trading activity, we aim to capitalize on momentum.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            opens = [float(v) for v in df[\"open\"].to_list()]\n            closes = [float(v) for v in df[\"close\"].to_list()]\n            volumes = [int(v) for v in df[\"volume\"].to_list()]\n\n            if len(opens) < self._window:\n                continue\n\n            up_days = sum(1 for i in range(self._window - 1) if closes[i + 1] > opens[i])\n            avg_volume = float(df.select(pl.col(\"volume\").mean()).item())\n            volume_up_days = sum(1 for v in volumes[-self._window:] if v > avg_volume)\n\n            if up_days >= self._top_n and volume_up_days >= self._top_n:\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20057,
+    "output_tokens": 6570
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the signal in this systematic equity strategy for the Indian market, I propose measuring the volume of trades that confirm directional moves over a lookback period of 20 trading days. Specifically, we will count the number of days where the closing price is higher than the opening price and volume is above average, focusing on identifying sustained upward trends supported by increased trading activity.",
+    "For the signal in this systematic equity strategy for the Indian market, I propose measuring the volume of trades that confirm directional moves over a lookback period of 20 trading days. Specifically, we will count the number of days where the closing price is higher than the opening price and volume is above average, focusing on identifying sustained upward trends supported by increased trading activity.",
+    "For the portfolio rule, we will hold a maximum of five names at any given time, with each name weighted equally at 20%. This ensures diversification while maintaining simplicity in management.",
+    "For the portfolio rule, we will hold a maximum of 20 stock names, each weighted equally at 5% to balance diversification and risk management.",
+    "For the portfolio rule, we will hold a maximum of five names at any given time, with each name weighted equally at 20%. This approach balances diversification needs with manageable complexity.",
+    "For the portfolio rule, we will hold a maximum of 20 stock names, each weighted equally at 5%. This approach balances diversification to mitigate risk while allowing for sufficient exposure to potentially strong directional moves identified by our volume-confirmed criteria.",
+    "For the risk rule, we will limit the loss on a single position to no more than a 10% drawdown from entry price. Additionally, if the total portfolio loss exceeds 5%, we will halt further trading until the next rebalancing period.",
+    "For the risk rule, we will set a stop-loss threshold of 5% on an individual stock position to limit potential losses and a total portfolio loss of 10% before halting trading to prevent further capital exposure.",
+    "For the risk rule, we will set a stop-loss threshold of 5% on an individual stock position to limit potential losses and a total portfolio loss of 10% before halting trading to prevent further capital exposure. This ensures disciplined risk management while allowing the strategy to continue capturing volume-confirmed directional moves.",
+    "For the risk rule, we will set a stop-loss threshold of 5% on an individual position to limit potential losses from any single stock, and a total portfolio loss threshold of 10% to halt trading if the strategy experiences significant overall declines. This ensures risk is managed while maintaining the ability to capture strong directional moves.",
+    "For the risk rule, we will set an individual position loss limit of -10% to prevent significant exposure to any single stock, and a portfolio-wide loss limit of -20% to halt trading and review the strategy if such a threshold is breached. This ensures manageable risk while allowing for continued market participation within defined bounds.",
+    "For the risk rule, we will set an individual position loss limit of -5% to prevent substantial exposure to any single stock, and a portfolio-wide loss limit of -15% to trigger a review of the strategy if breached. This approach maintains a balance between risk management and market participation."
+  ],
+  "seconds": 325.9850110000116,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 402
+}

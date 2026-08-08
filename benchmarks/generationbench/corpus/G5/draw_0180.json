@@ -1,0 +1,26 @@
+{
+  "index": 180,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy invests in the top-performing stocks based on their \"\n        \"recent returns. The idea is that past winners are likely to continue outperforming.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history_with_returns = (\n            history\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=True)\n        )\n\n        top_performers = (\n            history_with_returns\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"return\").mean().alias(\"avg_return\")),\n                pl.col(\"adj_close\").last().alias(\"latest_close\"),\n            )\n            .sort(\"avg_return\", descending=True)\n            .select([\"symbol\", \"avg_return\"])\n        )\n\n        if top_performers.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks = [row[\"symbol\"] for row in top_performers.rows()[:self._top_n]]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3916,
+    "output_tokens": 1295
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is generally well-structured and aligns with its stated rationale of investing in top-performing stocks based on recent returns. However, there are a few areas for improvement and potential issues:\n\n1. **Rationale vs Code Discrepancy:**\n   - The rationale mentions \"recent returns,\" but the code calculates mean returns over the lookback period (line 23). This might not capture short-term momentum effects as intended.\n\n2. **Potential Failure Scenarios:**\n   - If there are no symbols in `top_performers` with a sufficient number of rows to form picks, the strategy will return an empty weights dictionary (line 40), which could indicate a failure mode that needs clearer handling.\n   \n3. **Fragility of Parameters:**\n   - The fixed threshold of picking top 5 performers (line 38) might be too rigid and not adaptable to different market conditions or datasets.\n\n4. **Code Fragilities:**\n   - If `history` is empty, the function returns an empty weights dictionary without specifying any timestamp for information availability (line 29). It should return a clear timestamp even in failure cases.\n   - The `latest_visible` function assumes that there will always be at least one row with a session date. This might fail if the view's history is entirely empty, leading to an assertion error (line 53).\n\n5. **Non-Running Issues:**\n   - Ensure that `MarketView`, `Signal`, and other dependencies are correctly defined elsewhere in your codebase.\n   - The import statement from `src.backtest.strategy` should be correct, or the path may need adjustment.\n\nIn summary, while the strategy aligns with its rationale overall, it could benefit from clearer handling of failure cases and more flexible parameter settings. Additionally, ensuring robustness against edge cases and confirming that all dependencies are correctly defined would improve its reliability."
+  ],
+  "seconds": 33.92723120000119,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 365
+}

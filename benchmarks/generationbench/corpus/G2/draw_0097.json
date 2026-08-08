@@ -1,0 +1,23 @@
+{
+  "index": 97,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that prices which deviate significantly from their historical \"\n        \"average will eventually revert. In a short horizon, this can be exploited by going long \"\n        \"on underperforming stocks and short selling overperforming ones.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history[symbols]\n            .group_by(\"session_date\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"mean_close\"))\n            .sort(\"session_date\", descending=False)\n            .select([\"symbol\", \"mean_close\"])\n        )\n\n        recent_closes = view.closes(lookback=self._window)\n        if recent_closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_reversion_signal: pl.DataFrame = (\n            recent_closes\n            .select(pl.all().to_list() + [\"symbol\"])\n            .join(mean_close, on=\"symbol\")\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"mean_close\")).alias(\"deviation\"),\n                ((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0)).alias(\"return\"),\n            )\n            .sort(\"session_date\", descending=False)\n        )\n\n        # Calculate mean deviation and std\n        mean_deviation = mean_reversion_signal[\"deviation\"].mean().round(4).to_list()[0]\n        std_deviation = (\n            mean_reversion_signal.select(\n                pl.col(\"deviation\").std().alias(\"std_deviation\")\n            )\n            .collect()\n            .height\n            > 0\n        )\n        if not std_deviation:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Identify underperforming and overperforming symbols\n        underperforming = (\n            mean_reversion_signal.filter(pl.col(\"deviation\") < (mean_deviation - 1.5 * std_deviation))\n            .select([\"symbol\"])\n            .to_dict(as_pandas=False)[\"symbol\"]\n        )\n        overperforming = (\n            mean_reversion_signal.filter(\n                pl.col(\"deviation\") > (mean_deviation + 1.5 * std_deviation)\n            )\n            .select([\"symbol\"])\n            .to_dict(as_pandas=False)[\"symbol\"]\n        )\n\n        # Assign weights\n        if underperforming:\n            weight = 0.7 / len(underperforming)\n            long_weights = {s: weight for s in underperforming}\n        else:\n            long_weights = {}\n\n        if overperforming:\n            short_weight = -0.3 / len(overperforming)\n            short_weights = {s: short_weight for s in overperforming}\n        else:\n            short_weights = {}\n\n        weights = {**long_weights, **short_weights}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 816
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 19.037233600000036,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 101
+}

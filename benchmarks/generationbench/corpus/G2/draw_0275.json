@@ -1,0 +1,23 @@
+{
+  "index": 275,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"We hypothesize that stocks with low relative volatility and high recent positive momentum \"\n        \"are likely to continue trending. Low relative volatility suggests that the stock is less \"\n        \"susceptible to large price swings, while strong recent momentum implies a higher probability of continued outperformance.\"\n    )\n\n    def __init__(self, window_volatility: int = 20, window_momentum: int = 5) -> None:\n        self._window_volatility = window_volatility\n        self._window_momentum = window_momentum\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window_momentum + self._window_volatility)\n        if closes.height < self._window_volatility + self._window_momentum:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the volatility using 20-day rolling standard deviation\n        volatilities = []\n        for symbol in view.symbols:\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window_volatility + self._window_momentum - 1:\n                continue\n\n            # Compute the rolling standard deviation\n            vol = (\n                pl.DataFrame({\"close\": values})\n                .rolling_window(window=self._window_volatility, closed=\"both\")\n                .std()\n                .to_series()\n                .drop_nulls()\n                .to_list()[-1]\n            )\n            if not isinstance(vol, (float, int)):\n                continue\n            volatilities.append((symbol, vol))\n\n        # Filter symbols based on low relative volatility\n        filtered_symbols = [symbol for symbol, _ in sorted(volatilities) if _ <= 0.1]\n\n        # Calculate the momentum using 5-day closing price change\n        momentums = []\n        for symbol in filtered_symbols:\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window_momentum + 1:\n                continue\n\n            # Compute the recent momentum\n            mom = (values[-1] - values[-self._window_momentum]) / values[-self._window_momentum]\n            momentums.append((symbol, mom))\n\n        # Filter symbols based on high positive momentum\n        filtered_symbols_and_moments = [s for s, m in sorted(momentums) if m > 0.1]\n        if not filtered_symbols_and_moments:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(filtered_symbols_and_moments)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in filtered_symbols_and_moments},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 692
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.481869800001732,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 281
+}

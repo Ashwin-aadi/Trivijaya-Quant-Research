@@ -1,0 +1,23 @@
+{
+  "index": 479,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: volume-based momentum and \"\n        \"price strength. It aims to identify stocks that have both high volume and strong price \"\n        \"action over a recent period, suggesting underlying demand and support for the stock.\"\n    )\n\n    def __init__(self, window_volume: int = 20, threshold_volume: float = 1.5, window_price: int = 10) -> None:\n        self._window_volume = window_volume\n        self._threshold_volume = threshold_volume\n        self._window_price = window_price\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_volume + self._window_price)\n\n        if history.height < self._window_volume + self._window_price:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_signal = self._volume_momentum_signal(history)\n        price_signal = self._price_strength_signal(history)\n\n        combined_signal = {s: (v * 0.5 + p * 0.5) for s, v in volume_signal.items() if s in price_signal}\n        \n        if not combined_signal:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(combined_signal)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: w for s, w in combined_signal.items()}\n        )\n\n\n    def _volume_momentum_signal(self, history: pl.DataFrame) -> dict[str, float]:\n        volumes = {symbol: [float(v) for v in history[symbol].to_list()] for symbol in view.symbols}\n        momentum_volumes = {}\n\n        for symbol, volume_history in volumes.items():\n            if len(volume_history) < self._window_volume:\n                continue\n            last_volume = volume_history[-1]\n            max_volume = max(volume_history)\n            if last_volume >= max_volume * self._threshold_volume:\n                momentum_volumes[symbol] = 0.5\n\n        return momentum_volumes\n\n\n    def _price_strength_signal(self, history: pl.DataFrame) -> dict[str, float]:\n        prices = {symbol: [float(v) for v in history[\"adj_close\"][history.columns.get_index_of(symbol)].to_list()] for symbol in view.symbols}\n        strength_prices = {}\n\n        for symbol, price_history in prices.items():\n            if len(price_history) < self._window_price:\n                continue\n            last_price = price_history[-1]\n            max_price = max(price_history)\n            if last_price >= max_price * 0.95:  # Weak threshold to identify strong price action\n                strength_prices[symbol] = 0.5\n\n        return strength_prices\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 685
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.270735500002047,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 487
+}

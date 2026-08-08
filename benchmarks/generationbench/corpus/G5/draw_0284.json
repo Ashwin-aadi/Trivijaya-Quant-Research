@@ -1,0 +1,26 @@
+{
+  "index": 284,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves suggest strong market sentiment and can indicate \"\n        \"the beginning of a trend. By identifying symbols with significant volume on days when \"\n        \"prices move in a specific direction, we can generate profitable trades.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or f\"{symbol}_volume\" not in history.columns:\n                continue\n            session_dates = [str(d) for d in history[\"session_date\"].to_list()]\n            adj_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            volumes = [int(v) for v in history[f\"{symbol}_volume\"].drop_nulls().to_list()]\n\n            if len(adj_closes) < self._window + 1:\n                continue\n\n            # Calculate the price change and volume on the last session\n            last_close = adj_closes[-1]\n            last_volume = volumes[-1]\n\n            # Check for a significant move and confirm with high volume\n            avg_volume = pl.Series(volumes).mean().to_list()[0]\n            if (\n                (last_close - adj_closes[-2] > 0.5 * abs(adj_closes[-2]) and last_volume > 1.5 * avg_volume)\n                or (last_close - adj_closes[-2] < -0.5 * abs(adj_closes[-2]) and last_volume < 0.75 * avg_volume)\n            ):\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_list()[0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4114,
+    "output_tokens": 1490
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several potential issues and areas for improvement:\n\n1. **Rationale vs. Code Disagreement:**\n   - The rationale states that significant volume on a day with price movement indicates strong market sentiment and trend beginnings. However, the code only checks if the last session's volume is higher (or lower) than the sum of previous sessions' volumes, which might not accurately capture the intended logic. This check could be more robust by comparing the average or median volume instead.\n\n2. **Potential Failures:**\n   - Line 30: `if latest_closes.height < self._window:` might fail if `latest_closes` is not a DataFrame with a `.height` attribute.\n   - Line 48: The check for significant price move and volume confirmation could be misleading as it only compares the last close to the second-to-last close. A more comprehensive approach, such as using moving averages or other statistical methods, might be better.\n\n3. **Fragile Parameters:**\n   - Line 21: `self._window` is hardcoded at 10. This value might not be optimal for all market conditions and could be made dynamic based on historical data analysis.\n   - The limit to picking only 5 symbols (Line 63) might miss out on profitable opportunities with more symbols.\n\n4. **Potential Issues:**\n   - Line 28: `_latest_visible` function returns a `date`, but it should ideally return the latest session's date from the history, which is not directly available from the DataFrame.\n   - Line 51: The logic for calculating significant price move and volume confirmation could be more robust. For example, using percentage changes might provide better insights.\n\nOverall, while the strategy has a sound conceptual foundation, it needs refinement in implementation details to ensure its effectiveness and reliability."
+  ],
+  "seconds": 38.19917010000063,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 576
+}

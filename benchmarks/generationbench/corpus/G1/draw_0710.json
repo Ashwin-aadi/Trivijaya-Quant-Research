@@ -1,0 +1,23 @@
+{
+  "index": 710,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySCTF(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following is a strategy that leverages the historical volatility \"\n        \"of assets to identify and follow trends. High volatility periods suggest active price movement, \"\n        \"potentially offering trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty() or len(history) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        daily_returns = (history[\"adj_close\"] / history[\"adj_close\"].shift(1) - 1.0).to_series()\n        volatility = daily_returns.std()\n\n        # Identify trending symbols based on their returns relative to the mean\n        symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n\n            recent_history = history.select(pl.col(\"adj_close\").filter(pl.col(\"session_date\") > date(2019, 12, 31)))\n            recent_returns = (recent_history[\"adj_close\"] / recent_history[\"adj_close\"].shift(1) - 1.0).to_series()\n\n            if not recent_returns.is_empty():\n                trend_score = (recent_returns.mean() / volatility).abs()\n                if trend_score >= self._threshold:\n                    symbols.append(symbol)\n\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilitySCTF",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 487
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.331085500001791,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 724
+}

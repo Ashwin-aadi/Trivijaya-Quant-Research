@@ -1,0 +1,23 @@
+{
+  "index": 80,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate a strong consensus in the market. \"\n        \"Such moves are often followed by continued price appreciation due to higher demand. \"\n        \"By identifying and investing in these moves, we aim to capture this momentum.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            df = history[[symbol, \"session_date\"]]\n            if df.height < self._window:\n                continue\n\n            # Calculate the directional move and volume change\n            close_changes = [float(v) for v in df[\"adj_close\"].to_list()[1:]]\n            vol_changes = [int(v) for v in df[\"volume\"].to_list()[1:]]\n\n            # Check if there's a significant directional move followed by increased volume\n            for i in range(len(close_changes)):\n                if close_changes[i] > 0 and vol_changes[i + 1] > vol_changes[i]:\n                    picks.append(symbol)\n                    break\n\n        picks = list(set(picks))[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 458
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.757757300001686,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 83
+}

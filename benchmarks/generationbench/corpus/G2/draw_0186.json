@@ -1,0 +1,23 @@
+{
+  "index": 186,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrengthStrategy(Strategy):\n    rationale = (\n        \"Companies that outperform their peers over a period of time may indicate \"\n        \"stronger fundamentals or better management. This strategy aims to identify \"\n        \"such companies by comparing the relative strength of each stock against all others.\"\n    )\n\n    def __init__(self, lookback: int = 60) -> None:\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        if view.history().is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._lookback)\n\n        # Calculate the average close for each symbol over the lookback period\n        avg_closes = (\n            closes.groupby(\"symbol\")\n                  .agg(pl.col(\"adj_close\").mean().alias(\"avg_close\"))\n        )\n\n        # Calculate the relative strength as the ratio of current close to the mean close\n        rel_strength = (\n            view.closes()\n                   .join(avg_closes, on=\"symbol\", how=\"left\")\n                   .with_columns(\n                       (pl.col(\"adj_close\") / pl.col(\"avg_close\").fill_null(1)).alias(\"rel_strength\")\n                   )\n                   .select([\"session_date\", \"symbol\", \"rel_strength\"])\n        )\n\n        # Get the top N symbols by relative strength\n        top_symbols = rel_strength.sort(\"rel_strength\", descending=True).select([\"symbol\"])[:5]\n\n        if top_symbols.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / top_symbols.height\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols[\"symbol\"].to_list()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrengthStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 472
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.877870000003895,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 192
+}

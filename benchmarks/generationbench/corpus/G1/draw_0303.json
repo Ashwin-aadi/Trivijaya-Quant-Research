@@ -1,0 +1,23 @@
+{
+  "index": 303,
+  "paradigm": "G1_plain",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy screens for stocks with high liquidity before equally weighting them. \"\n        \"High liquidity ensures that trades can be executed without significantly affecting the price. \"\n        \"The equal weighting across selected assets aims to provide a balanced exposure.\"\n    )\n\n    def __init__(self, min_volume: float = 10_000_000) -> None:\n        self._min_volume = min_volume\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=252)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_filter = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volume\").rolling_sum(window_size=20) / 20).alias(\"avg_volume\")\n            )\n            .filter(pl.col(\"avg_volume\") > self._min_volume)\n            .select(\"symbol\")\n            .to_dict(as_series=False)[\"symbol\"]\n        )\n\n        if not volume_filter:\n            return Signal(information_available_at=stamp, weights={})\n\n        filtered_symbols = [s for s in view.symbols if s in volume_filter]\n        equal_weight = 1.0 / len(filtered_symbols)\n        weights = {s: equal_weight for s in filtered_symbols}\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 408
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.313850099992123,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 308
+}

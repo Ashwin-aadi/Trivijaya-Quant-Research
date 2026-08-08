@@ -1,0 +1,26 @@
+{
+  "index": 177,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"By tilting our portfolio towards low-volatility stocks, we aim to benefit from this effect.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: list[float] = []\n        symbols = [symbol for symbol in view.symbols if symbol in closes.columns]\n\n        for symbol in symbols:\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            mean_close = sum(values) / len(values)\n            variance = (\n                0\n                if all(value == values[0] for value in values)\n                else sum((value - mean_close) ** 2 for value in values) / (len(values) - 1)\n            )\n            volatilities.append(variance)\n\n        sorted_indices = [i[0] for i in sorted(enumerate(volatilities), key=lambda x: x[1])]\n        top_n_symbols = [symbols[index] for index in sorted_indices[:5]]\n\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3905,
+    "output_tokens": 1279
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy largely aligns with its stated rationale of focusing on low-volatility stocks to outperform high-volatility ones over the long term. However, there are a few issues and potential improvements:\n\n1. **Fragile Parameters**:\n   - The `window` parameter is hardcoded as 20 in the example but should be considered dynamic. Lines 7-8.\n\n2. **Potential Failure Cases**:\n   - Line 23: If any symbol's close prices are missing or null, it might lead to incorrect volatility calculations.\n   - Line 41: The code assumes there will always be at least one low-volatility stock to select (top 5 symbols). If not, it returns an empty `weights` dictionary. This could cause issues if the strategy needs a minimum portfolio size.\n\n3. **Rationale vs. Code Discrepancies**:\n   - The rationale mentions \"low-volatility stocks tend to outperform high-volatility stocks,\" but the code only selects top 5 symbols with the lowest volatility, which might not always capture the best performing low-volatility stocks. Consider selecting based on a combination of volatility and performance.\n\n4. **Stability**:\n   - Line 30: The variance calculation assumes that `values` are non-empty, but it does not handle cases where all values could be identical.\n   - Line 45: The strategy should have a fallback mechanism if no symbols meet the criteria to avoid returning an empty weights dictionary.\n\nIn summary, while the core idea is sound, the implementation has some fragilities and assumptions that need addressing. Improvements include handling edge cases more robustly, making parameters configurable, and ensuring meaningful selections based on both volatility and performance metrics."
+  ],
+  "seconds": 33.510084199999255,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 359
+}

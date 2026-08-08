@@ -1,0 +1,23 @@
+{
+  "index": 353,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakouts often lead to continuation patterns. If a stock breaks out of its recent range \"\n        \"and continues in the breakout direction over the next few sessions, it is likely to offer \"\n        \"profit opportunities. This strategy identifies such stocks and invests in them.\"\n    )\n\n    def __init__(self, window: int = 20, continuation_window: int = 5) -> None:\n        self._window = window\n        self._continuation_window = continuation_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._continuation_window)\n\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.select(\"symbol\").to_series().to_list():\n                continue\n\n            # Get the last 'n' days of closes\n            last_n_days = history.filter(\n                pl.col(\"session_date\") >= (view.as_of - date(self._window, 1, 1))\n            )\n\n            # Compute daily returns\n            last_n_days = last_n_days.with_columns(\n                (\n                    pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0\n                ).alias(\"return\")\n            )\n            last_n_days = last_n_days.sort(\"session_date\", descending=False)\n\n            if last_n_days.height < self._window:\n                continue\n\n            # Find the breakout day\n            for i in range(self._window, last_n_days.height):\n                if last_n_days[\"return\"][i] > 0.01:  # Assuming a significant return threshold\n                    break\n            else:\n                continue\n\n            # Check continuation pattern over next 'm' days\n            continuation_days = history.filter(\n                (pl.col(\"session_date\") >= (last_n_days.select(\"session_date\")[i] + date(1, 0, 0)))\n                & (pl.col(\"session_date\") < (view.as_of - date(self._continuation_window, 1, 1)))\n            )\n            if continuation_days.height < self._continuation_window:\n                continue\n\n            # Ensure the stock continues in breakout direction\n            if all(\n                last_n_days[\"return\"][i + j] > 0.005 for j in range(self._continuation_window)\n            ):\n                breakout_symbols.append(symbol)\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in breakout_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 695
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.39289490000374,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 361
+}

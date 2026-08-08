@@ -1,0 +1,23 @@
+{
+  "index": 119,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"Combining short-term and long-term momentum signals can filter out noise and \"\n        \"potentially improve returns. Short-term momentum captures recent price action, \"\n        \"while long-term momentum reflects sustained trends over a longer period.\"\n    )\n\n    def __init__(self, short_window: int = 20, long_window: int = 60) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._long_window + self._short_window - 1)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_closes = history.select(\n            pl.col(\"symbol\").alias(\"symbol\"),\n            pl.col(\"adj_close\").tail(self._short_window).mean().alias(\"recent_mean\"),\n            pl.col(\"adj_close\").tail(self._long_window).mean().alias(\"long_term_mean\"),\n        )\n\n        signals: list[str] = []\n        for symbol in view.symbols:\n            recent_mean = float(recent_closes[recent_closes[\"symbol\"] == symbol][\"recent_mean\"])\n            long_term_mean = float(\n                recent_closes[recent_closes[\"symbol\"] == symbol][\"long_term_mean\"]\n            )\n            if (\n                (recent_mean > 1.02 * long_term_mean)\n                or\n                (recent_mean < 0.98 * long_term_mean)\n            ):\n                signals.append(symbol)\n\n        signal_dict = {s: 0.5 for s in signals}\n        if not signal_dict:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_weight = sum(signal_dict.values())\n        adjusted_weights = {k: v / total_weight for k, v in signal_dict.items()}\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight\n                for symbol, weight in adjusted_weights.items()\n                if weight > 0.01\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 540
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.416832399998384,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 123
+}

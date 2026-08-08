@@ -1,0 +1,184 @@
+{
+  "arm": "G4",
+  "paradigm": "G4_planning",
+  "n_strategies": 25,
+  "near_cash_threshold": 0.1,
+  "n_near_cash": 0,
+  "exposure": [
+    {
+      "name": "candidate_003",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000004,
+      "median_names_held": 100,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_005",
+      "median_gross_exposure": 1.0,
+      "max_gross_exposure": 1.0,
+      "median_names_held": 4,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_012",
+      "median_gross_exposure": 0.9999999999999993,
+      "max_gross_exposure": 0.9999999999999993,
+      "median_names_held": 100,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_015",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000002,
+      "median_names_held": 20,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_022",
+      "median_gross_exposure": 0.9999999999999999,
+      "max_gross_exposure": 0.9999999999999999,
+      "median_names_held": 30,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_023",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000002,
+      "median_names_held": 20,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_033",
+      "median_gross_exposure": 0.5,
+      "max_gross_exposure": 0.5,
+      "median_names_held": 1,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_036",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000002,
+      "median_names_held": 20,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_048",
+      "median_gross_exposure": 1.0,
+      "max_gross_exposure": 1.0,
+      "median_names_held": 35,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_085",
+      "median_gross_exposure": 0.9999999999999996,
+      "max_gross_exposure": 1.0000000000000009,
+      "median_names_held": 43,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_111",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000004,
+      "median_names_held": 100,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_127",
+      "median_gross_exposure": 1.0,
+      "max_gross_exposure": 1.0,
+      "median_names_held": 3,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_153",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000002,
+      "median_names_held": 50,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_164",
+      "median_gross_exposure": 0.6666666666666666,
+      "max_gross_exposure": 0.7333333333333333,
+      "median_names_held": 20,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_187",
+      "median_gross_exposure": 0.9999999999999999,
+      "max_gross_exposure": 0.9999999999999999,
+      "median_names_held": 10,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_225",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000002,
+      "median_names_held": 25,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_231",
+      "median_gross_exposure": 0.9999999999999999,
+      "max_gross_exposure": 0.9999999999999999,
+      "median_names_held": 30,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_237",
+      "median_gross_exposure": 1.0000000000000007,
+      "max_gross_exposure": 1.0000000000000007,
+      "median_names_held": 50,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_243",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000002,
+      "median_names_held": 100,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_248",
+      "median_gross_exposure": 0.9999999999999996,
+      "max_gross_exposure": 1.0000000000000002,
+      "median_names_held": 25,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_252",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000002,
+      "median_names_held": 20,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_279",
+      "median_gross_exposure": 1.0000000000000004,
+      "max_gross_exposure": 1.0000000000000004,
+      "median_names_held": 50,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_297",
+      "median_gross_exposure": 1.0000000000000002,
+      "max_gross_exposure": 1.0000000000000002,
+      "median_names_held": 100,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_333",
+      "median_gross_exposure": 0.9999999999999999,
+      "max_gross_exposure": 0.9999999999999999,
+      "median_names_held": 30,
+      "near_cash": false
+    },
+    {
+      "name": "candidate_336",
+      "median_gross_exposure": 0.9999999999999999,
+      "max_gross_exposure": 0.9999999999999999,
+      "median_names_held": 30,
+      "near_cash": false
+    }
+  ]
+}

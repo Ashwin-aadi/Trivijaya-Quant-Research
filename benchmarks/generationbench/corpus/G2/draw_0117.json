@@ -1,0 +1,23 @@
+{
+  "index": 117,
+  "paradigm": "G2_cot",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"This is based on the idea that low volatility often indicates lower risk and potentially \"\n        \"lower return requirements from investors, leading to higher valuations and thus better returns.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        low_vol_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            vol = (\n                history[symbol]\n                .select(\n                    (pl.col(\"adj_close\").shift(-1) - pl.col(\"adj_close\")).abs().mean()\n                )\n                .item()\n            )\n            low_vol_symbols.append((symbol, vol))\n\n        # Filter out the symbols with very high volatility\n        threshold = max(v[1] for v in low_vol_symbols) * 0.95\n        low_vol_symbols = [s for s in low_vol_symbols if s[1] <= threshold]\n\n        if not low_vol_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        sorted_symbols = sorted(low_vol_symbols, key=lambda x: x[1])\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, _ in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 457
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.748220900000888,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 121
+}

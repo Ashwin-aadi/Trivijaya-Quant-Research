@@ -1,0 +1,26 @@
+{
+  "index": 106,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality in the Indian stock market can be attributed to various factors such \"\n        \"as festival effects or corporate actions. By identifying stocks that exhibit strong \"\n        \"seasonal trends, we aim to capture these predictable price movements for profit.\"\n    )\n\n    def __init__(self, window: int = 60, seasonal_periods: tuple[int, ...] = (30,)) -> None:\n        self._window = window\n        self._seasonal_periods = seasonal_periods\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_seasonality_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            closes = [float(v) for v in history[symbol].to_list()]\n            scores = [0.0] * len(closes)\n            valid_periods = []\n            for period in self._seasonal_periods:\n                if period > len(closes):\n                    break\n                seasonal_trend = (closes[-period:] - closes[:-period]) / closes[:-period]\n                if not any(st < 0 for st in seasonal_trend):  # Avoid division by zero or small numbers\n                    valid_periods.append(period)\n            scores[valid_periods[-1] - 1 : -valid_periods[0] + 1] = [\n                max(st, 0) for st in seasonal_trend if not any([st < 0, st == 0])  # Filter out negative or zero values\n            ]\n            avg_score = sum(scores) / max(len(scores), 1)\n            symbol_seasonality_scores[symbol] = avg_score\n\n        top_symbols = sorted(symbol_seasonality_scores.items(), key=lambda x: x[1], reverse=True)[:5]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, _ in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4080,
+    "output_tokens": 1514
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy has several areas for improvement and potential issues:\n\n1. **Rationale vs Code**:\n   - The rationale states that \"corporate actions\" can influence seasonality in the Indian stock market. However, the code does not explicitly account for corporate events or dividends, which could affect stock prices.\n   - Line 17: `if symbol not in history.columns:` This check is necessary but doesn't address other factors like splits or ex-dividend dates.\n\n2. **Potential Failures**:\n   - Lines 34-35: If a period exceeds the length of the closes list, it will break the loop without handling the scenario.\n     ```python\n     if period > len(closes):\n         break\n     ```\n   - Line 38: The seasonal trend calculation should handle division by zero or small numbers to avoid errors.\n     ```python\n     seasonal_trend = (closes[-period:] - closes[:-period]) / closes[:-period]\n     ```\n\n3. **Fragile Parameters**:\n   - The `window` parameter is hardcoded as 60, which might not be optimal for all datasets or markets.\n   - Line 8: `_seasonal_periods` are hard-coded as `(30,)`. This limits flexibility and might miss important seasonal patterns.\n\n4. **Potential Stops**:\n   - Line 51: The `weights` dictionary creation assumes a fixed number of top symbols (5), which could be adjusted dynamically.\n     ```python\n     return Signal(\n         information_available_at=stamp,\n         weights={symbol: weight for symbol, _ in top_symbols},\n     )\n     ```\n   - Line 30-31: If `history` is empty or not properly structured, the function will fail without a proper error handling mechanism.\n\n5. **Positive Aspects**:\n   - The overall structure and logic are sound, especially how it identifies symbols with strong seasonal trends.\n   - The rationale provides a clear explanation for why this strategy might work, which is important for backtesting and validation.\n\nOverall, the code could benefit from more robust error handling, dynamic parameter settings, and adjustments to handle various market conditions."
+  ],
+  "seconds": 38.32032650000019,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 216
+}

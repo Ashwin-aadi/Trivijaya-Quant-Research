@@ -1,0 +1,23 @@
+{
+  "index": 491,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeAndVolatility(Strategy):\n    rationale = (\n        \"This strategy selects stocks that show high volume and low volatility, \"\n        \"indicating potential liquidity and reduced price fluctuation risk.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        high_volume_symbols = _filter_high_volume(history)\n        low_volatility_symbols = _filter_low_volatility(history)\n\n        picks: list[str] = set(high_volume_symbols).intersection(low_volatility_symbols)\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _filter_high_volume(history: pl.DataFrame) -> list[str]:\n    high_volume_symbols = []\n    for symbol in view.symbols:\n        if symbol not in history.columns:\n            continue\n        volume_series = [float(v) for v in history[symbol].col(\"volume\").to_list()]\n        if len(volume_series) < 20:\n            continue\n        max_volume = max(volume_series)\n        if any(v == max_volume for v in volume_series[-5:]):\n            high_volume_symbols.append(symbol)\n    return high_volume_symbols\n\n\ndef _filter_low_volatility(history: pl.DataFrame) -> list[str]:\n    low_volatility_symbols = []\n    for symbol in view.symbols:\n        if symbol not in history.columns:\n            continue\n        close_series = [float(v) for v in history[symbol].col(\"adj_close\").to_list()]\n        if len(close_series) < 20:\n            continue\n        daily_returns = [(close / close.shift(1) - 1.0) for close in close_series[1:]]\n        std_dev = pl.Series(daily_returns).std()\n        if std_dev <= 0.05:\n            low_volatility_symbols.append(symbol)\n    return low_volatility_symbols\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeAndVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 567
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.632784100002027,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 497
+}

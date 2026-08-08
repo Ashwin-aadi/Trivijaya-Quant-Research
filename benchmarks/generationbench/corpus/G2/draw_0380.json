@@ -1,0 +1,23 @@
+{
+  "index": 380,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong market sentiment and are often \"\n        \"followed by continued price movement in the same direction. By identifying such moves, \"\n        \"we can exploit this momentum.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        top_n_symbols = _find_volume_confirmed_moves(history)\n        weight = 1.0 / len(top_n_symbols) if top_n_symbols else 0\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _find_volume_confirmed_moves(history: pl.DataFrame) -> list[str]:\n    symbols = [symbol for symbol in history.columns if symbol != \"session_date\"]\n    top_n_symbols = []\n    for symbol in symbols:\n        price_changes = (history[symbol].to_list()[1:] - history[symbol].to_list()[:-1])\n        volume_changes = history[f\"{symbol}_volume\"].to_list()[1:]\n        \n        directional_changes = [price_change * vol_change > 0 for price_change, vol_change in zip(price_changes, volume_changes)]\n        \n        if all(directional_changes):\n            top_n_symbols.append(symbol)\n    \n    return top_n_symbols[:5]",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 427
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.998747600002389,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 388
+}

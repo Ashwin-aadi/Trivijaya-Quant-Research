@@ -1,0 +1,23 @@
+{
+  "index": 134,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following involves identifying trends by measuring the \"\n        \"volatility of asset prices. High volatility often suggests a stronger trend in one direction, \"\n        \"and we can capitalize on this by buying or selling based on recent price movements and their volatility.\"\n    )\n\n    def __init__(self, window: int = 20, k: float = 1.0) -> None:\n        self._window = window\n        self._k = k\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        daily_returns = (closes[closes.columns[1:]] / closes[closes.columns[1:]].shift(1) - 1).drop_nulls()\n\n        # Calculate rolling mean and standard deviation of returns\n        rolling_mean = daily_returns.rolling_mean(window=self._window)\n        rolling_std = daily_returns.rolling_std(window=self._window)\n\n        # Define a threshold for identifying strong trends\n        threshold = self._k * (rolling_std / rolling_mean).mean()\n\n        # Identify symbols with significant trends\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in daily_returns.columns:\n                continue\n            returns = [float(v) for v in daily_returns[symbol].to_list()]\n            mean_return = sum(returns[-self._window:]) / self._window\n            if abs(mean_return) > threshold[symbol]:\n                picks.append(symbol)\n\n        # Determine the direction of the trend and allocate weights accordingly\n        weight_per_pick = 1.0 / len(picks)\n        weights = {s: weight_per_pick * (-1 if mean_return < 0 else 1) for s in picks}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 527
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.007164499998908,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 138
+}

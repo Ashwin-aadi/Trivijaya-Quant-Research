@@ -1,0 +1,23 @@
+{
+  "index": 5,
+  "paradigm": "G1_plain",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakouts often continue in the direction of the breakout. This strategy identifies \"\n        \"breakout candidates and assigns weights to those that have a strong momentum post-breakout.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < (2 * self._window + 1):\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            high_close_ratio = (\n                history.filter(\n                    (pl.col(\"session_date\") >= pl.col(\"session_date\").first())\n                    & (pl.col(\"session_date\") < pl.col(\"session_date\").last()).shift(1)\n                )[\"close\"]\n                / history.filter(pl.col(\"session_date\") == pl.col(\"session_date\").last().shift(1))[\n                    \"adj_close\"\n                ]\n            ).to_list()\n            if len(high_close_ratio) > self._window:\n                ratio = max(high_close_ratio[-self._window:])\n                if ratio >= 1.05:  # Consider a breakout\n                    breakout_symbols.append(symbol)\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        continuation = view.history().filter(pl.col(\"symbol\").is_in(breakout_symbols))\n        continuation_values = (\n            continuation.filter(\n                (pl.col(\"session_date\") > pl.col(\"session_date\").last().shift(1))\n                & (pl.col(\"session_date\") <= view.as_of)\n            )[\"close\"]\n            / continuation.filter(pl.col(\"session_date\") == pl.col(\"session_date\").last().shift(2))[\n                \"adj_close\"\n            ]\n        ).to_list()\n\n        momentum_scores = [\n            0 if v < 1 else (v - 1) for v in continuation_values\n        ]  # Positive values indicate upward momentum\n\n        top_symbols = sorted(breakout_symbols, key=lambda x: momentum_scores[breakout_symbols.index(x)], reverse=True)[: self._top_n]\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1243,
+    "output_tokens": 637
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.200602099997923,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 6
+}

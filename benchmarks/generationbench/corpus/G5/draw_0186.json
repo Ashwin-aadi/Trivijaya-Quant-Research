@@ -1,0 +1,26 @@
+{
+  "index": 186,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Identifying stocks with higher relative strength compared to the broader market \"\n        \"can provide a potential edge. This strategy focuses on selecting the top-performing \"\n        \"stocks over a given period.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes()\n        symbols = [s for s in view.symbols if s in closes.columns]\n        symbol_ranks = (\n            history.filter(pl.col(\"symbol\").is_in(symbols))\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return_ratio\"),\n            )\n            .sort(by=\"return_ratio\", descending=True)\n        )\n\n        if symbol_ranks.height < len(symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row[\"symbol\"] for row in symbol_ranks.head(self._top_n).to_dicts()]\n        weight = 1.0 / max(len(top_symbols), 1)  # Ensure at least one stock gets a non-zero weight\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3920,
+    "output_tokens": 1289
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy focuses on identifying stocks with higher relative strength compared to the broader market by selecting top-performing stocks over a given period. While the rationale is clear, there are several issues and potential improvements in the code:\n\n1. **Potential Flaws in the Rationale vs Code**:\n   - The rationale states that \"top-performing\" stocks should be selected based on relative strength compared to the broader market. However, the code measures each stock's performance independently of the market index. This might not align with the intended strategy.\n   \n2. **Failure Conditions and Fragile Parameters**:\n   - Line 19: The check `if history.height < self._window:` is necessary but fragile. If there are fewer than 20 days of data, it returns an empty signal. However, this could be improved by providing a default or warning.\n   - Lines 36-48: The logic for calculating the return ratio and ranking symbols might not handle missing data correctly. For instance, if some symbols have no historical data, they should ideally be excluded rather than included with `weight = 0`.\n   \n3. **Code Fragility**:\n   - Line 45: The assertion `assert isinstance(newest, date)` is unnecessary and potentially fragile. Polars might not always return a `date` object, so it\u2019s better to handle this gracefully.\n   - Line 52: The use of `.head(self._top_n)` directly on the DataFrame could lead to issues if `self._top_n` exceeds the number of symbols. It should be checked before calling `.head()`.\n\n4. **Potential Issues**:\n   - If the market view contains missing data or irregular sessions, it might not produce meaningful signals.\n   - The strategy assumes that all symbols in the view have complete historical data, which is unrealistic and could lead to incorrect signal generation.\n\nOverall, while the core idea of identifying top-performing stocks is sound, the implementation needs adjustments for handling edge cases and ensuring robustness."
+  ],
+  "seconds": 33.86601179999889,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 377
+}

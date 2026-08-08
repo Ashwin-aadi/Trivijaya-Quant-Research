@@ -1,0 +1,47 @@
+{
+  "index": 46,
+  "paradigm": "G7_mcts",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Seasonality252(Strategy):\n    rationale = (\n        \"Seasonal patterns in stock markets can be exploited by identifying \"\n        \"and capitalizing on historical trends. This strategy focuses on the last 252 trading days to capture annual seasonal effects.\"\n    )\n\n    def __init__(self, window: int = 252, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_weights: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            # Calculate the mean close over the past 252 days\n            mean_close = sum(values[-self._window:]) / self._window\n\n            # Assign weights based on the closeness to the mean\n            if abs(values[-1] - mean_close) <= (mean_close * 0.05):\n                seasonal_weights[symbol] = 1.0 / self._top_n\n\n        if not seasonal_weights:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = sum(seasonal_weights.values()) / len(seasonal_weights)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in seasonal_weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Seasonality252",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20891,
+    "output_tokens": 6328
+  },
+  "calls": 24,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the systematic equity strategy focusing on seasonality or calendar effects in the Indian market, I propose using the daily closing price as the signal, looking back over a period of 252 trading days (one year) to capture annual patterns.",
+    "For the systematic equity strategy focusing on seasonality or calendar effects in the Indian market, I propose using the daily high price as the signal, looking back over a period of 180 trading days (approximately six months) to identify mid-year trends and patterns.",
+    "For the systematic equity strategy focusing on seasonality or calendar effects in the Indian market, I propose holding a portfolio of 5 equally weighted stocks whenever a position is opened, based on the identified seasonal pattern from the past 252 trading days.",
+    "For the portfolio rule, I propose holding a maximum of five equities with equal weights of 20% each, ensuring a balanced exposure while maintaining simplicity in management.",
+    "For the systematic equity strategy focusing on seasonality or calendar effects in the Indian market, I propose holding a portfolio of 5 equally weighted stocks whenever a position is opened, based on the identified seasonal pattern from the past 252 trading days.",
+    "For this systematic equity strategy focusing on seasonality in the Indian market, I propose setting a stop-loss rule at 5% per position to limit individual position risk, and a portfolio-wide risk limit of 10% to prevent excessive drawdown, thereby stopping trading if either bound is breached.",
+    "For this systematic equity strategy focusing on seasonality in the Indian market, I propose setting a risk rule that limits the maximum loss on any single position to 2% of the portfolio value and discontinues trading if the cumulative loss exceeds 5% over any 30-day period.",
+    "For the portfolio rule, I propose holding a maximum of five equities with equal weights of 20% each, ensuring a balanced exposure while maintaining simplicity in management.",
+    "For this systematic equity strategy focusing on seasonality in the Indian market, I propose setting a stop-loss rule at 3% per position to limit individual position risk, and a portfolio-wide risk limit of 8% to prevent excessive drawdown, thereby stopping trading if either bound is breached.",
+    "For the risk rule, I propose setting a stop-loss threshold of -10% on an individual equity position and -15% on the overall portfolio to limit potential losses and prevent further trading once these thresholds are breached. This ensures risk management while maintaining flexibility in the strategy's execution.",
+    "For this systematic equity strategy focusing on seasonality in the Indian market, I propose setting a risk rule that limits the maximum loss on any single position to 2% of the portfolio value and discontinues trading if the cumulative loss exceeds 5% over any 30-day period."
+  ],
+  "seconds": 268.9050937999855,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 576
+}

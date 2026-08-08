@@ -1,0 +1,27 @@
+{
+  "index": 60,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum30d(Strategy):\n    rationale = (\n        \"This strategy exploits cross-sectional momentum by selecting stocks with the highest \"\n        \"returns over a 30-day look-back period. Higher returns indicate strong past performance, \"\n        \"which often persists in the short term due to investor behavior and market dynamics.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or len(view.symbols) == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        returns = (\n            closes.lazy()\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\"),\n            )\n            .collect()[\"return\"]\n            .to_list()\n        )\n\n        if len(returns) < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        ranked_returns = sorted(zip(view.symbols, returns), key=lambda x: -x[1])\n        top_symbols = [symbol for symbol, _ in ranked_returns[:self._top_n]]\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum30d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2469,
+    "output_tokens": 869
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To implement a systematic equity trading strategy based on cross-sectional momentum in the Indian market, we will exploit the tendency for stocks that have performed well recently (positive momentum) to continue outperforming over a short-term horizon. This phenomenon can persist due to\u60ef\u6027\uff08\u60ef\u6027\uff09 of investor behavior and the lagged response in price adjustments to news or events. The strategy involves ranking all stocks by their recent returns, selecting the top performers, and investing in them while selling the underperformers. The rule would involve defining a look-back period (e.g., 3-6 months) to identify momentum stocks, setting a threshold for entry and exit, and rebalancing the portfolio regularly to capture ongoing momentum effects. This approach aims to benefit from short-term price trends while mitigating risks through periodic re-evaluation of stock performance.",
+    "The signal for this strategy is calculated as the simple return of each stock over a 3- to 6-month look-back period. Specifically, for each stock, the percentage change in price from the close of the first day within the look-back window to the close of the most recent trading day is computed. Stocks are then ranked based on these returns, with higher positive returns indicating stronger momentum. On a given day, all stocks listed on the Indian market are considered, and the top performers (e.g., the top 30%) are selected for investment, while underperformers (bottom 30%) are sold or not re-invested in. This ranking process is repeated daily to ensure the portfolio reflects the most recent momentum effects.",
+    "For this strategy, a maximum of 30 stocks with the highest positive returns over a 3- to 6-month look-back period will be selected for investment. Each stock is equally weighted within the portfolio, ensuring no single stock dominates. To manage risk, the total exposure to any single day's trading is capped at 10% of the portfolio value, and the overall portfolio loss is limited to no more than 5% in any given month to protect against significant drawdowns. This approach balances capturing momentum while mitigating potential losses."
+  ],
+  "seconds": 27.243450800000574,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 63
+}

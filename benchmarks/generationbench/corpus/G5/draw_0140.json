@@ -1,0 +1,26 @@
+{
+  "index": 140,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are more likely to continue than those that \"\n        \"occur without strong volume support. This strategy seeks to capture such moves by\"\n        \" identifying significant price increases with substantial volume.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            df = history.select([\"session_date\", \"open\", \"close\", \"volume\"])\n            open_vals = [float(v) for v in df[\"open\"].to_list()]\n            close_vals = [float(v) for v in df[\"close\"].to_list()]\n            volume_vals = [float(v) for v in df[\"volume\"].to_list()]\n\n            if len(open_vals) < self._window:\n                continue\n\n            # Calculate directional move\n            direction = (close_vals[-1] - open_vals[0]) / open_vals[0]\n            # Calculate volume change from first to last session\n            volume_change = volume_vals[-1] / volume_vals[0]\n\n            if direction > 0.05 and volume_change >= 1.2:  # Adjusted parameters\n                picks[symbol] = (direction + volume_change) * 0.5\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_weight = sum(picks.values())\n        weight_per_symbol = {s: w / total_weight for s, w in picks.items() if w > 0}\n        return Signal(\n            information_available_at=stamp,\n            weights=weight_per_symbol,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3970,
+    "output_tokens": 1349
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This systematic equity trading strategy appears to be generally sound but has several areas for improvement and potential issues:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale suggests capturing volume-confirmed directional moves. However, the code calculates a simple directional move as `(close_vals[-1] - open_vals[0]) / open_vals[0]`, which is not necessarily indicative of a confirmed move. It should more accurately reflect the strategy\u2019s intent.\n\n2. **Potential Failures:**\n   - The condition `direction > 0 and volume_change >= 1.2` might be too simplistic. A direction change could still occur with high volume, but it may not be meaningful.\n   - The strategy does not account for false breakouts or reversion risk.\n\n3. **Fragile Parameters:**\n   - The window size (`self._window`) is set to 10, which might be too short for some markets and asset classes, making the strategy overly sensitive to noise.\n   - The volume change threshold of `1.2` could also be adjusted based on empirical testing.\n\n4. **Potential Issues:**\n   - Line 36-39: This section constructs lists from polars DataFrame columns directly without error handling, which could fail if there are missing or non-numeric values.\n   - Line 57: The `weight_per_symbol` calculation assumes all picks will have a weight, but this might not always be the case. A check should ensure that at least one symbol has a positive weight.\n\nOverall, while the strategy aims to capture volume-confirmed directional moves, it could benefit from more sophisticated directional move detection and robust parameter tuning based on backtesting results."
+  ],
+  "seconds": 34.933584400001564,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 284
+}

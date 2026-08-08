@@ -1,0 +1,23 @@
+{
+  "index": 94,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalityStrategy(Strategy):\n    rationale = (\n        \"Historical data often shows that certain stocks exhibit higher returns during specific \"\n        \"months of the year. This strategy exploits such seasonality effects by overweightsing \"\n        \"the stocks with better performance in those months.\"\n    )\n\n    def __init__(self, lookback_window: int = 10, min_monthly_trades: int = 5) -> None:\n        self._lookback_window = lookback_window\n        self._min_monthly_trades = min_monthly_trades\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback_window)\n        if closes.height < self._lookback_window * 21:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_performance: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            monthly_closes = _monthly_returns(closes, symbol)\n            valid_months = [m for m, r in monthly_closes.items() if abs(r) > 0.01]\n            if len(valid_months) < self._min_monthly_trades:\n                continue\n            avg_return = sum(monthly_closes[m] for m in valid_months) / len(valid_months)\n            seasonal_performance[symbol] = avg_return\n\n        top_performers = sorted(seasonal_performance.items(), key=lambda x: x[1], reverse=True)\n        picks, _ = zip(*top_performers[:5])\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _monthly_returns(closes: pl.DataFrame, symbol: str) -> dict[int, float]:\n    monthly_closes = {}\n    for month in range(1, 13):\n        start_date = f\"{2000 + (month - 1) // 12}-{month % 12 + 1}-01\"\n        end_date = (\n            f\"{2000 + (month - 1) // 12}-{month % 12 + 1}-28\" if month != 2 else \"2000-02-29\"\n        )\n        monthly_closes[month] = float(closes\n                                      .filter(pl.col(\"session_date\").gte(start_date)\n                                             .lt(end_date))\n                                      [symbol]\n                                      .mean())\n    return monthly_closes",
+  "class_name": "SeasonalityStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 661
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.66146149999986,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 98
+}

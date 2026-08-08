@@ -1,0 +1,23 @@
+{
+  "index": 608,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Directional moves in price are often followed by a confirmation through volume. \"\n        \"High volume during a directional move suggests strong momentum and can signal \"\n        \"a continuation of the trend.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 1.2) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Identify directional moves\n        direction_moves = []\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            close_series = [float(v) for v in history[f\"{symbol}.close\"].to_list()]\n            volume_series = [float(v) for v in history[f\"{symbol}.volume\"].to_list()]\n\n            # Calculate daily returns and filter by threshold\n            daily_returns = [\n                (close / prev_close - 1.0)\n                if prev_close != 0\n                else 0.0\n                for close, prev_close in zip(close_series[1:], close_series[:-1])\n            ]\n            high_volume_days = [volume > volume_series[-1] * self._threshold for volume in volume_series[1:]]\n\n            # Check for directional moves with high volume confirmation\n            move_start = 0\n            for i, (return_val, vol_val) in enumerate(zip(daily_returns, high_volume_days)):\n                if return_val > 0 and vol_val:\n                    direction_moves.append((symbol, history[\"session_date\"][i + 1]))\n                    break\n\n        # Select top N symbols with directional moves\n        direction_moves.sort(key=lambda x: x[1], reverse=True)\n        picks = [move[0] for move in direction_moves[: self._window]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 583
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.63884379999945,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 621
+}

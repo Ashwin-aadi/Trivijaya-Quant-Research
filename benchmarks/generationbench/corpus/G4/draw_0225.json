@@ -1,0 +1,27 @@
+{
+  "index": 225,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"This strategy aims to capitalize on this empirical observation by tilting the portfolio towards low-volatility stocks.\"\n    )\n\n    def __init__(self, window: int = 60, portfolio_size: int = 25) -> None:\n        self._window = window\n        self._portfolio_size = portfolio_size\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        stock_data = (\n            history.group_by(\"symbol\")\n                   .agg(\n                       (pl.col(\"adj_close\").std().alias(\"volatility\")),\n                   )\n        )\n\n        top_stocks = (\n            stock_data.sort(\"volatility\", descending=False)\n                      .select([\"symbol\"])\n                      .head(self._portfolio_size)\n                      .to_dict(as_series=False)[\"symbol\"]\n        )\n\n        if not top_stocks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_stocks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_stocks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2551,
+    "output_tokens": 857
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To implement a low-volatility tilting strategy in the Indian equity market, we aim to exploit the empirical observation that low-volatility stocks tend to outperform high-volatility stocks over the long term. This phenomenon is supported by various financial theories, including the idea that lower volatility often correlates with better risk management and more stable earnings growth. The persistence of this effect may be due to mispricing in the market or differences in investor behavior towards risk.\n\nThe strategy would involve selecting a portfolio composed primarily of low-volatility stocks, measured using historical volatility metrics like standard deviation over a specified period. We would rank stocks based on their volatilities and then tilt our portfolio towards the lower volatility segment. The rule for implementing this strategy could be to rebalance the portfolio every quarter or annually, ensuring it remains aligned with the low-volatility theme while adjusting for any market changes. This approach aims to capitalize on the persistent outperformance of low-volatility stocks without overly concentrating risk in high-volatility sectors.",
+    "To implement the low-volatility tilting strategy in the Indian equity market, the signal involves calculating the historical volatility (standard deviation) of stock prices using daily open, high, low, close, and volume data over a lookback period of 60 trading days. On each trading day, stocks are ranked based on their calculated volatilities, with lower volatilities ranking higher. The strategy then selects a portfolio comprising the lowest volatility stocks to tilt towards, ensuring that the portfolio remains aligned with this low-volatility theme through regular rebalancing every quarter or annually.",
+    "To implement the low-volatility tilting strategy in the Indian equity market, we propose holding a portfolio of approximately 20-30 stocks. Each stock will be weighted based on its inverse volatility rank, ensuring higher weights for lower volatility stocks. The position sizing aims to maintain diversification while leveraging the expected outperformance of low-volatility stocks.\n\nRisk limits are set to protect against significant losses. We aim to cap the maximum portfolio loss at 5% over any single quarter and 10% annually, through regular rebalancing and dynamic adjustments in response to market changes. This approach ensures a balanced risk profile while capturing the persistent outperformance of low-volatility stocks."
+  ],
+  "seconds": 27.141944899994996,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 229
+}

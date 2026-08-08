@@ -1,0 +1,23 @@
+{
+  "index": 515,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: the 20-day momentum \"\n        \"and the 50-day moving average. The idea is that stocks with strong short-term \"\n        \"momentum and a positive long-term trend may offer better opportunities.\"\n    )\n\n    def __init__(self, window_20: int = 20, window_50: int = 50) -> None:\n        self._window_20 = window_20\n        self._window_50 = window_50\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_50 + 1)\n\n        if history.height < self._window_50 + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores: dict[str, float] = {}\n        moving_average_scores: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(closes) < self._window_50 + 1:\n                continue\n\n            close_20 = float(history[symbol][-self._window_20])\n            close_50 = float(history[symbol][-self._window_50])\n\n            momentum_score = (close_20 / close_50 - 1.0) * 100\n            moving_average_score = 1 if close_20 > close_50 else 0\n\n            momentum_scores[symbol] = momentum_score\n            moving_average_scores[symbol] = moving_average_score\n\n        final_scores = {\n            symbol: (momentum_scores[symbol] + moving_average_scores[symbol]) / 2.0\n            for symbol in momentum_scores.keys()\n            if symbol in moving_average_scores and momentum_scores[symbol] > 0\n        }\n\n        sorted_symbols = [\n            s for s, _ in sorted(final_scores.items(), key=lambda item: -item[1])\n        ][:5]\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 600
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.888822600012645,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 523
+}

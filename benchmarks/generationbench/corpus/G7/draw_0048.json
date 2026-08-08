@@ -1,0 +1,47 @@
+{
+  "index": 48,
+  "paradigm": "G7_mcts",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed well \"\n        \"relative to their peers in the recent past to continue outperforming. By ranking \"\n        \"stocks based on their returns over 60 days and selecting top performers, we aim to \"\n        \"capitalize on these trends.\"\n    )\n\n    def __init__(self, window: int = 60, positions: int = 30) -> None:\n        self._window = window\n        self._positions = positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=True)\n            .drop(\"open\", \"high\", \"low\", \"volume\")\n        )\n\n        # Compute momentum scores\n        momentum_scores = (\n            history.group_by(\"symbol\")\n            .agg(\n                pl.col(\"return\").mean().alias(\"momentum_score\"),\n            )\n            .sort(\"momentum_score\", descending=True)\n            .head(self._positions)[[\"symbol\"]]\n        )\n\n        weights = {s: 1.0 / self._positions for s in momentum_scores[\"symbol\"].to_list()}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max())[\"session_date\"][0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19712,
+    "output_tokens": 6249
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the cross-sectional momentum strategy in the Indian market, we will measure the return over the past 60 days using the daily closing price. This choice leverages historical price action while balancing signal reliability and computational efficiency.",
+    "For the cross-sectional momentum strategy in the Indian market, we will measure the return over the past 30 days using the daily high price. This approach captures intraday pricing extremes, potentially identifying more timely and robust momentum signals compared to closing prices.",
+    "For this cross-sectional momentum strategy in the Indian market, we will hold a portfolio of 30 equity names. These names will be weighted equally, with each holding representing approximately 3.33% of the total portfolio. This equal weighting ensures simplicity and reduces bias towards any single stock while still capturing market-wide momentum effects.",
+    "We will hold a portfolio of 20 equally-weighted stocks based on their past 30-day high prices, ensuring a balanced exposure across selected equities while simplifying implementation and management.",
+    "For this cross-sectional momentum strategy in the Indian market, we will hold a portfolio of 30 equity names, with each name weighted equally at approximately 3.33% of the total portfolio. This equal weighting approach simplifies portfolio management and minimizes bias towards any single stock while effectively capturing overall market momentum.",
+    "We will hold a portfolio of 20 equally-weighted stocks, each assigned a weight of 5% in the portfolio. This approach ensures a balanced exposure across selected equities, simplifies implementation and management, and aligns with the predefined strategy parameters.",
+    "For the risk rule, we will set an individual position loss bound of -5% to limit potential losses on any single stock. Additionally, if the portfolio loss exceeds -3%, we will stop trading for the day to avoid exacerbating losses. These bounds ensure risk management while allowing the strategy to capitalize on momentum opportunities.",
+    "For this cross-sectional momentum strategy in the Indian market, we will set a risk rule that limits the loss on any single position to no more than 2% of the portfolio value at the time of entry. This bound ensures individual stock risks are managed without overly constraining portfolio performance.",
+    "For the risk rule, we will set an individual stock position limit of a 3% daily loss to prevent significant drawdowns. Additionally, if the total portfolio loss exceeds 5%, trading will be halted for the next trading day to allow for re-evaluation and adjustment.",
+    "For this cross-sectional momentum strategy in the Indian market, we will set a risk rule that limits the loss on any single position to no more than 2% of the portfolio value at any point during the trading period. This rule helps manage individual stock risks while allowing the strategy to capture overall market momentum effectively.",
+    "For this cross-sectional momentum strategy in the Indian market, we will set a risk rule that limits the loss on any single position to no more than 2% of the portfolio value at any point during the trading period. This rule helps manage individual stock risks while allowing the strategy to capture overall market momentum effectively.",
+    "For this cross-sectional momentum strategy in the Indian market, we will set a risk rule that limits the loss on any single position to no more than 2% of the portfolio value at the time of entry. This bound ensures individual stock risks are managed without overly constraining portfolio performance."
+  ],
+  "seconds": 391.75319949997356,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 600
+}

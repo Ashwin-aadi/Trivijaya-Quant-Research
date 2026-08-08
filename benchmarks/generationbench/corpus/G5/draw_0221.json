@@ -1,0 +1,26 @@
+{
+  "index": 221,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After a breakout in the short-term trend, continuation of that trend is common. \"\n        \"This strategy aims to identify such opportunities by looking for strong close prices \"\n        \"that suggest continued movement in the direction of the breakout.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 0.05) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 20)\n        if history.height < self._window + 20:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.symbol.to_list():\n                continue\n            closes = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\n                \"adj_close\"].to_list()[-self._window - 20:-20]]\n            last_10_closes = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\n                \"adj_close\"].to_list()[-20:]]\n            if len(closes) < self._window + 20 or len(last_10_closes) != 10:\n                continue\n\n            last_close = closes[-1]\n            breakout_condition = any([c > (last_close * (1 + self._threshold)) for c in last_10_closes])\n            if not breakout_condition:\n                continue\n\n            continuation_condition = all([(c - last_close) / last_close <= -self._threshold for c in last_10_closes])\n            if continuation_condition:\n                breakout_symbols.append(symbol)\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4163,
+    "output_tokens": 1523
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several potential issues and areas for improvement:\n\n1. **Rationale vs. Code Disagreement:**\n   - The rationale states that the strategy aims to identify opportunities after a breakout in the short-term trend by looking for strong close prices suggesting continued movement. However, the code does not strictly adhere to this rationale:\n     - Line 28: `breakout_condition` is checked using an upward condition (`c > (last_close * (1 + self._threshold))`).\n     - Line 35: `continuation_condition` uses a downward condition (`(c - last_close) / last_close <= -self._threshold`). This suggests that the strategy might be looking for both upward and downward continuation, which contradicts the stated rationale.\n\n2. **Potential Failing Conditions:**\n   - Lines 29-35: The conditions are overly restrictive. If `last_10_closes` have no values or if they don't meet the length requirement, the strategy will return an empty signal.\n   - Line 28: If `closes` has fewer elements than expected (`< self._window + 20`), it could lead to incorrect conditions being evaluated.\n\n3. **Fragile Parameters:**\n   - The parameters `window` and `threshold` are hardcoded in the class definition (lines 7-9). These values should be configurable via a constructor or passed as arguments.\n   - Line 45: If the history is incomplete, it might return an empty signal even when valid data exists.\n\n4. **Issues that Could Stop It from Running:**\n   - Lines 28 and 35: The conditions are mutually exclusive if the strategy is intended to look for continuation in a single direction.\n   - Line 16: `_latest_visible` function assumes the presence of `session_date` in the history, which might not always be the case.\n\nTo improve the robustness and clarity:\n- Define clear parameters and ensure they can be adjusted dynamically.\n- Validate input data more thoroughly to avoid runtime errors.\n- Ensure the conditions align with the stated rationale."
+  ],
+  "seconds": 38.46758090000003,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 448
+}

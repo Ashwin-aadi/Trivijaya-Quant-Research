@@ -1,0 +1,23 @@
+{
+  "index": 143,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeRSIEMA(Strategy):\n    rationale = (\n        \"Combining Relative Strength Index (RSI) with Exponential Moving Average (EMA) can \"\n        \"provide a more nuanced view of stock strength and momentum. RSI indicates overbought or \"\n        \"oversold conditions, while EMA captures recent price action trends.\"\n    )\n\n    def __init__(self, rsi_window: int = 14, ema_period: int = 50) -> None:\n        self._rsi_window = rsi_window\n        self._ema_period = ema_period\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._rsi_window, self._ema_period))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(closes) < self._rsi_window + self._ema_period - 1:\n                continue\n\n            # Calculate RSI\n            deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]\n            gains = [d if d > 0 else 0.0 for d in deltas]\n            losses = [-l if l > 0 else 0.0 for l in deltas]\n\n            avg_gain = sum(gains[:self._rsi_window]) / self._rsi_window\n            avg_loss = sum(losses[:self._rsi_window]) / self._rsi_window\n\n            gains_exp = [gains[i] + (avg_gain * 1) if i < self._rsi_window else gains[i] for i in range(len(gains))]\n            losses_exp = [losses[i] + (avg_loss * 1) if i < self._rsi_window else losses[i] for i in range(len(losses))]\n\n            rs = sum(gains_exp[-self._rsi_window:]) / sum(losses_exp[-self._rsi_window:]) if avg_loss > 0 else 0.0\n            rsi = 100 - (100 / (1 + rs))\n\n            # Calculate EMA\n            ema_close = _ema(closes, self._ema_period)\n\n            # Composite score: higher RSI and lower EMA favor buying\n            if rsi > 70 and ema_close < closes[-1]:\n                signals[symbol] = 1.0\n\n        return Signal(information_available_at=stamp, weights=signals)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\ndef _ema(data: list[float], period: int) -> float:\n    n = len(data)\n    ema = [data[0]] * (period - 1) + data\n    for i in range(period, n):\n        ema.append(2 * (data[i] - ema[i-1]) / period + ema[i-1])\n    return sum(ema[-period:]) / period",
+  "class_name": "CompositeRSIEMA",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 763
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.79331970000203,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 147
+}

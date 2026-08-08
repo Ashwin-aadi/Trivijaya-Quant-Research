@@ -1,0 +1,23 @@
+{
+  "index": 214,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality in stock markets refers to patterns of price movements that occur regularly \"\n        \"during a specific time of the year. These trends can be driven by various factors such as \"\n        \"weather conditions, holidays, or seasonal economic activities. By identifying and exploiting \"\n        \"these trends, one can capture abnormal returns.\"\n    )\n\n    def __init__(self, season_length: int = 90) -> None:\n        self._season_length = season_length\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._season_length)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_strength = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_close_series = [float(v) for v in history[symbol].to_list()]\n            if len(adj_close_series) < self._season_length:\n                continue\n\n            # Calculate rolling mean and standard deviation\n            rolling_mean = pl.Series(adj_close_series).rolling_window(30).mean().to_list()\n            rolling_std = pl.Series(adj_close_series).rolling_window(30).std().to_list()\n\n            # Identify seasonal strength using the Z-score\n            z_scores = [(v - m) / s if s != 0 else 0 for v, m, s in zip(adj_close_series[29:], rolling_mean[29:], rolling_std[29:])]\n            seasonal_strength[symbol] = max(z_scores)\n\n        # Select the top N symbols with highest seasonal strength\n        picks = sorted(seasonal_strength.items(), key=lambda x: x[1], reverse=True)[:5]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={symbol: weight for symbol, _ in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 526
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.989863000002515,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 220
+}

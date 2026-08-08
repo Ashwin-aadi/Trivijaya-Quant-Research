@@ -1,0 +1,23 @@
+{
+  "index": 814,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Equities often exhibit seasonal patterns in their returns. By identifying and \"\n        \"capitalizing on these patterns, we can potentially achieve higher returns during \"\n        \"favorable seasons.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter out symbols that do not have enough data\n        symbols_with_data = [symbol for symbol in view.symbols if symbol in history.columns]\n        if len(symbols_with_data) < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the average close price for each symbol over the lookback period\n        closes = history.select(\n            pl.col(\"session_date\"), *[pl.col(symbol).alias(f\"{symbol}_close\") for symbol in symbols_with_data]\n        ).group_by(\"session_date\").agg(\n            [pl.mean(pl.col(f\"{symbol}_close\")).alias(f\"avg_{symbol}_close\") for symbol in symbols_with_data]\n        )\n\n        # Identify the season of each date\n        def get_season(date_str: str) -> int:\n            month = int(date_str.split(\"-\")[1])\n            return (month - 3) // 3 + 1\n\n        closes = closes.with_columns(\n            pl.col(\"session_date\").str.strptime(pl.Date).apply(get_season).alias(\"season\")\n        )\n\n        # Group by season and calculate the average close price\n        seasonal_data = (\n            closes.group_by(\"season\")\n            .agg([pl.mean(f\"avg_{symbol}_close\") for symbol in symbols_with_data])\n            .collect()\n        )\n        \n        # Find the highest average closing price across all seasons\n        max_avg_price = seasonal_data.height > 0\n        if not max_avg_price:\n            return Signal(information_available_at=stamp, weights={})\n\n        season_of_max_avg = int(seasonal_data.sort(\"avg_close\", descending=True).select([\"season\"]).to_list()[0][0])\n        symbols_in_max_season = [symbol for symbol in symbols_with_data if get_season(history[history[\"session_date\"] == stamp].column(\"session_date\").to_list()[0]) == season_of_max_avg]\n\n        # Allocate weights to the symbols that are currently in the max season\n        weight_per_symbol = 1.0 / len(symbols_in_max_season)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight_per_symbol for s in symbols_in_max_season}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 676
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 18.302887400001055,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 829
+}

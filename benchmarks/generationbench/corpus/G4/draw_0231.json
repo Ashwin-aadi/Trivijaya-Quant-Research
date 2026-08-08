@@ -1,0 +1,27 @@
+{
+  "index": 231,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the phenomenon where smaller-cap stocks with higher liquidity \"\n        \"exhibit better price efficiency and reduced transaction costs. By selecting stocks based \"\n        \"on their daily trading volume, we aim to capture superior risk-adjusted returns.\"\n    )\n\n    def __init__(self, min_volume: int = 1_000_000, top_n: int = 30) -> None:\n        self._min_volume = min_volume\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=None)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_df = (\n            history.lazy()\n            .select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volume\") / pl.col(\"session_date\").cast(pl.Date).dt.days_in_month()).alias(\"avg_daily_volume\"),\n            )\n            .filter(pl.col(\"avg_daily_volume\") > self._min_volume)\n            .group_by(\"symbol\")\n            .agg(pl.col(\"avg_daily_volume\").mean().alias(\"avg_daily_volume\"))\n            .sort(\"avg_daily_volume\", descending=True)\n            .head(self._top_n)\n        ).collect()\n\n        if volume_df.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks = [row[\"symbol\"] for row in volume_df.to_dicts()]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2353,
+    "output_tokens": 824
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy involves exploiting the phenomenon where smaller-cap stocks, which are often more liquid due to recent trading activity, exhibit better price efficiency and reduced bid-ask spreads. This liquidity can lead to lower transaction costs and higher returns compared to less liquid stocks. The economic mechanism is based on the information processing hypothesis, suggesting that markets are more efficient in processing information for liquid stocks.\n\nThe rule would screen the Indian equity market by selecting a subset of securities with high liquidity (e.g., stocks with daily trading volumes above a certain threshold). These selected stocks would then be equally weighted to ensure each contributes proportionally to the portfolio. By focusing on liquidity, this strategy aims to capture the benefits of price efficiency and reduced transaction costs, potentially leading to superior risk-adjusted returns compared to traditional market-cap weighting schemes.",
+    "The signal for this strategy is based on liquidity metrics derived from daily trading data. Specifically, the strategy computes the daily trading volume for each stock. Candidates are selected if their daily trading volume exceeds a predefined threshold, indicating sufficient liquidity. On a given day, these candidates are then ranked by their trading volume in descending order. The top-ranked stocks based on this criterion form the subset of securities to be equally weighted in the portfolio. This ranking and selection process is performed every trading day to ensure that only the most liquid stocks are considered for inclusion.",
+    "This strategy holds a dynamic number of names based on liquidity, typically ranging from 20 to 30 stocks each day. Each selected stock is equally weighted within the portfolio, ensuring no single security dominates. The position size per stock is thus determined by dividing the total investment capital by the number of selected stocks. To manage risk, the strategy limits daily losses to a maximum of 1% of the portfolio value, preventing significant drawdowns and maintaining the integrity of the liquidity-focused approach."
+  ],
+  "seconds": 26.494806399998197,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 235
+}

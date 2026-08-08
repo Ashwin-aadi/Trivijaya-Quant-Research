@@ -1,0 +1,23 @@
+{
+  "index": 815,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy selects stocks that show both a high relative strength and a strong \"\n        \"volume increase over the last 10 trading days. Relative strength indicates outperformance \"\n        \"against the market, while increased volume suggests market interest.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        strong_volume_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            close_prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            volume_changes = [\n                float(v)\n                for _, v in (\n                    history.with_columns(\n                        (pl.col(\"volume\") - pl.col(\"volume\").shift(1)).alias(\"volume_change\")\n                    )\n                    .sort(\"session_date\", descending=True)\n                    .select([\"symbol\", \"volume_change\"])\n                    .to_dicts()\n                )\n            ]\n            if len(volume_changes) < self._window:\n                continue\n            volume_rise = any(change > 0 for change in volume_changes)\n            if volume_rise and close_prices[-1] >= max(close_prices):\n                strong_volume_symbols.append(symbol)\n\n        if not strong_volume_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        relative_strength_symbols = []\n        market_returns = (\n            view.closes(lookback=self._window)\n            .select(pl.all().exclude(\"symbol\"))\n            .sum(axis=1)\n            / len(view.symbols)\n        )\n        for symbol in strong_volume_symbols:\n            if (close := history[symbol]).is_empty():\n                continue\n            close_series = [float(v) for v in close.drop_nulls().to_list()]\n            market_close_series = [\n                float(market_returns[i]) for i, _ in enumerate(close_series)\n            ]\n            relative_return = (\n                sum((close - market_close) / market_close for close, market_close in zip(\n                    close_series, market_close_series\n                )) / len(close_series)\n            )\n            if relative_return >= 0.1:\n                relative_strength_symbols.append(symbol)\n\n        final_symbols = strong_volume_symbols[:5]\n        weight = 1.0 / len(final_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in final_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 651
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 18.4653449000034,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 830
+}

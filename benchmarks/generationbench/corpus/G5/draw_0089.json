@@ -1,0 +1,26 @@
+{
+  "index": 89,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After a strong breakout in one direction, there is often an opportunity to \"\n        \"enter the market on a retracement towards the previous support or resistance level.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            high = max(values)\n            low = min(values)\n\n            current_close = float(view.latest_close()[symbol])\n            mid_price = (high + low) / 2.0\n            breakout_strength = (current_close - low) / (high - low)\n            if (abs(current_close - mid_price) <= mid_price * 0.1 and\n                breakout_strength >= 0.85 and\n                current_close >= low and current_close <= high):\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3962,
+    "output_tokens": 1349
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify continuation breakout opportunities by entering trades during retracements towards previous support or resistance levels. While the rationale is clear and well-defined, there are several issues with the implementation that could lead to incorrect signal generation:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale suggests looking for retracements toward previous support or resistance levels after a strong breakout. However, the code does not explicitly define what constitutes \"previous support or resistance.\" It instead uses simple highs and lows over the lookback period to identify potential entry points.\n\n2. **Potential Failure Scenarios:**\n   - Lines 31-40 check if `current_close` is within 10% of the mid-price (`high + low / 2`). This may not always capture meaningful retracement opportunities, as it could easily be triggered by minor price fluctuations.\n   - The strategy does not account for the breakout's direction or strength. A strong breakout should have more weight than a weak one.\n\n3. **Fragile Parameters:**\n   - Line 9 (`self._window = window`) and line 10 (`self._top_n = top_n`): The choice of `window` (20 days) might be too short or long depending on the market, and `top_n` (5 symbols) is arbitrary. These parameters should be validated with historical data.\n   - Line 39-42: Using the highest and lowest prices from a lookback period to define support/resistance can lead to false positives, especially in volatile markets.\n\n4. **Potential Issues Leading to Non-Runtime Errors:**\n   - Lines 50-51: The `values` list comprehension could raise errors if any value is not a float.\n   - Line 32: If there are symbols with fewer than the lookback period of data, they are excluded from consideration. This might lead to an incomplete portfolio if many such cases arise.\n\nIn summary, while the strategy aims to capture continuation patterns, its implementation lacks robustness in defining support/resistance levels and is overly simplistic in identifying valid breakouts. The parameters and logic need refinement for better performance."
+  ],
+  "seconds": 34.86952720000045,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 181
+}

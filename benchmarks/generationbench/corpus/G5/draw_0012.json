@@ -1,0 +1,26 @@
+{
+  "index": 12,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed well \"\n        \"recently to continue outperforming. This strategy buys top performers and sells bottom \"\n        \"performers over a short-term horizon.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5, bottom_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n        self._bottom_n = bottom_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_closes = view.latest_close()\n        symbols = set(latest_closes.keys()).intersection(set(history[\"symbol\"].to_list()))\n\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_returns = (\n            history.filter(pl.col(\"session_date\") >= (view.as_of - pl.duration(days=self._window)))\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n        )\n\n        if recent_returns.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = (\n            recent_returns.sort(\"avg_return\", descending=True)\n            .select([\"symbol\"])\n            .head(self._top_n)\n            .column(\"symbol\")\n            .to_list()\n        )\n        bottom_symbols = (\n            recent_returns.sort(\"avg_return\")\n            .select([\"symbol\"])\n            .head(self._bottom_n)\n            .column(\"symbol\")\n            .to_list()\n        )\n\n        weights = {s: 0.2 for s in top_symbols}\n        if self._top_n + self._bottom_n < len(top_symbols) + len(bottom_symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        for s in bottom_symbols:\n            if len(weights) < self._top_n + self._bottom_n:\n                weights[s] = -0.1\n            else:\n                break\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3965,
+    "output_tokens": 1464
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is generally well-structured but contains several areas for improvement and potential issues:\n\n1. **Rationale vs Code**: The rationale states a short-term momentum strategy, while the code uses a 20-day window, which might be considered medium-term rather than short-term (lines 13-14).\n\n2. **Potential Failure**:\n   - If there are no symbols in `symbols` on line 28, an empty dictionary is returned, but without checking if `view.latest_close()` contains any data.\n   - The assumption that at least one symbol will always have a non-empty intersection between `latest_closes` and `history['symbol']` might not hold (lines 20-24).\n\n3. **Fragility in Parameters**:\n   - The parameter `window: int = 20` could lead to instability if the market conditions change significantly over time (line 8).\n   - The hard-coded thresholds for top and bottom symbols (`5`, lines 39, 41) might not be optimal for different markets or time periods.\n\n4. **Potential Issues**:\n   - The `return` calculation in `recent_returns` assumes daily data, but the code does not specify this (line 27).\n   - If `view.history()` is empty (line 20), it could lead to a crash because of `.max()` on an empty DataFrame (line 36).\n\n5. **Improvement Suggestion**:\n   - Add error handling for empty history or latest closes.\n   - Consider making the window size and number of top/bottom symbols configurable parameters.\n   - Ensure `latest_closes` and `history` have valid data before proceeding.\n\nThe parts that are sound include:\n- The overall structure of using Polars for data manipulation (lines 27-43).\n- The concept of filtering by recent returns and selecting top/bottom performers."
+  ],
+  "seconds": 37.30137990000003,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 26
+}

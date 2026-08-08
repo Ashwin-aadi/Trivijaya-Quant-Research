@@ -1,0 +1,47 @@
+{
+  "index": 28,
+  "paradigm": "G7_mcts",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion30d(Strategy):\n    rationale = (\n        \"Price levels that revert from recent peaks suggest a correction is likely. \"\n        \"By focusing on the highest daily prices over a trailing 30-day window, we aim to identify \"\n        \"overextended price levels and anticipate potential reversals.\"\n    )\n\n    def __init__(self, lookback_days: int = 30) -> None:\n        self._lookback_days = lookback_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        high_prices = pl.DataFrame(\n            {\"session_date\": history[\"session_date\"], **{s: history[s][\"high\"] for s in symbols}}\n        )\n        highest_highs = (\n            high_prices.sort(\"session_date\", descending=True)\n            .group_by(\"session_date\")\n            .agg(pl.col(symbols).max().alias(\"highest_high\"))\n            .sort(\"session_date\")\n        )\n\n        recent_maxes = (\n            view.closes(lookback=self._lookback_days)\n            .select([\"session_date\"] + symbols)\n            .with_columns(\n                (pl.col(symbols) / pl.col(symbols).shift(self._lookback_days, limit=1) - 1.0).alias(\"reversion\")\n            )\n        )\n\n        eligible_symbols = (\n            recent_maxes.join(highest_highs.select([\"session_date\", \"highest_high\"]), on=\"session_date\", how=\"inner\")\n            .filter(pl.col(\"reversion\") < 0)\n            .select(\"symbol\")\n            .to_dict()[\"symbol\"]\n        )\n\n        if not eligible_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(eligible_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in eligible_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion30d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19298,
+    "output_tokens": 6428
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I will use the daily closing price as the measure of price level, looking back over a trailing 50-day period for reversion analysis.",
+    "I will use the daily high price as the measure of price level, looking back over a trailing 30-day period for reversion analysis. This approach focuses on intraday peaks and considers shorter-term reversions.",
+    "For this strategy, I will hold a portfolio of 5 names with equal weighting (20% each) when opening a position, based on the identified price reversion opportunities against the trailing 50-day period.",
+    "I will hold a maximum of 50 names in the portfolio, with weights equally distributed among them, ensuring each name receives a weight of 2%. This approach balances diversification with manageability.",
+    "For this strategy, I will hold a portfolio of 10 names with equal weighting (10% each) to diversify risk while maintaining sensitivity to price-level reversions.",
+    "I will hold a maximum of 50 names in the portfolio, with weights equally distributed among them, ensuring each name receives a weight of 2%. This approach balances diversification with manageability.",
+    "To bound the loss on a position, I will set a stop-loss at 5% below the entry price. For the portfolio, I will cap the maximum loss at 10%, triggering a strategy halt if this threshold is reached.",
+    "For this strategy, I will set an individual position loss limit of -3% to prevent significant exposure to any single stock, ensuring that no position can lose more than 3% before triggering a stop-loss. This rule helps manage risk while allowing for price-level reversion opportunities.",
+    "I will set a stop-loss rule for each position at -15% from the entry price, and for the portfolio as a whole, I will implement a trailing stop-loss at -10% from the highest 50-day high, to protect against significant losses while allowing for some price-level reversion potential.",
+    "To manage risk, I will set an individual position loss limit of -5% for each stock, preventing any single position from causing excessive portfolio volatility. Additionally, the entire portfolio's daily drawdown will be capped at -10%, ensuring overall strategy stability without frequent trading interventions.",
+    "To bound the loss on a position, I will implement a trailing stop-loss that resets daily to the highest closing price achieved since entry, minus 5%. For the portfolio, I will limit the maximum drawdown to 8%, halting trading if this threshold is breached.",
+    "For this strategy, I will implement a portfolio-wide loss limit of -5%, which triggers an exit from the entire portfolio if the cumulative loss exceeds this threshold. This ensures that the overall risk is capped, protecting against broader market downturns or unexpected industry-wide events that could impact multiple positions simultaneously."
+  ],
+  "seconds": 210.53132650000043,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 354
+}

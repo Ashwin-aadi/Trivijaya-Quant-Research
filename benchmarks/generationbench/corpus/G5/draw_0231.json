@@ -1,0 +1,26 @@
+{
+  "index": 231,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity is a key factor in market efficiency. High liquidity stocks are more \"\n        \"likely to be accurately priced and less prone to price manipulation. This strategy \"\n        \"selects the top N most liquid stocks based on average daily trading volume over a \"\n        \"lookback period and assigns equal weights to them.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily trading volume for each symbol\n        volumes = (\n            history.lazy()\n            .group_by(\"symbol\")\n            .agg(pl.col(\"volume\").sum().alias(\"total_volume\"))\n            .sort(\"total_volume\", descending=True)\n        )\n\n        if volumes.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row[0] for row in volumes.to_pandas().head(self._top_n).values]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_pandas().iloc[0][0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3929,
+    "output_tokens": 1239
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears to be well-structured and generally aligned with its rationale. However, there are several areas for critique:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states that high liquidity stocks should have more accurate pricing, but the code doesn't account for any measures of price accuracy or manipulation directly.\n\n2. **Potential Failure Scenarios**:\n   - Line 28: If the `history` DataFrame is empty, the function returns an empty weights dictionary. This might not be sufficient if backtesting requires initial conditions.\n   - Line 36: Sorting by average daily volume could be problematic if there are ties for positions \\(N+1\\) to \\(2N\\), which would result in incomplete top-N lists.\n\n3. **Fragile Parameters**:\n   - The `window` parameter (Line 7) determines the lookback period, but it is not validated or normalized.\n   - The `top_n` parameter (Line 8) sets the number of stocks to select, which could be too small if liquidity changes significantly over time.\n\n4. **Potential Issues for Running**:\n   - Line 32: `pl.col(\"volume\").sum().alias(\"daily_volume\")` assumes that each row represents a single day's data; if there are multiple entries per day, this sum might not represent daily volume.\n   - Line 15: The method `_latest_visible(view)` is defined as a helper but used directly. It should be integrated into the class for consistency.\n\nThe overall logic is sound and follows the stated rationale, but improvements in handling edge cases, parameter validation, and potential inconsistencies with data structure assumptions would enhance robustness."
+  ],
+  "seconds": 32.765013199999885,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 468
+}

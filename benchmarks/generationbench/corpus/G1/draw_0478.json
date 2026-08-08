@@ -1,0 +1,23 @@
+{
+  "index": 478,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffectStrategy(Strategy):\n    rationale = (\n        \"Certain stocks in the Indian market exhibit stronger performance during specific seasons \"\n        \"of the year. By identifying these seasonal patterns, we can allocate capital to stocks that are expected \"\n        \"to perform well at certain times.\"\n    )\n\n    def __init__(self, season: int = 3) -> None:\n        self._season = season\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=365 * 4)  # Look at the last 4 years of data\n        if history.height < 1095:  # Ensure we have enough data\n            return Signal(information_available_at=stamp, weights={})\n\n        season_map = {3: \"Summer\", 6: \"Monsoon\", 9: \"Winter\", 12: \"Post-Monsoon\"}\n        current_season = (view.as_of.month - 1) // 3 + 1\n        target_season = (current_season + self._season) % 4\n\n        season_changes = (\n            history.filter(pl.col(\"session_date\").dt.quarter() == target_season)\n                  .group_by(\"symbol\")\n                  .agg((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(120).fill_null(1.0) - 1.0).alias(\"seasonal_return\"))\n        )\n        \n        if season_changes.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_stocks = season_changes.sort(\"seasonal_return\", descending=True)[\"symbol\"].to_list()[:5]\n        weight = 1.0 / len(top_stocks)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in top_stocks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffectStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 491
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.535052099992754,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 484
+}

@@ -1,0 +1,26 @@
+{
+  "index": 187,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression suggests that the market is consolidating before a potential breakout. \"\n        \"High dispersion in daily price ranges can indicate accumulation or distribution activity, \"\n        \"potentially leading to a significant move.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily range\n        high_low_diff = (history[\"high\"] - history[\"low\"]).alias(\"range\")\n        history = history.with_column(high_low_diff)\n\n        # Compute mean and standard deviation of the range over the window\n        mean_range = history.select(pl.col(\"range\").mean().alias(\"mean_range\"))[0][\"mean_range\"]\n        std_dev_range = history.select(pl.col(\"range\").std().alias(\"std_range\"))[0][\"std_range\"]\n\n        # Identify symbols with a range compression and potential breakout conditions\n        compressed_symbols = (\n            history.with_columns(\n                (pl.col(\"range\") - mean_range).abs() / std_dev_range > self._threshold,\n                (pl.col(\"close\").shift(-1) - pl.col(\"close\")).alias(\"close_change\"),\n            )\n            .group_by(\"symbol\")\n            .agg(\n                pl.count().alias(\"count\"),\n                (\n                    pl.col(\"close_change\") >= 0.5 * std_dev_range\n                ).sum()\n                .alias(\"potential_breakout_count\"),\n            )\n            .filter((pl.col(\"count\") > 0) & (pl.col(\"potential_breakout_count\") > 0))\n            .select([\"symbol\"])\n        )[\"symbol\"].to_list()\n\n        if not compressed_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(compressed_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in compressed_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3971,
+    "output_tokens": 1407
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears well-structured but contains several potential issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale suggests range compression can indicate accumulation or distribution activity, potentially leading to a significant move. However, the code does not explicitly check for breakout conditions (line 23). It only identifies symbols with high daily price ranges relative to their mean and standard deviation over a window.\n\n2. **Potential Failure**:\n   - The strategy might fail if the market experiences very volatile but non-breakout patterns. For instance, if daily ranges are consistently large due to noise rather than significant underlying changes, this strategy could generate false signals (line 31-40).\n\n3. **Fragile Parameters**:\n   - The `window` parameter and `threshold` value are hardcoded and somewhat arbitrary (lines 7-8). Depending on the market or time period, these values might need adjustment.\n   - If the historical data lacks sufficient diversity or if daily ranges are too variable, the strategy could produce unreliable results.\n\n4. **Potential Issues with Code**:\n   - The `generate` method assumes that `view.history()` returns a DataFrame with columns \"high\", \"low\", and \"session_date\". This assumption might not hold in all contexts.\n   - The `_latest_visible` function is overly simple, assuming the history always contains date information. It should handle cases where no visible data exists more robustly.\n\n5. **Soundness**:\n   - If the primary goal is to identify symbols experiencing range compression and potentially prepare for a breakout, this approach has merit but needs additional conditions or breakout detection (lines 31-40). The overall structure is sound for identifying range compression, provided the parameters are appropriately tuned."
+  ],
+  "seconds": 36.19271800000024,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 379
+}

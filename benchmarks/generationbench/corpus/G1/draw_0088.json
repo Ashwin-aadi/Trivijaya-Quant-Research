@@ -1,0 +1,23 @@
+{
+  "index": 88,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass TrailingReversion(Strategy):\n    rationale = (\n        \"Price reverts to the mean after a strong move. By identifying symbols that have \"\n        \"recently moved strongly and are now below their trailing average, we can generate \"\n        \"buy signals.\"\n    )\n\n    def __init__(self, window: int = 30, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_closes = view.closes().to_dict(False)\n\n        # Calculate the trailing average\n        avg_history = (\n            history.group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\").mean().alias(\"trailing_avg\")))\n            .collect()\n        )\n\n        symbols_with_data = set(history[\"symbol\"]) & set(avg_history[\"symbol\"])\n        signals: dict[str, float] = {}\n\n        for symbol in symbols_with_data:\n            symbol_df = history.filter(pl.col(\"symbol\") == symbol)\n            latest_close = latest_closes[symbol][-1]\n            trailing_avg = avg_history.filter(pl.col(\"symbol\") == symbol)[\"trailing_avg\"][0]\n\n            if (\n                latest_close < trailing_avg * (1 - self._threshold)\n                and max(symbol_df[\"adj_close\"].to_list()) > trailing_avg\n            ):\n                signals[symbol] = 1.0 / len(signals)\n\n        return Signal(\n            information_available_at=stamp, weights={k: v for k, v in signals.items() if v}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "TrailingReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 466
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.699266600000556,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 92
+}

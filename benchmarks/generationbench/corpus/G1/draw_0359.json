@@ -1,0 +1,23 @@
+{
+  "index": 359,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"This strategy identifies stocks with both strong short-term and long-term momentum. \"\n        \"Such stocks are likely to continue trending positively in the near future.\"\n    )\n\n    def __init__(self, short_window: int = 10, long_window: int = 50) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._long_window)\n\n        if history.height < self._long_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        short_returns = (history[\"adj_close\"] / history[\"adj_close\"].shift(self._short_window) - 1.0).alias(\"short_ret\")\n        long_returns = (history[\"adj_close\"] / history[\"adj_close\"].shift(self._long_window) - 1.0).alias(\"long_ret\")\n\n        momentum_df = history.with_columns(short_returns, long_returns)\n        momentum_df = momentum_df.sort(\"session_date\", descending=True).head(20)\n\n        top_short_moments: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in momentum_df.columns or \"short_ret\" not in momentum_df[symbol].to_list():\n                continue\n            short_values = [float(v) for v in momentum_df[f\"{symbol}.short_ret\"].drop_nulls().to_list()]\n            top_short_moments.append(symbol)\n\n        top_long_moments: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in momentum_df.columns or \"long_ret\" not in momentum_df[symbol].to_list():\n                continue\n            long_values = [float(v) for v in momentum_df[f\"{symbol}.long_ret\"].drop_nulls().to_list()]\n            top_long_moments.append(symbol)\n\n        combined_picks: list[str] = set(top_short_moments).intersection(set(top_long_moments))\n        if not combined_picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(combined_picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in combined_picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 590
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.462770800004364,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 365
+}

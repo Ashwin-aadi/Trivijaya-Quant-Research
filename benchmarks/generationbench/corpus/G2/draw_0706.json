@@ -1,0 +1,23 @@
+{
+  "index": 706,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Certain stocks in the NIFTY 100 may exhibit predictable patterns of performance based \"\n        \"on seasonal calendar effects. For instance, consumer discretionary sectors might show \"\n        \"strong returns during festive periods like Diwali or Christmas. By identifying such \"\n        \"seasonal trends, we can opportunistically allocate capital.\"\n    )\n\n    def __init__(self, window: int = 365, lookback: int = 10) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._lookback)\n\n        seasonal_factors: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._lookback:\n                continue\n\n            # Calculate the mean close during festive periods (Diwali, Christmas)\n            diwali_close_mean = history.filter(\n                (pl.col(\"session_date\").dt.month() == 10) & (pl.col(\"session_date\").dt.day() >= 22)\n            )[\"adj_close\"][symbol].mean()\n            christmas_close_mean = history.filter(\n                (pl.col(\"session_date\").dt.month() == 12) & (pl.col(\"session_date\").dt.day() == 25)\n            )[\"adj_close\"][symbol].mean()\n\n            if not diwali_close_mean.is_nan() and not christmas_close_mean.is_nan():\n                seasonal_factors[symbol] = (\n                    max(diwali_close_mean, christmas_close_mean) / min(diwali_close_mean, christmas_close_mean)\n                )\n\n        sorted_symbols = [\n            symbol for symbol in view.symbols if symbol in seasonal_factors\n            if seasonal_factors[symbol] > 1.05  # Only consider factors greater than 1.05\n        ]\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 628
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.053177100009634,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 717
+}

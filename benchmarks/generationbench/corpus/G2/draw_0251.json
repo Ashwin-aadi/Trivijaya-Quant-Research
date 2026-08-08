@@ -1,0 +1,23 @@
+{
+  "index": 251,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines volume spikes with price momentum to identify potentially \"\n        \"overbought or oversold conditions in the market. Volume spikes can indicate short-term \"\n        \"liquidity imbalances, while strong price momentum suggests continued interest from \"\n        \"traders. By looking for both, we aim to capture opportunities where these signals align.\"\n    )\n\n    def __init__(self, volume_window: int = 20, momentum_window: int = 10) -> None:\n        self._volume_window = volume_window\n        self._momentum_window = momentum_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=max(self._volume_window, self._momentum_window))\n        if closes.height < max(self._volume_window, self._momentum_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_history = view.history(lookback=self._volume_window)\n        momentum_history = view.history(lookback=self._momentum_window)\n\n        high_volume_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in volume_history.symbol.to_list():\n                continue\n            volume_values = [float(v) for v in volume_history.filter(pl.col(\"symbol\") == symbol)[\n                \"volume\"].to_list()]\n            if len(volume_values) < self._volume_window:\n                continue\n            if max(volume_values) >= 1.5 * pl.col(\"volume\").mean().over(\"session_date\"):\n                high_volume_symbols.append(symbol)\n\n        strong_momentum_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in momentum_history.symbol.to_list():\n                continue\n            price_changes = [float(c - o) / o for o, c in zip(\n                momentum_history.filter(pl.col(\"symbol\") == symbol)[\"open\"].to_list(),\n                momentum_history.filter(pl.col(\"symbol\") == symbol)[\"close\"].to_list()\n            )]\n            if sum(price_changes[-self._momentum_window:]) > 0.1 * len(price_changes):\n                strong_momentum_symbols.append(symbol)\n\n        combined_signals = set(high_volume_symbols).intersection(set(strong_momentum_symbols))\n        if not combined_signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(combined_signals)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in combined_signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 628
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.198220400001446,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 257
+}

@@ -1,0 +1,23 @@
+{
+  "index": 495,
+  "paradigm": "G1_plain",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity screening ensures that only the most liquid stocks are considered for \"\n        \"investment. Equal weighting across these stocks helps to distribute risk evenly and \"\n        \"can improve portfolio performance by reducing concentration risks.\"\n    )\n\n    def __init__(self, liquidity_threshold: int = 10_000_000) -> None:\n        self._liquidity_threshold = liquidity_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=365)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = tuple(set(view.symbols))\n        volume_history = (\n            history.filter(pl.col(\"symbol\").is_in(symbols))\n                   .group_by(\"symbol\")\n                   .agg((pl.col(\"volume\").sum()).alias(\"total_volume\"))\n                   .sort(\"total_volume\", descending=True)\n                   .head(self._liquidity_threshold)\n                   .select([\"symbol\"])\n                   .to_dict(True)[\"symbol\"]\n        )\n\n        if not volume_history:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(volume_history)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in volume_history}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 389
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.55431600000884,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 501
+}

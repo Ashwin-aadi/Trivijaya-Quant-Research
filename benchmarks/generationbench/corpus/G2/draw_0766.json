@@ -1,0 +1,23 @@
+{
+  "index": 766,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffectStrategy(Strategy):\n    rationale = (\n        \"Seasonality in stock markets often arises due to recurring events such as \"\n        \"fiscal years end, earnings seasons, or cultural and environmental factors. \"\n        \"Historically, certain stocks may exhibit higher returns during specific months of the year.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter for NIFTY 100 symbols\n        nifty_100_symbols = [s for s in view.symbols if s.startswith(\"NIFTY\")]\n        \n        seasonality_signals: dict[str, float] = {}\n        for symbol in nifty_100_symbols:\n            df = history.select(\n                pl.col(\"session_date\"), \n                pl.col(symbol)\n            ).filter(pl.col(\"session_date\").dt.month().is_in([9, 12]))\n\n            # Calculate the average return for September and December\n            if df.height > 1:\n                returns = (\n                    (df[\"adj_close\"] / df[\"adj_close\"].shift(1) - 1.0).drop_nulls()\n                )\n                avg_return_september = float(returns.filter(pl.col(\"session_date\").dt.month() == 9).mean())\n                avg_return_december = float(returns.filter(pl.col(\"session_date\").dt.month() == 12).mean())\n\n                # If December returns are significantly higher, consider buying in September\n                if avg_return_december > avg_return_september:\n                    seasonality_signals[symbol] = (avg_return_december - avg_return_september) * 0.5\n\n        # Sort symbols by their potential return and pick the top few\n        sorted_symbols = sorted(seasonality_signals.items(), key=lambda x: x[1], reverse=True)\n        top_symbols = [symbol for symbol, _ in sorted_symbols[:3]]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffectStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 608
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.725932300003478,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 778
+}

@@ -1,0 +1,27 @@
+{
+  "index": 247,
+  "paradigm": "G4_planning",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"This strategy exploits the tendency of market-wide sentiment to influence stock price \"\n        \"movements. During strong market cycles, sectors experience dispersion where individual \"\n        \"stocks deviate from their historical ranges. As market sentiment shifts towards \"\n        \"normalization, these dispersions are compressed, providing an opportunity to profit \"\n        \"from this reversion.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [sym for sym in view.symbols if sym in history.columns]\n        hls: list[float] = []\n        avg_hls: dict[str, float] = {}\n        for symbol in symbols:\n            daily_history = history[[symbol, \"session_date\"]]\n            hl_range = (daily_history[\"high\"] - daily_history[\"low\"]).to_list()\n            avg_hl = sum(hl_range) / len(hl_range)\n            avg_hls[symbol] = avg_hl\n            hls.extend([hl / avg_hl for hl in hl_range])\n\n        dispersion = {sym: abs(20 / (1 + 5 * pl.col(sym).mean()) - avg_hl) for sym, avg_hl in avg_hls.items()}\n        ranked_dispersion = sorted(dispersion.items(), key=lambda item: item[1], reverse=True)\n        picks = [symbol for symbol, _ in ranked_dispersion[:self._top_n]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2410,
+    "output_tokens": 929
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To exploit the theme of dispersion or range compression in India's equity market, the strategy will focus on sectoral and industry-specific analysis. The economic mechanism involves observing how market-wide sentiment influences stock price movements. Dispersions occur when individual stocks deviate from their historical ranges due to specific events or fundamental changes, while range compressions happen when broader market forces normalize these deviations.\n\nThis persistence can be attributed to the interplay between macroeconomic conditions and sector-specific factors, which often lead to prolonged periods of either dispersion or compression.\n\nThe rule would exploit this by:\n1. Identifying sectors with high dispersion during strong market cycles.\n2. Timing entries into underperforming stocks within those sectors as market sentiment shifts towards normalization.\n3. Exiting positions once the range compresses, capturing the price convergence.\n\nThis approach leverages the tendency of markets to eventually revert to mean prices across different segments.",
+    "The strategy focuses on identifying sectors with high dispersion or range compression. On a daily basis, compute the High-Low (H-L) range for each stock within selected sectors. Rank stocks based on their deviation from their 20-day average H-L range. Select underperforming stocks with the highest deviations during strong market cycles as potential candidates for entry. Entries are made when market sentiment shifts towards normalization, indicated by a narrowing of H-L ranges across multiple sectors. Rankings are recalculated daily to identify new candidates and exit positions once the range compression is confirmed.",
+    "The strategy will hold up to 20 names in each sector, with equal weighting of 5% per name to maintain diversification. Position sizes are adjusted based on overall portfolio volatility, ensuring that no single position exceeds a 10% maximum potential loss at any given time. This limits the risk exposure and helps manage drawdowns during market downturns. Regular rebalancing ensures dynamic adjustment of weights in response to changing H-L range compressions and market sentiment shifts."
+  ],
+  "seconds": 28.759765099996002,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 251
+}

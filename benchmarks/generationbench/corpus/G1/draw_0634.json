@@ -1,0 +1,23 @@
+{
+  "index": 634,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Historical data from the Indian stock market suggests that certain months of the year \"\n        \"show higher returns due to specific seasonal effects or calendar events. This strategy \"\n        \"exploits these historical patterns by overweighting stocks in periods known to perform well.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter by month\n        month_map = {1: \"Jan\", 2: \"Feb\", 3: \"Mar\", 4: \"Apr\", 5: \"May\", 6: \"Jun\",\n                     7: \"Jul\", 8: \"Aug\", 9: \"Sep\", 10: \"Oct\", 11: \"Nov\", 12: \"Dec\"}\n        history = history.with_column(pl.col(\"session_date\").str.strptime(pl.Date, fmt=\"%Y-%m-%d\")\n                                      .alias(\"parsed_date\"))\n        history = history.with_column((pl.col(\"parsed_date\").dt.month()).cast(pl.Int32).alias(\"month\"))\n\n        # Identify high-performing months\n        monthly_avg_returns: dict[str, float] = {}\n        for month in range(1, 13):\n            month_filter = (history[\"month\"] == month)\n            month_grouped = history.filter(month_filter).group_by(\"symbol\").agg(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\")\n            )\n            if not month_grouped.is_empty():\n                avg_return = float(month_grouped.select(pl.col(\"return\").mean()).item())\n                monthly_avg_returns[month_map[month]] = avg_return\n\n        # Sort by average return\n        sorted_months = [k for k, v in sorted(monthly_avg_returns.items(), key=lambda item: item[1], reverse=True)]\n        picks: list[str] = []\n        for month in sorted_months[:5]:\n            symbols_in_month = history.filter((history[\"month\"] == month_map_to_num[month]) & month_filter)[\"symbol\"].to_list()\n            picks.extend(symbols_in_month)\n\n        # Select top-performing symbols\n        picks = list(set(picks))[:10]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().date()\n    assert isinstance(newest, date)\n    return newest\n\n# Map month names back to numbers for filtering\nmonth_map_to_num = {\"Jan\": 1, \"Feb\": 2, \"Mar\": 3, \"Apr\": 4, \"May\": 5, \"Jun\": 6,\n                    \"Jul\": 7, \"Aug\": 8, \"Sep\": 9, \"Oct\": 10, \"Nov\": 11, \"Dec\": 12}",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 775
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 20.76249399999506,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 647
+}

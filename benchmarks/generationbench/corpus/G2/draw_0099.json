@@ -1,0 +1,23 @@
+{
+  "index": 99,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqualWeighing(Strategy):\n    rationale = (\n        \"Higher liquidity can indicate better marketability and reduced trading costs. \"\n        \"Equally weighting securities based on their liquidity can potentially lead to a \"\n        \"strategy that benefits from the combined flow of these liquid assets.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volume\").rolling_sum(window_size=self._window) / 100_000).alias(\"avg_volume\"),\n                (pl.col(\"adj_close\") * pl.col(\"volume\")).sum().alias(\"total_value\")\n            )\n            .with_columns(\n                ((pl.col(\"total_value\") / pl.col(\"avg_volume\")).rank(method=\"dense\", descending=True) + 1).alias(\"liquidity_score\")\n            )\n            .sort(\"liquidity_score\")\n        )\n\n        if liquidity_scores.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = liquidity_scores.select(pl.col(\"symbol\"))[:self._window]\n        weight = 1.0 / self._window\n        weights = {str(symbol): weight for symbol in top_symbols[\"symbol\"].to_list()}\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqualWeighing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 442
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.31557829999656,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 103
+}

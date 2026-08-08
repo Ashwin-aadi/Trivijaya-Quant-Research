@@ -1,0 +1,26 @@
+{
+  "index": 62,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy exploits trends by scaling the portfolio allocation to symbols based on their volatility. \"\n        \"High volatility indicates a stronger trend, leading to higher exposure.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility_scaled_weights: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_closes = [float(v) for v in history[symbol].to_list()]\n            mean_adj_close = sum(adj_closes) / len(adj_closes)\n            returns = [(adj_closes[i] - adj_closes[i-1]) / adj_closes[i-1] if i > 0 else 0.0 for i in range(len(adj_closes))]\n            mean_return = sum(returns) / len(returns)\n\n            # Moving Average\n            moving_average = history[symbol].rolling_mean(self._window).to_list()\n            trend = (adj_closes[-1] - moving_average[-1]) / max(moving_average)\n            volatility = (sum([(r - mean_return) ** 2 for r in returns]) / (len(returns) - 1)) ** 0.5\n\n            if volatility == 0:\n                continue\n            weight = abs(mean_return) * trend / volatility * 3  # Scaling factor of 3\n            volatility_scaled_weights[symbol] = weight\n\n        total_weight = sum(volatility_scaled_weights.values())\n        weights = {symbol: weight / total_weight for symbol, weight in volatility_scaled_weights.items()}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3927,
+    "output_tokens": 1326
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy has some potential issues and areas for improvement:\n\n1. **Rationale vs Code**:\n   - The rationale suggests exploiting trends by scaling portfolio allocation based on volatility, but the code calculates returns and volatility without explicitly using them in a trend-following context. Specifically, lines 24-35 calculate mean return and volatility without incorporating these into a trend-following mechanism.\n\n2. **Trend Following Mechanism**:\n   - The strategy should include logic to identify trends (e.g., moving averages) but instead calculates static weights based on volatility alone. This means the code does not actually follow trends, which is contrary to the stated rationale.\n\n3. **Parameter Fragility**:\n   - The scaling factor of 3 in line 29 might be too arbitrary and could lead to overly aggressive or conservative trading depending on market conditions. A more dynamic approach would be beneficial.\n\n4. **Potential Failures**:\n   - Line 17: `if history.is_empty():` will trigger if there is no historical data, which can happen due to insufficient lookback period.\n   - Lines 23-35 assume the presence of daily closing prices and correctly handle missing symbols, but this could fail in environments where data quality is poor.\n\n5. **Fragility**:\n   - The code assumes a linear relationship between volatility and trend strength, which might not hold in all market conditions.\n   - The strategy does not account for transaction costs or slippage, which can significantly impact performance.\n\nOverall, while the strategy aims to scale exposure based on volatility, it lacks a clear trend-following mechanism as described. Improvements could include incorporating moving averages or other trend indicators and refining the scaling logic."
+  ],
+  "seconds": 34.6279368000005,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 127
+}

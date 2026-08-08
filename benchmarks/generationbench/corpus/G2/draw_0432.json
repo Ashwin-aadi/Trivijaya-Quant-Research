@@ -1,0 +1,23 @@
+{
+  "index": 432,
+  "paradigm": "G2_cot",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum suggests that stocks which have performed well relative to \"\n        \"the market over the recent past are likely to continue performing well in the near future. \"\n        \"This strategy exploits this phenomenon by buying winners and selling losers.\"\n    )\n\n    def __init__(self, window: int = 20, top_n_winners: int = 5, bottom_n_losers: int = 5) -> None:\n        self._window = window\n        self._top_n_winners = top_n_winners\n        self._bottom_n_losers = bottom_n_losers\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        winners: list[str] = []\n        losers: list[str] = []\n\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            price_changes = [\n                float(v) for v in (history[symbol][\"close\"] / history[symbol][\"close\"].shift(1) - 1.0).to_list()\n            ]\n            if len(price_changes) < self._window:\n                continue\n\n            rank = pl.Series(price_changes).rank(method=\"ordinal\", descending=True)\n            winner_rank = int(len(price_changes) * (self._top_n_winners / 100))\n            loser_rank = int(len(price_changes) * (self._bottom_n_losers / 100))\n\n            if rank[0] <= winner_rank:\n                winners.append(symbol)\n            elif rank[0] >= len(price_changes) - loser_rank:\n                losers.append(symbol)\n\n        if not winners or not losers:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_winners = 1.0 / len(winners)\n        weight_losers = -1.0 / len(losers)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                s: weight_winners for s in winners\n            } | {\n                s: weight_losers for s in losers\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1342,
+    "output_tokens": 571
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.908120599997346,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 440
+}

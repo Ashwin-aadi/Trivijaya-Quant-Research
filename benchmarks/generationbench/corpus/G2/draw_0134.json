@@ -1,0 +1,23 @@
+{
+  "index": 134,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySCTF(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following (V-SCTF) exploits the tendency for assets to continue \"\n        \"moving in their recent direction, but scaled by their volatility. This strategy \"\n        \"enters a long position if the asset's price moves up significantly relative to its \"\n        \"volatility over a lookback period and exits on subsequent retracements.\"\n    )\n\n    def __init__(self, window: int = 20, threshold_multiplier: float = 1.5) -> None:\n        self._window = window\n        self._threshold_multiplier = threshold_multiplier\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_prices = {}\n        for symbol in view.symbols:\n            symbol_history = history.filter(pl.col(\"symbol\") == symbol).select(\n                \"session_date\", \"adj_close\"\n            )\n            close_series = [float(v) for v in symbol_history[\"adj_close\"].to_list()]\n            price_change = (close_series[-1] - close_series[0]) / close_series[0]\n            volatility = _calculate_volatility(close_series)\n            if volatility > 0:\n                threshold = self._threshold_multiplier * volatility\n                if price_change > threshold:\n                    symbol_prices[symbol] = close_series\n\n        signals: dict[str, float] = {}\n        for symbol, prices in symbol_prices.items():\n            last_close = float(prices[-1])\n            previous_close = float(prices[-2])\n            trend_signal = (last_close - previous_close) / previous_close\n            if abs(trend_signal) < 0.1:\n                continue  # Avoid very weak signals\n\n            weight = 1.0 / len(symbol_prices)\n            signals[symbol] = weight\n\n        return Signal(information_available_at=stamp, weights=signals)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_volatility(prices: list[float]) -> float:\n    mean_price = sum(prices) / len(prices)\n    variance = sum((price - mean_price) ** 2 for price in prices) / (len(prices) - 1)\n    volatility = (variance ** 0.5) / mean_price\n    return volatility",
+  "class_name": "VolatilitySCTF",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 594
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.585950599997886,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 138
+}

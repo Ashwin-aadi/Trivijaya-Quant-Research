@@ -1,0 +1,26 @@
+{
+  "index": 70,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date, timedelta\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffectStrategy(Strategy):\n    rationale = (\n        \"Certain stocks exhibit strong performance during specific seasons or months of the year. \"\n        \"By identifying and leveraging these seasonal effects, we can potentially achieve better returns.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            monthly_closes = _group_by_month(values)\n            seasonal_effect = max(monthly_closes.values()) / min(monthly_closes.values()) - 1.0\n            if seasonal_effect >= 0.2:  # Define a threshold for strong seasonal effect\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _group_by_month(values: list[float]) -> dict[int, float]:\n    monthly_closes = {}\n    for i in range(len(values)):\n        month = (view.as_of.year - values[i] // 100) * 12 + (view.as_of.month - 1)\n        if month not in monthly_closes:\n            monthly_closes[month] = []\n        monthly_closes[month].append(values[i])\n    for month, closes in monthly_closes.items():\n        monthly_closes[month] = max(closes) / min(closes) - 1.0\n    return monthly_closes",
+  "class_name": "SeasonalEffectStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4102,
+    "output_tokens": 1483
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy aims to identify stocks with strong seasonal performance by focusing on monthly closing prices. Here are some criticisms and observations:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale states that certain stocks exhibit strong performance during specific seasons or months, but the code does not explicitly define what \"strong performance\" means. Line 20 defines `monthly_closes` by comparing maximum to minimum values, which could be misleading as it assumes a simple ratio of max to min is sufficient for identifying seasonal effects.\n\n2. **Potential Failures**:\n   - Line 19: The logic checks if any monthly close is greater than the overall maximum value in the window. This might not correctly identify seasonal effects if there are outliers or if performance is more consistent across months.\n   - Line 35: If no stocks pass the criteria, an empty `Signal` is returned. However, this could happen even when some stocks show strong seasonal patterns but don't meet all conditions.\n\n3. **Fragile Parameters**:\n   - The parameters `window` and `top_n` are hardcoded in line 6. These values need to be carefully chosen based on the market and data characteristics. A fixed window might not capture long-term trends, while a small top-n could miss out on significant opportunities.\n   - The logic assumes that all symbols have recent enough data (line 13), which could be problematic if some stocks are less frequently traded or have missing historical data.\n\n4. **Potential Issues**:\n   - Line 26: `view.as_of` is not defined, causing a NameError unless it's implicitly imported somewhere.\n   - The strategy does not handle time zones or daylight saving changes correctly, which could affect the month grouping (line 37).\n\nOverall, while the intent to leverage seasonal effects is sound, the implementation needs more robust definitions and handling of edge cases."
+  ],
+  "seconds": 37.903599200000826,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 143
+}

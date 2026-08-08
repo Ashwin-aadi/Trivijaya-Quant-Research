@@ -1,0 +1,23 @@
+{
+  "index": 694,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain stocks in the Indian market exhibit stronger performance during specific \"\n        \"seasons. By identifying these seasonal patterns, we can allocate capital to those \"\n        \"stocks at the start of their peak periods.\"\n    )\n\n    def __init__(self, window: int = 30, lookback: int = 12) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback).sort(\"session_date\")\n        if history.height < self._lookback + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width != len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Identify the season for the current date\n        month = stamp.month\n\n        # Calculate seasonal performance by year\n        avg_returns_by_month = (\n            history.group_by(\"session_date\").agg(\n                (pl.col(\"close\") / pl.col(\"adj_close\").shift(self._window) - 1).alias(\"return\")\n            )\n            .with_columns((pl.col(\"return\").mean().over(pl.col(\"session_date\").dt.month()).alias(\"avg_monthly_return\")))\n            .sort(\"session_date\", descending=False)\n            .group_by(\"month_of_year\").agg(\n                pl.col(\"avg_monthly_return\").mean().alias(\"avg_return\")\n            )\n        )\n\n        # Find the top performing month\n        top_month = avg_returns_by_month.order_by(pl.col(\"avg_return\"), descending=True).select(\"month_of_year\")[0]\n        symbol_weights: dict[str, float] = {}\n\n        # Allocate capital to stocks in the identified top-performing month\n        for symbol in view.symbols:\n            if str(month) == history.select(\"session_date\").dt.month().shift(-self._window).filter(pl.col(\"session_date\") < stamp).tail(1)[0]:\n                symbol_weights[symbol] = 1.0 / len(view.symbols)\n\n        return Signal(information_available_at=stamp, weights=symbol_weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 581
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.804820300007123,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 707
+}

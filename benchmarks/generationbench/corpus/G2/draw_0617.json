@@ -1,0 +1,23 @@
+{
+  "index": 617,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"After an initial breakout, volume surge and positive momentum can signal \"\n        \"continued upward movement. The strategy exploits this by going long on stocks that \"\n        \"have recently broken out of their ranges and have maintained high trading volumes.\"\n    )\n\n    def __init__(self, window: int = 20, continuation_window: int = 5) -> None:\n        self._window = window\n        self._continuation_window = continuation_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._continuation_window)\n\n        if history.is_empty() or history.height < self._window + self._continuation_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = self._find_breakouts(history)\n        continuation_symbols = [\n            s\n            for s in breakout_symbols\n            if self._has_continued_bustout(s, history, self._continuation_window)\n        ]\n\n        weight = 1.0 / len(continuation_symbols) if continuation_symbols else 0.0\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in continuation_symbols},\n        )\n\n\ndef _find_breakouts(self, history: pl.DataFrame) -> list[str]:\n    symbols = history.select(pl.col(\"symbol\").unique().sort())[\"symbol\"].to_list()\n    breakouts: list[str] = []\n\n    for symbol in symbols:\n        row = history.filter(pl.col(\"symbol\") == symbol).rows(named=True)[0]\n        if (\n            row.close[-1] > max(row.high[1 : self._window + 1])\n            and row.volume[-1] >= max(row.volume[1 : self._window + 1]) * 1.5\n        ):\n            breakouts.append(symbol)\n\n    return breakouts\n\n\ndef _has_continued_bustout(self, symbol: str, history: pl.DataFrame, window: int) -> bool:\n    rows = history.filter(pl.col(\"symbol\") == symbol).rows(named=True)\n    if not rows:\n        return False\n\n    latest_close = rows[0].close[-1]\n    for i in range(window):\n        if (\n            rows[i][\"close\"] < latest_close\n            and rows[i][\"volume\"] >= max(rows[i + 1 : window + i + 1][\"volume\"]) * 1.5\n        ):\n            return False\n\n    return True\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 627
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.17648479998752,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 627
+}

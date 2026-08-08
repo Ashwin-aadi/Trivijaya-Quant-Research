@@ -1,0 +1,23 @@
+{
+  "index": 661,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion is based on the idea that assets which have \"\n        \"deviated significantly from their historical price range are likely to revert \"\n        \"to that mean. This strategy exploits the tendency of prices to revert after a \"\n        \"sharp move, profiting from the convergence back to the mean.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_price = (history[\"close\"].mean()).round(2).to_list()[0]\n        symbols_above_mean = []\n        for symbol in view.symbols:\n            recent_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(recent_closes) < self._window + 1:\n                continue\n            last_close = recent_closes[-1]\n            mean_of_recent_closes = sum(recent_closes[1:]) / (self._window)\n            if last_close > mean_of_recent_closes * 1.25:  # Arbitrarily chosen threshold\n                symbols_above_mean.append(symbol)\n\n        if not symbols_above_mean:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols_above_mean)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in symbols_above_mean}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 454
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.590173700009473,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 672
+}

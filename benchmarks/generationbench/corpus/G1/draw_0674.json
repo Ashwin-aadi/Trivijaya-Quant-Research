@@ -1,0 +1,23 @@
+{
+  "index": 674,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to capture trends while adjusting position sizes \"\n        \"based on recent volatility. High volatility periods suggest increased risk and thus smaller \"\n        \"positions should be taken, whereas low volatility suggests a stronger trend and larger positions.\"\n    )\n\n    def __init__(self, window: int = 20, vol_window: int = 10) -> None:\n        self._window = window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._vol_window)\n        if history.height < self._window + self._vol_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_closes = view.closes()\n        symbols = [symbol for symbol in view.symbols if symbol in recent_closes.columns]\n\n        volatilities: dict[str, float] = {}\n        for symbol in symbols:\n            prices = history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].to_list()\n            log_returns = [(prices[i + 1] - prices[i]) / prices[i] for i in range(len(prices) - 1)]\n            volatility = (sum([r**2 for r in log_returns])**0.5) / ((len(log_returns) - 1) * self._vol_window)**0.5\n            volatilities[symbol] = float(volatility)\n\n        trend_scores: dict[str, float] = {}\n        for symbol in symbols:\n            latest_close = view.latest_close()[symbol]\n            close_series = history.filter(pl.col(\"symbol\") == symbol).select([\"session_date\", \"adj_close\"])\n            recent_closes_list = [float(c) for c in close_series[\"adj_close\"].to_list()]\n            max_close = max(recent_closes_list)\n            if abs(latest_close - max_close) / max_close <= 0.1:  # 10% deviation\n                trend_scores[symbol] = volatilities[symbol]\n\n        picks: list[str] = [symbol for symbol, score in trend_scores.items() if score > 0]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 622
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.43266720000247,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 687
+}

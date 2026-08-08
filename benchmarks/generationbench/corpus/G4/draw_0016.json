@@ -1,0 +1,27 @@
+{
+  "index": 16,
+  "paradigm": "G4_planning",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion200d(Strategy):\n    rationale = (\n        \"This strategy aims to capitalize on mean-reverting behavior in stock prices by \"\n        \"trading against price levels relative to a trailing reference. By systematically \"\n        \"entering trades in the opposite direction of recent price action relative to this \"\n        \"trailing reference, the strategy seeks to profit from temporary deviations from \"\n        \"long-term trends.\"\n    )\n\n    def __init__(self, window: int = 200, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        tmas = history.group_by(\"symbol\").agg(\n            (pl.col(\"adj_close\").shift(-1).rolling_mean(self._window)).alias(f\"tma_{self._window}\")\n        )\n        latest_closes = view.closes(lookback=None)\n        if len(tmas) == 0 or len(latest_closes.columns) < self._top_n + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        merged = tmas.join(\n            latest_closes,\n            on=\"symbol\",\n            how=\"inner\"\n        ).sort(\"symbol\")\n\n        signals: list[str] = []\n        for symbol in merged[\"symbol\"]:\n            if (\n                float(merged[merged[\"symbol\"] == symbol][\"adj_close\"].to_list()[-1]) -\n                float(merged[merged[\"symbol\"] == symbol][f\"tma_{self._window}\"].to_list()[-1])\n            ) < -0.5:\n                signals.append(symbol)\n\n        if len(signals) < 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / min(self._top_n, len(signals))\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in signals[: self._top_n]}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion200d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2534,
+    "output_tokens": 1006
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to capitalize on mean-reverting behavior in stock prices by trading against price levels relative to a trailing reference. The economic mechanism exploits the tendency for stock prices to revert to historical average price levels over time due to market inefficiencies or psychological factors. This persistence can be attributed to investors' tendency to overshoot during strong bull markets and undershoot during bear markets, creating temporary deviations from long-term trends.\n\nThe rule would involve tracking key support and resistance levels using a trailing moving average as the reference point. Buy signals would occur when prices fall below these levels, suggesting an oversold condition, while sell signals would trigger if prices rise above them, indicating overbought conditions. By systematically entering trades in the opposite direction of recent price action relative to this trailing reference, the strategy seeks to profit from mean reversion, assuming deviations from long-term trends are not permanent and will correct themselves.",
+    "The strategy employs a trailing moving average (TMA) as the reference point for identifying buy and sell signals. For each stock, compute the TMA using at least 200 days of historical data. On any given day, calculate the current price relative to this 200-day TMA.\n\nBuy signals are generated when the closing price falls below the trailing moving average (indicating a potential oversold condition). Sell signals occur when the closing price rises above the trailing moving average (suggesting an overbought condition).\n\nOn a daily basis, rank all candidate stocks based on their distance from the trailing moving average. Stocks with a greater deviation from the TMA are prioritized for trading, as they exhibit stronger mean-reverting behavior. This ranking helps in identifying the most attractive trades for entering positions systematically against recent price action relative to historical norms.",
+    "The strategy aims for a diversified portfolio of up to 30 stocks, with positions equally weighted to avoid bias towards any single stock. To manage risk, the total market exposure is capped at 50% of the portfolio value, and individual stock positions are limited to no more than 1.67% each. This ensures that no single stock can cause excessive losses, limiting daily potential drawdowns to a maximum of 2%."
+  ],
+  "seconds": 30.265847499998927,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 17
+}

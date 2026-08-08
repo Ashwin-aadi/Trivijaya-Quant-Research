@@ -1,0 +1,23 @@
+{
+  "index": 822,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"This strategy selects stocks that have outperformed the NIFTY 100 index over a \"\n        \"recent lookback period. Stocks with higher relative strength are expected to \"\n        \"continue their positive performance.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or len(view.symbols) + 1 < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_100_history = view.closes(lookback=self._window).select(\n            pl.col(view.as_of - date.timedelta(days=self._window)).alias(\"nifty_close\")\n        )\n\n        stock_returns = (\n            history.select(pl.col(\"symbol\").alias(\"symbol\"))\n                   .join(history.select(pl.col([\"symbol\", \"adj_close\"])), on=\"symbol\")\n                   .with_column((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"))\n        )\n        \n        nifty_returns = (\n            history.select(pl.col(view.as_of - date.timedelta(days=self._window)).alias(\"nifty_100_close\"))\n                   .join(nifty_100_history, on=\"symbol\")\n                   .with_column(\n                       (pl.col(\"adj_close\") / pl.col(\"nifty_close\") - 1.0).alias(\"relative_return\"),\n                       pl.col(\"return\").alias(\"stock_return\")\n                   )\n        )\n\n        mean_relative_return = nifty_returns.groupby(\"symbol\").agg(\n            (pl.col(\"relative_return\").mean()).alias(\"mean_rel_ret\")\n        ).sort(\"mean_rel_ret\", descending=True).select(\"symbol\")\n\n        if mean_relative_return.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row[\"symbol\"] for row in mean_relative_return.to_dicts()[:self._window]]\n        \n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 585
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.7598144000076,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 837
+}

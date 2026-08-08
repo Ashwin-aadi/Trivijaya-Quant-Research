@@ -1,0 +1,26 @@
+{
+  "index": 27,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity-weighted equal weighting allocates capital to assets based on their \"\n        \"trading volume. This approach aims to leverage the most liquid stocks in the market.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_sum = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"volume\").sum().alias(\"total_volume\"))\n            .sort(\"total_volume\", descending=True)\n        )\n\n        total_volume = float(volume_sum.select(pl.col(\"total_volume\")).sum().item())\n        if total_volume == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: dict[str, float] = {}\n        for symbol in view.symbols:\n            row = volume_sum.filter(pl.col(\"symbol\") == symbol).to_dict(as_series=False)\n            if not row or \"total_volume\" not in row:\n                continue\n            weight = float(row[\"total_volume\"][0]) / total_volume\n            picks[symbol] = weight\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in sorted(picks.items(), key=lambda x: -x[1])},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3937,
+    "output_tokens": 1265
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy appears well-structured, but there are a few areas for improvement and potential issues:\n\n1. **Rationale and Code Disagreement**:\n   - The rationale states that the strategy allocates capital based on \"trading volume,\" yet the implementation uses the sum of `total_volume` (which is derived from `volume`) to determine weights. This could be misleading since using a simple sum might not directly reflect the liquidity weight as intended.\n\n2. **Potential Failures**:\n   - Line 31: If there are no symbols in `view.symbols`, or if all volumes sum to zero, the strategy returns an empty `weights` dictionary without any warning or error handling.\n   - Lines 40-45: The logic assumes that each symbol has a volume row, which might not always be true. It would be better to handle cases where symbols have missing data.\n\n3. **Fragile Parameters**:\n   - Line 28: The window parameter (`self._window`) is set but not used in the computation. Ensure this parameter is meaningful and utilized correctly.\n   - Lines 47-50: The strategy relies on `history` having a consistent structure (e.g., columns named \"symbol\" and \"volume\"). Any deviation could break the implementation.\n\n4. **Potential Stoppers**:\n   - If the history data for any symbol is missing or corrupted, the logic fails silently.\n   - If there are no historical data points within the lookback period specified by `self._window`, the strategy might return an empty signal.\n\n5. **Sound Parts**:\n   - The overall structure and flow of the strategy implementation are sound, with clear delineation between rationale and code.\n   - The use of Polars for data manipulation is efficient and well-chosen.\n\nTo improve robustness, consider adding error handling and validation checks to ensure consistent and reliable execution."
+  ],
+  "seconds": 33.21300129999963,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 57
+}

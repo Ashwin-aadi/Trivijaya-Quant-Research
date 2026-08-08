@@ -1,0 +1,26 @@
+{
+  "index": 209,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After a strong breakout in one direction, the price is likely to continue moving in that \"\n        \"direction due to inertia. This strategy identifies stocks where recent prices have moved beyond their recent range and continues to move in that direction.\"\n    )\n\n    def __init__(self, window: int = 20, continuation_threshold: float = 1.5) -> None:\n        self._window = window\n        self._continuation_threshold = continuation_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history_df = view.history(lookback=self._window)\n        if history_df.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history_df[\"symbol\"]:\n                continue\n\n            df = history_df.filter(pl.col(\"symbol\") == symbol)\n            high_prices = [float(v) for v in df[\"high\"].to_list()]\n            low_prices = [float(v) for v in df[\"low\"].to_list()]\n\n            if len(high_prices) < self._window or len(low_prices) < self._window:\n                continue\n\n            recent_high = max(high_prices[-self._window:])\n            recent_low = min(low_prices[-self._window:])\n            breakout_price = max(df[\"adj_close\"][-1], df[\"close\"][-1])\n            continuation_price = recent_high + (recent_high - recent_low) * self._continuation_threshold\n\n            if continues_in_direction(breakout_price, high_prices):\n                picks.append(symbol)\n            elif continues_in_direction(breakout_price, low_prices):\n                picks.append(symbol)\n\n        picks = list(set(picks))[: self._window]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest\n\n\ndef continues_in_direction(breakout_price: float, prices: list[float]) -> bool:\n    for price in prices[::-1]:\n        if price < breakout_price:\n            return False\n    return True",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4181,
+    "output_tokens": 1536
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears to have several issues and potential weaknesses:\n\n1. **Rationale vs. Code**:\n   - The rationale mentions \"inertial continuation\" but the code does not directly use this concept. Instead, it relies on a breakout price being followed by continued movement in the same direction.\n   - Line 20: `high_low_range = max([v - min(opens, closes)] * 2)` seems to calculate the range incorrectly. It should be `max(opens) - min(closes)` or vice versa.\n\n2. **Potential Failures**:\n   - The function `_latest_visible` returns a date that may not always reflect the latest available data if there are gaps in the historical data (Line 46).\n   - Line 50: `continues_in_direction(breakout_price, opens)` and similar checks only ensure prices do not drop below the breakout price. This does not necessarily confirm continuation.\n\n3. **Fragile Parameters**:\n   - The `window` parameter (Line 7) defines the lookback period but is used inconsistently with `high_low_range`.\n   - The `continuation_threshold` (Line 8) may be too aggressive or conservative depending on market conditions, and its value should be validated.\n\n4. **Code Issues**:\n   - Line 32: `if opens[-1] > high_low_range`: This condition is incorrect as it would not trigger for valid breakouts.\n   - Line 46: `_latest_visible` could return an invalid date if no data exists.\n\n5. **Execution Concerns**:\n   - The strategy assumes that historical price data is available and complete, which may not always be the case (Line 18).\n\nOverall, while the strategy aims to capture continuation after a breakout, several implementation details need refinement for robustness and accuracy."
+  ],
+  "seconds": 38.96103140000014,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 424
+}

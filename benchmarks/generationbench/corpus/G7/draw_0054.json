@@ -1,0 +1,47 @@
+{
+  "index": 54,
+  "paradigm": "G7_mcts",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RSI50d(Strategy):\n    rationale = (\n        \"The Relative Strength Index (RSI) of 50 days helps in identifying overbought or oversold \"\n        \"conditions relative to the broad market. This can signal potential entry and exit points \"\n        \"for profitable trades.\"\n    )\n\n    def __init__(self, window: int = 50, top_n: int = 10) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        rsi_values = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            avg_gain = sum(max(v - values[i-1], 0.0) for i, v in enumerate(values)) / self._window\n            avg_loss = abs(sum(min(v - values[i-1], 0.0) for i, v in enumerate(values))) / self._window\n            if avg_loss == 0:\n                rsi_values[symbol] = 100.0\n            else:\n                rsi_values[symbol] = 100.0 - (100.0 / (1 + avg_gain / avg_loss))\n\n        ranked_symbols = sorted(rsi_values, key=lambda s: rsi_values[s], reverse=True)\n        top_n_symbols = ranked_symbols[:self._top_n]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_n_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RSI50d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19662,
+    "output_tokens": 7915
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the 50-day relative strength index (RSI) of daily closing prices against the broad universe index. This measure helps identify overbought or oversold conditions relative to historical performance, with a lookback period of 50 days.",
+    "The signal will be the 20-day exponential moving average (EMA) of daily close prices for each stock, compared to the 20-day EMA of the broad universe index. This measure captures recent momentum and trends more sensitively than longer lookbacks, helping to identify relative strength over a shorter period.",
+    "The portfolio will hold 10 names with equal weights of 10% each when a position is opened or closed. This balanced approach ensures diversification while simplifying management.",
+    "The portfolio will hold 10 names, each weighted at 10%. This balanced approach ensures diversification and simplifies management, aligning with the predefined strategy parameters.",
+    "The portfolio will hold 10 names with equal weights of 10% each when a position is opened or closed. This balanced approach ensures diversification while maintaining simplicity in management.",
+    "The risk rule will be set to limit the loss on a single position to no more than 5% of the portfolio value at any given time. This bound ensures that individual stock losses do not significantly impact the overall portfolio, while allowing for some flexibility in market fluctuations.",
+    "The portfolio will hold 10 names, each weighted at 10%. This balanced approach ensures diversification and simplifies management by avoiding concentration risks and the complexity of rebalancing to different weights.",
+    "The risk rule will be set to limit the loss on a single position to no more than 5% of the portfolio value at any given time. This bound ensures that individual stock losses do not significantly impact the overall portfolio, while allowing for some flexibility in market fluctuations.",
+    "For each individual stock position, the maximum loss will be capped at -5% from the entry price to prevent substantial losses on any single stock. This rule ensures that no single position can exceed a 5% drawdown before triggering a stop-loss order, thereby limiting potential portfolio-wide losses.",
+    "For this systematic equity strategy in the Indian market, I propose setting a stop-loss rule at -15% for each individual position. This limit helps manage risk by capping potential losses on any single stock while allowing the portfolio to continue trading if overall conditions remain favorable.",
+    "For this systematic equity strategy in the Indian market, I propose setting a stop-loss rule at -15% for each individual position. This limit helps manage risk by capping potential losses on any single stock while allowing the portfolio to continue trading if overall conditions remain favorable.",
+    "To bound the loss on each position, set a stop-loss at 5% below the entry price. For the portfolio, limit the maximum drawdown to 10%. This rule will stop trading if either of these conditions is breached, ensuring risk is managed effectively."
+  ],
+  "seconds": 246.10575889999745,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 674
+}

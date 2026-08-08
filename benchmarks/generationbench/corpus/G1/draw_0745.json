@@ -1,0 +1,23 @@
+{
+  "index": 745,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion seeks to profit from prices returning to historical \"\n        \"means. If a stock's price has deviated significantly from its mean over the past 20 days, \"\n        \"it is expected to revert towards that mean.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.select(pl.col(\"adj_close\").mean().alias(\"mean_close\"))\n            .collect()\n            .get_column(\"mean_close\")\n            .item()\n        )\n        std_dev = (\n            history.select(\n                (pl.col(\"adj_close\") - pl.col(\"adj_close\").mean()).stddev().alias(\"std_dev\")\n            )\n            .collect()\n            .get_column(\"std_dev\")\n            .item()\n        )\n\n        if mean_close == 0 or std_dev == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        z_scores = (history[\"adj_close\"] - mean_close) / std_dev\n        candidates: list[str] = []\n\n        for symbol in view.symbols:\n            value = history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].to_list()[-1]\n            if abs(z_scores[symbol]) > self._threshold and z_scores[symbol].is_nan():\n                continue\n\n            if (\n                (value < mean_close - std_dev * self._threshold and\n                 z_scores[symbol] < 0)\n                or\n                (value > mean_close + std_dev * self._threshold and\n                 z_scores[symbol] > 0)\n            ):\n                candidates.append(symbol)\n\n        weight = 1.0 / len(candidates) if candidates else 0.0\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in candidates}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 569
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.735755400004564,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 759
+}

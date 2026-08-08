@@ -1,0 +1,23 @@
+{
+  "index": 382,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality can be a powerful driver of stock returns. If certain months historically \"\n        \"see higher returns for specific stocks, we can exploit this by overweighing those \"\n        \"stocks during the favorable seasons.\"\n    )\n\n    def __init__(self, window: int = 20, favorable_months: list[int] = [12]) -> None:\n        self._window = window\n        self._favorable_months = favorable_months\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Extract the month of each session\n        month_of_year = [int(date.fromisoformat(session_date).month) for session_date in closes[\"session_date\"].to_list()]\n\n        # Count how many favorable months are present for each stock\n        favorable_count: dict[str, int] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            favorable_count[symbol] = sum(1 for m in month_of_year if m in self._favorable_months)\n\n        # Filter out symbols with no favorable months\n        picks = [symbol for symbol, count in favorable_count.items() if count > 0]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 447
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.38956429999962,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 390
+}

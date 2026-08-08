@@ -1,0 +1,23 @@
+{
+  "index": 406,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain stocks tend to perform better at specific times of the year due to seasonal \"\n        \"effects. By identifying these patterns, we can capitalize on them for trading.\"\n    )\n\n    def __init__(self, window: int = 365, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality_data = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(365)) / 365.0\n            )\n            .group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(365)) / 365.0)\n        )\n\n        strong_seasonals = (\n            seasonality_data.filter(\n                (pl.col(\"adj_close\") / 365.0).abs() > self._threshold\n            )\n            .sort(\"adj_close\", descending=True)\n            .select(pl.col(\"symbol\"))\n            .to_numpy()[0]\n        )\n\n        if not strong_seasonals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(strong_seasonals)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in strong_seasonals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 458
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.293282899991027,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 412
+}

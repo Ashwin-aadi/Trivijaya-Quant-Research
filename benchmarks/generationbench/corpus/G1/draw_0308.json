@@ -1,0 +1,23 @@
+{
+  "index": 308,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are likely to continue. \"\n        \"By identifying strong volume surges following a price move, we can anticipate further momentum.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 2.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_data = {}\n        for symbol in view.symbols:\n            close_prices = [float(v) for v in history[\"close\"][symbol].drop_nulls().to_list()]\n            volumes = [float(v) for v in history[\"volume\"][symbol].drop_nulls().to_list()]\n\n            if len(close_prices) < self._window + 1 or len(volumes) < self._window:\n                continue\n\n            price_change = close_prices[-1] - close_prices[0]\n            volume_change = volumes[-1] / volumes[0]\n\n            if price_change > 0 and volume_change >= self._threshold:\n                symbol_data[symbol] = (price_change, volume_change)\n\n        if not symbol_data:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbol_data)\n        selected_symbols = [s for s in symbol_data.keys()]\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in selected_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 456
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.687174100006814,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 313
+}

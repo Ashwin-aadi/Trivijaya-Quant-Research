@@ -1,0 +1,26 @@
+{
+  "index": 65,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"Breakouts often continue in the direction of the initial move. This strategy \"\n        \"identifies stocks that have recently broken out and then tracks their performance \"\n        \"to determine if a continuation is likely.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 10) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._lookback)\n\n        if history.height < self._window + self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].unique().to_list():\n                continue\n            recent_history = history.filter(pl.col(\"symbol\") == symbol)\n            recent_close = float(recent_history.select(pl.last(\"adj_close\")).item())\n            breakout_price = float(\n                recent_history.sort(\"session_date\").select(pl.first(\"close\")).item()\n            )\n            if recent_close > breakout_price:\n                breakout_symbols.append(symbol)\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        continuation_weights: dict[str, float] = {}\n        for symbol in breakout_symbols:\n            continuation_check = history.filter(\n                (pl.col(\"symbol\") == symbol)\n                & (pl.col(\"session_date\").gte(recent_history.select(pl.first(\"session_date\")).item()))\n                & (pl.col(\"adj_close\").gt(breakout_price))\n            ).sort(\"session_date\")\n\n            if continuation_check.height >= 0.5 * self._lookback:\n                weight = 1.0 / len(breakout_symbols)\n                continuation_weights[symbol] = weight\n\n        return Signal(\n            information_available_at=stamp, weights=continuation_weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.max(\"session_date\")).item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4039,
+    "output_tokens": 1416
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several areas of concern:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states that breakouts often continue in the direction of the initial move, but the code does not explicitly check for a continuation in the breakout direction. Instead, it checks if prices have risen above the breakout price (line 28). This discrepancy might lead to false signals.\n   \n2. **Potential Failure Cases**:\n   - The strategy fails to define what constitutes a \"continuation\" beyond simply crossing the initial breakout price. For instance, line 47 only checks the height of the continuation check and does not explicitly verify if prices have continued above the breakout level for more than half the lookback period.\n\n3. **Fragile Parameters**:\n   - The parameter `lookback` is used inconsistently (line 26 vs line 41). It should be uniform.\n   - The threshold of `0.5 * self._lookback` in line 47 might not capture meaningful continuations, as it does not account for the actual duration and magnitude of price movements.\n\n4. **Potential Issues**:\n   - Line 39 returns an empty signal if no breakout symbols are found, but the logic to determine a continuation is incomplete.\n   - The `history` DataFrame (line 27) might have issues with date ordering or missing data, which could affect the breakout detection and continuation check.\n\n5. **Specific Critiques**:\n   - Line 41 should include a proper condition to verify if prices continue above the breakout level for more than half the lookback period.\n   - The `information_available_at` parameter in the signal (line 38) might not be correctly set, as it always uses the latest date.\n\nOverall, while the strategy aims to identify continuation breakouts, its implementation is incomplete and could produce unreliable results."
+  ],
+  "seconds": 36.38594359999934,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 133
+}

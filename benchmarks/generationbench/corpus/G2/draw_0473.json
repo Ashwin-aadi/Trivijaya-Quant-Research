@@ -1,0 +1,23 @@
+{
+  "index": 473,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"Continuation breakouts occur after an initial breakout. If a stock breaks out and \"\n        \"then closes above the high of its previous range, it suggests continued momentum. \"\n        \"We can use this to identify stocks with potential for further gains.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 5) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._lookback)\n        if history.height < self._window + self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = set()\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            high = max(prices[-self._window : -self._lookback])\n            close = float(history[symbol][\"close\"].max())\n            if close > high:\n                breakout_symbols.add(symbol)\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 395
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.495520299999043,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 481
+}

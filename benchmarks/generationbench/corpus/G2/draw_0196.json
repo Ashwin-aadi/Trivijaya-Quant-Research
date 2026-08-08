@@ -1,0 +1,23 @@
+{
+  "index": 196,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionStrategy(Strategy):\n    rationale = (\n        \"Reversion to the mean is a common financial principle suggesting that prices and returns \"\n        \"tend to move towards an average over time. By identifying stocks whose recent performance \"\n        \"is far from their historical average, we can predict a reversion back toward this mean.\"\n    )\n\n    def __init__(self, window: int = 50) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = closes.mean().to_list()[0]\n        std_dev_close = closes.std().to_list()[0]\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            recent_closes = [float(v) for v in closes[symbol].drop_nulls().to_list()[-self._window :]]\n            z_score = (recent_closes[-1] - mean_close) / std_dev_close\n            if abs(z_score) > 2.0:  # Threshold for reversion\n                signals[symbol] = 1.0\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n        total_weight = sum(signals.values())\n        weight_per_symbol = {s: w / total_weight for s, w in signals.items()}\n        return Signal(\n            information_available_at=stamp, weights=weight_per_symbol\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 447
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.437926800004789,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 202
+}

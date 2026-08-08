@@ -1,0 +1,27 @@
+{
+  "index": 315,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the liquidity effect by focusing on highly liquid stocks \"\n        \"and applying an equal weighting approach. Liquid stocks often have lower bid-ask spreads \"\n        \"and smaller price movements, leading to reduced trading costs and potentially higher returns.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 100) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter out symbols that are not present in the entire lookback period\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n\n        if len(symbols) < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate average daily volume over the last 30 days for each stock\n        avg_volume = (\n            history[symbols]\n            .select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volume\").sum() / self._window).alias(\"avg_volume\")\n            )\n            .sort(\"avg_volume\", descending=True)\n            .head(self._top_n)\n        )\n\n        # Select the top N most liquid stocks\n        picks = avg_volume[\"symbol\"].to_list()\n\n        # Equal weighting for each selected stock\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2263,
+    "output_tokens": 783
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy involves exploiting the liquidity effect in the Indian equity market by focusing on stocks with higher liquidity but applying an equal weighting approach. The economic mechanism is based on the observation that liquid stocks often have lower bid-ask spreads and may exhibit smaller price movements, leading to reduced trading costs and potentially higher returns. This phenomenon might persist due to market microstructure effects and investor behavior biases, such as herding towards more liquid stocks.\n\nThe rule for this strategy would screen the market to identify highly liquid stocks, then equally weight these stocks in the portfolio. Equal weighting helps mitigate the influence of large-cap stocks that dominate traditional market-capitalization-weighted indexes, potentially leading to better risk-adjusted returns.",
+    "The signal for this strategy is based on liquidity metrics. On a given day, calculate the average daily trading volume of each stock over a 30-day lookback period. Rank stocks by their average daily volume in descending order. Select the top N (e.g., top 100) most liquid stocks as candidates for inclusion in the portfolio, ensuring they meet the liquidity threshold. Equally weight these selected stocks to construct the portfolio, thereby exploiting the liquidity effect while maintaining a balanced exposure across chosen highly liquid equities.",
+    "This strategy holds up to 100 positions, each equally weighted at 1%. Position sizing ensures balanced exposure while mitigating the impact of large-cap stocks. Risk limits include a maximum potential loss per stock of 2% to manage individual security risk, with an overall portfolio loss cap of no more than 5% over any single trading day to maintain robust risk management."
+  ],
+  "seconds": 25.567457999997714,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 320
+}

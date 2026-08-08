@@ -1,0 +1,23 @@
+{
+  "arm": "G6",
+  "paradigm": "G6_graph_of_thoughts",
+  "updated_at_utc": "2026-08-06T14:52:36Z",
+  "requested": 170,
+  "completed": 152,
+  "usable": 152,
+  "trials_before_this_sitting": 151,
+  "trials_after": 156,
+  "seconds_this_sitting": 354.1875399999999,
+  "draws_this_sitting": 5,
+  "tokens": {
+    "G6_graph_of_thoughts": {
+      "prompt_tokens": 24744,
+      "output_tokens": 13288,
+      "calls": 35,
+      "draws": 5,
+      "accepted": 5,
+      "output_tokens_per_accepted": 2657.6
+    }
+  },
+  "fitness": null
+}

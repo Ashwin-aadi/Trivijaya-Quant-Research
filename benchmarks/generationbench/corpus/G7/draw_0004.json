@@ -1,0 +1,47 @@
+{
+  "index": 4,
+  "paradigm": "G7_mcts",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion60d(Strategy):\n    rationale = (\n        \"Recent overbought conditions are often followed by a reversion to more typical price levels. \"\n        \"By focusing on the highest high over the past 20 days and comparing it against a trailing 60-day average, we aim to identify potential reversals.\"\n    )\n\n    def __init__(self, lookback_high: int = 20, lookback_average: int = 60) -> None:\n        self._lookback_high = lookback_high\n        self._lookback_average = lookback_average\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_average + self._lookback_high)\n        if history.is_empty() or history.height < self._lookback_average + self._lookback_high:\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_highs = (\n            history.with_columns(\n                (pl.col(\"high\").rolling_max(window_size=self._lookback_high)).alias(\"recent_high\")\n            )\n            .sort(\"session_date\", descending=True)\n            .select(\"symbol\", \"recent_high\")\n            .group_by(\"symbol\")\n            .agg(pl.col(\"recent_high\").max().alias(\"max_recent_high\"))\n        )\n\n        trailing_average = (\n            history.with_columns(\n                (pl.col(\"high\").rolling_mean(window_size=self._lookback_average)).alias(\"trailing_avg\")\n            )\n            .sort(\"session_date\", descending=True)\n            .select(\"symbol\", \"trailing_avg\")\n            .group_by(\"symbol\")\n            .agg(pl.col(\"trailing_avg\").max().alias(\"max_trailing_avg\"))\n        )\n\n        merged = recent_highs.join(trailing_average, on=\"symbol\", how=\"inner\")\n\n        signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in merged.columns:\n                continue\n            recent_max, trailing_max = float(merged[merged[\"symbol\"] == symbol][\"max_recent_high\"]), float(\n                merged[merged[\"symbol\"] == symbol][\"max_trailing_avg\"]\n            )\n            if recent_max > trailing_max * 1.05:  # Consider a more aggressive reversion signal\n                signals.append(symbol)\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(signals)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in signals},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion60d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19639,
+    "output_tokens": 6597
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the closing price, measured against a trailing 30-day average. This choice captures recent market sentiment while leveraging historical price levels for reversion-based trading in the Indian equity market.",
+    "The signal will be the highest high over the past 20 days, measured against a trailing 60-day average of these highest highs. This approach focuses on identifying recent overbought conditions and betting on a potential reversion to more typical price levels.",
+    "The portfolio will hold 10 equities with equal weights of 10% each when a position is opened or closed. This balanced approach ensures diversification while simplifying the portfolio management process.",
+    "The portfolio will hold up to five names, with weights of 20%, 15%, 15%, 10%, and 40% respectively, reflecting a moderate concentration on the most compelling reversion candidates while maintaining diversification.",
+    "The portfolio will hold 10 equities with equal weights of 10% each when a position is opened or closed. This balanced approach ensures diversification while simplifying the portfolio management process.",
+    "The portfolio will hold exactly four names, each weighted equally at 25%. This approach balances the need for diversified exposure to potential reversion candidates without concentrating risk in any single stock.",
+    "The risk rule will be set such that each position's loss is capped at a 15% drawdown from the entry price, and the overall portfolio loss is limited to 10% from the initial portfolio value before any trading occurs. If either bound is breached, no new trades will be executed until the breach is resolved.",
+    "For the risk rule, I propose setting an individual position loss limit of -10% to prevent significant drawdowns on any single stock. This limit ensures that no single holding can cause excessive portfolio volatility while allowing\u9002\u5ea6\u7684\u4ef7\u683c\u56de\u5f39\u7b56\u7565\u4ecd\u80fd\u6709\u6548\u8fd0\u4f5c\u3002\u8fd9\u6837\u7684\u6b62\u635f\u89c4\u5219\u5e73\u8861\u4e86\u98ce\u9669\u63a7\u5236\u4e0e\u7b56\u7565\u7075\u6d3b\u6027\u3002",
+    "For this systematic equity strategy in the Indian market, the risk rule will be set to limit the maximum loss on any single position to 5% of the portfolio value. Additionally, if a position's loss exceeds 3% within a trading day, it will trigger a stop-loss order, halting further losses and protecting the overall portfolio.",
+    "For this strategy, set the stop-loss on each individual position to 15% of the initial investment to limit potential losses on any single stock. This ensures that if a stock falls by 15%, the position is exited to prevent further concentration of risk in overbought conditions.",
+    "The risk rule will be set such that each position's loss is capped at a 15% drawdown from the entry price, and the overall portfolio loss is limited to 10% from the initial portfolio value before any trading occurs. If either bound is breached, no new trades will be executed until the breach is resolved.",
+    "For the risk rule, I propose setting an individual position loss limit of -10% to prevent significant drawdowns on any single stock. This limit ensures that no single holding can cause excessive portfolio volatility while allowing the strategy to continue trading when conditions warrant."
+  ],
+  "seconds": 407.1319047000143,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 60
+}

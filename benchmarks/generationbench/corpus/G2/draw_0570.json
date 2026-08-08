@@ -1,0 +1,23 @@
+{
+  "index": 570,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength tend to outperform the broader market over \"\n        \"longer time horizons. This is based on the idea that stocks in strong sectors or \"\n        \"industries can maintain momentum even as overall market sentiment shifts.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or len(closes.columns) < 3:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute the ratio of each stock's close to the NIFTY 100 index close\n        nifty_100_close = view.closes(lookback=self._window)[\"^NSEI\"].to_list()[-self._window:]\n        ratios = [float(c / n) for c, n in zip(closes[\"^NSEI\"], closes[\"^NSEI\"])]\n        \n        # Filter out NIFTY 100 itself and symbols not present in the lookback period\n        filtered_ratios = {s: r for s, r in zip(view.symbols, ratios) if s != \"^NSEI\" and len(ratios) == self._window}\n        \n        # Sort by highest ratio (strongest relative performance)\n        sorted_symbols = sorted(filtered_ratios.keys(), key=lambda x: filtered_ratios[x], reverse=True)[:5]\n        \n        weights = {s: 1.0 / len(sorted_symbols) for s in sorted_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 469
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.86612759999116,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 579
+}

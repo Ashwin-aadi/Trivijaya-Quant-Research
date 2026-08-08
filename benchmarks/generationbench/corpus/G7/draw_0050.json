@@ -1,0 +1,47 @@
+{
+  "index": 50,
+  "paradigm": "G7_mcts",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy follows a volatility-scaled trend of daily closing prices. \"\n        \"It uses the 20-day standard deviation to scale the trend and identifies trends \"\n        \"if the recent closing price is above or below the 50-day moving average of the scaled price.\"\n    )\n\n    def __init__(self, window_volatility: int = 20, window_trend: int = 50) -> None:\n        self._window_volatility = window_volatility\n        self._window_trend = window_trend\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window_trend + 1)\n        if closes.height < self._window_trend + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        trend_signals = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window_trend + 1:\n                continue\n\n            # Calculate daily returns\n            returns = [(values[i] / values[i - 1]) - 1.0 for i in range(1, self._window_trend)]\n            \n            # Calculate volatility (20-day std of returns)\n            vol = pl.Series(returns[-self._window_volatility:]).std()\n            \n            # Scale the last closing price by its volatility\n            scaled_price = values[-1] / vol if vol > 0 else 1.0\n            \n            # Calculate 50-day moving average of scaled prices\n            ma_scaled_prices = pl.Series(values[-self._window_trend:]).rolling_mean(self._window_trend).to_list()[-1]\n            \n            # Generate trend signal\n            if values[-1] > ma_scaled_prices:\n                trend_signals[symbol] = 1.0\n            else:\n                trend_signals[symbol] = -1.0\n\n        # Select top 5 symbols based on trend signals\n        picks = sorted(trend_signals, key=trend_signals.get, reverse=True)[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 0.20 / len(picks)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 21010,
+    "output_tokens": 8224
+  },
+  "calls": 24,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the 20-day volatility-scaled trend of the daily closing price. Volatility will be measured using the 20-day standard deviation of daily returns, and the trend will be identified if the recent closing price is above or below the 50-day moving average of the scaled price.",
+    "The signal will be the 30-day volatility-scaled trend using the daily high price. Volatility will be measured as the 30-day standard deviation of intraday high-to-low range, and the trend will be identified if the recent high is above or below the 60-day moving average of the scaled high.",
+    "For this strategy, we will hold a portfolio of 5 equities, each weighted equally at 20% to balance diversification with manageable risk exposure.",
+    "The portfolio will hold 5 equities with equal weighting of 20% each when a position is opened or closed.",
+    "For this volatility-scaled trend following strategy in the Indian market, we will hold a portfolio of 5 equities, each weighted equally at 20%. This approach balances diversification benefits with controlled risk by limiting the concentration in any single equity.",
+    "The portfolio will hold 5 equities with equal weighting of 20% each when a position is opened or closed. This ensures diversification while maintaining simplicity in management and risk allocation.",
+    "The maximum loss allowed on any single equity position will be capped at a 20% drawdown from the entry price, and the strategy will stop trading if any single equity falls below this threshold, or if the overall portfolio loss exceeds 15%.",
+    "For this strategy, the risk rule will be set to limit the loss on a single position to no more than 5% of the portfolio value. This bound will stop trading for that specific equity if the loss exceeds 5%, protecting against significant individual equity risks while allowing the strategy to continue operating with other positions.",
+    "For this strategy, I propose setting an individual position loss limit of -5% to bound potential losses on each equity position. This limit will trigger a stop-loss order to exit the position if the price falls by 5% from the entry price, protecting against excessive drawdown while maintaining sensitivity to market trends.",
+    "For this strategy, I propose setting a portfolio loss limit of -10%, which will trigger a stop-loss on the entire portfolio if the overall value drops by 10% from the initial investment. This limit aims to protect against significant market downturns while allowing the strategy to ride out shorter-term volatility.",
+    "The loss on each individual equity position will be capped at -15%, preventing any single stock from causing a significant portfolio-wide loss. This bound ensures that while the strategy can take advantage of trends, it remains protected against extreme market movements in individual stocks."
+  ],
+  "seconds": 251.2900490000029,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 625
+}

@@ -1,0 +1,26 @@
+{
+  "index": 130,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Stocks often exhibit seasonality based on calendar effects. For example, certain \"\n        \"industries may see increased trading volumes or prices at specific times of the year.\"\n    )\n\n    def __init__(self, window: int = 365) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        mean_prices = (\n            history.groupby(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"mean_price\"))\n            .to_dict(False)\n        )\n\n        seasonality_factors = {}\n        for symbol in symbols:\n            if symbol not in mean_prices:\n                continue\n            prices = view.closes(lookback=self._window).select(symbol)\n            price_series = [float(v) for v in prices.to_dict(True)[symbol]]\n            if len(price_series) < self._window:\n                continue\n\n            mean_price = mean_prices[symbol][\"mean_price\"]\n            seasonality_factor = (\n                (price_series[-10:] - mean_price).sum() / (len(price_series) * mean_price)\n            )\n            seasonality_factors[symbol] = seasonality_factor\n\n        if not seasonality_factors:\n            return Signal(information_available_at=stamp, weights={})\n\n        threshold = 0.5\n        weight_per_symbol = 1.0 / len(seasonality_factors)\n\n        selected_symbols = [\n            symbol for symbol, factor in seasonality_factors.items() if abs(factor) > threshold\n        ]\n\n        weights = {symbol: weight_per_symbol for symbol in selected_symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, weight in weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\")).max().get(\"session_date\", date(1900, 1, 1))\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3988,
+    "output_tokens": 1431
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "### Critique of the SeasonalEffect Strategy\n\n#### Rationale vs. Code Discrepancies\n1. **Rationale**: The strategy aims to leverage seasonality in stock prices based on calendar effects. However, the implementation focuses solely on a single symbol within `view.symbols` (line 28), which contradicts the rationale of exploiting industry-wide or sector-specific seasonal patterns.\n   \n#### Potential Failures and Fragile Parameters\n1. **Window Parameter**: The default window length is set to one year (`365`). This might be too short for some securities with longer-term seasonality patterns, leading to false signals (line 2).\n2. **Historical Data Handling** (lines 7-9): If the available history is less than the specified window, the strategy immediately returns an empty signal without generating a useful signal.\n3. **Seasonality Factor Calculation** (lines 16-25): The seasonality factor calculation is overly simplistic and may not capture nuanced seasonal patterns. For instance, using only the last 10 data points to calculate the sum might miss significant trends.\n\n#### Fragile Code\n1. **Empty History Check**: If `history.is_empty()` returns true, the strategy incorrectly returns an empty signal without considering a potential valid history (line 8).\n2. **Data Frame Operations**: The method `.get_symbol(0)` is not a valid operation on Polars DataFrame; it should be replaced with appropriate data extraction methods (line 34).\n\n#### Issues That May Stop It from Running\n1. **Assertion Error**: Line 35 uses `assert` to validate the type of `newest`, but this might raise an assertion error if `newest` is not a date.\n2. **Potential Type Errors**: The use of `.get_symbol(0)` (line 34) and `.get(\"price\", 0.0)` (lines 18-19, 25) can lead to type errors or unexpected behavior.\n\n### Sound Parts\nThe rationale is sound in its goal of exploiting seasonal patterns, but the implementation needs significant refinement. Specifically, generating a signal for multiple symbols and improving the calculation method could strengthen the strategy."
+  ],
+  "seconds": 36.98658660000001,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 264
+}

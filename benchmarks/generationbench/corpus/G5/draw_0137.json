@@ -1,0 +1,26 @@
+{
+  "index": 137,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"After a significant breakout, the continuation pattern suggests that prices \"\n        \"may move further in the direction of the initial breakout. This strategy \"\n        \"identifies symbols that have recently broken out and are continuing to trend.\"\n    )\n\n    def __init__(self, window: int = 20, threshold_breakout: float = 0.1, threshold_continuation: float = 0.1) -> None:\n        self._window = window\n        self._threshold_breakout = threshold_breakout\n        self._threshold_continuation = threshold_continuation\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            close_values = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            open_value = float(history[symbol][0])\n            close_breakout = float(close_values[-1])\n\n            if (close_breakout - open_value) / open_value >= self._threshold_breakout:\n                breakout_symbols.append(symbol)\n\n        continuation_symbols = []\n        for symbol in breakout_symbols:\n            history_window = view.history(lookback=2)\n            if symbol not in history_window.columns:\n                continue\n            close_values_window = [float(v) for v in history_window[symbol].drop_nulls().to_list()]\n            last_close = float(history_window[symbol][-1])\n            second_last_close = float(history_window[symbol][-2])\n\n            if (last_close - second_last_close) / second_last_close >= self._threshold_continuation:\n                continuation_symbols.append(symbol)\n\n        weights = {s: 1.0 / len(continuation_symbols) for s in continuation_symbols}\n        return Signal(\n            information_available_at=stamp, weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4077,
+    "output_tokens": 1469
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy described aims to identify symbols that have recently broken out and are continuing to trend in the same direction. While the rationale is generally sound, there are several issues with both the code implementation and the stated rationale.\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale mentions a \"significant breakout,\" but the code does not explicitly define what constitutes a \"significant\" breakout. Lines 20-24 check for a price movement greater than or equal to 10% (threshold), which is somewhat arbitrary and may be too high.\n\n2. **Rule Failure**:\n   - The rule might fail if the threshold is set too low, leading to false positives. For instance, in Line 25, if the price movement is just slightly above the threshold due to noise or short-term volatility, it could incorrectly identify a breakout.\n   - In Line 34-38, the continuation check might be overly strict as well. If prices move only slightly after the initial breakout, this condition would fail.\n\n3. **Fragile Parameters**:\n   - The parameters `window` and `threshold` are hardcoded (Lines 7 and 10). These should ideally be configurable to allow for tuning based on different market conditions or symbols.\n   - Line 24 checks if the history is empty, which could raise an exception if no data is available.\n\n4. **Potential Issues**:\n   - The function `_latest_visible` (Line 39) assumes that `session_date` exists and is of type `date`. This might fail if `view.history()` does not contain this column.\n   - Line 21 checks for non-null values in the history, but it does not handle cases where there are gaps or missing data.\n\n5. **Sound Parts**:\n   - The overall structure of identifying breakouts and continuations is conceptually sound.\n   - The use of `polars` for handling historical data is appropriate and efficient.\n\nIn summary, while the strategy's core logic is reasonable, its implementation lacks robustness in parameter handling, and it needs better error handling and more precise threshold definitions."
+  ],
+  "seconds": 37.6873441000007,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 278
+}

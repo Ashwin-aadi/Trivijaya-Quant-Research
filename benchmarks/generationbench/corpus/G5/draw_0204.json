@@ -1,0 +1,26 @@
+{
+  "index": 204,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for past winners to continue \"\n        \"outperforming in the near term. By identifying symbols that have performed well \"\n        \"relative to their peers recently, we can allocate capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_closes = view.closes()\n        symbol_counts = len(latest_closes.columns) - 1\n\n        # Calculate returns\n        returns = (\n            history.select(pl.col(\"adj_close\").shift(-self._window))\n            .join(historical_closes := latest_closes.lazy(), on=\"symbol\", how=\"inner\")\n            .with_columns(\n                (pl.col(\"close\") / pl.col(f\"adj_close_{-1}\") - 1.0).alias(\"recent_return\"),\n                (pl.col(\"close\") / pl.col(f\"adj_close_{-self._window}\") - 1.0).alias(\"total_return\"),\n            )\n        )\n\n        # Filter and rank\n        filtered_returns = returns.filter(pl.col(\"recent_return\").is_not_null() & (pl.col(\"recent_return\") > 0))\n        if filtered_returns.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        ranked_returns = (\n            filtered_returns.sort(\"recent_return\", descending=True).head(self._window)\n        )\n\n        top_symbols = [row[\"symbol\"] for row in ranked_returns.rows()]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4152,
+    "output_tokens": 1486
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy has several potential issues and areas for improvement:\n\n1. **Rationale vs. Code Disagreement:**\n   - The rationale states the strategy exploits \"past winners\" outperforming in the near term by identifying symbols that have performed well relative to their peers recently.\n   - Line 30 calculates `recent_return` over a window but does not directly ensure the identified top performers are indeed recent winners. It uses `total_return` (over a longer period) for ranking, which may not align with the rationale.\n\n2. **Potential Failure Scenarios:**\n   - Line 46 filters out symbols where `recent_return < 0`. If no such symbols exist and there are few top-performing symbols (`top_symbols`) after filtering, the strategy will return an empty weight dictionary (line 57), which might indicate a failure in identifying recent winners.\n\n3. **Fragile Parameters:**\n   - The parameter `window` is hardcoded as 20 on line 14 but used dynamically within the logic. While flexible, it should be clearly documented and validated.\n   - The reliance on `latest_closes` (line 19) might fail if there are missing or inconsistent symbols in historical data.\n\n4. **Code Fragility:**\n   - Line 30 uses `.shift(-self._window)` which may not handle cases where the shift results in null values, potentially leading to errors.\n   - The use of `pl.sum(\"return\").alias(\"recent_return\")` and `pl.mean(\"total_return\").alias(\"mean_total_return\")` might produce unexpected results if there are missing or NaN values.\n\n5. **Potential Run-Time Issues:**\n   - Line 18 checks for an empty history, but lines 43-47 could still cause issues if the filtered returns are unexpectedly empty.\n   - The `assert isinstance(newest, date)` (line 60) might fail if `newest` is not a valid date.\n\nOverall, while the strategy aims to capture cross-sectional momentum, it needs clearer alignment between its rationale and implementation details. Specifically, ensuring that recent winners are properly identified and handling edge cases more robustly would improve the strategy's reliability."
+  ],
+  "seconds": 37.86654520000047,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 414
+}

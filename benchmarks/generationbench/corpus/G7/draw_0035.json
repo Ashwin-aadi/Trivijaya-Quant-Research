@@ -1,0 +1,47 @@
+{
+  "index": 35,
+  "paradigm": "G7_mcts",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityLiquidity(Strategy):\n    rationale = (\n        \"Combining 5-day rolling standard deviation of closing prices with a 7-day moving average \"\n        \"of trading volume creates a composite signal that captures both volatility and liquidity. \"\n        \"In the Indian market, stocks with high liquidity tend to be more stable, while higher \"\n        \"volatility can indicate greater potential for price movement.\"\n    )\n\n    def __init__(self, window_vol: int = 5, window_volume: int = 7, top_n: int = 5) -> None:\n        self._window_vol = window_vol\n        self._window_volume = window_volume\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._window_vol, self._window_volume))\n        if history.is_empty() or history.height < max(self._window_vol, self._window_volume):\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select([\"symbol\", \"session_date\", pl.col(\"adj_close\").alias(\"close\")])\n        volume = history.select([\"symbol\", \"session_date\", pl.col(\"volume\").alias(\"vol\")])\n\n        vol_scores = (\n            closes.with_columns(\n                (pl.col(\"close\").rolling_std(window_size=self._window_vol)).alias(f\"std_{self._window_vol}\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(f\"std_{self._window_vol}\").mean().alias(\"volatility_score\"))\n        )\n\n        volume_scores = (\n            volume.with_columns(\n                (pl.col(\"vol\").rolling_mean(window_size=self._window_volume)).alias(f\"avg_vol_{self._window_volume}\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(f\"avg_vol_{self._window_volume}\").mean().alias(\"liquidity_score\"))\n        )\n\n        combined_scores = vol_scores.join(volume_scores, on=\"symbol\", how=\"inner\")\n\n        if combined_scores.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_stocks = (\n            combined_scores.sort(by=\"volatility_score\", descending=True)\n            .sort(by=\"liquidity_score\", descending=True)\n            .select(\"symbol\")\n            .head(self._top_n)\n            .to_dict(as_series=False)\n        )\n\n        weight = 1.0 / self._top_n\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_stocks[\"symbol\"]}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityLiquidity",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19613,
+    "output_tokens": 8323
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I will measure the 5-day rolling standard deviation of daily closing prices combined with the 7-day moving average of daily trading volume. This composite signal captures volatility and liquidity, two weakly related characteristics in the Indian market.",
+    "I will measure the 30-day rolling maximum high combined with the 60-day moving average of daily closing prices. This composite signal captures both price momentum and long-term trend following, two weakly related characteristics relevant to the Indian market.",
+    "The portfolio will consist of the top 10 stocks ranked by their composite score, with weights proportional to their scores, ensuring no single stock exceeds a 20% weight in the portfolio.",
+    "The portfolio will consist of 5 equally weighted positions when a new position is opened or existing ones are closed. This equal weighting ensures a balanced exposure across selected stocks, leveraging the composite signal effectively without favoring any single stock.",
+    "The portfolio will consist of the top 5 stocks ranked by their composite score, with equal weighting of 20% each, ensuring diversification while keeping management simple.",
+    "The portfolio will consist of 5 equally weighted positions when a new position is opened or existing ones are closed. This approach ensures balanced exposure and effective utilization of the composite signal, avoiding bias towards any single stock while maintaining flexibility across selected stocks in the Indian market.",
+    "For the risk rule, I will set an individual position loss limit of -5% to prevent significant losses on any single stock, which limits the maximum potential drawdown per holding. Additionally, the total portfolio loss limit will be set at -10%, triggering a stop to new trades if this threshold is approached, thus managing overall risk exposure.",
+    "The risk rule will limit the loss on any single position to no more than 2% of the portfolio value, and the overall portfolio loss will be capped at 5%. This rule will stop trading if either condition is breached, ensuring risk management while maintaining flexibility in the strategy.",
+    "For this systematic equity strategy, I will set individual stock position limits to a maximum loss of 5% per day and a portfolio-wide limit to a maximum daily drawdown of 3%. These bounds will stop the strategy from trading if either threshold is breached.",
+    "For this systematic equity strategy, I will set individual stock position limits to a maximum loss of 10% over any 7-day period and a portfolio-wide limit to a maximum drawdown of 5% over any 30-day period. These bounds will stop the strategy from trading if either threshold is breached.",
+    "I will set the individual position risk limit to 2% of the portfolio value to bound potential losses on any single stock, ensuring that no single position can significantly impact the overall portfolio performance. This limit also stops the strategy from trading when cumulative losses exceed 5% of the portfolio value, preventing excessive risk exposure.",
+    "The risk rule will limit the loss on any single position to no more than 2% of the portfolio value, and cap the overall portfolio loss at 5%, halting trading if either threshold is exceeded. This approach ensures robust risk management without overly constraining the strategy's flexibility."
+  ],
+  "seconds": 274.3255482999957,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 440
+}

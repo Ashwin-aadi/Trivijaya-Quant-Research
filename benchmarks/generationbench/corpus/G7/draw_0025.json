@@ -1,0 +1,48 @@
+{
+  "index": 25,
+  "paradigm": "G7_mcts",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion seeks to profit from temporary deviations of asset prices \"\n        \"from their historical averages. By comparing each day's closing price to a 5-day moving \"\n        \"average, this strategy aims to identify overbought or oversold conditions that are likely \"\n        \"to revert.\"\n    )\n\n    def __init__(self, window: int = 5, max_loss: float = -0.05) -> None:\n        self._window = window\n        self._max_loss = max_loss\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1).sort(\"session_date\")\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_close = {s: float(v) for s, v in zip(history[\"symbol\"], history[\"adj_close\"].to_list())}\n        mean_price = sum(latest_close.values()) / len(latest_close)\n        mean_prices = [mean_price] * (self._window + 1)\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in latest_close:\n                continue\n            price_diff = latest_close[symbol] - mean_prices[self._window]\n            weight = 0.02 / len(view.symbols)  # Equal weights among 30 names\n\n            signals[symbol] = weight if abs(price_diff) > self._max_loss else 0.0\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in signals.items() if w > 0},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20952,
+    "output_tokens": 6807
+  },
+  "calls": 25,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the daily closing price, measuring the difference from the 5-day moving average. This setup captures short-term mean reversion effects by comparing each day's close to a recent average close over five days.",
+    "The signal will be the daily closing price, measuring the difference from the 3-day moving average. This setup focuses on more immediate mean reversion effects compared to a 5-day period, potentially capturing quicker market adjustments and reactions.",
+    "For this systematic equity strategy, we will hold a portfolio of 30 names, equally weighted among them, ensuring each stock contributes identically to the portfolio's performance and risk profile.",
+    "We will hold a portfolio of 5 names, equally weighted, when a position is opened or closed. This balance between a modestly diversified portfolio and simplicity ensures robust mean reversion strategies can be effectively implemented without overcomplicating the execution.",
+    "For this systematic equity strategy, we will hold a portfolio of 30 names, equally weighted among them, ensuring each stock contributes identically to the portfolio's performance and risk profile.",
+    "We will hold a portfolio of 5 names, equally weighted, when a position is opened or closed. This approach balances diversification with simplicity, ensuring that each name contributes equally to the strategy's performance and risk management.",
+    "To manage risk, we will set a stop-loss of -3% on an individual stock position and limit the maximum portfolio loss to -5%. This ensures that no single stock can lose more than 3%, while protecting the overall portfolio from excessive losses by capping the total potential drawdown at 5%.",
+    "To manage risk, we will implement a trailing stop-loss mechanism where each individual stock position triggers a sell order if it falls below its 10-day high by -2%. This approach dynamically adjusts the loss threshold based on recent price action, providing more flexibility than a fixed percentage while still limiting potential losses.",
+    "For the risk rule, we will set a stop-loss of 5% on an individual position to limit potential losses and prevent significant portfolio drawdowns. This bound ensures that trades are exited if the price falls more than 5% below the entry point, safeguarding against excessive risk exposure while allowing for mean reversion to occur.",
+    "For the risk rule, we will set an individual position loss bound of -5% from the entry price to prevent significant drawdowns on any single stock. Additionally, the strategy will halt trading if the portfolio value falls below 90% of its initial value, safeguarding against severe overall market declines.",
+    "For the risk rule, we will set an individual position loss bound of -5% from the entry price to prevent significant drawdowns on any single stock. Additionally, the strategy will halt trading if the portfolio value falls below 90% of its initial value, safeguarding against severe overall market declines.",
+    "For this strategy, set the risk rule such that no position loss exceeds 5% of the portfolio value on any given trading day, and stop trading if the portfolio loses more than 10% in a single day. This ensures manageable risk while allowing for continued trading within these bounds."
+  ],
+  "seconds": 256.9216752999928,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 318
+}

@@ -1,0 +1,23 @@
+{
+  "index": 304,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionToTrailingMean(Strategy):\n    rationale = (\n        \"Prices that revert to the mean of a trailing period are often good entry points. \"\n        \"This strategy identifies symbols where recent prices have deviated significantly from their trailing average.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window or len(view.symbols) == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = history[\"symbol\"].unique().to_list()\n        signals: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in symbols:\n                continue\n\n            df = history.filter(pl.col(\"symbol\") == symbol)\n            close_prices = df.select(\"adj_close\").to_numpy().flatten()\n\n            mean_price = sum(close_prices) / len(close_prices)\n            latest_close = float(view.latest_close()[symbol])\n\n            deviation = abs(latest_close - mean_price)\n            if deviation / mean_price >= self._threshold:\n                signals[symbol] = 1.0\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_per_symbol = 1.0 / len(signals)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight_per_symbol for s in signals.keys()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_numpy()[0][0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionToTrailingMean",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 449
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.167520199989667,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 309
+}

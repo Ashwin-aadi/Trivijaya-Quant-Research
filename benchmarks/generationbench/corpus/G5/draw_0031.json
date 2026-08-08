@@ -1,0 +1,26 @@
+{
+  "index": 31,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates that the price action is becoming less volatile and \"\n        \"reversals are likely. This strategy identifies symbols where recent volatility has decreased significantly compared to their historical range.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (history[\"adj_close\"].mean()).round(2).to_list()[0]\n        volatility = (\n            ((history[\"high\"] - history[\"low\"]) / mean_close) * 100\n        ).to_list()\n        recent_volatility = [volatility[-i] for i in range(self._window, 0, -1)]\n\n        if len(recent_volatility) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_recent_volatility = sum(recent_volatility) / self._window\n        compressed_symbols = [\n            symbol\n            for symbol in view.symbols\n            if volatility[recent_volatility.index(min(recent_volatility))] <= 0.5 * mean_recent_volatility\n        ]\n\n        if not compressed_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(compressed_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in compressed_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3933,
+    "output_tokens": 1296
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This systematic equity trading strategy aims to identify symbols experiencing range compression by comparing recent volatility to historical levels. While the rationale provides a good theoretical foundation, there are several issues and potential improvements:\n\n1. **Rationale vs Code Disagreement**: The rationale states that \"Range compression indicates that the price action is becoming more volatile and reversals are likely,\" which contradicts the actual implementation. The code identifies symbols with decreased volatility as range compressed.\n\n2. **Potential Failures**:\n   - Line 34: `history[\"adj_close\"].mean().round(2).to_list()[0]` assumes that the mean close price is calculated correctly and rounded to two decimal places. This could fail if the dataset lacks precision or contains missing values.\n   - Line 51: The condition `len(recent_volatility) < self._window` checks for a full window of data, which might not always be available due to incomplete history.\n\n3. **Fragile Parameters**:\n   - The parameter `self._window` (line 8) is fixed at 20 periods, but the optimal value depends on market conditions and asset characteristics.\n   - Line 54: The condition for identifying compressed symbols (`volatility[recent_volatility.index(min(recent_volatility))] <= 0.5 * mean_recent_volatility`) is arbitrary and may not capture all relevant cases.\n\n4. **Potential Issues**:\n   - Line 18: `view.history(lookback=self._window)` assumes the existence of a `history` method that returns complete data within the specified lookback.\n   - Line 29: The handling of empty history in `_latest_visible` is minimal and could be more robust, such as logging or raising an error.\n\n5. **Assumptions**:\n   - The strategy assumes that lower volatility indicates range compression, which might not hold for all market conditions or asset classes.\n\nOverall, while the core concept is sound, the implementation has several potential issues that need addressing to make it more reliable and robust."
+  ],
+  "seconds": 34.01857430000018,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 65
+}

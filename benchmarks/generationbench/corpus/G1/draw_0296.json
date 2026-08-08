@@ -1,0 +1,23 @@
+{
+  "index": 296,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves suggest strong market sentiment and can indicate \"\n        \"potentially significant trend reversals or continuations. By focusing on both price \"\n        \"and volume, we aim to capture these opportunities more reliably.\"\n    )\n\n    def __init__(self, window: int = 20, volume_multiplier: float = 1.5) -> None:\n        self._window = window\n        self._volume_multiplier = volume_multiplier\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            prices = [float(v) for v in df[\"adj_close\"].to_list()]\n            volumes = [float(v) for v in df[\"volume\"].to_list()]\n\n            if len(prices) < self._window or len(volumes) < self._window:\n                continue\n\n            direction = 1.0\n            if prices[-1] < prices[0]:\n                direction = -1.0\n\n            volume_change = volumes[-1] / volumes[0]\n            threshold = 1.0 + (self._volume_multiplier * (direction * 0.5))\n\n            if volume_change >= threshold:\n                signals[symbol] = direction\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_direction = sum(signals.values())\n        weight_per_symbol = total_direction / len(signals)\n        weights = {symbol: weight_per_symbol for symbol in signals}\n\n        return Signal(\n            information_available_at=stamp, weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 497
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.180775100001483,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 301
+}

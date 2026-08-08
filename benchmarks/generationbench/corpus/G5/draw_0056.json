@@ -1,0 +1,26 @@
+{
+  "index": 56,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are indicative of strong market sentiment. \"\n        \"A significant increase in volume on a price move suggests genuine buying or selling pressure.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        closes = [float(v) for v in history[symbol].drop_nulls().to_list() for symbol in symbols]\n        volumes = [float(v) for v in history[\"volume\"].drop_nulls().to_list()]\n\n        candidates: list[str] = []\n        for i in range(len(closes) - 1):\n            current_close = closes[i]\n            next_close = closes[i + 1]\n            volume_change = (volumes[i + 1] - volumes[i]) / volumes[i]\n\n            if (\n                next_close > current_close\n                and volume_change > 0.5\n                or next_close < current_close\n                and volume_change < -0.5\n            ):\n                candidates.append(symbols[i])\n\n        weight = 1.0 / len(candidates) if candidates else 0.0\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in candidates}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3793,
+    "output_tokens": 1196
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears mostly sound but has a few areas for improvement and potential issues:\n\n1. **Rationale vs Code Discrepancy**:\n   - The rationale states: \"A significant increase in volume on a price move suggests genuine buying or selling pressure.\" However, the code looks at both an upward and downward movement of prices with corresponding increases or decreases in volume. This is somewhat contradictory since a significant increase in volume should more strongly indicate buying pressure (upward move) than selling pressure (downward move).\n\n2. **Potential Failure**:\n   - The strategy may fail if there are sudden, non-significant price movements that are accompanied by high volumes due to other market events not related to the underlying sentiment.\n\n3. **Fragile Parameters**:\n   - The `window` parameter is set to 10, which might be too narrow for capturing meaningful trends in some markets or during specific market conditions.\n   - The volume change threshold of \u00b120% might be overly sensitive and could generate false signals, especially if the baseline volumes are low.\n\n4. **Potential Issues**:\n   - The `information_available_at` date is taken from the latest session in the view history, which could introduce a bias if the data includes incomplete sessions or anomalies.\n   - The code does not handle cases where there might be no valid candidates due to insufficient trading activity within the window period.\n\n5. **Other Concerns**:\n   - The `Signal` object creation assumes that all selected symbols will receive an equal weight, which may not always be appropriate depending on the market and strategy objectives.\n   - There is no handling for missing or null values in the `adj_close` or `volume` columns from Polars DataFrame.\n\nOverall, while the core logic of using volume to confirm price movements has merit, some adjustments are needed to better align with the stated rationale and improve robustness."
+  ],
+  "seconds": 31.614293600000565,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 115
+}

@@ -1,0 +1,27 @@
+{
+  "index": 338,
+  "paradigm": "G4_planning",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"High volatility indicates a market prone to overreactions and thus potentially \"\n        \"predictable trend continuation. Conversely, low volatility suggests more stable \"\n        \"markets where trends are likely to persist. This strategy leverages these phenomena by \"\n        \"scaling trades based on realized volatility.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 15) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol)\n            open_vals = [float(v) for v in df[\"open\"].to_list()]\n            high_vals = [float(v) for v in df[\"high\"].to_list()]\n            low_vals = [float(v) for v in df[\"low\"].to_list()]\n            close_vals = [float(v) for v in df[\"close\"].to_list()]\n\n            if len(open_vals) < self._window:\n                continue\n            realized_volatility = (\n                (pl.Series(high_vals) - pl.Series(low_vals)).abs()\n                / 2.0\n            ).std() * 2.0 * 252 ** 0.5\n\n            if not picks or realized_volatility <= min(\n                [realized_volatility for _, realized_volatility in picks]\n            ):\n                picks.append((symbol, realized_volatility))\n\n        picks = sorted(picks, key=lambda x: x[1], reverse=True)[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, _ in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_list()[0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2471,
+    "output_tokens": 992
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy focuses on exploiting the phenomenon where volatility in the market can indicate future price movements. The economic mechanism is based on the idea that during periods of high volatility, markets tend to revert or extend recent trends more strongly than during low-volatility periods. This persistence might arise because extreme market conditions often lead to overreactions by investors.\n\nThe strategy will scale trades based on realized volatility: in high-volatility environments, it would reduce position sizes to limit risk, while in low-volatility regimes, it would increase exposure to capitalize on extended trends. The rule involves calculating realized volatility over a rolling window and adjusting trade sizes accordingly. This approach aims to benefit from the predictability of trend continuation during calm markets and risk management during turbulent times.",
+    "The signal for this systematic equity strategy is derived from calculating realized volatility over a rolling window. Realized volatility is computed using the daily open, high, low, close prices, and volume data of the assets in question. For instance, you might use a 20-day rolling window to capture recent market dynamics.\n\nOn each trading day, the realized volatility for each asset is calculated within this lookback period. The candidates are then ranked based on their realized volatility values. Assets with lower realized volatility are considered more suitable for increased exposure during low-volatility regimes, while those with higher realized volatility might be scaled down or avoided to limit risk in high-volatility periods.\n\nThis ranking helps in dynamically adjusting trade sizes and positions to align with the expected market behavior, leveraging trend continuation during calm markets and managing risks effectively during turbulent times.",
+    "This strategy aims to manage positions dynamically based on realized volatility. Typically, it might hold a portfolio of around 20-30 names to balance diversification and responsiveness. Positions would be sized such that no single asset exposure exceeds 5% of the total portfolio value at any time, with most assets weighted between 1-3%. Risk limits are set to ensure that potential daily loss does not exceed 2% of the portfolio's net asset value (NAV). This approach balances leveraging trends in low-volatility periods while maintaining strict risk management during high-volatility environments."
+  ],
+  "seconds": 29.84229939999932,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 343
+}

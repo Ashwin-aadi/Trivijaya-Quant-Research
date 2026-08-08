@@ -1,0 +1,23 @@
+{
+  "index": 334,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Historical data often shows that certain stocks exhibit higher returns during specific times \"\n        \"of the year due to seasonal effects. By identifying these patterns, we can allocate capital towards \"\n        \"stocks expected to perform well in a given season.\"\n    )\n\n    def __init__(self, seasons: int = 4) -> None:\n        self._seasons = seasons\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=365 * (self._seasons - 1))\n        if closes.height < 365 * (self._seasons - 1):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Define the seasons based on quarters\n        seasonal_groups = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < 365 * (self._seasons - 1):\n                continue\n\n            # Calculate the mean close price for each season\n            seasonal_data = [\n                values[i : i + 90] for i in range(0, len(values), 90)\n            ]  # Assuming a quarter is roughly 3 months or 90 days\n            means = [sum(group) / len(group) for group in seasonal_data]\n\n            # Identify the season with the highest mean close price\n            max_mean_season = max(zip(means, range(len(seasonal_data))))\n            best_season_index = max_mean_season[1]\n            if best_season_index == 0:\n                seasonal_groups.append(symbol)\n\n        weight = 1.0 / len(seasonal_groups)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in seasonal_groups},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 507
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.576804000003904,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 342
+}

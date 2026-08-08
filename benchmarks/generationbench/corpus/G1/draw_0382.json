@@ -1,0 +1,23 @@
+{
+  "index": 382,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Stocks often exhibit predictable seasonal patterns due to various macroeconomic factors. \"\n        \"By identifying these trends, we can exploit them for trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 365, top_n: int = 10) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        trends: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            yearly_data = _chunk_into_yearly(values, self._window)\n            mean_return = sum(yearly_data.values()) / len(view.symbols)\n            trends[symbol] = max([max(chunk) - min(chunk) for chunk in yearly_data.keys()])\n\n        sorted_trends = {k: v for k, v in sorted(trends.items(), key=lambda item: item[1], reverse=True)}\n        picks = list(sorted_trends.keys())[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _chunk_into_yearly(data: list[float], window: int) -> dict[date, float]:\n    chunks: dict[date, float] = {}\n    start_date = view.as_of - pl.duration.Years(10)  # Assuming a large span to cover multiple years\n    current_chunk_start = None\n\n    for i, close in enumerate(data):\n        session_date = view.history().filter(pl.col(\"adj_close\") == close)[\"session_date\"].item()\n        if start_date + pl.duration.Days(window) < session_date:\n            if current_chunk_start is not None:\n                chunks[current_chunk_start] = (max(data[i - window:i]) - min(data[i - window:i]))\n            current_chunk_start = session_date\n    return chunks",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 600
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.438970200004405,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 388
+}

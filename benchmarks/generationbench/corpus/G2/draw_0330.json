@@ -1,0 +1,23 @@
+{
+  "index": 330,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Assets that have outperformed relative to the broad market over a short period are \"\n        \"likely to continue to do so due to persistence in asset returns. This strategy \"\n        \"identifies such assets and allocates capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        market_avg_returns = _calculate_market_average_return(closes)\n        asset_returns = {}\n\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window + 1:\n                continue\n\n            returns = [(values[i] - values[i - 1]) / values[i - 1] for i in range(1, self._window + 1)]\n            avg_return = sum(returns) / len(returns)\n            asset_returns[symbol] = avg_return - market_avg_returns\n\n        top_assets = sorted(asset_returns.items(), key=lambda x: x[1], reverse=True)[:5]\n        weights = {symbol: weight for symbol, weight in top_assets}\n\n        if not weights:\n            return Signal(information_available_at=stamp, weights={})\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w / sum(weights.values()) for s, w in weights.items()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_market_average_return(closes: pl.DataFrame) -> float:\n    market_close = closes.select(pl.col(\"adj_close\").mean().alias(\"avg\")).collect().rows()[0][0]\n    returns = []\n    for i in range(1, closes.height):\n        returns.append((market_close - closes[\"adj_close\"][i]) / closes[\"adj_close\"][i-1])\n    \n    return sum(returns) / len(returns)",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 554
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.585418499998923,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 338
+}

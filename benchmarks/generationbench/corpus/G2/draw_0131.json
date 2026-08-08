@@ -1,0 +1,23 @@
+{
+  "index": 131,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"This strategy combines volume and momentum indicators to identify undervalued stocks. \"\n        \"High trading volume often signals a strong interest in the stock, while recent price \"\n        \"gains indicate that the market is positive about the company's future prospects.\"\n    )\n\n    def __init__(self, momentum_window: int = 10, volume_threshold: float = 100_000) -> None:\n        self._momentum_window = momentum_window\n        self._volume_threshold = volume_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._momentum_window)\n        if history.height < self._momentum_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n\n            # Calculate momentum\n            adj_close_series = pl.col(\"adj_close\")\n            daily_returns = (adj_close_series / adj_close_series.shift(1) - 1.0).alias(\"r\")\n            momentum = daily_returns.sum().round(4)\n\n            # Check volume threshold\n            volume_df = view.closes(lookback=self._momentum_window)\n            if symbol not in volume_df.columns:\n                continue\n            volume = float(volume_df[symbol].sum())\n\n            if volume >= self._volume_threshold and momentum > 0.05:\n                picks.append(symbol)\n\n        picks = picks[:10]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 480
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.116592200000014,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 135
+}

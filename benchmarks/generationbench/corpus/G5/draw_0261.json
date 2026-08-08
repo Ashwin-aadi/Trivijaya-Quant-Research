@@ -1,0 +1,26 @@
+{
+  "index": 261,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility ones over the long term. \"\n        \"By tilting towards low-volatility stocks, we aim to capture this outperformance.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        low_vol_symbols = self._select_low_volatility_stocks(history)\n\n        weight = 1.0 / len(low_vol_symbols) if low_vol_symbols else 0\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in low_vol_symbols},\n        )\n\n    def _select_low_volatility_stocks(self, history: pl.DataFrame) -> list[str]:\n        symbols = [str(s) for s in view.symbols if str(s) in history.columns]\n        volatilities = []\n\n        for symbol in symbols:\n            adj_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            returns = [(adj_closes[i] - adj_closes[i - 1]) / adj_closes[i - 1] if i > 0 else 0.0 for i in range(len(adj_closes))]\n            volatility = (sum(returns) ** 2) / self._window\n            volatilities.append((symbol, volatility))\n\n        sorted_volatilities = sorted(volatilities, key=lambda x: x[1])\n        low_vol_symbols = [symbol for symbol, _ in sorted_volatilities[:5]]\n        return low_vol_symbols\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4015,
+    "output_tokens": 1357
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears to have some potential issues and areas for improvement:\n\n1. **Rationale vs. Implementation**: \n   - The rationale states that \"Low-volatility stocks tend to outperform high-volatility ones over the long term.\" However, in practice, the code selects the 5 lowest volatility symbols from a window of 20 days and equally weights them. This does not necessarily align with the long-term performance rationale. Additionally, using a simple arithmetic mean for volatility calculation might not be accurate.\n\n2. **Potential Failure**:\n   - Line 34: The volatility is calculated as `(sum(returns) ** 2) / self._window`, which simplifies to a variance rather than standard deviation. This could lead to incorrect volatility measures, particularly if returns are negative.\n   \n3. **Fragile Parameters and Conditions**:\n   - Lines 27-30: The code assumes that there will always be enough data points within the lookback window for each symbol. If any symbol lacks sufficient data (e.g., fewer than 20 entries), it is skipped, which could lead to incomplete portfolios.\n   \n4. **Potential Stopping Points**:\n   - Lines 16-18: `from src.backtest.strategy import MarketView, Signal, Strategy` suggests that these classes are part of an external module, and if they are not properly defined or imported, the strategy will fail to run.\n   - Line 53: `_latest_visible(view)` relies on the `view.history()` method returning a DataFrame with a column named \"session_date\". If this column is missing or formatted incorrectly, it could lead to runtime errors.\n\nOverall, while the intention of tilting towards low-volatility stocks is clear, the implementation has several potential issues that could affect its effectiveness and robustness."
+  ],
+  "seconds": 35.06566600000042,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 530
+}

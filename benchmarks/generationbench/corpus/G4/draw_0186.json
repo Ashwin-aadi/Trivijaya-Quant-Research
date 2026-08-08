@@ -1,0 +1,27 @@
+{
+  "index": 186,
+  "paradigm": "G4_planning",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"This strategy exploits the persistence of stock performance by identifying \"\n        \"stocks with strong relative strength against their sector peers over a one-year period. \"\n        \"It aims to capture excess returns from favorable fundamental changes.\"\n    )\n\n    def __init__(self, window: int = 365, top_n_percent: float = 0.2) -> None:\n        self._window = window\n        self._top_n_percent = top_n_percent\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        sector_symbols = view.symbols\n        ranked_stocks = []\n\n        for symbol in sector_symbols:\n            stock_data = history.select([\"session_date\", \"symbol\", \"adj_close\"])\n            stock_data = (\n                stock_data.filter(pl.col(\"symbol\") == symbol)\n                          .sort(by=\"session_date\")\n                          .with_columns((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"))\n            )\n            if stock_data.height < self._window:\n                continue\n            cumulative_return = sum(float(v) for v in stock_data[\"return\"].to_list())\n            ranked_stocks.append((symbol, cumulative_return))\n\n        ranked_stocks.sort(key=lambda x: x[1], reverse=True)\n        top_n_stocks = int(len(sector_symbols) * self._top_n_percent)\n        selected_stocks = [stock[0] for stock in ranked_stocks[:top_n_stocks]]\n\n        if not selected_stocks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(selected_stocks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in selected_stocks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2513,
+    "output_tokens": 945
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy exploiting relative strength against the broad Indian market universe, we will focus on identifying stocks that outperform their sector peers over the long term. The economic mechanism involves exploiting the persistence of stock performance driven by factors such as company fundamentals, management quality, and competitive positioning.\n\nThis persistence can be attributed to structural changes in industries, shifts in investor sentiment, and regulatory impacts that favor certain sectors or companies. By identifying stocks with strong relative performance, we can capture excess returns.\n\nThe strategy rule will involve:\n1. Dividing the market into sectors.\n2. Ranking stocks within each sector by recent price performance.\n3. Selecting top N% of high-performing stocks across all sectors.\n4. Rebalancing quarterly to maintain exposure to outperformers and incorporate new entries as old ones fade.\n\nThis approach aims to leverage the lasting impact of favorable fundamental changes on stock prices, providing a systematic way to participate in market gains driven by relative strength.",
+    "To develop the systematic equity trading strategy, the key signal involves computing the 12-month cumulative return for each stock. This metric is derived from daily open, high, low, close prices, and volume data over a one-year lookback period. On a given day, stocks within each sector are ranked based on their 12-month cumulative returns in descending order. The top N% of stocks across all sectors with the highest returns are selected as candidates for inclusion in the portfolio. This ranking helps identify stocks that have shown consistent outperformance relative to their peers and the broader market over the past year, aiming to capture excess returns from favorable fundamental changes.",
+    "The strategy will hold up to 20 stocks across sectors, selected based on their top N% (e.g., top 30%) 12-month cumulative returns. Positions will be equally weighted, ensuring each stock contributes a similar impact to the portfolio. To limit risk, the total position size per trade will not exceed 5% of the portfolio value, and the overall portfolio volatility is capped at 10%. This approach balances exposure to high-performing stocks while managing potential losses through conservative weighting and volatility constraints."
+  ],
+  "seconds": 28.684207999998762,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 189
+}

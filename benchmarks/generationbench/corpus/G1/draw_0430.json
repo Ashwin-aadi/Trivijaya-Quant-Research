@@ -1,0 +1,23 @@
+{
+  "index": 430,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality can provide predictive power in equity markets due to recurring \"\n        \"patterns related to specific times of the year. We exploit these patterns by \"\n        \"identifying symbols that historically perform well during certain months.\"\n    )\n\n    def __init__(self, lookback_years: int = 2) -> None:\n        self._lookback_years = lookback_years\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_years * 365)\n\n        if history.height < (self._lookback_years + 1) * 365:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Group by month and symbol to calculate mean close for each\n        grouped = (\n            history.select(\n                pl.col(\"symbol\"),\n                pl.col(\"session_date\").dt.month().alias(\"month\"),\n                pl.col(\"adj_close\").alias(\"close\"),\n            )\n            .group_by([\"symbol\", \"month\"])\n            .agg(pl.col(\"close\").mean())\n            .sort(\"symbol\")\n        )\n\n        # Find symbols that have a high close in the last month of the lookback period\n        symbol_month_pairs = (\n            grouped.filter(pl.col(\"month\") == history[\"session_date\"].dt.month().max())\n            .select([\"symbol\"])\n            .to_series()\n            .to_list()\n        )\n\n        if not symbol_month_pairs:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbol_month_pairs)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                s: weight\n                for s in symbol_month_month_pairs\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 470
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.64626199999475,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 436
+}

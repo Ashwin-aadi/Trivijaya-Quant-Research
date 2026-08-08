@@ -1,0 +1,23 @@
+{
+  "index": 383,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeVolatilityMomentum(Strategy):\n    rationale = (\n        \"This strategy aims to identify stocks that show high volatility followed by strong momentum. \"\n        \"High volatility can indicate significant price movement and risk, while a subsequent positive momentum suggests the potential for profit.\"\n    )\n\n    def __init__(self, vol_window: int = 20, mom_window: int = 10) -> None:\n        self._vol_window = vol_window\n        self._mom_window = mom_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._vol_window + self._mom_window)\n\n        if closes.height < self._vol_window + self._mom_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            adj_closes = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(adj_closes) < self._vol_window + self._mom_window:\n                continue\n\n            vol = (adj_closes[-self._vol_window:] - adj_closes[:-self._vol_window]).std()\n            mom = (adj_closes[-1] / adj_closes[-(self._mom_window + 1)] - 1.0)\n            if vol > 0 and mom > 0:\n                volatilities.append(symbol)\n\n        volatilities = volatilities[:5]\n        if not volatilities:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(volatilities)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in volatilities}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeVolatilityMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 483
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.14847269999882,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 391
+}

@@ -1,0 +1,23 @@
+{
+  "index": 659,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentumAndVolatility(Strategy):\n    rationale = (\n        \"This strategy seeks to identify stocks with both high recent momentum and low \"\n        \"volatility. High momentum indicates strong price movement, while low volatility suggests \"\n        \"the stock is less risky and more predictable.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, volatility_window: int = 30) -> None:\n        self._momentum_window = momentum_window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._momentum_window + self._volatility_window)\n\n        if history.is_empty() or history.height < (self._momentum_window + self._volatility_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores: dict[str, float] = {}\n        volatility_scores: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.columns or \"symbol\" not in history.columns:\n                continue\n\n            # Calculate momentum\n            close_prices = [float(v) for v in history[symbol].to_list()]\n            last_price = close_prices[-1]\n            max_close = max(close_prices)\n            min_close = min(close_prices)\n\n            if last_price >= (max_close * 0.95):\n                momentum_scores[symbol] = max_close - min_close\n\n            # Calculate volatility\n            log_returns = [((close / prev_close) - 1) for close, prev_close in zip(close_prices[1:], close_prices[:-1])]\n            std_deviation = pl.DataFrame({\"return\": log_returns})[\"return\"].std()\n            if not std_deviation.is_null():\n                volatility_scores[symbol] = std_deviation\n\n        # Filter out symbols with no momentum or volatility\n        momentum_filtered = {k: v for k, v in momentum_scores.items() if v > 0}\n        volatility_filtered = {k: v for k, v in volatility_scores.items() if not v.is_null()}\n        \n        common_symbols = set(momentum_filtered.keys()) & set(volatility_filtered.keys())\n        \n        # If no common symbols are found\n        if not common_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Assign equal weight to all selected stocks\n        weight = 1.0 / len(common_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in common_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentumAndVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 633
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.351686000009067,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 672
+}

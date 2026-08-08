@@ -1,0 +1,23 @@
+{
+  "arm": "G5",
+  "paradigm": "G5_reflection",
+  "updated_at_utc": "2026-08-06T18:10:04Z",
+  "requested": 300,
+  "completed": 288,
+  "usable": 288,
+  "trials_before_this_sitting": 580,
+  "trials_after": 582,
+  "seconds_this_sitting": 42.493821600000956,
+  "draws_this_sitting": 1,
+  "tokens": {
+    "G5_reflection": {
+      "prompt_tokens": 4315,
+      "output_tokens": 1673,
+      "calls": 3,
+      "draws": 1,
+      "accepted": 1,
+      "output_tokens_per_accepted": 1673.0
+    }
+  },
+  "fitness": null
+}

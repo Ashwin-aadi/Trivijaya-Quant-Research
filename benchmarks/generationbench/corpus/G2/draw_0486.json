@@ -1,0 +1,23 @@
+{
+  "index": 486,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrengthStrategy(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength to the NIFTY 100 index tend to outperform \"\n        \"over the medium term. This is based on the idea that strong stocks are likely \"\n        \"to continue their upward momentum and weak ones may reverse.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        if not view.symbols or view.closes().height < (len(view.symbols) * self._window):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the relative strength of each stock\n        closes = view.closes(lookback=self._window)\n        index_closes = view.closes(lookback=self._window).select(\n            pl.col(\"^NIFTY 100\").alias(\"index_close\")\n        )\n\n        symbol_strengths: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns or \"^NIFTY 100\" not in index_closes.columns:\n                continue\n\n            symbol_values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            index_values = [float(v) for v in index_closes[\"index_close\"].drop_nulls().to_list()]\n\n            if len(symbol_values) < self._window or len(index_values) < self._window:\n                continue\n\n            symbol_strength = (\n                sum((symbol_value - min(symbol_values)) / (max(symbol_values) - min(symbol_values))\n                     for symbol_value in symbol_values)\n                /\n                sum(\n                    (index_value - min(index_values)) / (max(index_values) - min(index_values))\n                    for index_value in index_values\n                )\n            )\n\n            if not pl.is_null(symbol_strength):\n                symbol_strengths[symbol] = symbol_strength\n\n        # Rank stocks by relative strength and select top N stocks\n        ranked_strengths = sorted(symbol_strengths.items(), key=lambda x: x[1], reverse=True)\n        picks = [symbol for symbol, _ in ranked_strengths[:5]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrengthStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 622
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.96061660000123,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 494
+}

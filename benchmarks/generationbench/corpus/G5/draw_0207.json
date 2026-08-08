@@ -1,0 +1,26 @@
+{
+  "index": 207,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity-weighted equal weighting allocates capital based on the liquidity of stocks. \"\n        \"High-liquidity stocks are given more weight in the portfolio because they can be traded without significant impact to their price.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            values = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            volume_series = pl.Series(values[-self._window:])\n            max_volume = max(volume_series)\n            mean_volume = volume_series.mean()\n            liquidity_score = (mean_volume / max_volume) * 100\n            liquidity_scores[symbol] = liquidity_score.to_numpy()[0]\n\n        if not liquidity_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_lw = sum(liquidity_scores.values())\n        weights = {s: l / total_lw for s, l in liquidity_scores.items()}\n        return Signal(\n            information_available_at=stamp,\n            weights=weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3795,
+    "output_tokens": 1168
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to allocate capital based on liquidity scores of stocks but has several issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale suggests that high-liquidity stocks are given more weight due to their ability to be traded without significant impact. However, the code calculates a liquidity score as `volume_series.mean() / min(volume_series)`, which inversely relates volume mean to minimum volume. This could penalize highly liquid stocks instead of rewarding them.\n\n2. **Potential Failure**:\n   - The strategy will fail if all symbols in the history have insufficient data (less than `self._window` periods). Line 18 checks for this but does not handle it robustly.\n   \n3. **Fragile Parameters**:\n   - The parameter `window` (Line 7) is hardcoded and static, which may not be optimal if market conditions change. Dynamic windowing could improve performance.\n   \n4. **Potential Issues in Running the Code**:\n   - Line 15: If any symbol in history is missing from `view.symbols`, it will lead to an error or incorrect weights as no `continue` statement is used after the first iteration.\n   - Line 27: The check for `if not liquidity_scores` could return an empty dictionary, which might be misleading. Consider raising a specific exception or log such cases.\n\n5. **Sound Parts**:\n   - The overall structure of generating signals based on historical data and liquidity scores is sound.\n   - The use of Polars for handling time series data is efficient.\n\nIn summary, the strategy has room for improvement in handling edge cases, parameter flexibility, and ensuring correct logic alignment with stated rationale."
+  ],
+  "seconds": 31.318516799999998,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 420
+}

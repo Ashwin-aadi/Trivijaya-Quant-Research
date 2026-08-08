@@ -1,0 +1,23 @@
+{
+  "index": 470,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySFTrend(Strategy):\n    rationale = (\n        \"Trend following strategies exploit periods of high market volatility by \"\n        \"entering trends before they reverse. High volatility often precedes trend \"\n        \"reversals, so entering positions in highly volatile stocks can lead to \"\n        \"positive returns.\"\n    )\n\n    def __init__(self, window: int = 20, threshold_volatility: float = 1.5) -> None:\n        self._window = window\n        self._threshold_volatility = threshold_volatility\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility_scores = {}\n        for symbol in view.symbols:\n            daily_returns = (\n                history.select([pl.col(\"adj_close\"), pl.col(\"session_date\")])\n                .with_columns((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\"))\n                .sort(\"session_date\")\n                .filter(pl.col(\"symbol\") == symbol)\n            )\n            if daily_returns.height < self._window:\n                continue\n            mean_return = daily_returns.select(pl.col(\"r\").mean().alias(\"m\")).row(0)[0]\n            std_deviation = daily_returns.select(pl.col(\"r\").stddev().alias(\"sd\")).row(0)[0]\n            volatility_score = (std_deviation / abs(mean_return)) if mean_return != 0 else 1.0\n            volatility_scores[symbol] = volatility_score\n\n        high_volatility_symbols = [\n            symbol for symbol, score in volatility_scores.items() if score > self._threshold_volatility\n        ]\n        if not high_volatility_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(high_volatility_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in high_volatility_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilitySFTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 539
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.213386700001138,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 478
+}

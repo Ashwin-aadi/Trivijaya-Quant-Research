@@ -1,0 +1,26 @@
+{
+  "index": 269,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After a price breakout, the continuation of the trend can often provide \"\n        \"profitable opportunities. This strategy looks for symbols that have recently \"\n        \"broken out and are likely to continue in their direction by using moving averages.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            last_close = values[-1]\n            prev_close = values[-2]\n\n            # Check if the price broke out either up or down\n            breakout_condition = (last_close > max(values[:-1]) and prev_close <= max(values[:-1])) or \\\n                                 (last_close < min(values[:-1]) and prev_close >= min(values[:-1]))\n            if not breakout_condition:\n                continue\n\n            # Validate continuation using a simple moving average\n            avg_price = sum(values) / len(values)\n            is_above_ma = last_close > avg_price and prev_close <= avg_price\n\n            if is_above_ma:\n                breakout_symbols.append(symbol)\n\n        breakout_symbols = breakout_symbols[: self._top_n]\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3981,
+    "output_tokens": 1390
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code generally aligns with its rationale but has a few issues and potential fragilities:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states that the strategy looks for symbols \"that have recently broken out and are likely to continue in their direction.\" However, the code only checks if the last close broke past a previous high or low within the lookback period. It does not explicitly check for continuation after the breakout.\n\n2. **Potential Failures**:\n   - The strategy might fail if there is no significant trend continuation after the initial breakout. For instance, if `last_close` just barely breaches the previous high/low and then reverses shortly thereafter.\n   - The code assumes a simple price condition (next-to-last close direction) for identifying breakouts, which may not be robust enough to capture complex market dynamics.\n\n3. **Fragile Parameters**:\n   - The `_window` parameter is fixed at 20 periods, which might be too short or long depending on the data frequency and volatility. A static value could lead to overfitting if the window size is not optimized.\n   - `top_n = 5` is arbitrary; a more adaptive selection based on signal strength or statistical significance would be better.\n\n4. **Potential Issues**:\n   - The code uses `float(v)` for conversion, which might raise errors if there are non-numeric values in the close column.\n   - `_latest_visible` assumes that `view.history()` returns data with a \"session_date\" column and that dates are of type `date`.\n\n5. **Sound Parts**:\n   - The basic structure of using Polars for data manipulation is sound.\n   - The strategy logic, while simplistic, follows the core breakout and continuation idea.\n\nTo improve, consider implementing trend-following indicators like Bollinger Bands or Moving Averages to validate trend continuation after the initial breakout. Additionally, parameter optimization through backtesting could enhance performance."
+  ],
+  "seconds": 36.033344900000884,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 546
+}

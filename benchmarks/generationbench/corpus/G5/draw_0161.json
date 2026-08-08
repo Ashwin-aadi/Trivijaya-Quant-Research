@@ -1,0 +1,27 @@
+{
+  "index": 161,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After identifying a breakout in the previous 20 days, this strategy looks for \"\n        \"confirmation on the next day to enter a position. This is based on the idea that \"\n        \"a strong move one day may continue the next.\"\n    )\n\n    def __init__(self, window: int = 20, confirmation_threshold: float = 0.05) -> None:\n        self._window = window\n        self._confirmation_threshold = confirmation_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            values = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(values) < self._window + 1:\n                continue\n            if values[-1] > max(values[:self._window]):\n                breakout_symbols.append(symbol)\n\n        continuation_symbols = []\n        for symbol in breakout_symbols:\n            next_day_close = view.latest_close()[symbol]\n            if (next_day_close - history[symbol][-2]) / history[symbol][-2] > self._confirmation_threshold:\n                continuation_symbols.append(symbol)\n\n        weights = {s: 1.0 / len(continuation_symbols) for s in continuation_symbols}\n        return Signal(\n            information_available_at=stamp, weights={**weights}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 5168,
+    "output_tokens": 1642
+  },
+  "calls": 4,
+  "candidates_evaluated": 3,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code and rationale generally align well but have a few potential issues:\n\n1. **Rationale vs Code Discrepancy:**\n   - The rationale states that the strategy looks for confirmation on the next day after identifying a breakout in the previous 20 days. However, the code checks if the `next_day_close` is more than 5% higher than two days before (not one). This discrepancy can be seen in line:\n     ```python\n     if (next_day_close - history[symbol][-2]) / history[symbol][-2] > 0.05:\n     ```\n   - To match the rationale, it should be `history[symbol][-1]`.\n\n2. **Potential Failure:**\n   - The strategy may fail if there is no breakout on the last day of available data (`history`), as the condition to find a breakout depends on the last value in the history:\n     ```python\n     if values[-1] > max(values[:self._window]):\n     ```\n   - This can be fragile because it assumes `values[-1]` is always a valid breakout point.\n\n3. **Fragile Parameters:**\n   - The window length (`_window`) parameter is hardcoded to 20, which might not be optimal for all market conditions. More robust strategies could use dynamic or adaptive windows based on historical data characteristics.\n   - The threshold of 5% in line:\n     ```python\n     if (next_day_close - history[symbol][-2]) / history[symbol][-2] > 0.05:\n     ```\n     might be too strict for some markets, causing the strategy to miss valid continuation patterns.\n\n4. **Potential Issues:**\n   - The code does not handle missing data gracefully. If a symbol is completely missing in `history`, it will simply skip that symbol without further checking.\n   - There is no explicit handling of duplicate or non-unique symbols, which could lead to unexpected behavior if the strategy encounters such cases.\n\nOverall, the core logic appears sound but could benefit from more robust parameter handling and clearer alignment between rationale and implementation."
+  ],
+  "seconds": 43.22805379999954,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 327
+}

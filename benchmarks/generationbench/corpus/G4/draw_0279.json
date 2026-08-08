@@ -1,0 +1,27 @@
+{
+  "index": 279,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the liquidity premium by selecting a diversified portfolio \"\n        \"of equally weighted stocks from highly liquid Indian equities. The higher trading volume \"\n        \"of these stocks suggests lower transaction costs and market inefficiencies, potentially \"\n        \"resulting in higher returns for investors willing to engage in such trades.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 50) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_data = (\n            history.select(pl.col(\"symbol\"), pl.col(\"volume\"))\n                   .group_by(\"symbol\")\n                   .agg(pl.col(\"volume\").mean().alias(\"avg_volume\"))\n                   .sort(\"avg_volume\", descending=True)\n                   .head(self._top_n)\n        )\n\n        if volume_data.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks = [row[\"symbol\"] for row in volume_data.to_dicts()]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2400,
+    "output_tokens": 825
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy focuses on exploiting the liquidity premium by selecting a diversified portfolio of equally weighted stocks from liquid Indian equities. The economic mechanism is based on the observation that highly liquid stocks often offer lower returns compared to less liquid ones, due to market inefficiencies and transaction costs. This differential might persist because market participants may avoid trading less liquid stocks, leading to higher returns for investors who are willing to engage in such trades.\n\nThe rule would involve: \n1. Screening the Indian equity market to identify highly liquid stocks.\n2. Selecting a subset of these stocks to form an equally weighted portfolio.\n3. Rebalancing periodically to maintain equal weights and ensure exposure remains focused on liquidity benefits.",
+    "To identify highly liquid stocks for this systematic equity strategy, the key signal involves calculating the liquidity measure based on trading volume. Specifically:\n\n1. **Daily Volume**: Use the daily trading volume of each stock as the primary metric.\n2. **Lookback Period**: Over a 30-day lookback period to smooth out short-term fluctuations and capture longer-term trends in liquidity.\n3. **Ranking**: Rank all Indian equities based on their average daily trading volume over the 30-day period, with higher volumes indicating greater liquidity.\n\nCandidates are then selected from this ranked list to form an equally weighted portfolio of a predefined number of stocks, ensuring exposure to highly liquid securities that may offer lower returns but benefit from reduced transaction costs and market inefficiencies.",
+    "This strategy involves holding a diversified portfolio of approximately 30-50 equally weighted stocks selected from the top-ranked liquid Indian equities based on their average daily trading volume over a 30-day lookback period. Each stock in the portfolio will have an equal weight, ensuring balanced exposure to liquidity benefits while mitigating concentration risk. Risk management includes setting stop-loss levels to limit potential losses, typically around 5-10% of the portfolio value per individual position, to protect against adverse market movements and maintain capital integrity. Regular rebalancing ensures alignment with liquidity objectives and adjusts for any changes in stock liquidity or performance."
+  ],
+  "seconds": 26.364188299994566,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 284
+}

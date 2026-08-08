@@ -1,0 +1,27 @@
+{
+  "index": 218,
+  "paradigm": "G4_planning",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"Markets exhibit stronger trends during periods of higher volatility. \"\n        \"This strategy leverages this phenomenon by scaling trades based on recent volatility metrics. \"\n        \"During high-volatility periods, it increases exposure to trending assets; \"\n        \"during low-volatility periods, it reduces or exits positions.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"close\") / pl.col(\"close\").shift(1) - 1).alias(\"daily_return\")\n            )\n            .sort(\"session_date\", descending=False)\n            .group_by(\"symbol\")\n            .agg((pl.col(\"daily_return\").std().alias(\"volatility\"),))\n        )\n\n        # Get latest close prices\n        closes = view.closes()\n\n        # Rank symbols based on recent trend strength relative to volatility\n        rank_map: dict[str, float] = {}\n        for symbol in history.symbol.unique():\n            if symbol not in closes.columns:\n                continue\n            last_close = float(closes[symbol][0])\n            vol = history[history.symbol == symbol][\"volatility\"].item()\n            daily_return = (last_close - history[history.symbol == symbol].select(\"adj_close\").to_series().mean()) / vol\n            rank_map[symbol] = daily_return\n\n        ranked_symbols = sorted(rank_map.items(), key=lambda x: x[1], reverse=True)[: self._top_n]\n\n        if not ranked_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(ranked_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in [symbol for symbol, _ in ranked_symbols]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2374,
+    "output_tokens": 966
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to leverage the phenomenon where markets exhibit stronger trends during periods of higher volatility. This is based on the observation that investors often become more cautious or aggressive in response to market turbulence, leading to prolonged price movements. To exploit this, the plan involves scaling trades according to current volatility levels. Specifically, when volatility spikes, the strategy would increase exposure to trending assets, anticipating that these trends are more likely to persist due to heightened investor sentiment and market activity. Conversely, during quieter periods, it would reduce exposure or exit positions. This approach seeks to capture gains from trending markets while mitigating risk in stable conditions through adaptive scaling based on volatility metrics.",
+    "The strategy employs a volatility-based scaling mechanism. Daily signals are derived from the 20-day historical standard deviation of the asset's price returns (calculated using daily open, high, low, close). This 20-day lookback period captures recent market volatility trends effectively.\n\nOn any given day, assets are ranked based on their current price return relative to this 20-day volatility metric. Assets with higher positive price returns compared to their historical volatility are considered strong trending candidates and receive a higher rank. Conversely, those with lower returns or negative returns relative to their volatility are ranked lower. This ranking determines the extent of scaling in trades: assets with higher ranks (indicating stronger trends) will see increased exposure during periods of high volatility, while assets with lower ranks will be scaled back or exited.",
+    "The strategy holds a portfolio of up to 20 top-ranked assets based on their price return relative to 20-day volatility. Position weights adjust dynamically: higher-ranked assets receive larger weights during high volatility periods, while lower-ranked assets see reduced exposure or are exited. To manage risk, the total portfolio loss is capped at 5% of the capital over any single trading day, ensuring that no single day's losses exceed this limit. This approach balances capturing trending market gains with managing volatility-related risks."
+  ],
+  "seconds": 29.443494800005283,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 222
+}

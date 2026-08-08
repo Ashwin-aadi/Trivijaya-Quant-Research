@@ -1,0 +1,23 @@
+{
+  "index": 808,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionToTrailingAvg(Strategy):\n    rationale = (\n        \"Reversion to the mean suggests that prices which are extreme in one period \"\n        \"are likely to revert towards their long-term average. This strategy identifies \"\n        \"overbought or oversold conditions and bets on reversion.\"\n    )\n\n    def __init__(self, window: int = 50) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_close = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"avg_close\"))\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"avg_close\")).abs().alias(\"deviation\")\n            )\n        )\n\n        closest_to_avg: dict[str, float] = (\n            avg_close.sort(\"deviation\", descending=True)\n            .select([\"symbol\"])\n            .head(5)[\"symbol\"]\n            .to_list()\n        )[:3]\n\n        if not closest_to_avg:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(closest_to_avg)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in closest_to_avg},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionToTrailingAvg",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 404
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.286378299992066,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 823
+}

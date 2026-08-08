@@ -1,0 +1,27 @@
+{
+  "index": 87,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the persistence in stock returns through a liquidity-screened equal-weighting approach. By focusing on stocks with higher trading volumes, it mitigates liquidity risk while ensuring each selected stock receives an equal weight in the portfolio.\"\n    )\n\n    def __init__(self, lookback_days: int = 30, top_percentile: float = 0.1) -> None:\n        self._lookback_days = lookback_days\n        self._top_percentile = top_percentile\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute average daily trading volume over the lookback period\n        avg_volume = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volume\") / self._lookback_days).alias(\"avg_volume\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"avg_volume\").mean().alias(\"m\"))\n            .sort(\"m\", descending=True)\n        )\n\n        # Select top percentile of symbols based on average volume\n        n_symbols = avg_volume.height\n        cutoff = int(n_symbols * self._top_percentile)\n        selected_symbols = [row[0] for row in avg_volume.head(cutoff).to_dict(as_series=False)[\"symbol\"]]\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Equal weighting among the selected symbols\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in selected_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2386,
+    "output_tokens": 883
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan involves exploiting the persistence in stock returns through a liquidity-screened equal-weighting strategy for the Indian market. By focusing on stocks with higher trading volumes, we aim to mitigate liquidity risk while ensuring each selected stock receives an equal weight in the portfolio. This approach is based on the economic mechanism that suggests well-liquified stocks may exhibit stronger and more persistent returns due to greater market participation and efficient price discovery. The rule would screen for stocks with sufficient daily trading volume before equally weighting them, thus balancing exposure across the chosen securities while leveraging the potential of liquid markets for better risk-adjusted returns.",
+    "The signal for this systematic equity strategy involves screening stocks based on their daily trading volumes. Specifically:\n\n1. **Data**: Daily open, high, low, close prices, and volume for each stock.\n2. **Lookback Period**: Typically, a recent lookback period such as the past 30 days is used to calculate the average daily trading volume.\n3. **Calculation**: Compute the average daily trading volume over the last 30 days for each stock.\n4. **Ranking**: Rank stocks based on their average daily trading volume in descending order, selecting those above a certain threshold (e.g., top 10% by volume).\n5. **Selection**: From the ranked list, equally weight the selected stocks to form the portfolio.\n\nThis process ensures that only well-liquified stocks are included, thereby mitigating liquidity risk and leveraging potential for stronger returns.",
+    "This systematic equity strategy holds a portfolio of approximately 20-30 well-liquified stocks selected from the Indian market. Each stock is equally weighted within the portfolio to ensure balanced exposure. Position sizing limits the risk by ensuring no single stock can significantly impact the overall performance, thus mitigating individual stock liquidity risks. To limit potential losses, the strategy sets a maximum drawdown threshold of 5%, which acts as a stop-loss mechanism. This approach balances diversification benefits with risk management, aiming for consistent, risk-adjusted returns through liquid markets."
+  ],
+  "seconds": 27.90765570000076,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 90
+}

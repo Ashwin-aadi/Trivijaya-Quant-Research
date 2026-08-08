@@ -1,0 +1,23 @@
+{
+  "index": 779,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines the daily return volatility with the 20-day moving average \"\n        \"to identify stocks that are both less volatile and above their moving average. The \"\n        \"idea is to find stocks that are stable but still have a positive trend, potentially \"\n        \"indicating strong fundamental health.\"\n    )\n\n    def __init__(self, vol_window: int = 20, ma_window: int = 20) -> None:\n        self._vol_window = vol_window\n        self._ma_window = ma_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._vol_window + self._ma_window - 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_vols = {}\n        ma_crosses = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.columns or \"session_date\" not in history.columns:\n                continue\n\n            adj_closes = history[symbol].to_list()\n            if len(adj_closes) < self._vol_window + self._ma_window - 1:\n                continue\n\n            # Calculate daily returns\n            returns = [float(v) for v in (pl.Series(adj_closes).diff().drop_nulls()).to_list()]\n            \n            # Volatility over the lookback period\n            vol = pl.Series(returns).std()\n\n            # Moving average cross signal\n            ma_series = pl.Series(adj_closes[-self._ma_window:]).rolling_mean(window_size=self._ma_window)\n            last_ma = float(ma_series[-1])\n            prev_ma = float(ma_series[-2])\n            if last_ma > prev_ma and returns[-1] >= 0:\n                ma_crosses[symbol] = True\n            else:\n                ma_crosses[symbol] = False\n\n            symbol_vols[symbol] = vol\n\n        # Identify symbols that are above their moving average and have low volatility\n        picks = [s for s, v in symbol_vols.items() if ma_crosses.get(s) and v < 0.1]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 610
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 18.195548400006373,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 794
+}

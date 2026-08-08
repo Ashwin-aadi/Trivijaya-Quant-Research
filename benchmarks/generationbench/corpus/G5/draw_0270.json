@@ -1,0 +1,26 @@
+{
+  "index": 270,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Identify stocks with strong relative performance by comparing their \"\n        \"recent price changes to the average of all NIFTY 100 constituents. \"\n        \"Higher relative strength signals potential outperformance.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_changes = {}\n        nifty_100_avg_change = sum(\n            float(v) - float(history[\"adj_close\"].to_list()[i-1])\n            for i, v in enumerate(history[\"adj_close\"].to_list())\n            if i >= self._window\n        ) / (history.height - 1)\n\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            changes = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]\n            avg_change = sum(changes[-self._window:]) / self._window\n            symbol_changes[symbol] = avg_change\n\n        strongest_symbols = sorted(\n            symbol_changes.items(), key=lambda x: (x[1] - nifty_100_avg_change), reverse=True\n        )[:5]\n        if not strongest_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(strongest_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, _ in strongest_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3826,
+    "output_tokens": 1261
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears to be generally sound but contains several issues and potential pitfalls:\n\n1. **Rationale vs. Code Mismatch**: The rationale suggests identifying stocks with strong relative performance by comparing recent price changes to the average of NIFTY 100 constituents. However, the code compares each stock's change to its own historical prices (lines 23-24). This discrepancy could lead to incorrect signals.\n\n2. **Potential Fails**:\n   - **Insufficient Data**: If `history` does not contain enough data points for a given symbol (line 18), the function returns an empty weights dictionary, which might not be ideal.\n   - **Short Window Periods**: The default window of 20 days may not capture long-term trends effectively. Adjusting this value could improve performance but requires careful tuning.\n\n3. **Fragility in Parameters**:\n   - The `window` parameter is hard-coded to 20 (line 8). This could be made more flexible, allowing for dynamic adjustment based on market conditions or backtest results.\n   - The top-5 selection logic might not always capture the best-performing stocks. Adjusting this number or using a different threshold could improve robustness.\n\n4. **Potential Stopping Points**:\n   - If `history` is entirely empty (line 18), `_latest_visible()` returns an arbitrary date, which might cause issues downstream.\n   - The code assumes that the history has both \"session_date\" and the symbol data, though this isn't explicitly checked.\n\nOverall, while the strategy's core idea of identifying strong relative performance is sound, there are several areas where improvements can be made to enhance its reliability and robustness."
+  ],
+  "seconds": 33.05260449999878,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 548
+}

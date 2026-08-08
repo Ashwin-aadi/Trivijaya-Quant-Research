@@ -1,0 +1,23 @@
+{
+  "index": 670,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality effects can arise from various economic and psychological factors. For \"\n        \"example, certain stocks may exhibit higher returns during specific times of the year \"\n        \"due to increased trading volumes or market expectations. By identifying these patterns, \"\n        \"we can exploit them for profit.\"\n    )\n\n    def __init__(self, window: int = 365) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol = history[\"symbol\"][0]\n        closes = history.select(pl.col(\"adj_close\"))\n\n        # Calculate the average close and the seasonally adjusted close\n        avg_closes = closes.mean().item()\n        seasonality_factor = (\n            closes.with_columns(\n                (pl.col(\"adj_close\") / avg_closes).alias(\"seasonal_factor\")\n            )\n            .sort(\"session_date\", descending=False)\n            .select(pl.col(\"seasonal_factor\"))\n            .to_list()[0]\n        )\n\n        # Identify the season in which we are currently\n        today = stamp.toordinal()\n        start_of_year = date(stamp.year, 1, 1).toordinal()\n        days_in_year = (date(stamp.year + 1, 1, 1) - date(stamp.year, 1, 1)).days\n\n        season_start = max(0, int((today - start_of_year) / days_in_year * self._window))\n        season_end = min(self._window - 1, season_start + (self._window // 4))\n\n        # Compute the seasonal trend\n        seasonal_trend = (\n            history.slice(season_start, season_end)\n            .select(pl.col(\"adj_close\"))\n            .mean()\n            .item()\n        )\n\n        if len(view.symbols) == 0 or symbol not in view.symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Generate signal based on the seasonal trend\n        weight = 1.0 / (len(view.symbols))\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in view.symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 594
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.361940900009358,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 681
+}

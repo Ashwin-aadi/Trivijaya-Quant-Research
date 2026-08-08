@@ -1,0 +1,23 @@
+{
+  "index": 715,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates that the market is consolidating and may be setting up \"\n        \"for a breakout. This can happen when volatility decreases, suggesting pent-up momentum.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_ranges = {}\n        for symbol in view.symbols:\n            symbol_data = history.filter(pl.col(\"symbol\") == symbol)\n            if symbol_data.is_empty():\n                continue\n            open_values = [float(v) for v in symbol_data[\"open\"].to_list()]\n            close_values = [float(v) for v in symbol_data[\"close\"].to_list()]\n            range_value = max(close_values) - min(open_values)\n            symbol_ranges[symbol] = range_value\n\n        sorted_ranges = sorted(symbol_ranges.items(), key=lambda x: x[1], reverse=True)\n        top_symbols = [symbol for symbol, _ in sorted_ranges[:5]]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1245,
+    "output_tokens": 418
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.684378599995398,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 729
+}

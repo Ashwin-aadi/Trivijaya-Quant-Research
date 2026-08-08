@@ -1,0 +1,23 @@
+{
+  "index": 638,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollow(Strategy):\n    rationale = (\n        \"This strategy follows trends that have a high volatility. High volatility indicates \"\n        \"that the asset is currently experiencing significant price movements, which we can use \"\n        \"to our advantage by entering positions in the direction of the trend.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility_trend_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            df = history.filter(pl.col(\"symbol\") == symbol)\n            prices = [float(v) for v in df[\"adj_close\"].drop_nulls().to_list()]\n            if len(prices) < self._window:\n                continue\n\n            # Calculate the log returns\n            log_returns = [(prices[i] / prices[i - 1] - 1.0) for i in range(1, len(prices))]\n\n            # Calculate volatility as the standard deviation of log returns\n            volatility = (pl.Series(log_returns).std()) * (252 ** 0.5)\n            if not pl.is_nan(volatility):\n                # Normalize by mean log return to get a trend score\n                mean_log_return = sum(log_returns) / len(log_returns)\n                trend_score = (mean_log_return + volatility) / (1 - mean_log_return)\n\n                volatility_trend_scores[symbol] = float(trend_score)\n\n        if not volatility_trend_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Select the top symbol with the highest volatility-trend score\n        top_symbol = max(volatility_trend_scores.items(), key=lambda x: x[1])[0]\n        weight = 1.0\n\n        return Signal(\n            information_available_at=stamp,\n            weights={top_symbol: weight},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollow",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 551
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.629754400011734,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 651
+}

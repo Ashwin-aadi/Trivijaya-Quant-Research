@@ -1,0 +1,27 @@
+{
+  "index": 198,
+  "paradigm": "G4_planning",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength6m(Strategy):\n    rationale = (\n        \"This strategy selects stocks based on their 6-month relative strength against the Nifty 50 index. \"\n        \"Historically, certain sectors like IT and healthcare show strong relative performance during economic downturns. \"\n        \"By identifying top decile performers monthly and rebalancing quarterly, we aim to capitalize on sector-specific resilience.\"\n    )\n\n    def __init__(self, lookback: int = 180, top_decile_size: int = 20) -> None:\n        self._lookback = lookback\n        self._top_decile_size = top_decile_size\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        nifty_50_closes = history.select(\n            pl.col(\"symbol\").filter(pl.col(\"symbol\") == \"NIFTY 50\").alias(\"nifty_close\")\n        )\n        if nifty_50_closes.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        def relative_strength(row: pl.Series) -> float:\n            stock_return = (row[-1] - row[0]) / row[0]\n            nifty_return = (nifty_50_closes[\"nifty_close\"].item() - row[0]) / row[0]\n            return stock_return / nifty_return if nifty_return != 0 else 0\n\n        ranked = history.groupby(\"symbol\").agg(\n            pl.col(\"adj_close\").shift(1).list().alias(\"close_list\")\n        )\n        ranked = ranked.with_columns((ranked[\"close_list\"].apply(relative_strength)).alias(\"rs\"))\n        ranked = ranked.sort(\"rs\", descending=True)\n        top_stocks = [row[0] for row in ranked.to_pandas().head(self._top_decile_size).itertuples()]\n\n        if not top_stocks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_stocks)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_stocks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength6m",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2338,
+    "output_tokens": 928
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy based on relative strength against the broad universe in the Indian market, we will focus on identifying stocks that outperform their peers. The economic mechanism involves selecting stocks from sectors or indices known to be resilient during certain economic conditions. This could persist because historically, sectors like IT and healthcare often show strong relative performance during economic downturns. The trading rule would rank stocks by their 6-month return relative to the Nifty 50 index. We will buy the top decile of these ranked stocks each month, rebalancing quarterly, and sell those that fall below the bottom quartile. This approach leverages the persistence in sector-specific outperformance to generate alpha.",
+    "The signal for this strategy is derived from the relative strength of stocks within the Indian market. Specifically, the 6-month cumulative return of each stock relative to the Nifty 50 index is computed daily. This calculation covers a lookback period of 6 months. On any given day, stocks are ranked based on their relative performance over this period. The top decile of ranked stocks (those with the highest relative returns) are selected for purchase at the start of each month, and these positions are rebalanced quarterly. Stocks falling below the bottom quartile in relative return are sold. This ranking process identifies stocks expected to outperform their peers, leveraging historical sector resilience during economic downturns.",
+    "This strategy holds positions in up to 20 stocks (top decile) each month, with weights proportional to their relative strength rank. Positions are rebalanced quarterly. To manage risk, the portfolio limits monthly losses to no more than 5% of the total portfolio value, ensuring that the risk exposure remains within a manageable range while capitalizing on sector resilience and relative outperformance."
+  ],
+  "seconds": 28.75819130000309,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 201
+}

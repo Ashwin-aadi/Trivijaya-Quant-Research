@@ -1,0 +1,23 @@
+{
+  "index": 194,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following is a strategy that bets on the continuation of trends \"\n        \"but scales these bets by an estimate of recent volatility. High volatility periods tend to \"\n        \"follow low volatility periods and vice versa, leading to mean reversion in returns. By scaling \"\n        \"trends with this factor, we aim to capture more significant moves while mitigating risk during volatile times.\"\n    )\n\n    def __init__(self, window: int = 20, vol_window: int = 10) -> None:\n        self._window = window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        # Calculate daily returns\n        rets = (\n            (closes[\"adj_close\"] / closes[\"adj_close\"].shift(1) - 1.0).alias(\"ret\")\n            if not closes.is_empty()\n            else pl.DataFrame({\"ret\": []})\n        )\n\n        # Filter out the first row as it doesn't have a prior value\n        rets = rets.filter(pl.col(\"session_date\") > view.as_of.date())\n\n        # Calculate volatility over the last `vol_window` days for each symbol\n        vol = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"ret\").abs().mean().alias(\"volatility\"))\n                if not rets.is_empty()\n                else pl.DataFrame({\"volatility\": []})\n            )\n            .with_columns(pl.col(\"volatility\").shift(1).fill_null(0.0).alias(\"prev_volatility\"))\n        )\n\n        # Create a weight for each symbol\n        weights = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"ret\").sum() / pl.lit(self._window)).alias(\"trend\")\n                if not rets.is_empty()\n                else pl.DataFrame({\"trend\": []})\n            )\n            .with_columns(\n                ((pl.col(\"trend\") * 2.0) / (1.0 + vol[\"prev_volatility\"])).alias(\"weighted_trend\")\n            )\n        )\n\n        # Select the top N symbols based on weighted trend\n        picks = (\n            weights.sort(\"weighted_trend\", descending=True)\n            .select([\"symbol\"])\n            .to_series()\n            .to_list()[: self._vol_window]\n        )\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 704
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.619282700004987,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 200
+}

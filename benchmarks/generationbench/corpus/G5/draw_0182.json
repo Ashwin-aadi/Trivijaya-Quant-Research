@@ -1,0 +1,26 @@
+{
+  "index": 182,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following exploits the idea that assets with higher \"\n        \"recent volatility are more likely to continue their recent trends. By scaling \"\n        \"the trend by its recent volatility, we can take larger positions in more volatile \"\n        \"assets and smaller positions in less volatile ones.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = [float(v) for v in history[\"adj_close\"].to_list()]\n        volatilities: dict[str, float] = {}\n        trends: dict[str, tuple[float, float]] = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            returns = [(prices[i] - prices[i-1]) / prices[i-1] for i in range(1, self._window)]\n            volatility = (sum([r**2 for r in returns]) / self._window)**0.5\n            volatilities[symbol] = volatility\n\n            if len(prices) < 2:\n                continue\n            trend = prices[-1] - prices[0]\n            trends[symbol] = (trend, volatility)\n\n        sorted_symbols = [s for s in sorted(trends.items(), key=lambda item: -item[1][0])]\n        \n        top_symbols = sorted_symbols[:5]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_volatility = sum(v[1] for v in trends.values())\n        if total_volatility == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        weights: dict[str, float] = {}\n        for symbol, (trend, volatility) in top_symbols:\n            weight = trend / total_volatility\n            weights[symbol] = max(0.0, min(weight, 1.0))  # Clamp to [0, 1]\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4059,
+    "output_tokens": 1517
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy largely aligns with its rationale but has some potential issues and areas for improvement:\n\n1. **Rationale vs Code Discrepancy:**\n   - The rationale states that assets with higher recent volatility are more likely to continue their trends. However, the code measures volatility using returns from the last 20 days (Line 19) without considering whether these trends have indeed continued.\n   - Suggestion: Incorporate a trend-following component in the `volatilities` calculation, e.g., by including a moving average of prices or returns.\n\n2. **Potential Failure Scenarios:**\n   - Line 26: If there are no symbols available in `history`, the function will return an empty dictionary for weights.\n   - Suggestion: Add a check to ensure that `sorted_symbols` contains at least 5 symbols before proceeding with weight allocation.\n\n3. **Fragile Parameters:**\n   - The window size is hardcoded as 20 (Line 8). This could be less effective in different market conditions or for assets with varying volatility patterns.\n   - Suggestion: Allow the window size to be a parameter of the `__init__` method, similar to how it's currently defined.\n\n4. **Code Fragility and Potential Errors:**\n   - Line 23: If there are no prices in `history`, the code will raise an error when trying to calculate volatility.\n   - Suggestion: Add null checks before calculating returns (Line 19) and ensure that enough data exists for meaningful calculations.\n\n5. **Improper Handling of Symbols:**\n   - Lines 20-24: These lines assume that every symbol in `view.symbols` will be present in `history`. This may not always be the case.\n   - Suggestion: Use a set comprehension to filter out symbols not found in `history` and handle this scenario explicitly.\n\nOverall, the strategy is sound but could benefit from additional checks and flexibility."
+  ],
+  "seconds": 38.371121199999834,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 369
+}

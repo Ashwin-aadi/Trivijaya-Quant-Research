@@ -1,0 +1,27 @@
+{
+  "index": 264,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum36m(Strategy):\n    rationale = (\n        \"This strategy exploits cross-sectional momentum in the Indian market by identifying \"\n        \"stocks with positive returns over a recent period and allocating positions based on their \"\n        \"performance. High-momentum stocks are expected to continue outperforming due to investor \"\n        \"behavior biases and information delays.\"\n    )\n\n    def __init__(self, lookback_days: int = 180, top_n: int = 25) -> None:\n        self._lookback_days = lookback_days\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate cumulative returns for each stock\n        returns = (\n            history.group_by(\"symbol\")\n                   .agg(\n                       (pl.col(\"close\") / pl.col(\"open\").shift(self._lookback_days) - 1.0).alias(\"cumulative_return\"),\n                   )\n        ).sort(\"cumulative_return\", descending=True)\n\n        if returns.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_stocks = [row[\"symbol\"] for row in returns.to_dicts()[:self._top_n]]\n\n        # Compute weight for each selected stock\n        top_returns = history.select([pl.col(\"symbol\"), pl.col(\"close\").alias(\"latest_close\")]).filter(pl.col(\"symbol\").is_in(top_stocks))\n        weights = {s: float(top_returns.filter(pl.col(\"symbol\") == s)[\"latest_close\"].item()) / sum(top_returns[\"latest_close\"].to_list()) for s in top_stocks}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum36m",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2657,
+    "output_tokens": 1021
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy aims to exploit the cross-sectional momentum effect in the Indian market. The economic mechanism is based on the observation that stocks with positive returns over a recent period tend to continue outperforming the market in the near future, while underperformers revert to their mean. This persistence might persist due to investor behavior biases and information delays.\n\nThe rule for this strategy would identify top-performing stocks (e.g., those in the upper quartile) based on past returns over a 3-6 month window. These selected stocks would then form the portfolio, with positions weighted by their recent performance. This approach leverages historical momentum without relying solely on fundamental analysis, aiming to capture abnormal returns from market sentiment and price patterns.",
+    "The signal for this systematic equity strategy is derived from computing the cumulative return of each stock over a 3-6 month lookback period. Specifically:\n\n1. **Data Source**: Daily Open, High, Low, Close prices, and Volume data for each stock in the Indian market.\n2. **Lookback Period**: 3 to 6 months (e.g., 90 to 180 trading days).\n3. **Signal Calculation**: For each stock, calculate the total return from its opening price at the beginning of the lookback period until the current day's close. This is done using the formula: \n   \\[\n   \\text{Cumulative Return} = \\left( \\frac{\\text{Current Close Price}}{\\text{Initial Open Price}} - 1 \\right)\n   \\]\n4. **Ranking**: On a given trading day, rank all stocks based on their cumulative returns over the specified lookback period. The top quartile of these ranked stocks (i.e., those with the highest cumulative returns) are selected as candidates for inclusion in the portfolio.\n5. **Portfolio Construction**: Allocate positions to the selected top-performing stocks, weighting each position by its relative ranking or cumulative return within the top quartile.\n\nThis process ensures that the strategy focuses on capturing momentum effects from recent market performance while avoiding reliance on fundamental analysis.",
+    "The systematic equity strategy holds positions in the top 25% of stocks ranked by their cumulative returns over a 3-6 month lookback period. Positions are weighted proportional to each stock's ranking within this quartile, ensuring that higher momentum stocks receive larger weights. To manage risk, the total portfolio loss is limited to no more than 5% in any single trading day, and the overall portfolio volatility is capped at an annualized standard deviation of 20%. This approach balances exposure to momentum effects with prudent risk management."
+  ],
+  "seconds": 30.561091199997463,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 269
+}

@@ -1,0 +1,23 @@
+{
+  "index": 538,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalBreakout(Strategy):\n    rationale = (\n        \"Stock markets often exhibit seasonality effects, where certain months or seasons \"\n        \"of the year have historically produced higher returns. By identifying stocks that \"\n        \"break out of their recent range during these periods, we can capture potential \"\n        \"profit opportunities.\"\n    )\n\n    def __init__(self, window: int = 20, breakout_threshold: float = 1.05) -> None:\n        self._window = window\n        self._threshold = breakout_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Identify seasonal breakout candidates\n        breakout_candidates = []\n        for symbol in view.symbols:\n            closes = [float(v) for v in history[symbol].to_list()]\n            last_close = closes[-1]\n            mean_price = sum(closes) / len(closes)\n            if last_close > self._threshold * mean_price:\n                breakout_candidates.append(symbol)\n\n        # Filter by the month of the latest close\n        today_month = stamp.month\n        breakout_symbols = [s for s in breakout_candidates if history[symbol].tail(1)[\"session_date\"].month == today_month]\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 442
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.328549999998359,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 547
+}

@@ -1,0 +1,26 @@
+{
+  "index": 101,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After identifying a breakout candidate, we look for sustained price movement in the \"\n        \"direction of the breakout to confirm its validity. This strategy aims to enter positions \"\n        \"in symbols that continue their post-breakout trend.\"\n    )\n\n    def __init__(self, window: int = 20, continuation_window: int = 5) -> None:\n        self._window = window\n        self._continuation_window = continuation_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window + 1)\n        if closes.height < self._window + 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns or len(closes[symbol].to_list()) < self._continuation_window + 1:\n                continue\n\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            breakout_day_close = values[-2]\n            post_breakout_values = values[-self._continuation_window - 1:-1]\n\n            if len(post_breakout_values) < self._continuation_window:\n                continue\n\n            trend_direction = (post_breakout_values[0] > breakout_day_close) * 2 - 1\n            valid_trend = all(((trend_direction == 1 and value >= breakout_day_close) or\n                               (trend_direction == -1 and value <= breakout_day_close))\n                              for value in post_breakout_values)\n\n            if valid_trend:\n                picks.append(symbol)\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4126,
+    "output_tokens": 1492
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also some potential issues and fragilities:\n\n### Strengths:\n1. **Rationale Alignment**: The rationale aligns well with the code's logic, focusing on identifying breakouts and then confirming sustained price movement in a consistent direction.\n\n### Issues and Fragilities:\n1. **Parameter Sensitivity** (Lines 13-14):\n   - `window` and `continuation_window` parameters are hardcoded for all strategies. This makes the strategy inflexible if different windows are needed for different market conditions or symbols.\n   \n2. **Potential Rule Failures** (Line 56-69):\n   - The code assumes that every symbol will have enough data to meet the `_continuation_window + 1` requirement. If not, it skips those symbols without considering them further in the strategy's logic.\n   - This could lead to missed trades if a breakout is significant but does not extend far enough into the `continuation_window`.\n\n3. **Fragility of Data Handling** (Line 49-56):\n   - The code checks for null values and ensures there are enough data points, but it assumes that all symbols will always have valid data. If a symbol has no data at all (`symbol not in closes.columns`), the strategy immediately skips it.\n   \n4. **Performance Concerns** (Line 38-56):\n   - The inner loop iterates through each symbol and checks multiple conditions, which can be computationally expensive for large datasets or many symbols.\n\n5. **Assumption of Data Quality** (Line 29):\n   - The code assumes that `closes` is a valid DataFrame with the correct structure, but there's no check to ensure this.\n   \n6. **Return Type Safety** (Line 70-71):\n   - While the return type is defined as `Signal`, it could be more robust if additional checks were added to ensure that the returned weights sum up to 1.\n\n### Code-Specific Issues:\n- Line 45: The use of `* 2 - 1` for trend direction calculation might not handle all scenarios, particularly when dealing with very small or large price movements.\n- Line 59: The loop breaks as soon as any condition is met, which could prematurely terminate the evaluation if only a single day deviates from the expected trend.\n\nOverall, while the strategy's rationale and implementation are generally sound, improvements can be made in parameter flexibility, data handling robustness, and performance optimization."
+  ],
+  "seconds": 37.92961290000039,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 206
+}

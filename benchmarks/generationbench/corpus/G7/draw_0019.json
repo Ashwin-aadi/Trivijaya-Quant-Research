@@ -1,0 +1,47 @@
+{
+  "index": 19,
+  "paradigm": "G7_mcts",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression5d(Strategy):\n    rationale = (\n        \"Dispersion in daily range (high - low) over a 5-day lookback period can indicate \"\n        \"potential market instability or consolidation. A significant decrease in the range \"\n        \"can suggest increased stability and potential for trend continuation.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        daily_ranges = (\n            history.sort(\"session_date\")\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"high\") - pl.col(\"low\")).alias(\"range\"),\n                pl.count().alias(\"count\"),\n            )\n        )\n\n        filtered_daily_ranges = daily_ranges.filter(pl.col(\"count\") == self._window)\n\n        if filtered_daily_ranges.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_range = (\n            filtered_daily_ranges.select(\n                (pl.col(\"range\").mean().alias(\"mean_range\"))\n            )\n            .collect()\n            .row(0)[0]\n        )\n\n        if not mean_range:\n            return Signal(information_available_at=stamp, weights={})\n\n        compressed_symbols = (\n            daily_ranges.filter(pl.col(\"range\") < 1.5 * mean_range)\n            .select([\"symbol\"])\n            .to_pandas()[\"symbol\"]\n            .tolist()\n        )\n\n        if not compressed_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(compressed_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in compressed_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19373,
+    "output_tokens": 6383
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the signal in this systematic equity strategy for the Indian market, measure the daily range (high - low) over a 5-day lookback period. This captures dispersion effectively without being overly sensitive to noise.",
+    "For the signal in this systematic equity strategy for the Indian market, measure the average daily range (high - low) over a 10-day lookback period. This approach provides a balanced view of price volatility while offering sufficient sensitivity to market changes.",
+    "For the portfolio rule, choose to hold a maximum of 30 names with equal weighting among them when a position is opened. This balance between diversification and manageability ensures robust exposure while keeping complexity low.",
+    "For the portfolio rule, maintain a position in 5 equities, each equally weighted at 20%. This balanced approach ensures diversification while simplifying rebalancing mechanics.",
+    "For the portfolio rule, choose to hold a maximum of 30 names with equal weighting among them when a position is opened. This approach balances diversification needs with manageable portfolio complexity, ensuring robust exposure across the market without overcomplicating the strategy.",
+    "For the portfolio rule, maintain a position in 5 equities, each equally weighted at 20%. This balanced approach ensures diversification while simplifying rebalancing mechanics.",
+    "For the risk rule, set a stop-loss threshold of 5% on an individual position and limit the maximum portfolio drawdown to -10%. These bounds will help manage risk while allowing the strategy to capture profitable dispersion in the market.",
+    "For the risk rule, set a stop-loss threshold of 5% on an individual position and limit the maximum portfolio drawdown to -10%. This approach balances risk management with the ability to capitalize on dispersion by capping potential losses per trade and overall portfolio volatility.",
+    "Decide that the risk rule limits the maximum loss per equity position to 5% and the total portfolio loss to 8%. This ensures manageable risk exposure while allowing for market fluctuations.",
+    "For the risk rule, set a stop-loss threshold of -5% on an individual position to limit potential losses while allowing for normal market volatility. Additionally, implement a portfolio-wide loss limit of -10%, triggering a strategy halt if exceeded, to manage overall risk exposure effectively.",
+    "For the risk rule, set a stop-loss trigger at -5% for each individual equity position, and a portfolio-wide stop-loss at -10%. This ensures that single stock events are contained while protecting against broader market downturns.",
+    "For the risk rule, set a stop-loss trigger at -5% for each individual equity position, and a portfolio-wide stop-loss at -10%. This ensures that single stock events are contained while protecting against broader market downturns."
+  ],
+  "seconds": 216.2910533999675,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 245
+}

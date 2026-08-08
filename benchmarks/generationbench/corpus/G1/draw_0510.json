@@ -1,0 +1,24 @@
+{
+  "index": 510,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"This strategy selects the top-performing stocks relative to the NIFTY 100 index \"\n        \"over a certain period. The idea is that stocks outperforming the market may offer \"\n        \"greater returns and are less susceptible to broad market declines.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < (self._window * len(view.symbols)):\n            return Signal(information_available_at=stamp, weights={})\n\n        index_returns = (\n            view.closes()\n            .select(\"session_date\")\n            .join(history.select(pl.col(\"symbol\"), pl.col(\"adj_close\").last()), on=\"symbol\", how=\"left\")\n            .with_columns(\n                (pl.col(\"close_x\") / pl.col(\"close_y\") - 1).alias(\"index_return\"),\n            )\n        )\n\n        stock_returns = (\n            history\n            .select(pl.col(\"symbol\"), \"session_date\", \"adj_close\")\n            .pivot(index=\"symbol\", values=\"adj_close\", aggregate_function=None)\n            .with_columns(\n                (pl.col(symbol) / pl.col(symbol).shift(1) - 1).alias(f\"return_{symbol}\")\n                for symbol in view.symbols\n            )\n        )\n\n        merged = index_returns.join(stock_returns, on=\"session_date\")\n        \n        # Calculate relative strength as the ratio of stock return to index return\n        merged = (\n            merged\n            .with_columns(\n                (pl.col(f\"return_{symbol}\") / pl.col(\"index_return\")).alias(f\"relative_strength_{symbol}\")\n                for symbol in view.symbols\n            )\n            .sort(pl.col([f\"relative_strength_{symbol}\" for symbol in view.symbols]), descending=True)\n            .select([pl.col(\"session_date\"), *[f\"relative_strength_{symbol}\" for symbol in view.symbols]])\n        )\n\n        top_n = min(self._window, len(view.symbols))\n        strongest_symbols = merged.columns[1:top_n+1]\n\n        weight = 1.0 / len(strongest_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol.split(\"_\")[2]: weight for symbol in strongest_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2494,
+    "output_tokens": 1089
+  },
+  "calls": 2,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 29.8527974000026,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 518
+}

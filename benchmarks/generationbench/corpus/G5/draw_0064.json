@@ -1,0 +1,26 @@
+{
+  "index": 64,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass TrailingReversion(Strategy):\n    rationale = (\n        \"This strategy identifies stocks that have deviated significantly from their \"\n        \"trailing average price and are likely to revert. It focuses on mean reversion \"\n        \"principles within the Indian market.\"\n    )\n\n    def __init__(self, window: int = 50, threshold: float = 1.2) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_closes = view.closes()\n        symbols = set(latest_closes.columns) - {\"session_date\"}\n\n        signals: dict[str, float] = {}\n        for symbol in symbols:\n            if symbol not in history.symbol.to_list():\n                continue\n            adj_closes = (\n                history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"]\n                .to_list()\n                .drop_nulls()\n            )\n            mean_adj_close = sum(adj_closes) / len(adj_closes)\n            latest_close = float(latest_closes[symbol].item())\n\n            reversion_signal = (latest_close - mean_adj_close) / mean_adj_close\n            if abs(reversion_signal) > self._threshold:\n                signals[symbol] = 1.0\n\n        picks = [s for s, w in signals.items() if w == 1.0]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "TrailingReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4015,
+    "output_tokens": 1374
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "### Critique\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale mentions \"mean reversion principles,\" but the code does not explicitly use mean reversion. Instead, it checks if the latest close price deviates significantly from the trailing average (which is similar to deviation-based strategies rather than strictly mean-reversion).\n   \n2. **Potential Failures:**\n   - Line 34-37: This logic assumes that historical data includes all symbols in `latest_closes`. However, this might not always be true if a symbol has only recently been added.\n   - Line 51: If no stocks meet the threshold criteria, it returns an empty weights dictionary. This could lead to issues if the strategy is used as part of a larger system that expects non-empty signals.\n\n3. **Fragile Parameters:**\n   - The `threshold` parameter (line 7) might need careful tuning. A high threshold could miss out on significant reversion opportunities, while a low threshold could generate too many false positives.\n   - The window size (`window`) (line 6) is hardcoded to 50, which may not be optimal for all market conditions.\n\n4. **Potential Stopping Points:**\n   - Line 27-31: If the history does not have enough data points (less than `self._window + 1`), it returns an empty signal. This could happen frequently if the strategy is run too early in a backtest.\n   - The logic for calculating mean_adj_close assumes that all close prices are non-zero, which might not always be true.\n\n5. **Sound Parts:**\n   - The overall structure of generating signals based on deviation from trailing average is sound and follows logical principles.\n   - The use of `polars` for data manipulation ensures efficient handling of large datasets.\n\nIn summary, while the strategy aims to identify reversion opportunities, some parts of the implementation are fragile and could benefit from additional checks or parameter tuning."
+  ],
+  "seconds": 35.46383690000039,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 131
+}

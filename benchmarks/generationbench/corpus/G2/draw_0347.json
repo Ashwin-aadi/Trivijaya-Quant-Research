@@ -1,0 +1,23 @@
+{
+  "index": 347,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: short-term momentum and \"\n        \"long-term support/resistance levels. If a stock has recently broken through its 50-day \"\n        \"moving average (short-term momentum) while also being near its 200-day moving average, \"\n        \"it suggests strong buying interest could push the stock higher.\"\n    )\n\n    def __init__(self, short_window: int = 50, long_window: int = 200) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._short_window + self._long_window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n\n            short_ma = float(history[symbol][\"close\"].mean().over(window_size=self._short_window))\n            long_ma = float(history[symbol][\"close\"].mean().over(window_size=self._long_window))\n\n            recent_close = float(view.latest_close()[symbol])\n            is_breakout = recent_close > short_ma\n            is_near_support = abs(recent_close - long_ma) < 0.1 * long_ma\n\n            if is_breakout and is_near_support:\n                signals.append(symbol)\n\n        weights = {s: 1 / len(signals) for s in signals} if signals else {}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 452
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.457799099996919,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 355
+}

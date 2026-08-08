@@ -1,0 +1,26 @@
+{
+  "index": 121,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that asset prices tend to revert to an average over time. \"\n        \"In this strategy, we identify stocks whose recent returns are extreme compared to their \"\n        \"historical mean, indicating a potential future mean-reverting move.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = set(view.symbols).intersection(set(history[\"symbol\"].to_list()))\n        relevant_history = history.filter(pl.col(\"symbol\").is_in(symbols))\n\n        mean_close = (\n            relevant_history.groupby(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).mean().alias(\"return_mean\")\n            )\n            .select(\"symbol\", \"return_mean\")\n        )\n\n        current_closes = view.closes(lookback=None)\n        mean_return = (\n            relevant_history.groupby(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).mean().alias(\"return\")\n            )\n            .join(mean_close, on=\"symbol\", how=\"inner\")\n            .select(pl.col(\"return\") - pl.col(\"return_mean\"))\n        )\n\n        sorted_symbols = mean_return.sort(\n            \"return\",\n            descending=False,\n        )[\"symbol\"].to_list()[:5]\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in sorted_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4053,
+    "output_tokens": 1409
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears generally sound but has a few potential issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states that mean reversion applies to both asset prices and rental return rates, while the code focuses only on asset prices (specifically `adj_close`). This discrepancy could lead to misapplication of the strategy.\n\n2. **Potential Failures**:\n   - Line 36: If there are no symbols in `history` that match those in `view.symbols`, the strategy will return an empty weights dictionary, which might be unexpected or undesirable.\n   - Line 41: The mean calculation is done without considering whether the symbol has enough historical data. If a symbol lacks sufficient history (e.g., due to recent listing), it could lead to incorrect mean calculations.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window`) is hardcoded in the `__init__` method, which makes the strategy less adaptable. While this can be adjusted via parameters, having a default value might not always be optimal.\n   - Line 18: The `_latest_visible` function assumes that `history` will have a column named `\"session_date\"` and that its maximum is of type `date`. If these assumptions fail (e.g., due to missing data or incorrect types), the strategy could produce invalid results.\n\n4. **Code Issues**:\n   - Line 26: The use of `.alias(\"return_mean\")` after grouping might not be necessary if the final step directly uses the mean in a subtraction operation.\n   - Lines 37-41: Filtering and joining operations can be optimized for better performance, especially when dealing with large datasets.\n\nOverall, the strategy is well-defined but could benefit from more robust parameter handling and error checking to ensure it works correctly under various market conditions."
+  ],
+  "seconds": 36.12869479999972,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 246
+}

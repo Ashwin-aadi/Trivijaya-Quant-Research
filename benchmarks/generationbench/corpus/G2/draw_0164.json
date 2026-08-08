@@ -1,0 +1,23 @@
+{
+  "index": 164,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate that a significant number of market \"\n        \"participants are in agreement about the direction of price action. This can lead to \"\n        \"sustained trends and potential profit opportunities.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter out symbols without enough data\n        symbols_with_data = [symbol for symbol in view.symbols if symbol in history.columns]\n\n        # Initialize a dictionary to store volume-confirmed directional moves\n        move_signals: dict[str, float] = {}\n\n        for symbol in symbols_with_data:\n            close_series = history[symbol]\n            adj_close_values = [float(v) for v in close_series.drop_nulls().to_list()]\n\n            if len(adj_close_values) < self._window + 1:\n                continue\n\n            # Calculate daily returns\n            returns = [(adj_close_values[i] - adj_close_values[i-1]) / adj_close_values[i-1] if adj_close_values[i-1] != 0 else 0 for i in range(1, len(adj_close_values))]\n\n            # Filter the last 20 days to find significant moves\n            recent_returns = returns[-self._window:]\n\n            # Check if there is a clear directional move with sufficient volume confirmation\n            avg_volume = history[symbol].select(pl.col(\"volume\").mean()).item()\n            volume_confirmation = sum(1 for return_val in recent_returns if abs(return_val) > 0.05 and pl.col(symbol).filter(pl.col(\"session_date\") < view.as_of).select(pl.col(\"volume\")).sum() > avg_volume * 2)\n\n            # Only consider symbols with significant directional moves\n            if volume_confirmation / self._window >= 0.3:\n                move_signals[symbol] = sum(recent_returns) / len(recent_returns)\n\n        # Sort by the signal strength and pick top-performing symbols\n        sorted_symbols = sorted(move_signals.items(), key=lambda x: abs(x[1]), reverse=True)\n        selected_symbols = [symbol for symbol, _ in sorted_symbols[:5]]\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_per_symbol = 1.0 / len(selected_symbols)\n        signal_weights = {s: weight_per_symbol for s in selected_symbols}\n\n        return Signal(\n            information_available_at=stamp,\n            weights=signal_weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 675
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.00376810000307,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 169
+}

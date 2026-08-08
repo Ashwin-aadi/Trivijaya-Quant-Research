@@ -1,0 +1,26 @@
+{
+  "index": 244,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Price reversion is a principle that after a significant move in price, the \"\n        \"price will tend to revert back towards its mean. This strategy identifies stocks\"\n        \"that have moved significantly and bets on their reversion.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or not all(symbol in closes.columns for symbol in view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        reversion_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            mean_price = sum(values) / len(values)\n            deviation_from_mean = abs(values[-1] - mean_price)\n            reversion_scores[symbol] = deviation_from_mean\n\n        sorted_scores = sorted(reversion_scores.items(), key=lambda x: x[1], reverse=True)\n        picks = [symbol for symbol, score in sorted_scores if score > 0.5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3900,
+    "output_tokens": 1269
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale of identifying price reversion candidates but has several areas for improvement and potential issues:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale mentions a \"significant move in price,\" which is not quantified in the code (line 24). This could lead to inconsistent results as different users might interpret \"significant\" differently.\n\n2. **Potential Fails**:\n   - The strategy assumes that `closes` contains historical closing prices, but it does not validate this assumption. If `closes` is missing data or if the symbols are not present in `closes`, the code will fail (line 31).\n   - The calculation of mean price uses a simple average without considering other statistical measures like median or weighted averages, which might be more robust (line 36).\n\n3. **Fragile Parameters**:\n   - The window size is hardcoded as 20 days (line 7). While this can be adjusted using the `window` parameter, it should be documented and possibly made configurable through a constructor argument or a configuration file.\n   - The assumption that `view.symbols` contains valid symbols is implicit. If there are missing or invalid symbols, the code will fail without providing meaningful error messages.\n\n4. **Potential Issues**:\n   - Line 36 uses `drop_nulls()` and `to_list()`, which can introduce silent errors if the data types are not consistent.\n   - The strategy assumes that `view.closes(lookback=self._window)` returns a valid Polars DataFrame, but this is not explicitly checked.\n\n5. **Improvement Suggestions**:\n   - Add error handling for cases where `closes` does not contain enough data or missing symbols.\n   - Provide more robust statistical measures in the mean calculation.\n   - Document and possibly parameterize key assumptions like the window size.\n\nOverall, while the strategy conceptually aligns with its rationale, it needs additional checks and more detailed documentation to ensure reliability."
+  ],
+  "seconds": 33.34264020000046,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 494
+}

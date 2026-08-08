@@ -1,0 +1,27 @@
+{
+  "index": 352,
+  "paradigm": "G4_planning",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion(Strategy):\n    rationale = (\n        \"This strategy aims to exploit mean-reverting behavior in stock prices around key price levels. \"\n        \"By identifying historical support and resistance levels and trading against significant deviations, \"\n        \"the strategy seeks to benefit from the reversion towards these levels.\"\n    )\n\n    def __init__(self, lookback_days: int = 200, std_dev_threshold: float = 1.0, max_positions: int = 50) -> None:\n        self._lookback_days = lookback_days\n        self._std_dev_threshold = std_dev_threshold\n        self._max_positions = max_positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n        if history.is_empty() or history.height < self._lookback_days + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        mean_highs = history.groupby(\"symbol\").agg(\n            (pl.col(\"high\") / pl.col(\"low\")).mean().alias(\"mean_ratio\")\n        ).with_columns(\n            ((pl.col(\"high\") / pl.col(\"adj_close\").shift(1) - 1.0).abs() * pl.col(\"mean_ratio\")).alias(\"deviation\")\n        )\n\n        mean_highs = mean_highs.select([\"symbol\", \"deviation\"]).collect()\n        sorted_symbols = [row[\"symbol\"] for row in mean_highs.sort(\"deviation\", descending=True).to_dict(as_series=False)]\n\n        top_n_symbols = sorted_symbols[:self._max_positions]\n        weights = {symbol: 1.0 / len(top_n_symbols) for symbol in top_n_symbols}\n\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weights[s] if s in weights else 0.0 for s in view.symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2299,
+    "output_tokens": 877
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to exploit mean-reverting behavior in stock prices around key price levels. The idea is to identify historical support and resistance levels for a stock or index. When the price deviates significantly from these levels, trades are placed in the direction opposite to the current trend. This mechanism might persist due to investor psychology and market inefficiencies. The rule would involve setting thresholds around identified levels; if prices fall below (or rise above) these thresholds, a buy (or sell) order is triggered, aiming to benefit from price reversion back towards the mean level.",
+    "The signal for this strategy involves identifying support and resistance levels through historical price data. For each stock or index, calculate the average high and low prices over a specified lookback period (e.g., 200 days). Define upper and lower thresholds around these mean levels based on standard deviations (e.g., \u00b11 standard deviation). On each trading day, compute whether the current price has deviated from its historical support or resistance level. Candidates for trades are ranked by their distance from the threshold levels; those closer to the thresholds trigger buy/sell signals, aiming to capture reversion towards the mean. Higher ranks indicate a stronger signal to enter the opposite position of the prevailing trend.",
+    "This strategy should be implemented with a diversified portfolio to spread risk. Hold up to 30-50 individual stocks or indices, ensuring no single security exceeds 5% of the total portfolio value. Positions can be equally weighted among selected candidates or adjusted based on relative strength and liquidity. Set stop-loss orders at \u00b12 standard deviations from the mean price levels to limit potential losses to approximately 4%-6% per position, maintaining a maximum overall loss of about 20%-30% across the entire portfolio. This approach balances exposure to mean-reverting behavior while managing risk effectively."
+  ],
+  "seconds": 27.471740600005432,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 358
+}

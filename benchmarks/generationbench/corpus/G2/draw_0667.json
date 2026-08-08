@@ -1,0 +1,23 @@
+{
+  "index": 667,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompressionStrategy(Strategy):\n    rationale = (\n        \"Range compression indicates that a security has been trading in a narrower range \"\n        \"than its historical average. This can happen when there is less volatility and market \"\n        \"participants are more cautious or the market environment is generally tranquil. \"\n        \"Securities with lower than normal price swings may be undervalued, presenting an \"\n        \"opportunity for entry.\"\n    )\n\n    def __init__(self, lookback: int = 60, threshold: float = 0.5) -> None:\n        self._lookback = lookback\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"].to_list()\n        mean_range = sum(high - low for high, low in zip(closes[1:], closes[:-1])) / (\n            self._lookback - 1\n        )\n\n        recent_closes = view.closes(lookback=self._lookback)\n        recent_ranges = [\n            max(float(v), float(recent_closes[symbol].shift(-1).to_list()[-1]))\n            - min(float(v), float(recent_closes[symbol].shift(-1).to_list()[-1]))\n            for symbol in view.symbols\n            if symbol in recent_closes.columns and len(recent_closes[symbol].drop_nulls().to_list()) >= self._lookback\n        ]\n\n        compressed_symbols = [symbol for symbol, r in zip(view.symbols, recent_ranges) if r / mean_range <= self._threshold]\n\n        if not compressed_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(compressed_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in compressed_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompressionStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 522
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.955449699991732,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 678
+}

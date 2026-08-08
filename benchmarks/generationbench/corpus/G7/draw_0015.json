@@ -1,0 +1,47 @@
+{
+  "index": 15,
+  "paradigm": "G7_mcts",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy focuses on stocks with the highest daily volume over a 252-day lookback period, \"\n        \"ensuring exposure to the most liquid securities. Equal weighting simplifies management and reduces costs.\"\n    )\n\n    def __init__(self, window: int = 252, top_n: int = 50) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_df = history.select(\n            pl.col(\"symbol\"),\n            pl.col(\"adj_close\").last().alias(\"close\"),\n            pl.col(\"volume\").sum().alias(\"total_volume\"),\n        )\n\n        ranked_symbols = (\n            volume_df.sort(pl.col(\"total_volume\"), descending=True)\n            .head(self._top_n)\n            .select(\"symbol\")\n            .to_series()\n            .to_list()\n        )\n\n        if not ranked_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_per_symbol = 1.0 / len(ranked_symbols)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight_per_symbol for symbol in ranked_symbols\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19204,
+    "output_tokens": 5589
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the daily closing price, measured over a 60-day lookback period. This approach balances capturing recent market dynamics with reducing noise from short-term fluctuations.",
+    "The signal will be the daily volume, measured over a 252-day lookback period. This approach captures long-term liquidity trends while filtering out short-term volatility.",
+    "The portfolio will consist of 30 equally weighted names selected from the liquidity-screened universe based on daily closing prices over a 60-day lookback period.",
+    "The portfolio will consist of the top 50 names ranked by daily volume over a 252-day lookback period, with each name equally weighted in the portfolio.",
+    "The portfolio will consist of 30 equally weighted names selected from the liquidity-screened universe based on daily closing prices over a 60-day lookback period. This approach ensures simplicity and reduces management complexity while maintaining exposure to a diversified set of liquid stocks.",
+    "The portfolio will consist of the top 50 names ranked by daily volume over a 252-day lookback period, with each name equally weighted in the portfolio. This approach ensures simplicity and reduces management costs while maintaining exposure to the most liquid stocks.",
+    "For this systematic equity strategy, I propose setting a risk rule that limits any single position loss to no more than 2% of the portfolio value, with a total portfolio drawdown threshold of 5%. This will stop trading if either condition is breached, ensuring risk is managed while maintaining flexibility in the trading process.",
+    "For this systematic equity strategy, I propose setting a risk rule that limits any single position loss to no more than 1% of the portfolio value, with a total portfolio drawdown threshold of 4%. This will stop trading if either condition is breached, balancing risk management with the need for active market participation.",
+    "For the risk rule, I propose setting a stop-loss threshold of -5% on each individual position to limit potential losses from adverse liquidity events. Additionally, we will implement a portfolio-wide stop-loss at -10% to protect against broader market downturns and maintain portfolio resilience.",
+    "For the risk rule, I propose setting an individual position loss bound of -3% to prevent significant exposure to any single stock, and a portfolio-wide loss bound of -5%, which would halt trading if either threshold is breached. This ensures manageable risk while allowing for active management.",
+    "For this systematic equity strategy, I propose setting a stop-loss rule at 5% per position and 10% for the entire portfolio to limit potential losses while maintaining flexibility in trading decisions.",
+    "For this systematic equity strategy, I propose setting a stop-loss rule at 5% per position and 10% for the entire portfolio. This rule limits individual stock exposure to manageable levels while providing flexibility in portfolio rebalancing."
+  ],
+  "seconds": 226.07567779999226,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 195
+}

@@ -1,0 +1,23 @@
+{
+  "index": 467,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeTrendVolume(Strategy):\n    rationale = (\n        \"Combining trend strength with volume can help identify stocks that are not only moving \"\n        \"in a favorable direction but also doing so with significant liquidity. This dual criterion\"\n        \"can reduce the risk of chasing false trends.\"\n    )\n\n    def __init__(self, trend_window: int = 20, volume_threshold: float = 1_000_000) -> None:\n        self._trend_window = trend_window\n        self._volume_threshold = volume_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._trend_window)\n        if closes.height < self._trend_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the trend strength\n        trends = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._trend_window:\n                continue\n            trend_strength = (values[-1] - values[0]) / values[0]\n            trends[symbol] = trend_strength\n\n        # Filter by volume and select top n symbols based on combined criteria\n        picks: list[str] = []\n        for symbol in view.symbols:\n            history = view.history(lookback=self._trend_window)\n            if symbol not in history.columns or history.height < self._trend_window:\n                continue\n            volume_data = [float(v) for v in history[symbol].select(\"volume\").drop_nulls().to_list()]\n            if len(volume_data) < self._trend_window:\n                continue\n            recent_volume_mean = pl.Series(volume_data).mean()\n            if recent_volume_mean > self._volume_threshold and symbol in trends:\n                picks.append(symbol)\n\n        # Limit the number of selected symbols\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeTrendVolume",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 574
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.833767599993735,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 473
+}

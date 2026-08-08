@@ -1,0 +1,23 @@
+{
+  "index": 44,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmDirectionalMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves identify significant shifts in market sentiment \"\n        \"by combining the magnitude of price movement with the volume on that day. High volume \"\n        \"on a strong move is indicative of substantial buying or selling pressure.\"\n    )\n\n    def __init__(self, window: int = 10, threshold_ratio: float = 2.0) -> None:\n        self._window = window\n        self._threshold_ratio = threshold_ratio\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or len(history[symbol].to_list()) != self._window + 2:\n                continue\n\n            open_price = float(history[f\"{symbol}\"][0])\n            close_price = float(history[f\"{symbol}\"][-1])\n            high_price = max(float(high) for high in history[f\"{symbol}\"].to_list())\n            low_price = min(float(low) for low in history[f\"{symbol}\"].to_list())\n            volume_change = float(history[f\"{symbol}\"][self._window] - history[f\"{symbol}\"][-1])\n\n            if close_price > open_price and (high_price == close_price or low_price == open_price):\n                price_move_direction = \"up\"\n            elif close_price < open_price and (low_price == close_price or high_price == open_price):\n                price_move_direction = \"down\"\n            else:\n                continue\n\n            if volume_change / max(abs(volume_change), 1) >= self._threshold_ratio:\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmDirectionalMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 548
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.354821499990067,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 47
+}

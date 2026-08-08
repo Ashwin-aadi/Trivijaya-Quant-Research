@@ -1,0 +1,26 @@
+{
+  "index": 226,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Historical data suggests that certain stocks exhibit higher returns during specific times of the year.\"\n        \"By identifying these seasonal patterns, we can allocate our portfolio to perform better in those periods.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_returns: dict[str, float] = {}\n        for symbol in view.symbols:\n            daily_ret = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                       .with_columns((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"))\n                       .select([\"session_date\", \"return\"])\n                       .sort(by=\"session_date\")\n            )\n            if daily_ret.height < self._window:\n                continue\n            avg_returns[symbol] = float(daily_ret.select(pl.col(\"return\").mean()).item())\n\n        sorted_symbols = [\n            s for s, r in sorted(avg_returns.items(), key=lambda item: -abs(item[1]))\n        ][: self._top_n]\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4061,
+    "output_tokens": 1427
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify top-performing stocks during certain times of the year based on historical price data. Here are some critiques:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale mentions \"certain patterns\" in stock performance but does not specify which metrics or patterns are being used. Specifically, it lacks details on how the \"top 5\" stocks are selected beyond their average return.\n     - Line: `avg_returns[symbol] = float(daily_ret.select(pl.col(\"return\").mean()).item())`\n     - This line calculates mean returns but does not specify any filters or conditions that might be needed to identify the top-performing stocks.\n\n2. **Potential Failures and Fragilities:**\n   - **Empty History Data:** If `history.is_empty()` returns true, the strategy will return an empty signal without considering any symbols.\n     - Line: `if history.is_empty():`\n   - **Short Lookback Period:** With a lookback of 30 days (`self._window = 30`), the algorithm might not capture long-term trends if significant market events or seasonal patterns occur over longer periods.\n     - Line: `self._window = window`\n\n3. **Fragile Parameters:**\n   - The `top_n_symbols` parameter is hardcoded to always return the top 5 symbols regardless of their performance significance.\n     - Lines: \n       ```python\n       top_n_symbols = sorted_symbols[:5]\n       ```\n\n4. **Potential Issues that Could Prevent it from Running:**\n   - **Type Checking:** There's no explicit type checking for `stamp` and `weights`, which might lead to runtime errors if the types do not match expectations.\n     - Lines:\n       ```python\n       return Signal(information_available_at=stamp, weights={})\n       ```\n   - **Assert Statement:** The assert statement checks that `newest` is a date type but does not handle cases where it could be null or non-date.\n     - Line: \n       ```python\n       assert isinstance(newest, date)\n       ```\n\n5. **Sound Parts:**\n   - **General Structure and Use of Libraries:** The overall structure using `Strategy`, `MarketView`, and `Signal` is sound if these classes are correctly defined elsewhere in the codebase.\n     - Lines:\n       ```python\n       from src.backtest.strategy import MarketView, Signal, Strategy\n       ```\n\nIn summary, while the strategy has a solid foundational framework, it could benefit from more detailed rationale alignment with its implementation and additional robustness checks to handle various edge cases."
+  ],
+  "seconds": 36.49969620000047,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 458
+}

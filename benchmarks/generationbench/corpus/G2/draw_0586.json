@@ -1,0 +1,23 @@
+{
+  "index": 586,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain stock market patterns exhibit seasonality due to predictable changes in \"\n        \"economic conditions or investor behavior. For instance, the Indian stock market may show \"\n        \"a pattern of higher returns during festive seasons such as Diwali or Durga Puja. This strategy \"\n        \"aims to capitalize on these seasonal effects by allocating capital towards stocks with historically \"\n        \"strong performance in specific months.\"\n    )\n\n    def __init__(self, holiday_months: tuple[int, ...] = (10, 9)) -> None:\n        self._holiday_months = holiday_months\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=365)\n        if closes.height < 365:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality_scores = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            month_scores = []\n            for i in range(0, len(values), 30):\n                month_values = values[i:i+30]\n                if 10 <= (i // 30 + 1) <= 12 or 9 <= (i // 30 + 1) <= 10:\n                    mean_value = sum(month_values) / len(month_values)\n                    month_scores.append((mean_value, i))\n            seasonality_scores[symbol] = max(month_scores)[0] if month_scores else None\n\n        top_symbols = sorted(seasonality_scores.items(), key=lambda x: x[1], reverse=True)[:5]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in (sym for sym, _ in top_symbols)}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 511
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.845005800001672,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 595
+}

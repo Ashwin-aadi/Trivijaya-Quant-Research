@@ -1,0 +1,27 @@
+{
+  "index": 3,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the phenomenon where liquid stocks often exhibit higher returns \"\n        \"due to lower transaction costs and better market coverage. By screening for liquidity and \"\n        \"applying an equal weighting approach to these screened stocks, we aim to capture the benefits \"\n        \"of higher liquidity while maintaining a balanced portfolio distribution.\"\n    )\n\n    def __init__(self, window: int = 20, max_positions: int = 100) -> None:\n        self._window = window\n        self._max_positions = max_positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_series = (\n            history.select(pl.col(\"symbol\"), pl.col(\"volume\"))\n            .group_by(\"symbol\")\n            .agg((pl.col(\"volume\").mean().alias(\"avg_volume\")))\n            .sort(\"avg_volume\", descending=True)\n            .head(self._max_positions)[\"symbol\"]\n            .to_list()\n        )\n\n        if not volume_series:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(volume_series)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in volume_series},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2230,
+    "output_tokens": 730
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy involves exploiting the phenomenon where liquid stocks often exhibit higher returns due to lower transaction costs and better market coverage. This persistence can be attributed to informed trading and liquidity-induced price efficiency. The plan is to construct a portfolio by first screening for liquidity, then applying an equal weighting approach to these screened stocks. This ensures that no single stock dominates the portfolio, potentially reducing concentration risk. By equal weighting, we aim to capture the benefits of higher liquidity without over-weighting any particular asset class or individual stock, thereby maximizing exposure to the positive returns associated with liquidity while maintaining a balanced distribution across selected securities.",
+    "The signal for this systematic equity strategy focuses on liquidity metrics. Specifically, the signal involves computing the average daily trading volume over a recent lookback period (e.g., 20 days) to screen stocks. On a given day, these liquidity-ranked candidates are then equal-weighted into the portfolio. The higher the average daily trading volume, the more favorably a stock is ranked. This ranking helps identify liquid stocks that potentially offer better returns due to lower transaction costs and market efficiency, without over-concentrating in any single stock.",
+    "The portfolio will hold positions in a diversified set of up to 50-100 liquid stocks, selected based on their average daily trading volume over the past 20 days. Each stock will be equally weighted within the portfolio, ensuring no single stock dominates. To manage risk, the total portfolio loss is limited to no more than 5% in any single month, with individual stock positions capped at a maximum of 1% each to avoid excessive concentration risk."
+  ],
+  "seconds": 24.72500740000396,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 4
+}

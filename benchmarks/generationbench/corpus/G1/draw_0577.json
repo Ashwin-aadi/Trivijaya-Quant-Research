@@ -1,0 +1,23 @@
+{
+  "index": 577,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion theory suggests that prices and returns eventually move back towards \"\n        \"the mean over a given period. By identifying stocks that have deviated significantly from \"\n        \"their historical price range, we can exploit potential reversions to the mean.\"\n    )\n\n    def __init__(self, window: int = 10, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width < len(view.symbols) + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close: dict[str, float] = {symbol: pl.col(symbol).mean().item() for symbol in view.symbols}\n        deviations = [\n            (symbol, abs(float(closes[symbol][-1]) - mean_close[symbol]))\n            for symbol in view.symbols\n        ]\n        \n        sorted_deviations = sorted(deviations, key=lambda x: x[1], reverse=True)\n        picks = [symbol for symbol, _ in sorted_deviations[:self._top_n]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 432
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.43913889999385,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 587
+}

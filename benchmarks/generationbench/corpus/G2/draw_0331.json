@@ -1,0 +1,23 @@
+{
+  "index": 331,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression occurs when price volatility decreases, suggesting that the market \"\n        \"is becoming less certain about future prices. This can lead to mean reversion, where \"\n        \"prices tend to move back towards their historical average range.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        compressed_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            opens = [float(o) for o in history[symbol].select(\"open\").to_list()[0]]\n            closes = [float(c) for c in history[symbol].select(\"close\").to_list()[0]]\n            high_low_spread = max(opens) - min(closes)\n            mean_range = (max(opens) - min(closes)) / self._window\n            if high_low_spread < 1.5 * mean_range:\n                compressed_symbols.append(symbol)\n\n        compressed_symbols = list(set(compressed_symbols))\n        if not compressed_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(compressed_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in compressed_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 437
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.169859199995699,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 339
+}

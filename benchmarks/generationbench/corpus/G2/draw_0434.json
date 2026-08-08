@@ -1,0 +1,23 @@
+{
+  "index": 434,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySFT(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following exploits the idea that assets with higher volatility \"\n        \"are more likely to continue trending in their recent direction. By scaling trends by \"\n        \"volatility, we can capture these momentum effects while mitigating risk.\"\n    )\n\n    def __init__(self, window: int = 20, volatility_window: int = 10) -> None:\n        self._window = window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._volatility_window - 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(\n            pl.col(\"session_date\").alias(\"date\"), *[pl.col(symbol).alias(f\"close_{symbol}\") for symbol in symbols]\n        )\n\n        # Calculate simple returns\n        returns = closes.with_columns(\n            [(pl.col(f\"close_{symbol}\") / pl.col(f\"close_{symbol}\").shift(1) - 1.0).alias(f\"return_{symbol}\") for symbol in symbols]\n        )\n        returns = returns.sort(\"date\", descending=True)\n\n        # Calculate volatility\n        volatilities = returns.select(\n            [pl.col(f\"return_{symbol}\").std().over(pl.col(\"date\").shift(-(self._volatility_window - 1))).alias(f\"vol_{symbol}\") for symbol in symbols]\n        )\n\n        # Scale returns by volatility and pick the top performers\n        scaled_returns = volatilities.with_columns(\n            [(pl.col(f\"return_{symbol}\") / pl.col(f\"vol_{symbol}\")).alias(f\"scaled_return_{symbol}\") for symbol in symbols]\n        )\n        top_performers = sorted(\n            [symbol for symbol in symbols if f\"vol_{symbol}\" in scaled_returns.columns and f\"scaled_return_{symbol}\" in scaled_returns.columns],\n            key=lambda s: float(scaled_returns.filter(pl.col(f\"scaled_return_{s}\").is_not_null()).select(pl.col(f\"scaled_return_{s}\")).row(0)[0]),\n            reverse=True\n        )[:5]\n\n        if not top_performers:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_performers)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_performers}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilitySFT",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 671
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.00740379999479,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 442
+}

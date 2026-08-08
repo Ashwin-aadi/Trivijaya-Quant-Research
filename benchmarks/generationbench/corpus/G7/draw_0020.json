@@ -1,0 +1,47 @@
+{
+  "index": 20,
+  "paradigm": "G7_mcts",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMoves(Strategy):\n    rationale = (\n        \"Volume-weighted average price (VWAP) over a 5-day lookback period can indicate \"\n        \"volume-confirmed directional moves in the market. By holding up to three equities \"\n        \"with predefined weights, we aim to capture these moves more effectively.\"\n    )\n\n    def __init__(self, window: int = 5, max_positions: int = 3) -> None:\n        self._window = window\n        self._max_positions = max_positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        vwaps: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_closes = [float(v) for v in history[symbol].to_list()]\n            volumes = [float(v) for v in history[f\"v_{symbol}\"].to_list()]\n            vwaps[symbol] = sum(c * v for c, v in zip(adj_closes, volumes)) / sum(volumes)\n\n        sorted_vwaps = sorted(vwaps.items(), key=lambda x: x[1], reverse=True)\n        picks: list[str] = [symbol for symbol, _ in sorted_vwaps[:self._max_positions]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_1 = 0.4\n        weight_2 = 0.35\n        weight_3 = 0.25\n\n        weights = {picks[0]: weight_1}\n        if len(picks) > 1:\n            weights[picks[1]] = weight_2\n        if len(picks) > 2:\n            weights[picks[2]] = weight_3\n\n        return Signal(\n            information_available_at=stamp, weights={s: w for s, w in weights.items()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMoves",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19671,
+    "output_tokens": 7211
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I choose to measure the volume-weighted average price (VWAP) over a 5-day lookback period as the signal for identifying volume-confirmed directional moves in the Indian equity market.",
+    "I propose measuring the median price (the average of the daily high and low) over a 7-day lookback period to identify volume-confirmed directional moves. This approach focuses on the central tendency of price action while incorporating volume, providing a robust signal for trend identification.",
+    "For the portfolio rule, I will hold a maximum of three equity names at any time, with weights of 40%, 35%, and 25% respectively, based on their VWAP signals over the 5-day lookback period.",
+    "For the portfolio rule, I propose holding a maximum of three names at any given time, with weights of 40%, 35%, and 25% respectively, to balance exposure while maintaining flexibility in response to market conditions.",
+    "For the portfolio rule, I will hold a maximum of three equity names at any time, with weights of 40%, 35%, and 25% respectively, based on their VWAP signals over the 5-day lookback period.",
+    "For the portfolio rule, I propose holding exactly two names at any given time, each weighted equally at 50%. This approach simplifies the portfolio structure, reduces complexity, and can help in focusing on clear directional moves without overdiversifying.",
+    "I will set the loss bound for each position to -15% from the entry price, and the total portfolio loss bound to -20% before exiting any positions or stopping the strategy. This ensures that no single stock can cause a significant portfolio impact while providing flexibility across multiple stocks.",
+    "For the risk rule, I propose setting an individual position loss limit of -15% to bound potential losses on any single name, and a portfolio-wide loss limit of -20% to stop trading when the total portfolio value falls below 80% of its initial value. This ensures balanced risk management while allowing for some flexibility in market fluctuations.",
+    "I will set a stop-loss at 10% for each individual equity position to limit potential losses. Additionally, I will implement a portfolio-wide risk management rule that triggers a complete exit from all positions if the cumulative loss exceeds 5% since the last rebalance.",
+    "To manage risk, I propose setting a stop-loss threshold of 5% on an individual position and 10% on the overall portfolio. This limit ensures that any single stock does not dominate losses while keeping the strategy responsive to volume-confirmed directional moves.",
+    "I propose setting the loss bound for each position to -15% from the entry price, and the total portfolio loss bound to -20%. This limit prevents any single stock from significantly impacting the portfolio while allowing for some fluctuation across positions.",
+    "For the risk rule, I propose setting an individual position loss limit of -10% and a portfolio-wide loss limit of -25%, triggering a stop to trading when the total portfolio value falls below 75% of its initial value. This approach provides stricter individual position protection while allowing for a greater overall portfolio risk tolerance."
+  ],
+  "seconds": 219.38275050005177,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 257
+}

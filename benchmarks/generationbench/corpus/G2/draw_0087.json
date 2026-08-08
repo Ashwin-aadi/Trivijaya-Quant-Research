@@ -1,0 +1,23 @@
+{
+  "index": 87,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Higher liquidity stocks are more likely to be mispriced or experience less friction \"\n        \"when trading occurs. By equally weighting these stocks, we aim to capture the potential \"\n        \"arbitrage opportunities arising from such conditions.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history.select(pl.col(\"symbol\"))\n            .group_by(\"symbol\")\n            .agg((pl.col(\"volume\").sum() / 20).alias(\"avg_volume\"))\n            .sort(\"avg_volume\", descending=True)\n            .head(self._window)[\"symbol\"]\n        ).to_list()\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: 1.0 / len(liquidity_scores) for s in liquidity_scores},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 339
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 9.301130200001353,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 91
+}

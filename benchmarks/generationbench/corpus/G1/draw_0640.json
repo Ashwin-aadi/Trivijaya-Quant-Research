@@ -1,0 +1,23 @@
+{
+  "index": 640,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Price reversion to the mean suggests that after a significant move, prices will \"\n        \"eventually return to their historical average. This strategy identifies symbols \"\n        \"that have moved significantly and bets on a return to their trailing 20-day mean.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            closes.lazy()\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\").mean().alias(\"trailing_mean\"))\n            )\n            .collect()[\"trailing_mean\"]\n            .to_list()\n        )\n\n        differences = [\n            float(closes[closes[\"symbol\"] == symbol][\"adj_close\"].drop_nulls().to_list()[-1])\n            - mean_close[i]\n            for i, symbol in enumerate(view.symbols)\n            if symbol in closes.columns and not closes[closes[\"symbol\"] == symbol].is_empty()\n        ]\n\n        symbols_to_trade = [\n            symbol\n            for diff, symbol in zip(differences, view.symbols)\n            if abs(diff) > 1.0 * mean_close[view.symbols.index(symbol)]\n        ]\n\n        weight = 1.0 / len(symbols_to_trade)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols_to_trade},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 452
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.20285519999743,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 653
+}

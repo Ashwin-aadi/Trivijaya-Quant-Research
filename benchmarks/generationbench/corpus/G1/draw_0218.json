@@ -1,0 +1,23 @@
+{
+  "index": 218,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Trend following involves identifying the direction of a trend and riding it. \"\n        \"Using volatility scaling can help manage risk while potentially capturing larger \"\n        \"movements in price. This strategy aims to identify trending symbols based on their \"\n        \"volatility over a lookback period.\"\n    )\n\n    def __init__(self, window: int = 20, volatility_window: int = 10) -> None:\n        self._window = window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_trends: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            latest_close = history.filter(pl.col(\"symbol\") == symbol).select(\n                pl.col(\"adj_close\").last()\n            ).item()\n\n            # Calculate the volatility over the last `volatility_window` days\n            vol_series = history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].to_list()[-self._volatility_window:]\n            vol = (sum((v - latest_close for v in reversed(vol_series))) / len(vol_series)) ** 2\n\n            # Determine the trend based on recent price action\n            trend_score = sum(\n                [1 if history.filter(pl.col(\"symbol\") == symbol).select(pl.col(\"adj_close\").head(i + 1)).to_numpy()[i][0] >= latest_close else -1 for i in range(self._window)]\n            )\n\n            # Scale the trend score by volatility\n            scaled_trend = trend_score * vol ** 0.5\n\n            symbol_trends[symbol] = scaled_trend\n\n        # Filter out symbols with low or no trends\n        picks = [symbol for symbol, score in symbol_trends.items() if abs(score) > 1]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 590
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.209066299998085,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 222
+}

@@ -1,0 +1,26 @@
+{
+  "index": 146,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following identifies trends by comparing the current price \"\n        \"movement to its historical volatility. A breakout above a threshold multiple of the \"\n        \"volatility indicates a strong upward trend, prompting entry into the market.\"\n    )\n\n    def __init__(self, window: int = 25, threshold: float = 1.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window * 2 + 1)\n        if history.height < self._window * 2 + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        symbol_data: dict[str, pl.DataFrame] = {}\n\n        for symbol in symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol)\n            if df.height < self._window * 2 + 1:\n                continue\n\n            opens = [float(v) for v in df[\"open\"].drop_nulls().to_list()]\n            closes = [float(v) for v in df[\"close\"].drop_nulls().to_list()]\n\n            price_changes = [c / o - 1.0 for c, o in zip(closes[1:], opens)]\n            mean_change = sum(price_changes) / len(price_changes)\n            std_deviation = (sum((x - mean_change) ** 2 for x in price_changes) / len(\n                price_changes)) ** 0.5\n\n            if abs(mean_change) > self._threshold * std_deviation:\n                symbol_data[symbol] = df.tail(self._window)\n\n        picks: list[str] = [symbol for symbol, data in symbol_data.items()\n                            if not data.is_empty()]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4078,
+    "output_tokens": 1441
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy largely aligns with its rationale but has some potential issues:\n\n1. **Fragility of Parameters**: The `window` parameter (line 9) determines the lookback period for calculating volatility and trends. This value might be too short or long depending on market conditions. For instance, a window of 20 days may not capture significant trends in volatile markets.\n\n2. **Threshold Calculation**: The threshold is set at 1.5 times standard deviation (line 37). While this is reasonable for some contexts, it may need adjustment based on the specific characteristics of the asset class or market environment.\n\n3. **Historical Data Requirement**: The strategy requires a significant amount of historical data to function correctly. For example, line 30 checks if `history.height < self._window * 2 + 1`, which means at least twice the window size must be available before generating signals (this could fail with insufficient data).\n\n4. **Potential for Divide by Zero**: Line 45 calculates standard deviation and division operations are involved in this calculation. If there is no price change, `price_changes` will be empty, leading to a potential divide-by-zero error.\n\n5. **Empty DataFrames Handling**: The strategy assumes that all symbols have data available (line 39). This could lead to issues if any symbol does not have enough historical data or if the data contains null values.\n\n6. **Rationale vs Code Discrepancies**: While the rationale mentions \"breakout above a threshold multiple of the volatility,\" the actual implementation focuses on the absolute value of mean change relative to standard deviation, which might miss some subtle trends.\n\nOverall, the strategy is sound in its basic approach but requires careful tuning and handling of edge cases."
+  ],
+  "seconds": 36.8154001999992,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 296
+}

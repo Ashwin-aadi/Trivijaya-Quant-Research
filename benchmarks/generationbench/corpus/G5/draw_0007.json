@@ -1,0 +1,26 @@
+{
+  "index": 7,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates a period of reduced volatility. During such periods, \"\n        \"prices tend to stay within a narrow range, suggesting that investors are less active, \"\n        \"potentially leading to mean reversion opportunities.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        if len(symbols) < 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        means = history.select(\n            pl.col(\"symbol\").alias(\"symbol\"),\n            (pl.col(\"high\") + pl.col(\"low\")) / 2.0.alias(\"avg_price\"),\n        ).pivot(values=\"avg_price\", index=\"symbol\", aggregate_fn=None)\n\n        ranges = []\n        for symbol in symbols:\n            high_min, low_max = (\n                float(history.select(pl.col(symbol).max()).item()),\n                float(history.select(pl.col(symbol).min()).item()),\n            )\n            range_compression = (high_min - low_max) / (high_min + low_max)\n            ranges.append((symbol, range_compression))\n\n        sorted_ranges = sorted(ranges, key=lambda x: x[1], reverse=True)\n        top_symbols = [s for s, _ in sorted_ranges[:3]]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4116,
+    "output_tokens": 1473
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy titled `RangeCompression` has several strengths but also some weaknesses and potential issues:\n\n### Strengths:\n1. **Rationale Clarity**: The rationale for the strategy effectively explains that range compression can lead to mean reversion opportunities due to reduced investor activity, making it a reasonable assumption.\n2. **Use of Polars**: Efficient data handling with `pandas`-like operations using `polars`, which is faster and more memory-efficient.\n\n### Weaknesses and Issues:\n\n1. **Rationale vs Code Disagreement**:\n   - **Line 23 to 24**: The rationale suggests that range compression indicates a period of reduced volatility, where prices tend to stay within a narrow range. However, the code computes `range_compression` as `(high_min - low_max) / history.shape[0]`. This calculation might not accurately represent the concept of \"narrow ranges\" since it divides by the number of observations, which does not capture the essence of volatility.\n\n2. **Potential Failure Conditions**:\n   - **Line 57**: The code checks if `top_symbols` is empty but then directly returns a signal without checking the weights dictionary. This could lead to an error if weights are incorrectly initialized.\n   \n3. **Fragile Parameters**:\n   - **Window Size (Line 4)**: Setting a fixed window size of 30 might not be optimal for all markets or time periods. A more dynamic approach, such as using a rolling window or backtesting with different window sizes, would be beneficial.\n\n4. **Potential Bugs and Stopping Conditions**:\n   - **Line 68**: The function `_latest_visible` returns an arbitrary date (`1900-01-01`) if `view.history()` is empty. This could lead to incorrect signals if the initial history is not available.\n   - **Line 75**: The code assumes that `history.select(pl.col(symbol).max()).item()` and `pl.col(symbol).min()).item()` always return a float, which might fail if there are missing or non-numeric values.\n\n### Conclusion:\nThe strategy's core concept of identifying range compression for mean reversion is sound. However, the implementation details need refinement to ensure correctness and robustness. Specifically, the volatility calculation should be more aligned with the rationale, and additional checks should be added to handle edge cases gracefully."
+  ],
+  "seconds": 37.64065739999978,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 16
+}

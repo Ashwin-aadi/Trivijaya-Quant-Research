@@ -1,0 +1,23 @@
+{
+  "index": 514,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain months of the year exhibit higher trading volumes and \"\n        \"greater price movements due to seasonal effects. This strategy aims to \"\n        \"capitalize on these anomalies by focusing on sectors or stocks that show \"\n        \"historical strength during specific times of the year.\"\n    )\n\n    def __init__(self, lookback_years: int = 5) -> None:\n        self._lookback_years = lookback_years\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_years * 252)  # Assuming 252 trading days in a year\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_strength = {}\n        for symbol in symbols:\n            close_prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            month_groups = _group_by_month(close_prices)\n            monthly_strength = {m: sum(prices) / len(prices) for m, prices in month_groups.items()}\n            seasonal_strength[symbol] = max(monthly_strength.values())\n\n        top_symbols = sorted(seasonal_strength.keys(), key=lambda k: seasonal_strength[k], reverse=True)[:5]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _group_by_month(prices):\n    grouped = {}\n    for i in range(len(prices)):\n        month = (i // 252) % 12 + 1\n        if month not in grouped:\n            grouped[month] = []\n        grouped[month].append(prices[i])\n    return grouped",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 512
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.985063899992383,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 522
+}

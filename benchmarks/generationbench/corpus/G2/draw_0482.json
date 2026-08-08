@@ -1,0 +1,23 @@
+{
+  "index": 482,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following exploits the relationship between historical price \"\n        \"volatility and future returns. Higher volatility often precedes a reversal in trend, \"\n        \"and by scaling our position based on volatility, we can capture gains from both rising \"\n        \"and falling markets.\"\n    )\n\n    def __init__(self, window: int = 50, scaling_factor: float = 2.0) -> None:\n        self._window = window\n        self._scaling_factor = scaling_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (\n            history.sort(\"session_date\")\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\"),\n            )\n            .select(pl.col(\"symbol\"), \"session_date\", \"r\")\n            .drop_nulls()\n        )\n\n        # Calculate volatility\n        vol = returns.groupby(\"symbol\").agg(\n            (pl.col(\"r\").std().alias(f\"volatility\"))\n        ).collect()\n\n        # Determine trend direction based on most recent return\n        latest_returns = history.sort(\"session_date\").tail(self._window + 1)\n        latest_return = (\n            latest_returns.select(pl.col(\"symbol\"), \"r\")\n            .drop_nulls()\n            .groupby(\"symbol\")\n            .agg([pl.col(\"r\").last().alias(\"latest_return\")])\n            .collect()\n        )\n\n        # Merge volatility and return\n        merged = vol.join(latest_return, on=\"symbol\", how=\"inner\")\n\n        # Scale trend following signal based on volatility\n        trend_signal = (\n            (merged.select(pl.col(\"latest_return\")) / pl.col(f\"volatility\").cast(float))\n            * self._scaling_factor\n        ).to_list()\n\n        if not trend_signal:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Create weights based on signal direction\n        positive_symbols = [symbol for symbol, sig in zip(merged[\"symbol\"], trend_signal) if sig > 0]\n        weight = 1.0 / len(positive_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in positive_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 626
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.10474080000131,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 490
+}

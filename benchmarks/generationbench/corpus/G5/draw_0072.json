@@ -1,0 +1,26 @@
+{
+  "index": 72,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed well \"\n        \"relative to the market over a certain period to continue outperforming in the future.\"\n    )\n\n    def __init__(self, lookback: int = 60) -> None:\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n\n        if history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate returns\n        history_with_returns = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._lookback) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=True)\n            .head(2 * self._lookback)\n        )\n\n        # Get top performers relative to the market\n        market_return = history_with_returns.select(\n            pl.col(\"adj_close\").shift(-self._lookback) / view.latest_close()[list(view.symbols)[0]] - 1.0\n        ).select(pl.col(\"return\")).mean().item()\n        excess_returns = history_with_returns.with_columns(\n            (pl.col(\"return\") - market_return).alias(\"excess_return\")\n        )\n\n        # Rank symbols by excess return\n        ranked = (\n            excess_returns.group_by(\"symbol\")\n            .agg(\n                pl.col(\"excess_return\").mean().rank(method=\"ordinal\", descending=True).alias(\"rank\")\n            )\n            .sort(\"rank\")\n        )\n\n        top_symbols = [row[\"symbol\"] for row in ranked.head(self._lookback + 1).to_dicts()]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Equal weight allocation\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3916,
+    "output_tokens": 1376
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is largely sound but has some areas for improvement and potential issues:\n\n1. **Rationale vs. Code Discrepancies**:\n   - The rationale states the strategy focuses on cross-sectional momentum using historical returns to identify top performers. However, the code only considers the mean return over a lookback period without explicitly accounting for relative market performance. Specifically, line 26 calculates returns but does not directly incorporate market view or relative performance.\n\n2. **Potential Failures**:\n   - Line 30 uses `rank` with the method \"ordinal\" and descending order to rank stocks by mean return. However, this might not always capture true momentum effects if the underlying data is noisy or if there are outliers.\n   - The strategy could fail if no symbols have sufficient historical data (line 25), which could happen if the `lookback` period exceeds available history.\n\n3. **Fragile Parameters**:\n   - The choice of `lookback = 60` (line 7) is somewhat arbitrary and might not generalize well across different market conditions or asset classes.\n   - The threshold of selecting top symbols (`self._lookback + 1`) in line 29 could be adjusted to better suit the specific characteristics of the market being analyzed.\n\n4. **Potential Issues for Running**:\n   - Line 30 assumes that `history_with_returns` will always have at least one row after sorting and taking the top rows, which might not always be true.\n   - The use of `polars`, while efficient, could fail if the underlying data structure or version is not compatible.\n\n5. **Sound Parts**:\n   - The overall structure and logic for generating signals based on historical returns are sound.\n   - The equal weight allocation (line 36) is a simple but effective way to implement the strategy.\n\nIn summary, while the core idea of momentum-based strategies is sound, there are areas where the implementation could be improved or refined."
+  ],
+  "seconds": 35.54695900000024,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 147
+}

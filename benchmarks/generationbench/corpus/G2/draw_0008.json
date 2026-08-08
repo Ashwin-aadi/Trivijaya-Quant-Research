@@ -1,0 +1,23 @@
+{
+  "index": 8,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong market sentiment and can lead to \"\n        \"sustained price trends. By identifying stocks with significant volume surges on their \"\n        \"price increases or decreases, we can capitalize on the momentum.\"\n    )\n\n    def __init__(self, lookback_days: int = 30, min_volume_increase: float = 2.0) -> None:\n        self._lookback_days = lookback_days\n        self._min_volume_increase = min_volume_increase\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_data = (\n            history.group_by(\"symbol\")\n            .agg(\n                pl.col(\"adj_close\").first().alias(\"open\"),\n                pl.col(\"adj_close\").last().alias(\"close\"),\n                pl.col(\"volume\").sum().alias(\"total_volume\"),\n                (pl.col(\"volume\") / pl.col(\"volume\").shift(1) - 1.0).alias(\"volume_ratio\"),\n            )\n            .sort(\n                \"symbol\",\n                pl.col(\"volume_ratio\").rank(method=\"ordinal\", descending=True),\n            )\n        )\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in symbol_data.symbol.to_list():\n                continue\n\n            row = symbol_data.filter(pl.col(\"symbol\") == symbol).rows()[0]\n            open_price, close_price, total_volume, volume_ratio = (\n                float(row[\"open\"]),\n                float(row[\"close\"]),\n                float(row[\"total_volume\"]),\n                float(row[\"volume_ratio\"]),\n            )\n\n            if volume_ratio > self._min_volume_increase:\n                if close_price > open_price and (volume_ratio - 1) > 0.5 * self._min_volume_increase:\n                    picks.append(symbol)\n                elif close_price < open_price and (volume_ratio - 1) > 0.5 * self._min_volume_increase:\n                    picks.append(symbol)\n\n        picks = list(set(picks))[:5]  # Avoid duplicates and limit to top 5\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 619
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.84517799999594,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 9
+}

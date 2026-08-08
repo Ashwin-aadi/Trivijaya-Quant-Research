@@ -1,0 +1,27 @@
+{
+  "index": 201,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"This strategy exploits the low-volatility anomaly in the Indian market by \"\n        \"tilting the portfolio towards stocks with lower historical volatility. \"\n        \"Risk-averse investor behavior and institutional constraints lead to underpricing of less volatile stocks, \"\n        \"potentially offering higher risk-adjusted returns.\"\n    )\n\n    def __init__(self, window: int = 250) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        volatilities: dict[str, float] = {}\n        for symbol in symbols:\n            adj_closes = history[symbol].to_list()\n            returns = [(adj_close - prev_adj_close) / prev_adj_close\n                       for adj_close, prev_adj_close in zip(adj_closes[1:], adj_closes[:-1])]\n            volatility = (sum(r**2 for r in returns) / len(returns)) ** 0.5\n            volatilities[symbol] = volatility\n\n        sorted_volatilities = {k: v for k, v in sorted(volatilities.items(), key=lambda item: item[1])}\n        num_symbols = len(symbols)\n        low_vols = list(sorted_volatilities.keys())[:num_symbols // 4]\n        weights = {s: 0.05 / len(low_vols) for s in low_vols} if low_vols else {}\n\n        return Signal(\n            information_available_at=stamp, weights={**weights}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2406,
+    "output_tokens": 868
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy focuses on exploiting the low-volatility anomaly observed in the Indian market. This anomaly suggests that stocks with lower historical volatility tend to outperform those with higher volatility over time. The economic mechanism underlying this phenomenon could be attributed to risk-averse investor behavior and institutional constraints, leading to underpricing of less volatile stocks.\n\nThe strategy would involve tilting the portfolio towards low-volatility stocks while maintaining market exposure. The rule for implementing this would include:\n1. Ranking stocks based on their historical volatility.\n2. Allocating a higher weight to the lowest volatility quartile while reducing weights in the highest volatility quartile.\n3. Regularly rebalancing the portfolio to adjust for changes in volatility and market conditions.\n\nThis approach aims to capture excess returns associated with low-volatility stocks, potentially leading to improved risk-adjusted performance.",
+    "The signal for this systematic equity strategy is based on historical volatility. Daily open, high, low, close, and volume data are used to compute the 250-day realized volatility for each stock. Stocks are then ranked within the market index or specific sector, with the lowest 25% by volatility forming the candidate pool for higher weights in the portfolio. This ranking is conducted daily to ensure the portfolio's composition aligns with the low-volatility anomaly observed in the Indian market. Regular rebalancing ensures the portfolio adapts to changes over time.",
+    "The strategy maintains a portfolio of approximately 25-30 low-volatility stocks selected from the bottom quartile based on 250-day realized volatility. Position sizes are allocated to ensure no single stock exceeds 10% of the total portfolio value, with lower weights in the range of 1-3%. Risk limits are set to prevent a daily loss greater than 1%, and overall portfolio volatility should not exceed 8% annually to manage risk effectively while capturing the low-volatility anomaly."
+  ],
+  "seconds": 27.546542899995984,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 204
+}

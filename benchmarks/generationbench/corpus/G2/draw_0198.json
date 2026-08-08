@@ -1,0 +1,23 @@
+{
+  "index": 198,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Firms with higher relative strength compared to the broader market \"\n        \"are likely outperforming and are expected to continue this trend due to \"\n        \"positive sentiment or better fundamental conditions. This strategy aims to \"\n        \"identify such firms by comparing their performance against the NIFTY 100 index.\"\n    )\n\n    def __init__(self, window: int = 50) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        market_close = view.latest_close()[\"^NSEI\"]\n        symbol_closes = {symbol: float(close) for symbol, close in closes.to_dict().items() if close != \"NA\"}\n        \n        # Calculate relative strength\n        rel_strength = {\n            symbol: (close / market_close - 1.0) * 100.0\n            for symbol, close in symbol_closes.items()\n        }\n        \n        # Sort by relative strength\n        sorted_symbols = sorted(rel_strength.keys(), key=lambda x: rel_strength[x], reverse=True)\n        \n        top_n = min(self._window, len(sorted_symbols))\n        picks = sorted_symbols[:top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 448
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.416215099998226,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 204
+}

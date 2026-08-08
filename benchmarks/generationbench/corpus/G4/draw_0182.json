@@ -1,0 +1,27 @@
+{
+  "index": 182,
+  "paradigm": "G4_planning",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy leverages the tendency for markets to revert to recent volatility levels \"\n        \"after periods of high or low volatility. By dynamically scaling positions based on current \"\n        \"volatility, it aims to capture trends more effectively while managing risk in turbulent times.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (history.open / history.close.shift(1) - 1.0).alias(\"return\")\n        returns_df = history.with_columns(returns)\n\n        # Calculate realized volatility over the window period\n        vol_col = pl.col(\"return\").abs().mean() * (252 ** 0.5)\n        vol_df = returns_df.select(vol_col.alias(\"volatility\"))\n\n        # Compute moving average of historical volatility\n        vol_windowed = vol_df.sort(\"session_date\").tail(self._window).select(\n            pl.col(\"volatility\").mean().alias(\"moving_vol\")\n        )\n        latest_moving_vol = float(vol_windowed[0][\"moving_vol\"])\n\n        # Scale positions based on the current volatility compared to its historical average\n        total_weight = 1.0\n        weight_per_symbol = latest_moving_vol / latest_moving_vol.mean() * (total_weight / len(view.symbols))\n        \n        if weight_per_symbol == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        weights = {symbol: weight_per_symbol for symbol in view.symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2422,
+    "output_tokens": 908
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to leverage the tendency for markets to revert to recent volatility levels after periods of high or low volatility. The economic mechanism is based on the observation that extreme market conditions often lead to mean reversion as prices adjust back to more normal ranges. This persistence can be exploited by scaling trading positions relative to current volatility: increasing bets during calm periods and reducing them when markets are volatile.\n\nThe rule would involve calculating a moving average of historical volatility, then adjusting position sizes accordingly. For instance, larger trades could be placed when recent volatility is low, while trade sizes would shrink as market volatility rises, aiming to capture trends more effectively without excessive risk in turbulent times. This approach seeks to balance trend following with risk management by dynamically scaling bets based on current market conditions.",
+    "The signal for this strategy involves computing a moving average of historical volatility over a specified lookback period. Daily open, high, low, close, and volume data are used to calculate daily returns first. Then, realized volatility is derived from these returns. A rolling window (e.g., 20 days) is applied to calculate the moving average of this realized volatility.\n\nOn each trading day, positions are scaled based on the current volatility level compared to its historical average. Lower recent volatility signals larger trades, while higher volatility indicates smaller trade sizes to manage risk. Positions are not ranked against each other but adjusted dynamically according to the calculated volatility signal. This approach ensures that the strategy adapts to varying market conditions, balancing trend following with risk management.",
+    "This strategy involves holding a diversified portfolio of equities, typically ranging from 30 to 60 names, with weights adjusted based on calculated volatility. Position sizes dynamically scale up during calm markets (lower realized volatility) by allocating more capital, and down in volatile periods (higher realized volatility) to limit risk. Risk limits are set to prevent any single position from exceeding a loss threshold of 2% per day, ensuring that overall portfolio losses remain manageable. This approach balances the strategy's trend-following nature with robust risk management."
+  ],
+  "seconds": 28.145102100002987,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 185
+}

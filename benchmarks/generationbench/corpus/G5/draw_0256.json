@@ -1,0 +1,26 @@
+{
+  "index": 256,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion(Strategy):\n    rationale = (\n        \"Price reversion occurs when prices return to a central tendency after deviating. \"\n        \"By identifying symbols that have moved significantly from their trailing averages, \"\n        \"we can generate buy or sell signals based on this reversion effect.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history[\"symbol\"].unique()]\n        signals: dict[str, float] = {}\n\n        for symbol in symbols:\n            df = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .sort(\"session_date\")\n                .select(\n                    pl.col(\"close\").alias(\"price\"),\n                    (pl.col(\"close\").shift(-1)).alias(\"previous_close\"),\n                )\n            )\n\n            if df.height < 2:\n                continue\n\n            close = float(df.select(pl.last(\"price\")).item())\n            previous_close = float(df.select(pl.last(\"previous_close\")).item())\n\n            price_change = (close - previous_close) / previous_close\n            trailing_avg = (\n                df.sort(\"session_date\")\n                .select(pl.col(\"price\").mean().alias(\"trailing_avg\"))\n                .select(pl.first(\"trailing_avg\"))\n                .item()\n            )\n\n            reversion_score = abs(price_change - (close - trailing_avg)) / close\n\n            if reversion_score > 0.05:  # Adjust the threshold as needed\n                signals[symbol] = 1.0\n\n        return Signal(\n            information_available_at=stamp, weights={symbol: weight for symbol, weight in signals.items()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4057,
+    "output_tokens": 1414
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains some potential weaknesses and areas for improvement:\n\n### Strengths:\n- **Rationale Clarity**: The rationale effectively explains the core idea of reversion trading, making it clear that the strategy aims to exploit price movements back towards a central tendency.\n\n### Weaknesses and Areas for Improvement:\n\n1. **Rationale vs. Code Discrepancy**:\n   - Line 28: `trailing_avg = df.select((pl.col(\"price\").mean()).alias(\"trailing_avg\"))` \u2014 This line calculates the mean of closing prices, which might not fully capture the trailing average as described in the rationale.\n   - **Suggestion**: Ensure that `trailing_avg` correctly reflects a rolling window average over the past 20 sessions (or however long the window is set).\n\n2. **Potential Failures**:\n   - Line 37: The code assumes that there are at least two rows (`df.height < 2`) before processing, which may not always hold true.\n   - **Suggestion**: Add a check to ensure this condition is met and handle cases where it isn't.\n\n3. **Fragile Parameters**:\n   - Line 4: `self._window = window` \u2014 The default value of 20 might be too narrow or wide for different markets or time frames.\n   - **Suggestion**: Consider using a more dynamic approach to set the window size based on historical data.\n\n4. **Potential Issues with Execution**:\n   - Line 16: `return Signal(information_available_at=stamp, weights={})` \u2014 This return statement assumes that no symbols will have valid signals.\n   - **Suggestion**: Ensure that empty dictionaries are handled gracefully to avoid potential errors.\n\n### Conclusion:\nThe strategy has a clear rationale and is well-implemented for the most part. However, there are some areas where the implementation could be more robust, particularly in handling edge cases and ensuring that key parameters (like `self._window`) are set appropriately."
+  ],
+  "seconds": 36.27631050000127,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 520
+}

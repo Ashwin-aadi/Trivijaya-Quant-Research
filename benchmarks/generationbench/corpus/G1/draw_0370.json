@@ -1,0 +1,23 @@
+{
+  "index": 370,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Seasonal effects can be a significant driver of equity returns. By identifying \"\n        \"historical patterns, we can exploit these effects to generate trading signals.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(s.symbol) for s in view.symbols]\n        mean_closes = closes[symbols].mean(axis=0)\n\n        seasonality_factors = {}\n        for symbol in symbols:\n            if symbol not in mean_closes.columns:\n                continue\n            values = [float(v) for v in mean_closes[symbol].to_list()]\n            max_close = max(values)\n            factor = (values[-1] / max_close - 1.0) * 100.0\n            seasonality_factors[symbol] = factor\n\n        sorted_symbols = sorted(seasonality_factors, key=lambda x: seasonality_factors[x], reverse=True)[:5]\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 405
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.174589900008868,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 376
+}

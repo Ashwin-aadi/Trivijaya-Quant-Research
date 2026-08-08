@@ -1,0 +1,26 @@
+{
+  "index": 283,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates that the price action is becoming less volatile and \"\n        \"concentrated within a narrower range. This suggests potential breakout opportunities \"\n        \"in either direction, making it an opportune time to enter positions.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression = (history[\"high\"] - history[\"low\"]) / history[\"close\"].shift(-1).alias(\"range_ratio\")\n        history = history.with_columns(range_compression)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        ranges = [float(v) for v in history.select(pl.col(\"range_ratio\")).to_list()[0]]\n        average_range = sum(ranges) / len(ranges)\n\n        low_range_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            symbol_history = history.filter(pl.col(\"symbol\") == symbol)\n            symbol_ranges = [float(v) for v in symbol_history.select(pl.col(\"range_ratio\")).to_list()[0]]\n            if len(symbol_ranges) < self._window:\n                continue\n            if min(symbol_ranges) <= average_range * 1.5:  # Assuming a threshold of 1.5 times the average range\n                low_range_symbols.append(symbol)\n\n        if not low_range_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(low_range_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in low_range_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4097,
+    "output_tokens": 1473
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears to aim at identifying range compression as a signal for potential breakout opportunities. However, there are several issues and critiques:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale suggests that low volatility (range compression) indicates potential breakouts in either direction. This is not directly reflected in the code. Specifically, lines 26-30 calculate a ratio of `high` to `low` prices relative to the previous close but do not explicitly check for low range values or potential breakout conditions.\n\n2. **Potential Failures**:\n   - Line 19: The condition checks if `history.is_empty()` and returns an empty signal. However, it does not handle cases where there is data but it doesn't meet the required length (`self._window`).\n   - Lines 36-40: This part aims to find symbols with the lowest range ratio but has a logical error. The query inside `min(...)` should be a single evaluation per symbol, and the logic for finding the minimum range is flawed.\n\n3. **Fragile Parameters**:\n   - The parameter `window` (line 7) is hardcoded at 30. This value might not be optimal for all market conditions or securities.\n   - There's no validation on whether `self._window` is a positive integer, which could lead to unexpected behavior if set incorrectly.\n\n4. **Code Fragility and Errors**:\n   - Line 17: The expression `(history[\"high\"] - history[\"low\"]) / history[\"close\"].shift(-1)` might raise errors if there are missing values or if the shifted close price is zero.\n   - Lines 36-40: The nested generator expression within `min(...)` could fail if the data structure isn't as expected, leading to a `TypeError`.\n\n5. **Potential Issues**:\n   - The strategy relies on historical data but does not specify how it handles new or updated market views, which is crucial for dynamic trading.\n   - There's no risk management logic (e.g., position sizing, stop-loss), which is important for actual trading applications.\n\nOverall, the strategy has a logical flaw in its implementation and lacks robustness. However, if the intent is purely educational or to demonstrate basic concepts, some parts could be useful with necessary corrections and improvements."
+  ],
+  "seconds": 37.62509069999942,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 574
+}

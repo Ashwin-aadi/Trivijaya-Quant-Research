@@ -1,0 +1,27 @@
+{
+  "index": 166,
+  "paradigm": "G4_planning",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalityStrategy(Strategy):\n    rationale = (\n        \"This strategy exploits seasonal effects in the Indian market by identifying \"\n        \"historically strong performing sectors during specific months. By focusing on \"\n        \"these patterns, we aim to generate profitable trades while managing risk through \"\n        \"diversification and position sizing.\"\n    )\n\n    def __init__(self, lookback_period: int = 10, top_n_sectors: int = 3) -> None:\n        self._lookback_period = lookback_period\n        self._top_n_sectors = top_n_sectors\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_period + 1)\n\n        if history.height < self._lookback_period + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate average monthly returns\n        avg_returns: dict[str, float] = {}\n        for symbol in view.symbols:\n            closes = history.select(pl.col(symbol)).to_series()\n            month_ends = [date(closes[i].year, (i + 1) // 3 * 3 + 2, 1) for i in range(0, len(closes), 3)]\n            monthly_closes = [closes[i - 1] for i in range(len(month_ends)) if i < len(closes)]\n            avg_return = sum((monthly_closes[i].close / monthly_closes[i - 1].close - 1.0) for i in range(1, len(monthly_closes))) / (len(monthly_closes) - 1)\n            avg_returns[symbol] = avg_return\n\n        # Rank sectors based on average returns\n        ranked_sectors = sorted(avg_returns.items(), key=lambda x: x[1], reverse=True)[:self._top_n_sectors]\n\n        if not ranked_sectors:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / self._top_n_sectors\n        sector_weights = {s: weight for s, _ in ranked_sectors}\n        return Signal(\n            information_available_at=stamp, weights=sector_weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalityStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2496,
+    "output_tokens": 1004
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy exploiting seasonal or calendar effects in the Indian market, we will focus on identifying patterns where specific months show historically higher returns. The economic mechanism involves analyzing historical data to detect periods when certain sectors or the market as a whole exhibit above-average performance due to recurring events like festivals, government policies, or economic cycles.\n\nThese effects might persist because certain predictable events can lead to short-term shifts in investor behavior and corporate performance, creating recurring opportunities. For instance, the months around Diwali often see increased retail spending, benefiting consumer-facing stocks.\n\nThe trading rule would exploit this by:\n1. Categorizing stocks into relevant sectors.\n2. Analyzing historical returns for each category during specific months.\n3. Establishing thresholds for when to enter and exit positions based on these patterns.\n4. Diversifying across sectors to mitigate risks and enhance overall performance.",
+    "To develop the systematic equity trading strategy, we will use historical price data including daily open, high, low, close, and volume. The signal is computed by analyzing monthly returns for each sector during specific months that historically show higher performance. \n\nFor each sector, calculate the average return over a 10-year lookback period for every month. On a given day, rank sectors based on their average returns for the corresponding month. Higher average returns indicate stronger seasonal effects and thus higher ranked sectors.\n\nThe trading rule enters positions in the top-ranked sectors and exits those with lower ranks at the end of each month. This process ensures that trades are made according to historical patterns while maintaining a dynamic approach by re-evaluating rankings monthly.",
+    "For this systematic equity strategy, position sizing will be based on ranking sectors by their historical returns. The top three sectors ranked each month will hold positions, ensuring diversification while focusing on strong seasonal effects. Each selected sector will be allocated equal weights of 33.33% to maintain balance and reduce risk. Risk limits are set to prevent significant losses; the total portfolio loss should not exceed 5% in any given month, with individual sector exposure capped at 3%. This approach balances capital allocation and risk management, leveraging historical patterns while safeguarding against excessive volatility."
+  ],
+  "seconds": 30.050411299998814,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 169
+}

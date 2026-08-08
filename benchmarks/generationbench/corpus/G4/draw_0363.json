@@ -1,0 +1,27 @@
+{
+  "index": 363,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the persistence of excess returns in highly liquid stocks by \"\n        \"equal-weighting them. High liquidity often implies lower transaction costs and more \"\n        \"efficient price discovery, leading to potentially higher average returns.\"\n    )\n\n    def __init__(self, window: int = 200) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter by the symbols that are in the latest closes\n        symbols = [symbol for symbol in view.symbols if symbol in view.closes().columns]\n\n        # Calculate daily turnover or volume as a liquidity metric\n        liquidity_metric = history.select(\n            pl.col(\"symbol\"), (pl.col(\"adj_close\") * pl.col(\"volume\")).alias(\"turnover\")\n        ).group_by(\"symbol\").agg(pl.sum(\"turnover\").alias(\"total_turnover\"))\n\n        # Rank symbols by their total turnover over the lookback period\n        ranked_liquidity = liquidity_metric.sort(\"total_turnover\", descending=True)\n\n        # Select top 50% most liquid stocks based on the turnover metric\n        n_symbols = len(symbols)\n        if n_symbols <= 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        n_top_symbols = int(n_symbols * 0.5)\n        selected_symbols = ranked_liquidity.head(n_top_symbols)[\"symbol\"].to_list()\n\n        # Equal weight these symbols\n        weight = 2.0 / (n_top_symbols * 100)  # Ensure no single stock contributes more than 2% to the risk\n\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in selected_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2470,
+    "output_tokens": 918
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy focuses on exploiting the persistence of excess returns in highly liquid stocks through an equal-weighting approach. The economic mechanism involves the notion that large-cap, well-liquidated companies often benefit from reduced bid-ask spreads and lower transaction costs, leading to more efficient price discovery and potentially higher average returns over time. This persistence is supported by market microstructure theories suggesting that liquidity provides a competitive advantage for firms in attracting capital and reducing information asymmetry.\n\nThe rule involves constructing a portfolio of the most liquid stocks (e.g., top 50% based on trading volume or turnover) from the Indian equity market, then equally weighting these assets. This equal-weighting ensures each stock contributes proportionally to the portfolio return, potentially mitigating the risk of overweighting in overvalued large-cap stocks while capturing the benefits of higher liquidity and market efficiency.",
+    "The signal for this strategy does not directly use daily open, high, low, close, and volume data. Instead, the primary input is liquidity metrics derived from historical trading data. Specifically:\n\n1. **Lookback Period**: Use at least 200 days (approximately 6 months) of trading history.\n2. **Liquidity Metric**: Rank stocks based on their liquidity, such as daily turnover or trading volume percentile within the market.\n3. **Candidates Selection**: Identify the top 50% most liquid stocks from the Indian equity market using the chosen liquidity metric.\n\nOn a given day, these candidates are ranked solely by their current liquidity metrics (e.g., highest 50% based on recent trading volumes). The portfolio is then constructed by equally weighting these selected assets.",
+    "The strategy holds positions in 50 stocks, selected as the top 50% most liquid from the Indian equity market. These are equally weighted within the portfolio. Position size is constrained to ensure no single stock contributes more than 2% to the total portfolio risk. Risk limits are set to prevent daily losses exceeding 1%, safeguarding against significant drawdowns while capturing persistent liquidity-driven returns."
+  ],
+  "seconds": 28.32716139999684,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 369
+}

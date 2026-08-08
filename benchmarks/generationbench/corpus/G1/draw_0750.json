@@ -1,0 +1,23 @@
+{
+  "index": 750,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength outperform the broader market over time. \"\n        \"This strategy aims to identify and allocate capital to such stocks.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or len(view.symbols) <= 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_close = closes.mean().drop_nulls()\n        strengths: list[tuple[str, float]] = []\n\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            latest_close = float(view.latest_close()[symbol])\n            strength_ratio = latest_close / avg_close[symbol]\n            strengths.append((symbol, strength_ratio))\n\n        strengths.sort(key=lambda x: x[1], reverse=True)\n        top_n_strengths = strengths[:5]\n\n        if not top_n_strengths:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_weight = 1.0\n        weight_per_symbol = total_weight / len(top_n_strengths)\n        weights = {symbol: weight_per_symbol for symbol, _ in top_n_strengths}\n\n        return Signal(\n            information_available_at=stamp,\n            weights=weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 409
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.62084830000822,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 764
+}

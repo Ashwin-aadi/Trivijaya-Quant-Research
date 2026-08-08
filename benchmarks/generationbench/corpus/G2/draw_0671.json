@@ -1,0 +1,23 @@
+{
+  "index": 671,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeRSIAndVolume(Strategy):\n    rationale = (\n        \"The combination of Relative Strength Index (RSI) and volume can provide insights into \"\n        \"the strength and sustainability of a trend. High RSI levels in conjunction with high \"\n        \"volume suggest strong buying pressure, while low RSI levels with increasing volume \"\n        \"indicate potential for a turnaround.\"\n    )\n\n    def __init__(self, rsi_window: int = 14, volume_threshold: float = 100_000) -> None:\n        self._rsi_window = rsi_window\n        self._volume_threshold = volume_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._rsi_window + 1).sort(\"session_date\")\n        if history.height < self._rsi_window + 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes()\n        volumes = view.history()[[\"symbol\", \"volume\"]].filter(\n            pl.col(\"session_date\").is_in(history.select(\"session_date\").to_list())\n        ).sort(\"session_date\")\n\n        rsi_values = _calculate_rsi(closes, self._rsi_window)\n        high_volume_symbols = set(volumes.filter(pl.col(\"volume\") > self._volume_threshold)[\"symbol\"].to_list())\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in rsi_values.columns or symbol not in volumes[\"symbol\"].to_list():\n                continue\n            if rsi_values[symbol][-1] >= 70 and symbol in high_volume_symbols:\n                picks.append(symbol)\n            elif rsi_values[symbol][-1] <= 30 and symbol in high_volume_symbols:\n                picks.append(symbol)\n\n        picks = list(set(picks))[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_rsi(frame: pl.DataFrame, window: int) -> pl.DataFrame:\n    delta = frame.with_columns((pl.col(\"close\") - pl.col(\"close\").shift(1)).alias(\"delta\"))\n    gain = (delta.filter(pl.col(\"delta\") > 0).with_columns((pl.col(\"delta\") / 2.0).alias(\"gain\"))).group_by(\"symbol\").agg(\n        pl.col(\"gain\").mean().alias(\"avg_gain\")\n    )\n    loss = (delta.filter(pl.col(\"delta\") < 0).with_columns((-1 * pl.col(\"delta\") / 2.0).alias(\"loss\"))).group_by(\"symbol\").agg(\n        pl.col(\"loss\").mean().alias(\"avg_loss\")\n    )\n\n    rsi = gain.join(loss, on=\"symbol\", how=\"inner\").with_columns(\n        (100 - (100 / ((pl.col(\"avg_gain\") + 1) / (pl.col(\"avg_loss\") + 1)))).alias(\"rsi\")\n    )\n    return rsi",
+  "class_name": "CompositeRSIAndVolume",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 769
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.942935700004455,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 682
+}

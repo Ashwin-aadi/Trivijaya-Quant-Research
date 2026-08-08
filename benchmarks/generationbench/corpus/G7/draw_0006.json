@@ -1,0 +1,47 @@
+{
+  "index": 6,
+  "paradigm": "G7_mcts",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeBasedRelativeStrength(Strategy):\n    rationale = (\n        \"This strategy selects stocks based on their relative strength in terms of average \"\n        \"trading volume over a 20-day period. Higher trading volumes indicate greater interest \"\n        \"and liquidity, which can signal more sustainable trends.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_avg = (\n            history.group_by(\"symbol\")\n            .agg((pl.col(\"volume\").sum() / self._window).alias(\"avg_volume\"))\n            .sort(\"avg_volume\", descending=True)\n        )\n        top_stocks = volume_avg[\"symbol\"].to_list()[: self._top_n]\n\n        if len(top_stocks) < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_step = 100.0 / (self._top_n - 1)\n        weights = {s: max(2.0, 100.0 - i * weight_step) for i, s in enumerate(top_stocks)}\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w / 100.0 for s, w in weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeBasedRelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19330,
+    "output_tokens": 6655
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I will measure the relative strength using the closing price over a 50-day lookback period. This choice balances responsiveness to recent market conditions with filtering out short-term noise.",
+    "I will measure the relative strength using the average volume over a 20-day lookback period, focusing on trading activity rather than price movements to identify more stable and sustained trends.",
+    "I will hold 10 equally weighted positions in the portfolio, ensuring a balanced exposure to different stocks while simplifying management and reducing complexity.",
+    "For this strategy, I will hold a maximum of 30 names in the portfolio, with weights based on relative strength rankings, giving the top-ranked stock a weight of 2%, and each subsequent stock receiving a decreasing weight such that the total portfolio weight sums to 100%.",
+    "I will hold 10 equally weighted positions in the portfolio, ensuring balanced exposure and simplified management.",
+    "For this strategy, I will hold a maximum of 30 names in the portfolio, with weights based on relative strength rankings. The top-ranked stock will have a weight of 2%, and each subsequent stock will receive a decreasing weight until the total portfolio weight sums to 100%.",
+    "For each position, I will limit potential loss to a maximum of -10% from the entry price before any adjustment is made. This bound ensures risk management while allowing for some fluctuation in relative strength rankings. Additionally, I will stop trading if the portfolio's overall loss exceeds -5%, as this threshold reflects a balanced risk tolerance for the strategy.",
+    "For this strategy, I will set a risk rule that limits the loss on any individual position to no more than -3% from its entry price, and the total portfolio loss to no more than -5% before exiting the trade to protect capital.",
+    "For each position, limit the potential loss to no more than a 20% drawdown from the entry price. For the portfolio, set an overall risk threshold of a maximum 5% daily loss to stop trading and reassess the strategy's performance.",
+    "For this strategy, I will set a stop-loss rule of -5% on individual positions and -10% on the portfolio level to manage risk effectively. This rule will trigger a position exit if any single stock in the portfolio drops by 5% from its entry price or if the overall portfolio value declines by 10%.",
+    "For each position, I will limit potential loss to a maximum of -10% from the entry price before any adjustment is made. This bound ensures effective risk management while allowing for some fluctuation in relative strength rankings. Additionally, I will stop trading if the portfolio's overall loss exceeds -5%, reflecting a balanced risk tolerance for the strategy.",
+    "For this strategy, I will set a risk rule that limits the loss on any individual position to no more than -3% from its entry price, and the total portfolio loss to no more than -5%, ensuring\u8d44\u672c\u5b89\u5168\u7684\u540c\u65f6\u4fdd\u6301\u7b56\u7565\u7684\u7075\u6d3b\u6027\u3002\u8fd9\u4e00\u89c4\u5219\u5c06\u4fdd\u62a4\u8d44\u672c\u514d\u53d7\u8fc7\u5ea6\u635f\u5931\uff0c\u540c\u65f6\u5141\u8bb8\u5728\u5e02\u573a\u6709\u5229\u65f6\u7ee7\u7eed\u6301\u6709\u8868\u73b0\u826f\u597d\u7684\u80a1\u7968\u3002"
+  ],
+  "seconds": 387.6112995999865,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 84
+}

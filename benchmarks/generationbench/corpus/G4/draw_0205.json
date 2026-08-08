@@ -1,0 +1,27 @@
+{
+  "index": 205,
+  "paradigm": "G4_planning",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion50d(Strategy):\n    rationale = (\n        \"This strategy exploits short-horizon mean reversion by identifying stocks that have \"\n        \"deviated significantly from their historical price levels and entering short positions \"\n        \"when the stock price crosses below its 50-day moving average, anticipating a return to \"\n        \"the long-term average.\"\n    )\n\n    def __init__(self, window: int = 50, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        smas: pl.DataFrame = (\n            view.history().group_by(\"symbol\")\n                         .agg((pl.col(\"adj_close\").mean()).alias(\"50d_sma\"))\n        )\n        ranked_closes = (closes\n                         .join(smas, on=\"symbol\", how=\"inner\")\n                         .with_columns(\n                             (pl.col(\"adj_close\") - pl.col(\"50d_sma\")).abs().alias(\"deviation\"),\n                             ((pl.col(\"session_date\") == stamp) & \n                              (pl.col(\"adj_close\") < pl.col(\"50d_sma\"))).alias(\"cross_below\")\n                         )\n                         .sort(\"deviation\", descending=True)\n        )\n\n        picks: list[str] = [symbol for symbol, row in ranked_closes.iter_rows() if row[\"cross_below\"]]\n        picks = picks[:self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 0.05 / len(picks)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion50d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2547,
+    "output_tokens": 960
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To exploit short-horizon mean reversion in the Indian equity market, the strategy will focus on identifying stocks that have deviated significantly from their historical price levels. The economic mechanism is based on the tendency of stock prices to revert to a long-term average after deviations due to temporary market conditions or investor sentiment. This persistence may arise from psychological factors and market inefficiencies.\n\nThe rule would involve:\n1. **Identification**: Selecting stocks showing extreme deviations from their moving averages.\n2. **Entry Signal**: Entering short positions when the stock price crosses below its 50-day moving average, indicating a potential mean reversion.\n3. **Exit Strategy**: Exiting the position and closing the short when the stock price returns above the moving average or after a predefined holding period.\n\nThis approach capitalizes on the temporary mispricing of stocks and benefits from the natural tendency towards equilibrium in financial markets.",
+    "The precise signal for this strategy involves the following steps:\n\n1. **Moving Average Calculation**: Compute the 50-day simple moving average (SMA) of the closing prices for each stock.\n2. **Deviation Measurement**: Calculate the difference between the daily closing price and its 50-day SMA to identify stocks showing extreme deviations.\n3. **Ranking Candidates**: On a given day, rank all candidate stocks based on the absolute value of their deviation from the 50-day SMA. Stocks with larger absolute deviations are considered more promising for short positions.\n\nThe entry signal triggers when a stock's closing price crosses below its 50-day SMA, signaling potential mean reversion. This ranking ensures that the strategy focuses on the most deviated stocks, capitalizing on temporary market mispricings and leveraging the natural tendency of stock prices to revert to their long-term averages.",
+    "For this systematic equity strategy, position sizing is critical for managing risk. We will hold up to 20 stocks with equal weights of 5% each to balance between diversification and concentration risk. The total portfolio weight does not exceed 100%. Risk limits are set to ensure that the maximum potential loss on any single day does not exceed 3% of the portfolio value, safeguarding against extreme market movements while capturing short-term mean reversion opportunities effectively."
+  ],
+  "seconds": 29.17532019999635,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 208
+}

@@ -1,0 +1,23 @@
+{
+  "index": 104,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong market sentiment. \"\n        \"When a stock's price moves in the direction of its recent trend and is accompanied by high volume, \"\n        \"it suggests that institutional or retail investors are actively participating in this move. \"\n        \"Such moves often precede further price appreciation.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the price change over the window period\n        price_change = (history[\"adj_close\"].shift(-1) - history[\"adj_close\"]).alias(\"price_change\")\n        history = history.with_columns(price_change)\n\n        # Filter for stocks that are moving in a direction consistent with their recent trend\n        history = history.with_column(\n            pl.when(history[\"close\"].shift(1) < history[\"open\"].shift(1)).then(-1).otherwise(1).alias(\"trend\")\n        )\n        history = history.with_column(\n            (history[\"price_change\"] * history[\"trend\"]).alias(\"directional_move\")\n        )\n\n        # Ensure the directional move is positive and volume is high\n        high_volume_mask = history[\"volume\"].gt(history[\"volume\"].mean())\n        positive_directional_move_mask = history[\"directional_move\"].gt(0)\n        filtered_history = history.select(\n            pl.all().filter(high_volume_mask & positive_directional_move_mask)\n        )\n\n        if filtered_history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols_with_positive_moves = filtered_history[\"symbol\"].to_list()\n        weight_per_symbol = 1.0 / len(symbols_with_positive_moves)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight_per_symbol for symbol in symbols_with_positive_moves\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 539
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.238640499999747,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 108
+}

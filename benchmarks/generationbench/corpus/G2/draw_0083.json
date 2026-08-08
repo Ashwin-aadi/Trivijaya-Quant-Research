@@ -1,0 +1,23 @@
+{
+  "index": 83,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeTrendBreakout(Strategy):\n    rationale = (\n        \"This strategy seeks to capitalize on both short-term momentum and medium-term trend \"\n        \"breakouts. Short-term momentum can indicate an asset's recent performance strength, \"\n        \"while a medium-term breakout suggests a potential continuation of the trend.\"\n    )\n\n    def __init__(self, short_window: int = 5, long_window: int = 20) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._long_window)\n        if closes.height < self._long_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        short_returns = (closes[closes.columns[1]] / closes[closes.columns[0]].shift(1) - 1.0).to_list()\n        long_returns = (closes[closes.columns[1]] / closes[closes.columns[0]].shift(self._short_window) - 1.0).to_list()\n\n        if len(short_returns) < self._short_window or len(long_returns) < self._long_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        short_mean = sum(short_returns[-self._short_window:]) / self._short_window\n        long_mean = sum(long_returns[-self._long_window:]) / self._long_window\n\n        if short_mean > 0.1 and long_mean > 0.05:\n            picks: list[str] = []\n            for symbol in view.symbols:\n                if symbol not in closes.columns:\n                    continue\n                values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n                if values[-1] >= max(values):\n                    picks.append(symbol)\n\n            weight = 1.0 / len(picks)\n            return Signal(\n                information_available_at=stamp, weights={s: weight for s in picks}\n            )\n        else:\n            return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeTrendBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 541
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.325356200002716,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 86
+}

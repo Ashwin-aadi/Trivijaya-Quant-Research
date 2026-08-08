@@ -1,0 +1,26 @@
+{
+  "index": 61,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion exploits the tendency of stock prices to revert to their \"\n        \"mean over a short period. This strategy buys underperforming stocks and sells outperforming ones.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 0.2) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = closes.mean().to_dict().get(\"adj_close\", 0.0)\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            price_series = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(price_series) < self._window:\n                continue\n\n            mean_reversion_score = (price_series[-1] - mean_close) / mean_close\n            if abs(mean_reversion_score) > self._threshold:  # Threshold for significant reversion\n                signals[symbol] = mean_reversion_score\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(signals)\n        adjusted_signals = {s: (weight * v) for s, v in signals.items()}\n        return Signal(\n            information_available_at=stamp, weights=adjusted_signals\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3952,
+    "output_tokens": 1316
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears to be well-structured and aligns with its stated rationale of short-horizon mean reversion. However, there are a few points where the code could be improved or critiqued:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale mentions buying underperforming stocks and selling outperforming ones based on their deviation from the mean. The code calculates `mean_reversion_score` but does not explicitly define what \"underperforming\" and \"outperforming\" means in terms of the score.\n   - **Line 24**: Consider adding explicit conditions for buying and selling, such as setting thresholds or using a ranking mechanism.\n\n2. **Potential Failures**:\n   - **Line 31-34**: The code checks if `closes.height < self._window` before calculating the mean. However, this check is redundant since the same condition is checked again when iterating over symbols.\n   - **Line 37**: If `price_series` contains missing values (`NaN`), they are dropped but not handled as expected in the list comprehension.\n\n3. **Fragile Parameters**:\n   - The threshold of `0.2` for significant reversion (Line 41) is hardcoded and might need adjustment depending on market conditions.\n   - **Line 57**: The weight calculation assumes all selected symbols will be equally weighted, which may not always be optimal.\n\n4. **Issues Stopping the Strategy from Running**:\n   - **Line 29-30**: If `closes` is empty or does not contain enough data (`height < self._window`), the strategy might fail to return a valid signal.\n   - **Line 56**: If no symbols meet the criteria, an empty weights dictionary will be returned.\n\nOverall, the strategy is conceptually sound and well-written. However, adding more robust handling of edge cases, explicit conditions for buying/selling based on the score, and making parameter adjustments dynamic would enhance its reliability."
+  ],
+  "seconds": 34.526494900000216,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 125
+}

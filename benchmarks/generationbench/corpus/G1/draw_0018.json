@@ -1,0 +1,23 @@
+{
+  "index": 18,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"This strategy selects the top-performing stocks based on their relative strength \"\n        \"against the broader market. Stocks that consistently outperform contribute more to \"\n        \"the portfolio.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = history.with_columns(\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n        ).sort(\"session_date\")\n\n        # Aggregate to get the window's return for each symbol and the market index\n        window_returns = (\n            history.groupby(\"symbol\", maintain_order=True)\n            .agg(\n                [\n                    (pl.col(\"return\").sum().alias(\"total_return\")),\n                    pl.col(\"adj_close\").last().alias(\"latest_price\"),\n                ]\n            )\n            .sort(\"total_return\", descending=True)\n        )\n\n        # Get the latest closes of all symbols\n        market_index = view.closes(lookback=self._window).transpose()\n        market_index.columns = [date.isoformat(view.as_of)]\n\n        # Calculate relative strength\n        window_returns = (\n            window_returns.join(\n                market_index.select(pl.all().first()).with_columns(\n                    (pl.col(\"adj_close\").sum() / len(market_index.columns)).alias(\"market_value\")\n                ),\n                on=\"symbol\",\n                how=\"left\",\n            )\n            .with_columns(\n                ((pl.col(\"total_return\") - pl.col(\"market_value\")) / pl.col(\"latest_price\")).alias(\"relative_strength\")\n            )\n            .sort(\"relative_strength\", descending=True)\n        )\n\n        # Select top-performing symbols\n        picks = window_returns.head(5)[\"symbol\"].to_list()\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 582
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.142376200004946,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 20
+}

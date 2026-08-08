@@ -1,0 +1,23 @@
+{
+  "index": 427,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompressionStrategy(Strategy):\n    rationale = (\n        \"Range compression in a stock's price action indicates increased volatility and \"\n        \"potential for breakout. High dispersion of daily prices around the mean suggests \"\n        \"that the market is consolidating before an expected move. This can be used to identify \"\n        \"overbought or oversold conditions, leading to potential trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_close_series = history[symbol]\n            daily_range = (adj_close_series.high - adj_close_series.low).alias(\"range\")\n            mean_price = adj_close_series.mean().alias(\"mean_price\")\n            dispersion = (daily_range / mean_price * 100.0).alias(\"dispersion\")\n\n            range_comp_df = (\n                history.select(\n                    [symbol, \"session_date\", daily_range, mean_price, dispersion]\n                )\n                .sort(\"session_date\", descending=False)\n                .tail(self._window - 1)  # Exclude the latest date as it's not fully computed\n            )\n\n            if range_comp_df.is_empty():\n                continue\n\n            avg_dispersion = range_comp_df[\"dispersion\"].mean().item()\n            recent_dispersion = range_comp_df.tail(1)[\"dispersion\"].item()\n\n            if recent_dispersion >= 2 * avg_dispersion:\n                picks.append(symbol)\n\n        picks = list(set(picks))[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompressionStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 544
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.312286599997606,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 435
+}

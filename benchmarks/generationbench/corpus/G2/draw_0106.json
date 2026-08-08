@@ -1,0 +1,23 @@
+{
+  "index": 106,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality in financial markets often reflects predictable patterns driven by \"\n        \"calendar effects. For instance, certain stocks may perform well during specific months \"\n        \"of the year due to holidays, government policies, or cultural events.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or len(history[\"symbol\"].unique()) < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol = view.symbols[0]  # Assuming all symbols have the same seasonal pattern\n        df = history.filter(pl.col(\"session_date\").dt.month() == stamp.month)\n\n        if df.height < self._window / 12:  # Check if enough data points are available for this month\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_closes = df.select(\"adj_close\")\n        mean_close = float(recent_closes.mean().item())\n\n        if view.latest_close()[symbol] > mean_close:\n            weight = 1.0 / len(view.symbols)\n            return Signal(\n                information_available_at=stamp,\n                weights={s: weight for s in view.symbols},\n            )\n        else:\n            return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 415
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.775005899995449,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 110
+}

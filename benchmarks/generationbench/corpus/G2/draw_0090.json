@@ -1,0 +1,23 @@
+{
+  "index": 90,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Assets that have outperformed the broad market over a recent period are more likely \"\n        \"to continue outperforming due to momentum effects. This strategy buys assets with the \"\n        \"highest relative strength.\"\n    )\n\n    def __init__(self, lookback: int = 30) -> None:\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback)\n        if closes.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        market_close = view.latest_close()[\"^NIFTY 100\"]/view.latest_close()[\"^NIFTY 100\"]\n        relative_strength: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol == \"^NIFTY 100\":\n                continue\n            symbol_close = closes[symbol].to_list()\n            market_close_values = [float(v) for v in market_close.to_list()]\n            if len(symbol_close) < self._lookback or len(market_close_values) < self._lookback:\n                continue\n\n            avg_symbol_return = sum((symbol_close[i] / symbol_close[i - 1] - 1.0\n                                     for i in range(1, self._lookback))) / (self._lookback - 1)\n            avg_market_return = sum((market_close_values[i] / market_close_values[i - 1] - 1.0\n                                     for i in range(1, self._lookback))) / (self._lookback - 1)\n\n            if avg_symbol_return > avg_market_return:\n                relative_strength[symbol] = avg_symbol_return / avg_market_return\n\n        sorted_symbols = [k for k, v in sorted(relative_strength.items(), key=lambda item: item[1], reverse=True)]\n        top_n = min(self._lookback // 3, len(sorted_symbols))  # Buy the top third of symbols\n        weight = 1.0 / top_n\n        return Signal(information_available_at=stamp, weights={s: weight for s in sorted_symbols[:top_n]})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 571
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.908944199996768,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 94
+}

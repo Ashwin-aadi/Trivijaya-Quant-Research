@@ -1,0 +1,26 @@
+{
+  "index": 205,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that prices which have deviated significantly from their \"\n        \"historical average are likely to return to it. By identifying such deviations in the \"\n        \"short term (e.g., 5 days), we can construct a trading strategy aimed at capturing this reversal.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 2.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history[\"symbol\"].to_list()]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.groupby(\"symbol\")\n                   .agg((pl.col(\"adj_close\").mean()).alias(\"mean_close\"))\n                   .filter(pl.col(\"session_date\") == stamp)\n        )\n\n        recent_closes = view.closes(lookback=self._window).select(symbols)\n\n        for symbol in symbols:\n            if symbol not in mean_close[\"symbol\"].to_list():\n                continue\n            recent_values = [float(v) for v in recent_closes[symbol].drop_nulls().to_list()]\n            mean_val = float(mean_close.filter(pl.col(\"symbol\") == symbol)[\"mean_close\"][0])\n            z_score = (recent_values[-1] - mean_val) / (pl.col(\"adj_close\").std(window=self._window, min_count=1) + 1e-9)\n\n            if abs(z_score) > self._threshold:\n                return Signal(\n                    information_available_at=stamp,\n                    weights={symbol: 1.0 / len(symbols)}\n                )\n\n        return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3997,
+    "output_tokens": 1384
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This systematic equity trading strategy aims to identify mean-reverting opportunities based on short-term price deviations from historical means. Here are some critical points:\n\n1. **Rationale vs. Code Mismatch**:\n   - The rationale suggests capturing reversions in the \"short term,\" but the code currently uses a 10-day window, which might not be considered very short-term for mean reversion strategies (typically shorter windows like 2-5 days are used).\n\n2. **Potential Failure Scenarios**:\n   - If there is no recent price data available (`history.is_empty()`), the strategy returns an empty weights dictionary without any error handling or alternative signals.\n   - The z-score calculation assumes that `recent_values` contains enough historical data points, which might not always be true if the history window is too short.\n\n3. **Fragile Parameters**:\n   - The threshold parameter (`threshold: float = 2.0`) might be too high for capturing meaningful mean reversion signals, or it could be too low, missing significant deviations.\n   - Using `pl.std(recent_values) + 1e-9` to avoid division by zero is a common approach but assumes that the recent values are sufficiently diverse; otherwise, this could lead to inaccurate z-scores.\n\n4. **Potential Issues**:\n   - The `_latest_visible(view)` function returns an arbitrary date (1900-01-01) if no history data is available, which might not be useful for generating signals.\n   - If `symbols` are missing from the historical data (`history[\"symbol\"].to_list()`), the strategy incorrectly returns an empty weights dictionary without providing a warning or alternative action.\n\nOverall, while this strategy has a solid foundation in mean reversion principles, it would benefit from more rigorous parameter tuning and additional error handling to ensure robustness."
+  ],
+  "seconds": 35.66921040000125,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 416
+}

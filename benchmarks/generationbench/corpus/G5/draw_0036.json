@@ -1,0 +1,26 @@
+{
+  "index": 36,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have \"\n        \"outperformed in recent periods to continue outperforming. This strategy \"\n        \"identifies top performers and allocates capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        def calculate_momentum(symbol: str) -> float:\n            symbol_history = history.filter(pl.col(\"symbol\") == symbol)\n            if symbol_history.height < self._window:\n                return 0.0\n            latest_close = view.latest_close()[symbol]\n            returns = [\n                (closes[symbol].to_list()[i] - symbol_history[\"adj_close\"].to_list()[i])\n                / symbol_history[\"adj_close\"].to_list()[i]\n                for i in range(len(symbol_history))\n            ]\n            if all(r == 0.0 for r in returns):\n                return 0.0\n            momentum = max(returns)\n            return float(momentum * latest_close)\n\n        momentum_scores = [\n            calculate_momentum(symbol)\n            for symbol in view.symbols\n        ]\n\n        top_symbols = [symbol for _, symbol in sorted(\n            zip(momentum_scores, view.symbols), reverse=True)[:self._top_n]\n        ]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3927,
+    "output_tokens": 1325
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy generally aligns with its stated rationale of exploiting cross-sectional momentum by identifying top-performing stocks. However, there are a few issues and potential weaknesses:\n\n1. **Rationale vs. Implementation Mismatch**:\n   - The rationale mentions \"recent periods\" but the implementation uses a fixed window (`self._window`). For more accurate recent performance, consider using a dynamic or exponentially weighted approach.\n\n2. **Potential Failure Cases**:\n   - Line 26: If `history` does not contain enough data for all symbols within the specified lookback period, the function will return an empty weights dictionary without any error handling.\n   - Line 39-45: The calculation of momentum scores assumes that there are at least as many closes as the window length. If this is not met, it could result in division by zero or incorrect calculations.\n\n3. **Fragile Parameters**:\n   - `window` and `top_n`: These parameters significantly affect performance. A smaller window might capture short-term fluctuations, while a larger one might be too backward-looking. Similarly, the number of top symbols (`top_n`) determines how concentrated the strategy is.\n\n4. **Potential Issues**:\n   - Line 58: The use of `.to_list()` and slicing could fail if `closes` is not properly structured.\n   - Line 62-63: This formula might produce NaN or undefined results if any symbol's history does not contain enough data points.\n\nOverall, while the core idea is sound, improvements in handling edge cases and parameter robustness are necessary to make this strategy more reliable."
+  ],
+  "seconds": 34.455772599999364,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 75
+}

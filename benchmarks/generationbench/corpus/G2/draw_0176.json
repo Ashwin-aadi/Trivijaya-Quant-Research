@@ -1,0 +1,23 @@
+{
+  "index": 176,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeBreakout(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves suggest that a significant flow of buying or selling \"\n        \"is present. If this volume is accompanied by a price move in the direction of the flow, it \"\n        \"may indicate a continuation or acceleration of an existing trend.\"\n    )\n\n    def __init__(self, window: int = 10, breakout_threshold: float = 1.05) -> None:\n        self._window = window\n        self._breakout_threshold = breakout_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes()\n        if closes.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns or symbol not in closes.columns:\n                continue\n\n            close_values = [float(v) for v in history[symbol][\"close\"].to_list()]\n            volume_values = [float(v) for v in history[symbol][\"volume\"].to_list()]\n\n            latest_close = float(closes[0][symbol])\n            previous_close = close_values[-1]\n            breakout_condition = (latest_close - previous_close) / previous_close >= self._breakout_threshold\n\n            if not breakout_condition:\n                continue\n\n            # Check if the volume has increased significantly\n            last_volume = volume_values[-1]\n            volume_change = max(volume_values) / last_volume > 2.0\n\n            if volume_change:\n                breakout_signals[symbol] = 1.0\n\n        symbols_with_breakout = sorted(breakout_signals, key=breakout_signals.get, reverse=True)\n        weight_per_symbol = 1.0 / len(symbols_with_breakout) if symbols_with_breakout else 0\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight_per_symbol for s in symbols_with_breakout},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 550
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.527995900003589,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 182
+}

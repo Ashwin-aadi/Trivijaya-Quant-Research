@@ -1,0 +1,46 @@
+{
+  "index": 5,
+  "paradigm": "G7_mcts",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"A close below the lowest low over a 15-day lookback period signals potential continuation \"\n        \"of the downtrend. Identifying such breakouts allows us to enter positions with the expectation of further price decline.\"\n    )\n\n    def __init__(self, window: int = 15, max_positions: int = 3) -> None:\n        self._window = window\n        self._max_positions = max_positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 20)\n\n        if history.is_empty() or history.height < self._window + 20:\n            return Signal(information_available_at=stamp, weights={})\n\n        low_history = history.select(\n            pl.col(\"session_date\").alias(\"date\"),\n            pl.col(\"low\").alias(\"close\")\n        ).sort(\"date\").select(pl.col(\"close\"))\n\n        lows: list[float] = []\n        for symbol in view.symbols:\n            if symbol not in low_history.columns:\n                continue\n            values = [float(v) for v in low_history[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            lows.append(min(values))\n\n        breakout_symbols: list[str] = []\n        for symbol, low in zip(view.symbols, lows):\n            if view.closes(lookback=None)[symbol][-1] < low:\n                breakout_symbols.append(symbol)\n\n        breakout_symbols = breakout_symbols[: self._max_positions]\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 18993,
+    "output_tokens": 5829
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the breakout continuation strategy in the Indian market, I propose using the daily closing price as the signal. Measure the highest high over a lookback period of 20 days to identify potential upside breakouts.",
+    "For the breakout continuation strategy in the Indian market, I propose using the daily high price as the signal. Measure the lowest low over a lookback period of 15 days to identify potential downside breakouts.",
+    "For the breakout continuation strategy, I will hold a portfolio of 5 equities, each weighted equally at 20% to balance risk and diversify the portfolio.",
+    "For the breakout continuation strategy in the Indian market, we will hold a maximum of three names in the portfolio, each weighted equally at 33.33%. This balanced approach ensures diversification while maintaining responsiveness to price movements.",
+    "For the breakout continuation strategy in the Indian market, we will hold a maximum of three names in the portfolio, each weighted equally at 33.33%. This balanced approach ensures diversification while maintaining responsiveness to price movements.",
+    "For the breakout continuation strategy in the Indian market, holding a portfolio of 5 equities, each weighted equally at 20%, will balance risk and diversify the portfolio effectively.",
+    "To limit risk, we will set a stop-loss of 5% on an individual position and 10% on the overall portfolio. This ensures that any single stock does not dominate losses while also protecting against severe market downturns.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent significant exposure to any single stock. This ensures that no single investment can cause a disproportionate impact on the overall portfolio performance.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent significant losses on any single equity, which aligns with a stop-loss mechanism triggered at this threshold to halt further investment in that position. This helps manage risk while allowing the strategy to continue trading other equities in the portfolio.",
+    "To limit risk effectively, we will set a stop-loss of 5% on each individual position and a trailing stop at 10% loss for the overall portfolio. This approach balances protection against significant individual stock risks with safeguarding against broader market declines.",
+    "For the risk rule, I propose setting an individual position loss bound of -5% to prevent significant losses on any single equity. This limit will stop trading for that position once the loss reaches -5%, thus protecting against excessive risk exposure."
+  ],
+  "seconds": 211.9764095999999,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 72
+}

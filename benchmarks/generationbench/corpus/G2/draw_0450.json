@@ -1,0 +1,23 @@
+{
+  "index": 450,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks that have outperformed their peers in the past are likely to continue \"\n        \"outperforming due to a combination of momentum and investor preference. This strategy \"\n        \"aims to identify such stocks by comparing their recent returns against the broader market.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        market_returns = (closes[closes.columns[-1]] / closes[closes.columns[0]].shift(1) - 1.0).alias(\"market_return\")\n        stock_returns = {symbol: (closes[symbol] / closes[closes.columns[0]].shift(1) - 1.0).alias(f\"return_{symbol}\")\n                         for symbol in view.symbols}\n        combined_df = pl.concat([pl.DataFrame(market_returns), *stock_returns.values()], how=\"horizontal\")\n\n        mean_market_return = combined_df[\"market_return\"].mean()\n        stock_strengths = [float(combined_df[combined_df[f\"return_{symbol}\"] > mean_market_return][f\"return_{symbol}\"].sum())\n                           for symbol in view.symbols]\n\n        strong_stocks = sorted(zip(view.symbols, stock_strengths), key=lambda x: x[1], reverse=True)[:5]\n        if not strong_stocks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(strong_stocks)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, _ in strong_stocks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 498
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.45823940000264,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 458
+}

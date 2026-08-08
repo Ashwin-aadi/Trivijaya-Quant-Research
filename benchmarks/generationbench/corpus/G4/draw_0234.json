@@ -1,0 +1,27 @@
+{
+  "index": 234,
+  "paradigm": "G4_planning",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrengthIndexStrategy(Strategy):\n    rationale = (\n        \"This strategy identifies and invests in stocks with higher relative strength indices (RSI) \"\n        \"compared to the broader market index, such as Nifty 50. The RSI ranks each stock's performance \"\n        \"relative to the market, and top-performing stocks are selected for inclusion in the portfolio.\"\n    )\n\n    def __init__(self, window: int = 14, top_percentage: float = 0.1) -> None:\n        self._window = window\n        self._top_percentage = top_percentage\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty50 = list(view.symbols)\n        symbols = [symbol for symbol in view.symbols if symbol not in nifty50]\n        closes = view.closes(lookback=self._window)\n\n        rsi_series: dict[str, float] = {}\n        for symbol in symbols:\n            adj_closes = closes[symbol].to_list()\n            prices = pl.DataFrame({\"close\": adj_closes}).with_columns(\n                (pl.col(\"close\") / pl.col(\"close\").shift(1) - 1.0).alias(\"return\")\n            ).sort(\"close\", descending=True).select(\n                pl.col(\"return\").rank(method=\"ordinal\", descending=False)\n            ).to_series(name=f\"{symbol}_rsi\")\n\n            rsi_series[symbol] = float(prices[f\"{symbol}_rsi\"].mean())\n\n        sorted_rsis = sorted(rsi_series.items(), key=lambda x: x[1], reverse=True)\n        top_symbols = [s for s, _ in sorted_rsis[: int(len(symbols) * self._top_percentage)]]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrengthIndexStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2434,
+    "output_tokens": 951
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy based on relative strength against the broad universe in India, we will focus on identifying stocks with higher relative strength indices (RSI) compared to the broader market index, such as the Nifty 50. The economic mechanism is driven by the tendency for outperforming stocks to continue performing well due to positive earnings momentum and investor sentiment. This persistence can be attributed to the feedback loop of strong performance attracting more investors and further driving stock prices upwards.\n\nThe strategy will involve selecting the top-performing stocks from a ranked list based on their RSI relative to the Nifty 50. The rule could be: \"Select the top 10% of stocks with the highest RSI values, rebalance monthly, and hold for one year before re-selection.\" This approach capitalizes on the momentum effect while limiting risk through periodic rebalancing.",
+    "The signal for this systematic equity strategy involves computing the Relative Strength Index (RSI) for each stock in relation to the Nifty 50 index. The RSI is calculated using daily open, high, low, close prices over a lookback period of typically 14 days. On a given day, stocks are ranked based on their RSI values relative to the Nifty 50. The top 10% of stocks with the highest RSI values are selected for inclusion in the portfolio. This ranking and selection process is repeated daily, allowing for periodic rebalancing every month.",
+    "The systematic equity strategy will hold positions in 10 stocks selected from the top 10% based on their relative RSI compared to the Nifty 50. Each position will be equally weighted at 10% of the portfolio, ensuring balanced risk exposure across selected stocks. To manage risk, a stop-loss mechanism will limit potential losses to no more than 5% of the total portfolio value per stock, thereby capping individual stock risks and preserving capital across the portfolio."
+  ],
+  "seconds": 29.162066999997478,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 238
+}

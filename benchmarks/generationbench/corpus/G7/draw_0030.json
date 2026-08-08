@@ -1,0 +1,47 @@
+{
+  "index": 30,
+  "paradigm": "G7_mcts",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"This strategy selects stocks with the highest relative strength against the broad market \"\n        \"index. Relative strength is calculated by comparing a stock's closing price over the last 30 days \"\n        \"to the average closing price of all NIFTY 100 constituents during the same period.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_avg_closes = history.select(\n            pl.col(\"adj_close\").mean().alias(\"avg_close\")\n        )\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        closes = (\n            history.filter(pl.col(\"symbol\").is_in(symbols))\n            .group_by(\"session_date\", \"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") / nifty_avg_closes[\"avg_close\"] * 100).alias(\"rs\")\n            )\n            .sort(\"rs\", descending=True)\n        ).select(\"rs\")\n\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_10 = [row[0] for row in closes.head(10)[\"rs\"].to_list()]\n        weight = 1.0 / len(top_10)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_10},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20182,
+    "output_tokens": 6505
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the signal in this systematic equity strategy, I propose measuring the relative strength of a stock's close price over the last 30 trading days against the average closing price of all stocks in the NSE Index over the same period. This approach focuses on the closing prices to capture end-of-day market sentiment and uses a lookback of 30 days for a balance between relevance and data availability.",
+    "For the signal in this systematic equity strategy, I propose measuring the relative strength of a stock's high price over the last 20 trading days against the average high price of all stocks in the NSE Index over the same period. This approach captures intraday market pressures and uses a shorter lookback to maintain relevance and responsiveness.",
+    "The portfolio will hold 10 names with equal weighting of 10% each, ensuring a balanced exposure while simplifying management and reducing complexity.",
+    "The portfolio will consist of the top 50 stocks ranked by their relative strength, with weights proportional to each stock's rank, giving more weight to stronger performers while maintaining a balanced distribution across the top half of the ranked list.",
+    "The portfolio will hold 10 names with equal weighting of 10% each, ensuring balanced exposure while simplifying management and reducing complexity. This approach provides a straightforward allocation that can help in maintaining diversification and ease of implementation.",
+    "The portfolio will consist of the top 30 stocks ranked by their relative strength, with equal weighting for each selected stock. This approach ensures diversification while maintaining simplicity and responsiveness to market changes.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent significant exposure to any single stock. Additionally, the portfolio-wide loss limit will be set at -10%, which triggers a stop-loss mechanism to halt trading when this threshold is breached, ensuring overall risk management and protection.",
+    "For the risk rule, I propose setting an individual stock position limit of a maximum loss of 5% on any given trade to protect against extreme intraday fluctuations, while capping the total portfolio loss at 10% to manage broader market risks. This ensures that no single stock can significantly impact the overall strategy and provides a clear threshold for exiting trades.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent significant exposure to any single stock, and a portfolio-wide loss threshold of -10%, which would halt trading if exceeded, ensuring risk is managed effectively while maintaining strategy flexibility.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent significant exposure to any single stock, while capping the total portfolio loss at -10% to manage overall risk. These bounds will stop trading if either threshold is breached, ensuring controlled risk management.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent significant exposure to any single stock. This limit ensures that no single holding can negatively impact the portfolio disproportionately. Additionally, a portfolio-wide loss limit of -10% will trigger a stop-loss mechanism, halting trading when this threshold is breached to manage overall risk effectively.",
+    "For the risk rule, I propose setting an individual stock position limit of a maximum loss of 3% on any given trade to mitigate smaller but frequent losses, while capping the total portfolio loss at 8% to balance between protecting against extreme events and maintaining responsiveness to market dynamics. This approach aims to reduce overall portfolio volatility without overly restricting trading opportunities."
+  ],
+  "seconds": 193.44899870001245,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 378
+}

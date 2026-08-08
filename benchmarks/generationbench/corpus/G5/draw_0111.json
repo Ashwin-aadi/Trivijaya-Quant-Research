@@ -1,0 +1,26 @@
+{
+  "index": 111,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqualWeighing(Strategy):\n    rationale = (\n        \"Liquidity is a proxy for market confidence and tradability. By focusing on the most liquid \"\n        \"stocks, we can ensure that our trades are less likely to impact the price of these stocks, \"\n        \"potentially leading to more stable returns.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores: list[float] = []\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        volumes = [\n            float(v) for v in history[symbols].select(pl.col(\"volume\").sum()).to_series().to_list()[0]\n        ]\n        total_volume = sum(volumes)\n\n        for volume in volumes:\n            liquidity_scores.append(volume / total_volume)\n\n        top_n_symbols = sorted(zip(symbols, liquidity_scores), key=lambda x: x[1], reverse=True)[\n                        : self._top_n\n                    ]\n        weights = {symbol: 1.0 / len(top_n_symbols) for symbol, _ in top_n_symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_date()\n    return newest",
+  "class_name": "LiquidityWeightedEqualWeighing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3855,
+    "output_tokens": 1236
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also some weaknesses and potential issues:\n\n**Strengths:**\n- The rationale aligns well with the code logic in identifying liquidity as a key factor for stock selection.\n- The use of `polars` for data handling is efficient.\n\n**Weaknesses and Potential Issues:**\n\n1. **Rationale vs Code Disagreement:**\n   - Line 24 specifies selecting only the top 5 symbols, which contradicts the rationale stating \"Liquidity is a proxy for market confidence and tradability.\" This limitation may not fully leverage the liquidity information.\n\n2. **Potential Fails:**\n   - If `view.symbols` contains symbols not present in the history (Line 37), it could lead to an error.\n   - The strategy assumes that all selected symbols are present in the view's data, which might not always be the case.\n\n3. **Fragile Parameters:**\n   - The parameter `window` is hardcoded as 20, but this should ideally come from a configuration or dynamic input based on market conditions (Line 7).\n   - The selection of top symbols is hardcoded to 5 (Line 41), which might not be optimal for all markets.\n\n4. **Potential Stops:**\n   - If `history` does not have the expected columns, e.g., \"volume\" (Line 38), it could cause an error.\n   - The type assertion on Line 47 (`assert isinstance(newest, date)`) should use a more robust method to handle potential exceptions.\n\n5. **General Improvements:**\n   - Adding input validation and handling for edge cases, such as empty `view.symbols` or missing columns, would make the strategy more robust.\n   - Dynamically setting parameters based on historical data could improve adaptability (Line 7).\n\nOverall, while the core concept is sound, improvements in parameter flexibility, error handling, and dynamic input validation can enhance its reliability and applicability."
+  ],
+  "seconds": 32.62831129999995,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 226
+}

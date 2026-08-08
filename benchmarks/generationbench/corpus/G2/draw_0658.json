@@ -1,0 +1,23 @@
+{
+  "index": 658,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Historical data suggests that certain months of the year exhibit higher returns for \"\n        \"certain stocks due to seasonal patterns. For instance, some industries may benefit from \"\n        \"holiday periods, while others might see increased demand during certain seasons.\"\n    )\n\n    def __init__(self, lookback_period: int = 365, threshold_high: float = 0.15, \n                 threshold_low: float = -0.15) -> None:\n        self._lookback_period = lookback_period\n        self._threshold_high = threshold_high\n        self._threshold_low = threshold_low\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_period)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter by session_date to get the current month's returns\n        current_month_history = history.filter(\n            (pl.col(\"session_date\").dt.month() == stamp.month) &\n            (pl.col(\"session_date\") < stamp)\n        )\n\n        if current_month_history.height < 20:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the average return for each symbol in the current month\n        avg_returns = current_month_history.groupby(\"symbol\").agg(\n            pl.col(\"adj_close\").first().alias(\"open\"), \n            (pl.col(\"adj_close\") / pl.col(\"open\") - 1.0).alias(\"return\")\n        ).sort(\"return\", descending=True)\n\n        # Filter symbols based on the return threshold\n        high_return_symbols = avg_returns.filter(\n            (avg_returns[\"return\"] > self._threshold_high)\n        ).select([\"symbol\"]).to_dict(as_series=False)[\"symbol\"]\n        \n        low_return_symbols = avg_returns.filter(\n            (avg_returns[\"return\"] < self._threshold_low)\n        ).select([\"symbol\"]).to_dict(as_series=False)[\"symbol\"]\n\n        # Combine both lists and deduplicate\n        selected_symbols = list(set(high_return_symbols + low_return_symbols))\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in selected_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 601
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.597752000001492,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 669
+}

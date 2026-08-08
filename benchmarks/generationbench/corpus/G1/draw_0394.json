@@ -1,0 +1,23 @@
+{
+  "index": 394,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Certain stocks in the Indian market exhibit seasonality where their performance \"\n        \"varies significantly throughout the year. This strategy aims to capitalize on such \"\n        \"seasonal trends by identifying and investing in symbols that have historically performed \"\n        \"well during specific months.\"\n    )\n\n    def __init__(self, lookback_years: int = 3) -> None:\n        self._lookback_years = lookback_years\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_years)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        seasonal_trends: dict[str, float] = {}\n\n        for symbol in symbols:\n            # Calculate the monthly returns\n            monthly_returns = (\n                history.select(\n                    pl.col(\"session_date\").dt.month_name(),\n                    (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"),\n                )\n                .group_by(\"month\")\n                .agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n                .sort(\"avg_return\", descending=True)\n            )\n\n            # Extract the top month(s) with highest returns\n            if not monthly_returns.is_empty():\n                top_month = monthly_returns.head(1)[\"avg_return\"].to_list()[0]\n                seasonal_trends[symbol] = float(top_month)\n\n        if not seasonal_trends:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Normalize the trends to sum up to 1\n        total_trend = sum(seasonal_trends.values())\n        seasonal_weights = {symbol: trend / total_trend for symbol, trend in seasonal_trends.items()}\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, weight in seasonal_weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 523
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.283103599998867,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 400
+}

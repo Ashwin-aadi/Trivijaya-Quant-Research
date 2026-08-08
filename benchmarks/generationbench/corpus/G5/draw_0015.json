@@ -1,0 +1,26 @@
+{
+  "index": 15,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity is a proxy for market confidence and tradability. By equal-weighting \"\n        \"high-liquidity stocks, we aim to capture the benefits of liquid markets without \"\n        \"over-concentrating in any single stock.\"\n    )\n\n    def __init__(self, liquidity_threshold: float = 1_000_000, top_n: int = 20) -> None:\n        self._threshold = liquidity_threshold\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=365)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_screened = (\n            history.filter(pl.col(\"volume\") > self._threshold)\n            .group_by(\"symbol\")\n            .agg(\n                pl.count().alias(\"count\"),\n                pl.col(\"adj_close\").mean().alias(\"avg_close\"),\n            )\n            .sort(by=\"count\", descending=True)\n            .head(self._top_n)\n        )\n\n        symbols = liquidity_screened[\"symbol\"].to_list()\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3842,
+    "output_tokens": 1215
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to equal-weight high-liquidity stocks based on trading volume as a proxy for market confidence. Here are some critiques:\n\n1. **Rationale vs Code Mismatch**: The rationale mentions that the strategy aims to capture benefits of liquid markets without over-concentrating in any single stock, which is generally sound. However, the implementation only selects the top 10 symbols based on volume and equally weights them. This might not fully achieve the stated goal since equal weighting does spread risk but doesn't necessarily align with capturing all market confidence or tradability benefits.\n\n2. **Potential Rule Failure**: If there are no stocks meeting the liquidity threshold for a significant period, the strategy returns an empty weight distribution, which is a sensible default. However, it might be beneficial to have a minimum count requirement in `group_by` to avoid issues where too few symbols pass the filter.\n\n3. **Fragile Parameters**:\n   - The liquidity threshold (`1_000_000`) could be too low or high depending on market conditions and asset classes. For instance, it might not capture enough liquidity in highly traded markets.\n   - Selecting only 10 symbols is arbitrary; this number should ideally be parameterized to allow for more flexible portfolio construction.\n\n4. **Potential Issues**:\n   - The `history` DataFrame is expected to have columns like \"volume\", \"adj_close\", and \"symbol\". If any of these are missing, the code will fail.\n   - The function `_latest_visible(view)` assumes that `view.history()` contains a column named \"session_date\" with date values. This might not be guaranteed unless explicitly validated.\n\n5. **Sound Elements**:\n   - The use of equal weighting is conceptually sound for managing risk exposure uniformly across selected stocks.\n   - The strategy's simplicity in filtering by volume and then selecting top symbols based on count makes it straightforward to implement.\n\nIn summary, while the core idea is sound, there are aspects that could be improved or made more robust through parameter tuning and additional validation checks."
+  ],
+  "seconds": 32.09997269999985,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 32
+}

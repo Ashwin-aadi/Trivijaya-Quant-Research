@@ -1,0 +1,23 @@
+{
+  "index": 206,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following involves entering a position when the price \"\n        \"crosses above its 20-day moving average. The scaling factor is based on the historical \"\n        \"volatility of the asset, making it more aggressive during periods of high volatility.\"\n    )\n\n    def __init__(self, window: int = 20, scale_factor: float = 1.5) -> None:\n        self._window = window\n        self._scale_factor = scale_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        symbols = [symbol for symbol in view.symbols if symbol in closes.columns]\n\n        volatilities = {}\n        for symbol in symbols:\n            prices = history[symbol].to_list()\n            returns = [(prices[i] - prices[i - 1]) / prices[i - 1] for i in range(1, self._window + 1)]\n            volatility = sum([abs(r) for r in returns]) / self._window\n            volatilities[symbol] = volatility\n\n        signals: dict[str, float] = {}\n        for symbol in symbols:\n            last_close = closes[symbol].to_list()[-1]\n            moving_average = history[\"adj_close\"][symbol].mean()\n            if last_close > moving_average * (1 + self._scale_factor * volatilities.get(symbol, 0)):\n                signals[symbol] = self._scale_factor\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_scale = sum(signals.values())\n        weights = {symbol: signal / total_scale for symbol, signal in signals.items()}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 522
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.440842800002429,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 212
+}

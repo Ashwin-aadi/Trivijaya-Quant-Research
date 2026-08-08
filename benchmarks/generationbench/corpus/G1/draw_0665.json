@@ -1,0 +1,23 @@
+{
+  "index": 665,
+  "paradigm": "G1_plain",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"Breakouts that are sustained by continued volume and price movement suggest \"\n        \"that the market is not yet fully resolved on the breakout direction. We seek to \"\n        \"identify such breakouts where the momentum can be capitalized upon.\"\n    )\n\n    def __init__(self, window: int = 20, continuation_threshold: float = 1.5) -> None:\n        self._window = window\n        self._continuation_threshold = continuation_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * 2 + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or \"symbol\" not in history.columns:\n                continue\n            closes = history.select(pl.col(\"close\")).to_pandas().set_index(\"session_date\")\n            open_price = float(closes.iloc[0][\"close\"])\n            close_price = float(closes.iloc[-1][\"close\"])\n\n            if (\n                (close_price - open_price) / open_price > self._continuation_threshold\n                and history.filter(pl.col(\"symbol\") == symbol).filter(\n                    pl.col(\"volume\").rolling_sum(self._window, closed=\"both\") > 0\n                ).height\n                >= self._window * 2 + 1\n            ):\n                signals.append(symbol)\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(signals)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in signals},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1243,
+    "output_tokens": 478
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.956669500010321,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 678
+}

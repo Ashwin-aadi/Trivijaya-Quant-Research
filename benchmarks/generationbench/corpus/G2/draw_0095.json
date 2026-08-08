@@ -1,0 +1,23 @@
+{
+  "index": 95,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy exploits a composite signal based on both the 50-day moving average \"\n        \"and the relative strength index (RSI). The idea is that stocks often show stronger \"\n        \"performance when they are above their 50-day moving average and in an overbought or \"\n        \"oversold state as measured by RSI.\"\n    )\n\n    def __init__(self, ma_window: int = 50, rsi_window: int = 14) -> None:\n        self._ma_window = ma_window\n        self._rsi_window = rsi_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._ma_window, self._rsi_window))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        closes = view.closes(lookback=self._ma_window)\n        rsi_history = _compute_rsi(history, self._rsi_window)\n\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in symbols:\n            ma_value = closes[symbol].to_list()[-1]\n            rsi_value = rsi_history[symbol].to_list()[-1]\n\n            if history[\"adj_close\"][history.height - 1] > ma_value and rsi_value >= 70 or \\\n               history[\"adj_close\"][history.height - 1] < ma_value and rsi_value <= 30:\n                signals[symbol] = 1.0 / len(symbols)\n\n        return Signal(information_available_at=stamp, weights=signals)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _compute_rsi(history: pl.DataFrame, window: int) -> pl.DataFrame:\n    closes = history.select(pl.col(\"adj_close\")).to_pandas()\n    rsi_values = []\n\n    for symbol in closes.columns[1:]:\n        delta = closes[f\"{symbol}\"].diff().dropna()\n        gain = (delta.where(delta > 0, 0)).fillna(0)\n        loss = (-delta.where(delta < 0, 0)).fillna(0)\n\n        avg_gain = gain.rolling_mean(window).to_list()[window - 1:]\n        avg_loss = loss.rolling_mean(window).to_list()[window - 1:]\n\n        rs = [gain_i / loss_i if loss_i != 0 else 0 for gain_i, loss_i in zip(avg_gain, avg_loss)]\n        rsi = [100 - (100 / (1 + x)) for x in rs]\n\n        rsi_values.append(rsi)\n\n    return pl.DataFrame({symbol: values for symbol, values in zip(closes.columns[1:], rsi_values)})",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 705
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.6457969999974,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 99
+}

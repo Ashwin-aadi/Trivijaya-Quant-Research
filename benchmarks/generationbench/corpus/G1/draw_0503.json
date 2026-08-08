@@ -1,0 +1,23 @@
+{
+  "index": 503,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeVolatilityMomentum(Strategy):\n    rationale = (\n        \"This strategy combines high historical volatility with recent momentum to identify \"\n        \"potentially strong and volatile stocks in the NIFTY 100 index. High volatility often \"\n        \"indicates a stock with significant price movement, which can be profitable if the \"\n        \"momentum is positive.\"\n    )\n\n    def __init__(self, window_volatility: int = 20, threshold_volatility: float = 0.5) -> None:\n        self._window_volatility = window_volatility\n        self._threshold_volatility = threshold_volatility\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window_volatility)\n        if closes.height < self._window_volatility:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility_scores = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window_volatility:\n                continue\n\n            daily_returns = [(values[i] - values[i-1]) / values[i-1] for i in range(1, len(values))]\n            volatility_score = pl.Series(daily_returns).abs().mean()\n            if volatility_score >= self._threshold_volatility:\n                volatility_scores[symbol] = volatility_score\n\n        if not volatility_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        sorted_symbols = [k for k, v in sorted(volatility_scores.items(), key=lambda item: -item[1])]\n        top_n = min(len(sorted_symbols), 5)\n        picks = sorted_symbols[:top_n]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeVolatilityMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 514
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.758827500001644,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 510
+}

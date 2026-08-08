@@ -1,0 +1,26 @@
+{
+  "index": 108,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed \"\n        \"well in the recent past to continue outperforming. By investing in the top performers, \"\n        \"the strategy aims to capture this momentum effect.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns or symbol not in view.symbols:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            recent_closes = values[-self._window:]\n            momentum_score = sum(recent_closes) / max(recent_closes)\n            # Avoid divide-by-zero error by checking the maximum value before computing\n            if max(recent_closes) > 0:\n                momentum_scores[symbol] = momentum_score\n\n        top_symbols = sorted(momentum_scores.items(), key=lambda x: x[1], reverse=True)[:self._top_n]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, _ in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3964,
+    "output_tokens": 1355
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy implementation generally aligns with its stated rationale of exploiting cross-sectional momentum. However, there are a few areas where the code can be improved for robustness and correctness:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale states that \"By investing in the top performers, the strategy aims to capture this momentum effect.\" In line 27, `momentum_score` is calculated as the sum of recent close prices divided by the maximum recent close price. This approach does not directly measure relative performance but rather an aggregate and max comparison, which might not accurately reflect momentum.\n\n2. **Potential Failures:**\n   - Line 34: The condition `if len(values) < self._window:` can still result in a divide-by-zero error if all values are zero.\n   - Line 57: If `top_symbols` is empty, the strategy returns an empty weights dictionary, which might not be ideal as it could indicate that no signals should be generated.\n\n3. **Fragile Parameters:**\n   - The parameters `window` and `top_n` (lines 6-8) are fixed for all stocks, ignoring stock-specific characteristics or market conditions that might require dynamic parameter adjustment.\n   - There is no validation on the type of data in `closes`, which could lead to errors if non-numeric values are present.\n\n4. **Potential Issues:**\n   - Line 21: The function `_latest_visible` assumes `visible` has a column named \"session_date\". If this assumption fails, it will raise an assertion error.\n   - There is no handling for missing data or NaNs in the close prices (line 30), which could affect momentum scores if not addressed.\n\n5. **Sound Parts:**\n   - The overall structure of generating signals based on recent performance and selecting top stocks aligns well with the stated rationale.\n   - The use of Polars (`closes`) for data manipulation is efficient and appropriate for backtesting.\n\nTo improve robustness, consider adding checks for `NaN` values, dynamic parameter adjustments based on market conditions, and more specific error handling."
+  ],
+  "seconds": 35.08284159999948,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 220
+}

@@ -1,0 +1,27 @@
+{
+  "index": 18,
+  "paradigm": "G4_planning",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"This strategy exploits the tendency of outperforming stocks to continue outperforming \"\n        \"by selecting stocks with a higher relative strength index (RSI) compared to the Nifty 50 or S&P BSE Sensex over the past 6 months. It aims to capture gains from outperforming stocks while managing risk through periodic adjustments and diversification.\"\n    )\n\n    def __init__(self, window: int = 180, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty50 = view.closes(lookback=self._window).to_series().rename(\"NIFTY50\")\n        symbols = view.symbols\n\n        def rsi_calculation(df: pl.DataFrame) -> float:\n            close = df[\"close\"]\n            delta = close.diff().drop_nulls()\n            gain = (delta.where(delta > 0, other=0)).sum() / self._window\n            loss = (-delta.where(delta < 0, other=0)).sum() / self._window\n            rs = gain / loss if loss != 0 else float(\"inf\")\n            return 100 - (100 / (1 + rs))\n\n        rsi_scores: dict[str, float] = {}\n        for symbol in symbols:\n            close_series = history.select(pl.col(\"close\").filter(pl.col(\"symbol\") == symbol)).to_series().rename(symbol)\n            combined = pl.concat([nifty50, close_series]).sort(by=\"session_date\")\n            rsi_score = rsi_calculation(combined.slice(self._window))\n            rsi_scores[symbol] = rsi_score\n\n        sorted_symbols = [k for k, v in sorted(rsi_scores.items(), key=lambda item: -item[1])][: self._top_n]\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_series().to_list()[0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2436,
+    "output_tokens": 1012
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy exploiting relative strength against the broad universe in India, we will identify stocks outperforming the broader market index over a defined period. The economic mechanism is based on the historical tendency for outperformers to continue outperforming due to factors like positive momentum and investor sentiment. This persistence can be attributed to sustained favorable earnings reports, strong fundamentals, or positive news cycles.\n\nThe trading rule will involve selecting stocks from an Indian equity universe that have a higher relative strength index (RSI) compared to the Nifty 50 or S&P BSE Sensex over the past 6 months. The top-performing 10-20% of these stocks would be shortlisted for investment, with positions rebalanced monthly. This approach aims to capture the gains from outperforming stocks while managing risk through periodic adjustments and diversification.",
+    "To develop the systematic equity trading strategy, compute the Relative Strength Index (RSI) for each stock in the Indian equity universe relative to the Nifty 50 or S&P BSE Sensex over a 6-month lookback period. The RSI is calculated using daily open, high, low, close, and volume data. On a given day, rank stocks based on their RSI values, selecting the top 10-20% as candidates for investment. Rebalance positions monthly to maintain the selected stock portfolio.",
+    "For this systematic equity strategy, we will hold a portfolio of 10-20 stocks, selected based on their higher Relative Strength Index (RSI) compared to the Nifty 50 or S&P BSE Sensex over the past 6 months. Each stock in the portfolio will be equally weighted, ensuring a balanced exposure. To manage risk, we will limit the maximum loss per trade to no more than 2% of the total portfolio value at any given time, and maintain a stop-loss order to exit positions if they decline by 5%. This approach balances the potential for gains from outperforming stocks while keeping individual risks contained."
+  ],
+  "seconds": 30.41294349999953,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 19
+}

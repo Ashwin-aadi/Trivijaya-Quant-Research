@@ -1,0 +1,26 @@
+{
+  "index": 151,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates increased volatility and potential breakout. \"\n        \"Identifying stocks with reduced price range can signal upcoming momentum.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        symbols = [s for s in view.symbols if s in closes.columns]\n        if len(symbols) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        high_low_diffs = {\n            symbol: abs(float(history.filter(pl.col(\"symbol\") == symbol)[\"high\"].max())) -\n                    abs(float(history.filter(pl.col(\"symbol\") == symbol)[\"low\"].min()))\n            for symbol in symbols\n        }\n\n        compressed_symbols = [\n            symbol for symbol, diff in high_low_diffs.items() if diff <= self._threshold * max(high_low_diffs.values())\n        ]\n        weights = {symbol: 1.0 / len(compressed_symbols) for symbol in compressed_symbols}\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, weight in weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().date()\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3950,
+    "output_tokens": 1291
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "### Critique of the `RangeCompression` Strategy\n\n1. **Rationale vs. Code Disagreement:**\n   - The rationale states that \"Range compression indicates increased volatility and potential breakout.\" However, the code actually identifies symbols with reduced price range (`high_low_diffs <= 0.2 * max(high_low_diffs.values())`). This discrepancy suggests a misalignment between the strategy's intent (identifying volatile movements) and its implementation.\n\n2. **Potential Failures:**\n   - Line 19: If `view.history()` is empty, the code should handle this more gracefully to avoid returning an incorrect signal.\n   - Line 25: The `closes` DataFrame might not always contain data for all symbols, leading to potential errors if a symbol is missing.\n\n3. **Fragile Parameters:**\n   - The threshold of `0.2` in the line `high_low_diffs <= 0.2 * max(high_low_diffs.values())` is hardcoded and arbitrary. This value might not work well for all markets or time periods.\n   - Line 31: The code assumes that `history.filter(pl.col(\"symbol\") == symbol)[\"high\"].max()` will always return a non-null value, which could fail if there are no high values in the history.\n\n4. **Potential Issues:**\n   - Line 20-23: If fewer than `self._window` symbols are available, the code returns an empty weights dictionary, which might not be intuitive or useful for backtesting.\n   - The use of `assert isinstance(newest, date)` (line 37) is unnecessary and can be replaced with a simple type check.\n\n5. **Code Soundness:**\n   - Lines 10-24: These lines are sound if the rationale aligns with identifying symbols with reduced price range as potential momentum signals.\n   - The `_latest_visible` function (line 37) is somewhat redundant and can be simplified, but it does not impact the overall logic.\n\nIn summary, while the strategy has a clear rationale, there are issues with how volatility is interpreted and implemented. Improvements could involve better handling of edge cases and parameter tuning to ensure robustness."
+  ],
+  "seconds": 33.557122599999275,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 306
+}

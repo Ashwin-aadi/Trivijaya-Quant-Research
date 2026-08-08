@@ -1,0 +1,27 @@
+{
+  "index": 83,
+  "paradigm": "G4_planning",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ITHealthcareComposite(Strategy):\n    rationale = (\n        \"This strategy exploits the divergence in price movements between sectors with \"\n        \"low correlation, such as IT and healthcare. By combining metrics from both sectors, \"\n        \"we aim to capture opportunities during macroeconomic uncertainties or shifts in investor sentiment.\"\n    )\n\n    def __init__(self, it_window: int = 30, health_window: int = 60) -> None:\n        self._it_window = it_window\n        self._health_window = health_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=max(self._it_window, self._health_window))\n        if closes.height < max(self._it_window, self._health_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        it_signals = {}\n        health_signals = {}\n\n        for symbol in view.symbols:\n            it_closes = closes.select([pl.col(symbol).alias(\"close\")])\n            health_closes = closes.select([pl.col(symbol).alias(\"close\")])\n\n            if \"IT\" in symbol:\n                it_signal = (it_closes[\"close\"].mean() - it_closes[\"close\"].shift(self._it_window)).sum()\n                it_signals[symbol] = float(it_signal)\n            elif \"Healthcare\" in symbol:\n                health_signal = (health_closes[\"close\"].mean() - health_closes[\"close\"].shift(self._health_window)).sum()\n                health_signals[symbol] = float(health_signal)\n\n        combined_scores = {s: 0.5 * it_signals.get(s, 0) + 0.5 * health_signals.get(s, 0) for s in view.symbols}\n\n        top_stocks = sorted(combined_scores.items(), key=lambda x: -x[1])[:20]\n\n        weights = {stock: score / sum(combined_scores.values()) for stock, score in top_stocks}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ITHealthcareComposite",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2567,
+    "output_tokens": 986
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy for the Indian market based on a composite of two weakly related characteristics, we can focus on sectors with low correlation. For instance, combine metrics from the IT sector (e.g., revenue growth) with those from the healthcare sector (e.g., profit margins). The economic mechanism could be that during macroeconomic uncertainties or shifts in investor sentiment, these unrelated sectors might exhibit distinct price movements.\n\nThis composite characteristic is likely to persist due to diversified economic drivers and less co-movement between sectors. To exploit this, we can create a rule-based strategy where the portfolio is rebalanced based on a weighted average of both characteristics. For example, if revenue growth in IT surpasses expectations while profit margins in healthcare weaken, an overweight position could be taken in IT stocks. This approach aims to capture opportunities from divergent market behaviors without being overly sensitive to sector-specific events.",
+    "For this strategy, the signals are derived from two distinct sectors: IT and healthcare. Each sector's signal is calculated based on its respective characteristic:\n\n1. **IT Sector Signal**: Compute the 30-day rolling average of revenue growth percentage using daily high and low prices (to approximate price volatility) and close prices for accurate valuation.\n2. **Healthcare Sector Signal**: Calculate the 60-day moving average of profit margin, derived from daily volume-weighted average price and company-reported financial data.\n\nOn each trading day, rank all available stocks within their respective sectors based on these signals. For instance, IT stocks with higher revenue growth scores are ranked higher, while healthcare stocks with better profit margins receive higher ranks. The final ranking across both sectors will determine the portfolio composition for rebalancing. Stocks with the highest composite scores (weighted average of IT and healthcare signal scores) are selected for inclusion in the portfolio.",
+    "The strategy holds a diversified portfolio of approximately 20-30 IT and healthcare stocks each, totaling 40-60 names. Position sizes are proportional to the composite score, with the top-ranked stock receiving the largest allocation. Each position is capped at 1% of the portfolio to limit individual risk exposure. The total loss limit per trading day is set at 2%, ensuring that no single market movement can significantly impact the overall strategy performance."
+  ],
+  "seconds": 29.890192099999695,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 86
+}

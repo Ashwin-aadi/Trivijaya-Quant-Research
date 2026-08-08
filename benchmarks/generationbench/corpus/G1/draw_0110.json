@@ -1,0 +1,23 @@
+{
+  "index": 110,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy follows trends based on volatility. High recent volatility suggests \"\n        \"that the market is uncertain and potentially more prone to trend continuation or reversal. \"\n        \"We enter into a position if the current close is above (or below) its mean over a period, \"\n        \"indicating a strong trend.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = [float(v) for v in view.closes().drop_nulls().to_list()]\n        mean_close = sum(closes[-self._window:]) / self._window\n        std_dev_close = (sum((c - mean_close) ** 2 for c in closes[-self._window:]) /\n                         self._window) ** 0.5\n\n        if abs(view.latest_close()[view.symbols[0]] - mean_close) >= std_dev_close * self._threshold:\n            direction = \"long\" if view.latest_close()[view.symbols[0]] > mean_close else \"short\"\n            return Signal(\n                information_available_at=stamp,\n                weights={s: 1.0 for s in view.symbols},\n                market_view=view.market_view(),\n            )\n\n        return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 453
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.438466399995377,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 114
+}

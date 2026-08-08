@@ -1,0 +1,23 @@
+{
+  "index": 581,
+  "paradigm": "G1_plain",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakouts often continue in the direction of the breakout. This strategy identifies \"\n        \"breakout candidates and holds them for a few more sessions to capture continuation \"\n        \"profit potential.\"\n    )\n\n    def __init__(self, window: int = 20, hold_days: int = 3) -> None:\n        self._window = window\n        self._hold_days = hold_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._hold_days)\n        if history.height < self._window + self._hold_days:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or \"session_date\" not in history.columns:\n                continue\n            history_subset = history.select(\n                pl.col(\"session_date\"), pl.col(symbol).alias(f\"{symbol}_adj_close\")\n            )\n            prices = [float(v) for v in history_subset[f\"{symbol}_adj_close\"].to_list()]\n            if len(prices) < self._window + 1:\n                continue\n            breakout_price = max(prices[-self._window :])\n            if prices[-1] == breakout_price and prices[-2] < breakout_price:\n                breakout_symbols.append(symbol)\n\n        weights = {symbol: 1.0 / len(breakout_symbols) for symbol in breakout_symbols}\n        return Signal(\n            information_available_at=stamp, weights={s: w for s, w in weights.items()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1243,
+    "output_tokens": 447
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.904650299999048,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 591
+}

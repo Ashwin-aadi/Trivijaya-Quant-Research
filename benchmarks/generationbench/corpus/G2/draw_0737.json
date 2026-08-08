@@ -1,0 +1,23 @@
+{
+  "index": 737,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakouts often continue in the direction they initially broke. By identifying stocks \"\n        \"that have recently broken out and continue to move above their previous high, we can \"\n        \"capitalize on this momentum.\"\n    )\n\n    def __init__(self, window: int = 20, continuation_days: int = 5) -> None:\n        self._window = window\n        self._continuation_days = continuation_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._continuation_days)\n\n        if history.height < self._window + self._continuation_days:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = []\n        for symbol in view.symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol)\n            close_values = [float(v) for v in df[\"adj_close\"].to_list()]\n\n            if len(close_values) < self._window + self._continuation_days:\n                continue\n\n            breakout_price = max(close_values[-self._window:])\n            continuation_price = max(close_values[-self._continuation_days:])\n\n            if close_values[-1] >= continuation_price > breakout_price:\n                breakout_symbols.append(symbol)\n\n        weights = {s: 1.0 / len(breakout_symbols) for s in breakout_symbols}\n        return Signal(\n            information_available_at=stamp, weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 416
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.924908300003153,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 749
+}

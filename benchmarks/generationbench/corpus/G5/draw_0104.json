@@ -1,0 +1,26 @@
+{
+  "index": 104,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are often indicative of significant market \"\n        \"sentiment shifts. By identifying symbols that show a strong and sustained price movement \"\n        \"across multiple sessions with concurrent volume increases, we can capture potential \"\n        \"opportunities.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 0.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_confirmed_symbols: list[str] = []\n        for symbol in view.symbols:\n            symbol_history = history.filter(pl.col(\"symbol\") == symbol).sort(\n                \"session_date\"\n            )\n            recent_closes = [float(v) for v in symbol_history[\"adj_close\"].to_list()]\n            if len(recent_closes) < self._window + 1:\n                continue\n\n            price_changes = [\n                (recent_closes[i] - recent_closes[i - 1]) / recent_closes[i - 1]\n                for i in range(1, len(recent_closes))\n            ]\n            volume_changes = [float(v) for v in symbol_history[\"volume\"].to_list()]\n            if all(\n                abs(change) > self._threshold and vol_change > 0\n                for change, vol_change in zip(price_changes, volume_changes)\n            ):\n                volume_confirmed_symbols.append(symbol)\n\n        if not volume_confirmed_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(volume_confirmed_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight for symbol in volume_confirmed_symbols\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date), \"Expected session_date to be of type date\"\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4029,
+    "output_tokens": 1405
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is well-structured but has several potential issues:\n\n1. **Rationale vs. Code**:\n   - The rationale states a focus on \"significant market sentiment shifts\" through volume-confirmed directional moves.\n   - However, the code does not explicitly account for market sentiment; it focuses solely on price and volume changes. This discrepancy could mislead users about what the strategy actually captures.\n\n2. **Potential Failures**:\n   - The `price_changes` calculation uses the first close as a reference point (`recent_closes[i-1]`). If there are missing values (e.g., if the dataset starts with an open or gap), this could lead to incorrect calculations.\n   - The strategy assumes that all price changes must be above the threshold and have positive volume changes. This can fail when there's significant volatility but no sustained directional move, leading to false negatives.\n\n3. **Fragile Parameters**:\n   - The `threshold` parameter is set at 1.0, which might be too high for some datasets. A value of 1.0 means only price increases are considered, ignoring decreases. This could make the strategy overly conservative.\n   - The window length (`_window`) should have a default value with considerations for different market conditions and data availability.\n\n4. **Code Issues**:\n   - Line 27: `volume_changes` is calculated from raw volume values without considering whether they are increasing or decreasing relative to price changes, which might not capture the intended \"sustained\" movement.\n   - The function `_latest_visible` (line 51) uses `assert isinstance(newest, date)` but does not handle non-date cases, leading to potential runtime errors.\n\nOverall, while the strategy has a solid foundation, it could benefit from more nuanced handling of price and volume changes, improved parameter sensitivity, and robust error checking."
+  ],
+  "seconds": 36.32369100000051,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 212
+}

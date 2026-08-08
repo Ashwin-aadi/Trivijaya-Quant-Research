@@ -1,0 +1,26 @@
+{
+  "index": 266,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to identify trending stocks by measuring the \"\n        \"volatility of recent price movements and scaling that volatility against a fixed period's \"\n        \"returns. When the current return exceeds this scaled value, it suggests a trend may be forming.\"\n    )\n\n    def __init__(self, window: int = 20, scale_factor: float = 1.5) -> None:\n        self._window = window\n        self._scale_factor = scale_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_close = view.latest_close()\n        symbols = view.symbols\n\n        # Calculate daily returns\n        history = (\n            history\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\")\n            )\n            .sort(\"session_date\", descending=True)\n            .tail(self._window + 1)\n        )\n\n        # Calculate mean and std of returns over the lookback period\n        means = history.select(pl.col(\"r\").mean()).item()\n        stds = history.select(pl.col(\"r\").std()).item()\n\n        # Scale the mean return by the standard deviation\n        scaled_mean = means * self._scale_factor\n\n        picks: list[str] = []\n        for symbol in symbols:\n            if symbol not in latest_close or latest_close[symbol] is None:\n                continue\n            current_return = (latest_close[symbol] / history.select(pl.col(symbol).first()).item() - 1.0)\n            if current_return > scaled_mean:\n                picks.append(symbol)\n\n        # Handle cases where no symbols meet the criteria\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return view.as_of\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4174,
+    "output_tokens": 1523
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy implements a volatility-scaled trend-following approach with a clear rationale. However, there are several aspects to critique:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale mentions measuring recent price movements' volatility and scaling it against fixed period returns. However, the code calculates daily returns directly without explicitly defining the lookback window for volatility calculation.\n     - **Line 27**: `history = history.with_columns((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\"))`\n   - The rationale states that a trend is identified when the current return exceeds the scaled mean, but the code doesn't account for volatility in this comparison.\n\n2. **Potential Failures**:\n   - If `latest_close` contains missing values (None), it could lead to incorrect weight calculations.\n     - **Line 54**: `if current_return > scaled_mean:`\n   - The strategy assumes that there are at least five symbols meeting the criteria, which might not always be true.\n     - **Lines 61-62**: `picks = picks[:5]`\n\n3. **Fragile Parameters**:\n   - The default values for `window` and `scale_factor` are hard-coded (20 and 1.5 respectively). These need to be tuned based on historical data.\n     - **Lines 9-10**: `self._window = window` and `self._scale_factor = scale_factor`\n\n4. **Running Issues**:\n   - The function `_latest_visible(view)` always returns the earliest date if the history is empty, which might not make sense in all contexts.\n     - **Line 37**: `return date(1900, 1, 1)`\n   - The strategy does not handle cases where the input data might be out of order or incomplete.\n\nOverall, while the core idea is sound, specific implementations and assumptions need refinement to ensure robustness."
+  ],
+  "seconds": 38.76523980000093,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 540
+}

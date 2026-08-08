@@ -1,0 +1,26 @@
+{
+  "index": 286,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Certain periods of the year may exhibit stronger trends or higher returns in specific sectors. \"\n        \"This strategy aims to identify and capitalize on these seasonal effects by overweighting symbols that have historically performed well during certain months.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window * 365)\n        if history.height < self._window * 365:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_trends: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(closes) < self._window * 365:\n                continue\n            monthly_returns: list[float] = []\n            for i in range(len(closes) - 1):\n                month = (history[\"session_date\"][i].month - 1) % 12\n                next_month = (history[\"session_date\"][i + 1].month - 1) % 12\n                if month == next_month:\n                    monthly_returns.append((closes[i + 1] - closes[i]) / closes[i])\n            avg_return = sum(monthly_returns) / len(monthly_returns)\n            seasonal_trends[symbol] = avg_return\n\n        top_symbols = sorted(seasonal_trends, key=seasonal_trends.get, reverse=True)[: self._top_n]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3927,
+    "output_tokens": 1378
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy provided is generally well-structured but has a few areas for improvement and potential issues:\n\n1. **Rationale vs Code Mismatch**:\n   - The rationale states the goal is to \"capitalize on these seasonal effects by overweighting symbols that have historically performed well during certain months.\" However, the code computes average monthly returns without considering historical trends or seasonality over multiple years.\n\n2. **Potential Failure Conditions**:\n   - Line 18: `if history.height < self._window:` \u2014 This check is necessary but might not be sufficient. A symbol might have enough data points but still show poor performance, which the strategy could miss.\n   \n3. **Fragile Parameters**:\n   - The window size (`self._window`) and top-n symbols (`self._top_n`) are hardcoded as 60 and 5 respectively. These values should be validated against real-world data to ensure they capture meaningful seasonal trends.\n\n4. **Potential Errors in Code**:\n   - Line 19: `if symbol not in history.columns:` \u2014 This check might fail if the column names do not match exactly, leading to incorrect handling of symbols.\n   \n5. **Incomplete Handling of Edge Cases**:\n   - The strategy does not handle cases where no symbols meet the criteria for being included in the top N. While this is mitigated by returning an empty weights dictionary, it\u2019s worth considering a default action or warning.\n\n6. **Dependencies on `MarketView` and `Signal`**:\n   - Ensure that the classes `MarketView` and `Signal` are correctly implemented and available when this strategy runs. Import statements should be checked for correctness.\n   \n7. **Missing Data Handling**:\n   - The code does not explicitly handle missing data or outliers in the price history, which could significantly affect the calculated returns.\n\nOverall, the core idea of leveraging historical performance to identify seasonal trends is sound, but additional robustness and validation are needed to ensure reliable performance."
+  ],
+  "seconds": 35.72142469999926,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 580
+}

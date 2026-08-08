@@ -1,0 +1,23 @@
+{
+  "index": 117,
+  "paradigm": "G1_plain",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"By tilting towards low-volatility stocks, we aim to capture this premium.\"\n    )\n\n    def __init__(self, lookback: int = 60) -> None:\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_groups = history.group_by(\"symbol\").agg(\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"returns\")\n        )\n        returns_mean = symbol_groups.select(\n            pl.col(\"returns\").mean().alias(\"mean_return\")\n        ).collect()\n        std_dev = history.group_by(\"symbol\").agg(\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).std().alias(\"volatility\")\n        ).collect()\n\n        combined_data = returns_mean.join(std_dev, on=\"symbol\", how=\"inner\")\n        sorted_symbols = (\n            combined_data.with_columns(\n                (pl.col(\"volatility\") / pl.col(\"mean_return\").abs()).alias(\"tilted_score\")\n            )\n            .sort(\"tilted_score\", descending=True)\n            .select(pl.col(\"symbol\"))\n        ).to_series()\n\n        top_n_symbols = [str(symbol) for symbol in sorted_symbols[:10]]\n\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 510
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.57537420000881,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 121
+}

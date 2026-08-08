@@ -1,0 +1,23 @@
+{
+  "index": 136,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass PriceReversion(Strategy):\n    rationale = (\n        \"Price reversion strategies exploit the tendency for prices to revert to recent \"\n        \"mean levels. This strategy identifies stocks that have moved far from their mean \"\n        \"price over a lookback period and bets on them moving back.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the mean price and standard deviation\n        means = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\").mean().alias(\"mean\"),\n                 pl.col(\"adj_close\").std().alias(\"std\"))\n            )\n            .to_horizontal(\"symbol\", \"mean\", \"std\")\n        )\n\n        # Calculate the z-score for each closing price\n        means_with_zscore = (\n            history.join(means, on=\"symbol\", how=\"left\")\n            .with_column(\n                (pl.col(\"adj_close\") - pl.col(\"mean\")) / pl.col(\"std\").fill_null(1).alias(\"z_score\")\n            )\n        )\n\n        # Filter out symbols with insufficient data or too close to the mean\n        filtered_history = means_with_zscore.select([\"symbol\", \"session_date\", \"adj_close\", \"z_score\"])\n        filtered_history = filtered_history.filter(\n            (pl.col(\"z_score\") > self._threshold) | (pl.col(\"z_score\") < -self._threshold)\n        )\n\n        # Find the latest session's symbol with high or low z-score\n        latest_session = view.history(lookback=None).select([\"symbol\", \"adj_close\"])\n        combined = filtered_history.join(latest_session, on=\"symbol\", how=\"inner\")\n\n        if combined.height == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Determine the symbol to invest in based on the highest z-score\n        target_symbol = (\n            combined.sort(\"z_score\", descending=True)\n            .select([\"symbol\"])\n            .head(1)[\"symbol\"]\n            .to_list()[0]\n        )\n\n        weight = 1.0\n        return Signal(information_available_at=stamp, weights={target_symbol: weight})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "PriceReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 624
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.013295700002345,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 140
+}

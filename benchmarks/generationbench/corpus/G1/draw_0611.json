@@ -1,0 +1,23 @@
+{
+  "index": 611,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two characteristics: the 20-day return and the relative strength \"\n        \"index (RSI) over a 14-day period. A high return suggests strong momentum, while RSI above \"\n        \"70 indicates potential oversold conditions.\"\n    )\n\n    def __init__(self, window_return: int = 20, window_rsi: int = 14) -> None:\n        self._window_return = window_return\n        self._window_rsi = window_rsi\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_return + self._window_rsi)\n        if history.height < self._window_return + self._window_rsi:\n            return Signal(information_available_at=stamp, weights={})\n\n        rsi_threshold = 70\n        returns: dict[str, float] = {}\n        for symbol in view.symbols:\n            closes = history.select(pl.col(\"symbol\").eq(symbol).alias(\"is_symbol\")).select(\n                pl.col(\"adj_close\")\n            ).to_series()\n            if len(closes) < self._window_return + self._window_rsi:\n                continue\n            returns[symbol] = (closes[-1] / closes[0] - 1.0)\n\n        rsi: dict[str, float] = {}\n        for symbol in view.symbols:\n            closes = history.select(pl.col(\"symbol\").eq(symbol).alias(\"is_symbol\")).select(\n                pl.col(\"adj_close\")\n            ).to_series()\n            if len(closes) < self._window_rsi:\n                continue\n            delta = closes.diff().drop_nulls().shift(-1)\n            gain = delta.where(delta > 0.0, 0.0).sum() / (len(delta) - 1)\n            loss = -delta.where(delta < 0.0, 0.0).sum() / (len(delta) - 1)\n            rsi[symbol] = 100 - (100 / (1 + gain / loss))\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in returns or symbol not in rsi:\n                continue\n            if returns[symbol] > 0.1 and rsi[symbol] < rsi_threshold:\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 661
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 18.383692000003066,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 624
+}

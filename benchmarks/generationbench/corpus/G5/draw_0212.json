@@ -1,0 +1,26 @@
+{
+  "index": 212,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong buying or selling pressure. \"\n        \"By identifying such moves and holding the directionally strongest stocks, we aim to \"\n        \"capitalize on the momentum.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if f\"{s}_volume\" in history.columns and all(history.select(pl.col(s).alias(\"symbol\")).height > 0)]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the directional moves\n        moves = (\n            history.select(\n                pl.col(\"symbol\").alias(\"symbol\"), \"session_date\", (pl.col(\"close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"directional_move\")\n            )\n            .group_by(\"symbol\")\n            .agg((pl.col(\"directional_move\").sum().abs()).alias(\"total_move\"), (pl.col(\"volume\").sum()).alias(\"total_volume\"))\n        )\n\n        # Filter out negative directional moves\n        filtered_moves = moves.filter(pl.col(\"directional_move\") >= 0)\n\n        # Rank by the sum of absolute directional moves and total volume\n        ranked_moves = (\n            filtered_moves.sort(\"total_move\", descending=True)\n            .sort(\"total_volume\", descending=True)\n            .select(pl.col(\"symbol\"))\n            .head(5)\n        )\n\n        if ranked_moves.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(ranked_moves)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in ranked_moves.to_list()[0]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4013,
+    "output_tokens": 1407
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy `VolumeConfirmMove` generally aligns well with its stated rationale of identifying strong buying or selling pressure through volume-confirmed directional moves. However, there are some areas for improvement and potential issues:\n\n1. **Potential Rule Failure:**\n   - Line 36 calculates the sum and absolute value of directional moves. If a stock has consecutive days where `close` is lower than its previous adjusted close (`adj_close`), this will result in negative values which are then summed up, potentially leading to misleading results.\n   - Suggestion: Consider using a condition that only sums positive directional moves or normalizing the move calculation.\n\n2. **Fragile Parameters:**\n   - The `window` parameter is hardcoded at 20 (Line 8). This might be too short for some markets and too long for others, making the strategy less adaptable.\n   - Suggestion: Allow this parameter to be dynamically set or optimized based on historical data.\n\n3. **Potential Issues with Running Code:**\n   - Line 14 checks if `history` is empty but doesn\u2019t handle the case where it contains no symbols. This could lead to errors in subsequent code.\n   - Suggestion: Add a check to ensure at least one symbol has relevant columns before proceeding.\n   \n4. **Rationale vs. Code Discrepancy:**\n   - The rationale suggests identifying and holding directionally strongest stocks, but the implementation only ranks by total move and volume without explicitly holding positions based on rankings.\n\n5. **Stability Concerns:**\n   - Line 29 uses `head(5)` to select top-performing symbols. If fewer than five symbols are ranked, this could lead to empty weights.\n   - Suggestion: Consider using a dynamic number of top-ranked symbols or handling the case where no symbols meet the criteria.\n\nOverall, the strategy is sound in its approach but needs adjustments for robustness and adaptability."
+  ],
+  "seconds": 36.22293250000075,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 430
+}

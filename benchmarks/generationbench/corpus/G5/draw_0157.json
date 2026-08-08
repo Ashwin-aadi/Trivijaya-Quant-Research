@@ -1,0 +1,26 @@
+{
+  "index": 157,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that asset prices and rents revert to the mean over time. \"\n        \"If an asset's price has been persistently higher than its historical average, it is likely \"\n        \"to drop towards this mean in the short term.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_close = (\n            history.group_by(\"symbol\")\n                   .agg(pl.col(\"adj_close\").mean().alias(\"avg\"))\n                   .select([\"symbol\", \"avg\"])\n        )\n        recent_closes = view.closes(lookback=self._window)\n        \n        z_scores = (recent_closes - avg_close[\"avg\"]) / avg_close.select(\n            pl.col(\"avg\").std()\n        ).to_series()\n\n        top_symbols = [\n            sym for _, sym in sorted(zip(z_scores.to_list()[0], recent_closes.columns), reverse=True)[:5]\n        ]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3892,
+    "output_tokens": 1246
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears to implement a mean reversion approach with a 10-day window. Here are some specific critiques:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale states that the strategy identifies symbols whose prices have been persistently higher than their historical average, indicating potential short-term drops towards the mean.\n   - However, the code computes the z-score for recent closes relative to the overall mean (`avg_close`) of the window period. This means it identifies symbols with the highest deviation from the mean rather than those that are consistently above the mean.\n\n2. **Potential Failures**:\n   - The strategy could fail if there is significant noise in the data or if the z-score calculations are not reflective of true mean reversion.\n   - If `history.is_empty()` returns true, the function immediately returns an empty weights dictionary without checking for other potential issues.\n\n3. **Fragile Parameters**:\n   - The window size (10 days) is hardcoded and might not be optimal for all markets or conditions.\n   - The z-score calculation uses standard deviation (`pl.col(symbols).std()`) which can be sensitive to outliers, especially in small datasets.\n\n4. **Potential Issues for Running the Code**:\n   - `view.closes(lookback=self._window)` and `history.select(pl.col(\"adj_close\").mean().alias(\"avg\"))` assume that these methods return expected data types.\n   - `_latest_visible(view)` assumes that `visible[\"session_date\"].max()` returns a date, which is checked but could be problematic if it doesn't.\n\n5. **Sound Parts**:\n   - The overall structure and logic of the strategy are sound in identifying top symbols based on z-scores for mean reversion.\n   - The use of `polars` for data manipulation is appropriate and efficient.\n\nIn summary, while the core idea of mean reversion is correctly implemented, there are discrepancies between the stated rationale and the code, potential failure points due to assumptions about data characteristics, and fragilities in parameter settings."
+  ],
+  "seconds": 32.82659430000058,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 318
+}

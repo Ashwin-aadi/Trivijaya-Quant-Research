@@ -1,0 +1,27 @@
+{
+  "index": 333,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilt(Strategy):\n    rationale = (\n        \"This strategy exploits the low-volatility tilt effect by selecting stocks with \"\n        \"lower historical volatility. Lower volatility stocks tend to outperform high-volatility \"\n        \"stocks over time due to reduced risk premiums and lower susceptibility to price declines.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        realized_volatility = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"close\").shift(-1) / pl.col(\"open\") - 1).alias(\"log_return\")\n            )\n            .group_by(\"symbol\")\n            .agg((pl.col(\"log_return\").std().alias(\"volatility\")))\n            .sort(\"volatility\", descending=False)\n        )\n\n        symbols = realized_volatility[\"symbol\"].to_list()[: self._top_n]\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilt",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2266,
+    "output_tokens": 735
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy focuses on exploiting the low-volatility tilt effect observed in stock markets. The economic mechanism involves identifying stocks with lower historical volatility, which tend to outperform high-volatility stocks over time. This persistence might arise because low-volatility stocks often benefit from reduced risk premiums and are less prone to sudden price declines during market downturns.\n\nThe rule would systematically select a portfolio of low-volatility stocks based on historical volatility metrics while maintaining diversification across sectors and industries. The strategy would rebalance periodically to ensure continued exposure to this effect, adjusting weights based on current market conditions but prioritizing lower volatility characteristics.",
+    "The systematic equity strategy uses historical volatility as the primary signal. For each stock, compute the 20-day realized volatility using the daily open, high, low, close (OHLC) prices. Realized volatility is calculated as the standard deviation of log returns over the 20-day lookback period. On a given day, rank all stocks by their computed 20-day realized volatility in ascending order. Lower volatility ranks higher, indicating more attractive candidates for inclusion in the portfolio based on the low-volatility tilt effect.",
+    "This systematic equity strategy will hold a diversified portfolio of approximately 30-50 low-volatility stocks to capture the low-volatility tilt effect. Positions are sized based on equal weighting within the top-ranked low-volatility stocks, ensuring that no single stock dominates the portfolio. Risk limits are set to limit potential losses; the strategy aims for a maximum drawdown of 10% over any 6-month period and total portfolio volatility not exceeding 8%, aiming to balance exposure while maintaining robust risk management."
+  ],
+  "seconds": 24.49918759999855,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 338
+}

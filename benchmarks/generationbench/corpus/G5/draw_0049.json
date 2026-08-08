@@ -1,0 +1,26 @@
+{
+  "index": 49,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion suggests that prices which are currently far from \"\n        \"their recent average will eventually revert. This strategy aims to profit by \"\n        \"buying underperformers and selling outperformers based on z-scores.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_close = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\").mean()).alias(\"avg\"),\n                (pl.col(\"adj_close\").std().alias(\"std\")),\n            )\n            .with_columns(\n                ((pl.col(\"adj_close\") - pl.col(\"avg\")) / pl.col(\"std\")).alias(\"zscore\")\n            )\n        )\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in avg_close.columns or len(avg_close[symbol]) < self._window:\n                continue\n\n            zscore = float(avg_close[f\"{symbol}.zscore\"][-1])\n            if -2 <= zscore < -1:\n                picks.append(symbol)\n            elif 1 < zscore <= 2:\n                picks.append(f\"S{symbol}\")\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 0.5 / len(picks)\n        signal_weights = {s: weight for s in picks}\n        return Signal(\n            information_available_at=stamp,\n            weights=signal_weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3988,
+    "output_tokens": 1342
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify mean-reverting stocks by comparing their recent closing prices to their historical average and standard deviation. Here are some critiques:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale states that the strategy will \"buy underperformers and sell outperformers,\" but the code actually buys symbols with a zscore between -2 and -1, and sells (short) symbols with a zscore between 1 and 2.\n\n2. **Potential Failures:**\n   - Line 35-40: The `history` DataFrame must have enough data for each symbol to compute the mean and standard deviation. If not, the strategy returns an empty signal.\n   - Line 47: This loop assumes that the zscore is correctly calculated and that there are symbols with zscores in the specified ranges.\n\n3. **Fragile Parameters:**\n   - The window size (20 days) could be too short or long for mean reversion to work effectively. A shorter period might miss broader trends, while a longer period might smooth out relevant market movements.\n   - The threshold of \u00b12 standard deviations is somewhat arbitrary and could benefit from fine-tuning based on historical data.\n\n4. **Potential Issues:**\n   - Line 37-40: If `history` does not have the required columns or if there are missing values, the strategy will fail to produce a signal.\n   - Line 26: The `_latest_visible` function assumes that `session_date` is always present and of date type. This could lead to errors if the data format changes.\n\n5. **Assumptions:**\n   - The strategy assumes that there are no transaction costs, slippage, or market impact, which can significantly affect performance in real trading.\n\nIn summary, while the overall approach is sound, specific implementation details and assumptions need refinement to ensure robustness and effectiveness."
+  ],
+  "seconds": 34.92308510000021,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 101
+}

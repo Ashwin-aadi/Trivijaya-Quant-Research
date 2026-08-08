@@ -1,0 +1,23 @@
+{
+  "index": 250,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality effects suggest that certain times of the year have historically \"\n        \"exhibited stronger returns. This strategy aims to identify and capitalize on such \"\n        \"patterns.\"\n    )\n\n    def __init__(self, lookback_years: int = 5) -> None:\n        self._lookback_years = lookback_years\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_years * 252)  # Assuming 252 trading days in a year\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"].to_list()\n        seasonality_factors: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in closes:\n                continue\n\n            values = [float(v) for v in closes]\n            mean_return = sum(values) / len(values)\n            seasonality_factors[symbol] = 0.0\n            current_year_close = view.closes().get_column(symbol).to_list()[-1]\n\n            # Calculate seasonal factor based on the difference between yearly closes and mean return\n            for i, close in enumerate(values):\n                if (i + 1) % 252 == 0:  # Assuming one year of data every 252 days\n                    seasonality_factors[symbol] += (close - mean_return)**2\n\n        # Normalize factors to sum up to the total portfolio value\n        total_seasonal_factor = sum(seasonality_factors.values())\n        seasonal_signals = {s: f / total_seasonal_factor for s, f in seasonality_factors.items()}\n\n        if not seasonal_signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(view.symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in seasonal_signals.items() if w > 0} or {s: weight for s in view.symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 545
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.311590699988301,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 255
+}

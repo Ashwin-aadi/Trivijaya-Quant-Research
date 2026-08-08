@@ -1,0 +1,26 @@
+{
+  "index": 200,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are likely to continue. By identifying symbols that \"\n        \"show a significant price move in one direction accompanied by increased volume, we can \"\n        \"capture momentum.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        price_changes = (history[\"adj_close\"] / history[\"adj_close\"].shift(1) - 1.0).alias(\"price_change\")\n        volume_changes = (history[\"volume\"] / history[\"volume\"].shift(1) - 1.0).alias(\"volume_change\")\n\n        df = (\n            history\n                .with_columns(price_changes, volume_changes)\n                .group_by(\"symbol\")\n                .agg([\n                    pl.col(\"adj_close\").last().alias(\"latest_price\"),\n                    (pl.col(\"price_change\") > 0 & pl.col(\"volume_change\") > 0).sum().alias(\"up_volume\"),\n                    (pl.col(\"price_change\") < 0 & pl.col(\"volume_change\") < 0).sum().alias(\"down_volume\")\n                ])\n        )\n\n        df = (\n            df\n                .filter(\n                    (pl.col(\"up_volume\") > self._window / 2) |\n                    (pl.col(\"down_volume\") > self._window / 2)\n                )\n                .sort(\"latest_price\", descending=True)\n                .head(5)\n        )\n\n        if df.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(df.height)\n        weights = {row[\"symbol\"]: float(weight) for row in df.rows()}\n        return Signal(\n            information_available_at=stamp,\n            weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4097,
+    "output_tokens": 1450
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify stocks with significant price moves accompanied by increased volume to capture momentum. Here are some criticisms:\n\n1. **Rationale vs. Code Mismatch**:\n   - The rationale mentions \"significant price move in one direction,\" but the code only checks for a positive `price_change` and a positive `volume_change`. It should also check for negative changes.\n   - Line 20: `pl.col(\"price_change\") > 0 & pl.col(\"volume_change\") > 0`\n\n2. **Potential Rule Failures**:\n   - The strategy relies on the assumption that increased volume confirms a directional move, but this may not always hold true. For example, a stock can experience high volume due to earnings reports or other exogenous factors unrelated to ongoing momentum.\n   - Line 38: `pl.col(\"up_volume\") > 2 * self._window` and `pl.col(\"down_volume\") > 2 * self._window`: This arbitrary threshold (2 times the window) may not generalize well across different markets or time periods.\n\n3. **Fragile Parameters**:\n   - The `window` parameter is hardcoded in the class initialization but could be made more flexible.\n   - Line 7: `self._window = window`\n\n4. **Potential Issues for Execution**:\n   - The code assumes that the necessary columns (`adj_close`, `volume`) are always present, which might not be the case if data sources differ.\n   - Line 16 and 28: Ensure these columns exist in the input DataFrame.\n\n5. **Improvements**:\n   - The rationale is sound in its basic concept but should address the issue of checking both positive and negative changes.\n   - Consider adding more robust error handling or checks for missing data.\n   - Make parameters like `window` configurable via a configuration file or function arguments to enhance flexibility.\n\nOverall, while the core idea is reasonable, there are several areas that could be improved for broader applicability and reliability."
+  ],
+  "seconds": 37.06607869999971,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 406
+}

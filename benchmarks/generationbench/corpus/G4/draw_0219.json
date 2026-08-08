@@ -1,0 +1,27 @@
+{
+  "index": 219,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidSmallCap(Strategy):\n    rationale = (\n        \"This strategy focuses on exploiting the persistent profitability of small-cap stocks by \"\n        \"screening for liquid small-cap stocks and applying an equal-weighted approach to capture excess returns. \"\n        \"Higher-ranked stocks based on recent monthly returns are equally weighted in the portfolio at regular intervals.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 50) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_filter = (history.select(pl.col(\"volume\").sum())\n                            .with_columns((pl.col(\"symbol\") / pl.col(\"volume\").sum()).alias(\"liquidity_ratio\"))\n                            .filter(pl.col(\"volume\").mean() > 100_000)\n                            .select(\"symbol\"))\n\n        if liquidity_filter.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_list = [s for s in view.symbols if s in liquidity_filter.to_series().to_list()]\n        closes = view.closes(lookback=self._window).select(pl.col(symbol_list))\n\n        returns = (closes\n                   .lazy()\n                   .with_columns((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"))\n                   .collect()\n                   .select(pl.col(\"symbol\"), \"return\")\n                   )\n\n        monthly_returns = (returns\n                           .group_by(\"symbol\")\n                           .agg([pl.col(\"return\").mean().alias(\"monthly_return\")])\n                           .sort(\"monthly_return\", descending=True)\n                           .limit(self._top_n)\n                           .select(\"symbol\"))\n\n        symbols = [s for s in monthly_returns[\"symbol\"].to_list()]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidSmallCap",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2216,
+    "output_tokens": 905
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan focuses on exploiting the persistent profitability of small-cap stocks, which often exhibit higher idiosyncratic volatility due to lower liquidity. By screening for stocks with sufficient trading volume (high liquidity), we can apply an equal-weighted strategy to capture excess returns. This mechanism may persist because smaller companies can have more asymmetric information and greater price inefficiencies. The rule would involve identifying a liquid subset of small-cap stocks, then equally weighting these in the portfolio at regular intervals, such as monthly or quarterly, to minimize rebalancing costs and leverage their potential for higher returns relative to their risk profile.",
+    "The signal for this systematic equity strategy focuses on identifying liquid small-cap stocks. On a given day, compute the average daily trading volume over a 6-month lookback period to ensure sufficient liquidity. Rank these stocks based on their most recent monthly returns, adjusted for size and liquidity factors. Higher-ranked stocks (top decile) are then equally weighted in the portfolio at regular intervals (monthly or quarterly) to capture excess returns from small-cap stocks while minimizing rebalancing costs.",
+    "This systematic equity strategy involves holding up to 30-50 equally-weighted liquid small-cap stocks in each portfolio rebalance. Each stock is given an equal weight to minimize bias towards larger or more liquid holdings. To manage risk, the total portfolio value at risk from any single stock is capped at 2% of the portfolio, ensuring that no single position can lead to a significant loss. This approach balances exposure to small-cap equity's potential for higher returns while maintaining risk control through diversification and strict position sizing."
+  ],
+  "seconds": 27.912017300004663,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 223
+}

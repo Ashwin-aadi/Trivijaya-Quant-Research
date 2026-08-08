@@ -1,0 +1,26 @@
+{
+  "index": 35,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"Combining short-term and long-term momentum signals can help in identifying \"\n        \"stocks that are trending in a consistent direction over both periods.\"\n    )\n\n    def __init__(self, short_window: int = 10, long_window: int = 50) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes_long = view.closes(lookback=self._long_window)\n        closes_short = view.closes(lookback=self._short_window)\n\n        if (closes_long.height < self._long_window or\n                closes_short.height < self._short_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        short_moments = _calculate_momentum(closes_short)\n        long_moments = _calculate_momentum(closes_long)\n\n        combined_scores = pl.DataFrame({\n            \"symbol\": short_moments[\"symbol\"],\n            \"score\": (short_moments[\"momentum\"] * 0.6) + (long_moments[\"momentum\"] * 0.4)\n        })\n\n        top_symbols = combined_scores.sort(\"score\", descending=True)[\"symbol\"].to_list()[:5]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_momentum(closes: pl.DataFrame) -> pl.DataFrame:\n    symbols = closes.columns[1:]\n    moments = []\n    for symbol in symbols:\n        prices = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n        if len(prices) < 2 or not all(prices):\n            continue\n        last_price = prices[-1]\n        momentum = (last_price - prices[0]) / max(prices)\n        moments.append({\"symbol\": symbol, \"momentum\": momentum})\n    return pl.DataFrame(moments)",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4148,
+    "output_tokens": 1496
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy shows a clear intention to combine short-term and long-term momentum signals for stock selection. However, there are several issues and areas for improvement:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states that combining short-term and long-term momentum can help identify consistently trending stocks. However, the code only combines these scores linearly with weights of 0.6 and 0.4, which might not effectively capture a consistent trend across both periods.\n\n2. **Potential Failure Scenarios**:\n   - Line 39: The `_calculate_momentum` function may fail if the `closes` DataFrame contains no data or only one price point for any symbol, as it attempts to calculate momentum by comparing the first and last prices.\n   - Line 48: The `assert isinstance(newest, date)` is unnecessary since `max()` on a list of dates will return a `date` object if there are dates in the DataFrame.\n\n3. **Fragile Parameters**:\n   - Lines 6-7: The default parameters for short and long windows (10 and 50) might not be optimal for all market conditions or asset types.\n   - The strategy does not handle cases where the `closes_long` or `closes_short` DataFrames are insufficient in height, which could lead to incorrect signal generation.\n\n4. **Issues with Running**:\n   - Line 17: `_calculate_momentum` might produce a DataFrame with no rows if all momentum calculations fail due to insufficient data.\n   - Lines 32-35: If the `top_symbols` list is empty, it returns an empty weights dictionary, which may not be desirable in a trading strategy.\n\nOverall, while the strategy aims to combine short-term and long-term momentum, improvements could include more robust error handling, dynamic parameter tuning based on historical performance, and better validation of input data."
+  ],
+  "seconds": 38.0726881999999,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 73
+}

@@ -1,0 +1,23 @@
+{
+  "index": 22,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain times of the year may historically exhibit higher returns due to seasonal \"\n        \"effects. For instance, in India, some sectors might perform better during monsoon or \"\n        \"post-monsoon periods. This strategy aims to capture such seasonality by identifying \"\n        \"periods with historical outperformance and allocating capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter historical data to get the latest 30 days\n        history = history.sort(\"session_date\").tail(self._window)\n\n        # Group by month and calculate mean returns for each month\n        grouped = (\n            history.group_by(\"session_date.dt.month()\")\n            .agg(\n                (pl.col(\"close\") / pl.col(\"open\").shift(1) - 1.0).alias(\"return\")\n            )\n            .with_columns((pl.col(\"return\").mean().alias(\"mean_return\")))\n        )\n\n        # Identify the month with the highest mean return\n        top_month = grouped.sort(\"mean_return\", descending=True)[\"session_date.dt.month()\"].first()\n\n        # Get symbols that are active in the identified month\n        symbols_in_top_month = history.select(pl.col(\"symbol\")).filter(\n            pl.col(\"session_date\").dt.month() == top_month\n        ).unique().to_list()[0]\n\n        if not symbols_in_top_month:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols_in_top_month)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in symbols_in_top_month},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 507
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.620141499995952,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 25
+}

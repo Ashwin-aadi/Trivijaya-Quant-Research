@@ -1,0 +1,26 @@
+{
+  "index": 225,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform over the long term. By tilting our portfolio towards \"\n        \"lower volatility stocks, we aim to capture this premium.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            close_prices = [float(v) for v in history[symbol].to_list()]\n            if len(close_prices) < 2:\n                continue\n            returns = [(close_prices[i] / close_prices[i - 1] - 1.0) for i in range(1, len(close_prices))]\n            volatility = (sum([r**2 for r in returns]) / self._window) ** 0.5\n            volatilities[symbol] = volatility\n\n        if not volatilities:\n            return Signal(information_available_at=stamp, weights={})\n\n        sorted_symbols = [k for k, v in sorted(volatilities.items(), key=lambda item: item[1])]\n        top_n_symbols = sorted_symbols[:5]\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3936,
+    "output_tokens": 1320
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to tilt a portfolio towards low-volatility stocks by selecting the top 5 lowest volatility symbols based on historical price data over a specified window. Here are some criticisms:\n\n1. **Rationale vs Code**:\n   - The rationale states that \"low-volatility stocks tend to outperform over the long term,\" but this code only looks at recent volatility (last `window` days). This might not capture the true long-term characteristic, as low volatility could be a temporary market state.\n   - **Line: 23**\n\n2. **Potential Failures**:\n   - If there are fewer than 5 symbols with valid price data (`history.height < self._window + 1`), the strategy will return an empty weight dictionary (line 47). This could lead to issues if weights are required for portfolio management.\n   - **Line: 39**\n\n3. **Fragile Parameters**:\n   - The `window` parameter determines how much historical data is used, but it\u2019s hardcoded and not dynamically adjusted based on the dataset's characteristics or market conditions (line 12).\n   - Using a fixed number of top symbols (`top_n_symbols = sorted_symbols[:5]`) might not always be optimal. Different markets or time periods may require different numbers.\n   - **Lines: 43, 46**\n\n4. **Code Fragilities**:\n   - The volatility calculation assumes that the price list has at least two elements (line 33), which is not checked.\n   - If any symbol in `history` does not have a value, it will be skipped entirely without considering its potential impact on volatility.\n   - **Lines: 29-34**\n\n5. **Stopping Criteria**:\n   - If the `view.history()` call returns an empty DataFrame (line 37), the strategy might return an incorrect date or fail to handle this scenario properly.\n   - **Line: 18, 40**\n\nOverall, while the strategy has a reasonable idea behind it, improvements could be made in handling edge cases and ensuring robustness."
+  ],
+  "seconds": 34.27187599999888,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 456
+}

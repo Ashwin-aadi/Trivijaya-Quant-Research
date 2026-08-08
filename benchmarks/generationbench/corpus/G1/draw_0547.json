@@ -1,0 +1,23 @@
+{
+  "index": 547,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression suggests that the market is consolidating and may soon breakout. \"\n        \"By identifying symbols with reduced price ranges, we can anticipate potential trending behavior.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol).select(\n                pl.col(\"high\"), pl.col(\"low\")\n            )\n            if df.is_empty():\n                continue\n            high_values = [float(v) for v in df[\"high\"].to_list()]\n            low_values = [float(v) for v in df[\"low\"].to_list()]\n            max_high = max(high_values)\n            min_low = min(low_values)\n            range_compression_score = (max_high - min_low) / sum(\n                abs(h - l) for h, l in zip(high_values[:-1], low_values[:-1])\n            )\n            if not math.isnan(range_compression_score):\n                range_compression_scores[symbol] = range_compression_score\n\n        sorted_symbols = [\n            symbol\n            for _, symbol in sorted(\n                range_compression_scores.items(), key=lambda item: item[1]\n            )\n        ]\n        top_n_symbols = sorted_symbols[:5]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_n_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1245,
+    "output_tokens": 504
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.280790500008152,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 557
+}

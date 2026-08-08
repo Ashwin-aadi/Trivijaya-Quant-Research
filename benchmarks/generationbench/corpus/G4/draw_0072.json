@@ -1,0 +1,27 @@
+{
+  "index": 72,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum4to12Weeks(Strategy):\n    rationale = (\n        \"This strategy exploits cross-sectional momentum by identifying stocks that have performed well \"\n        \"recently and are expected to continue outperforming. It leverages the persistence of short-term stock \"\n        \"performance due to factors such as investor behavior, information delays, and market inefficiencies.\"\n    )\n\n    def __init__(self, window_min: int = 4, window_max: int = 12, top_n: int = 25) -> None:\n        self._window_min = window_min\n        self._window_max = window_max\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_max)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate cumulative returns for each stock\n        closes = view.closes(lookback=self._window_max)\n        cum_returns: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n\n            prices = [float(v) for v in history.filter(pl.col(\"session_date\") <= stamp).select(pl.col(symbol)).to_numpy().flatten()]\n            if len(prices) < self._window_min or all(price == prices[0] for price in prices):\n                continue\n            cum_return = (prices[-1] / prices[0]) - 1.0\n            cum_returns[symbol] = cum_return\n\n        # Rank stocks based on cumulative returns\n        ranked_symbols = sorted(cum_returns.keys(), key=lambda s: cum_returns[s], reverse=True)\n        top_n_symbols = ranked_symbols[: self._top_n]\n\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum4to12Weeks",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2305,
+    "output_tokens": 880
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To exploit cross-sectional momentum in the Indian market, we will focus on identifying stocks that have performed well recently and are expected to continue outperforming. The economic mechanism relies on the persistence of short-term stock performance due to factors such as investor behavior, information delays, and market inefficiencies. Momentum strategies work because past winners often remain strong, driven by positive feedback loops.\n\nOur rule will be simple yet effective: \n\n1. Rank stocks based on recent returns.\n2. Select the top 30-50% of the ranked list for long positions.\n3. Implement a dynamic adjustment, re-ranking every week to capture ongoing momentum shifts.\n\nThis approach leverages the persistence of positive performance while allowing flexibility in response to changing market conditions.",
+    "The signal for this systematic equity strategy is the cumulative return over a recent period, typically the last 4 to 12 weeks. This is computed from daily open, high, low, close prices, and volume data. On any given day, stocks are ranked based on their highest cumulative returns in the lookback period. The top 30-50% of this ranked list are selected for long positions. The ranking process is dynamic, with re-ranking occurring weekly to adapt to changes in market conditions and momentum shifts.",
+    "For this systematic equity strategy, we will hold between 30-50% of the ranked stock list, typically around 20-25 stocks. These stocks will be equally weighted to simplify portfolio management while ensuring a diversified position size. To manage risk, we limit the maximum potential loss to no more than 15% of the total portfolio value in any given week. This approach balances exposure to momentum while safeguarding against extreme market movements."
+  ],
+  "seconds": 27.688797299997532,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 75
+}

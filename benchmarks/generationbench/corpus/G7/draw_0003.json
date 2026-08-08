@@ -1,0 +1,46 @@
+{
+  "index": 3,
+  "paradigm": "G7_mcts",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy selects stocks based on their daily trading volume over the past 60 days to identify \"\n        \"high-liquidity equities. Equal weighting among selected stocks ensures balanced exposure while leveraging\"\n        \" liquidity trends for potentially more stable performance.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            volume_series = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(volume_series) < self._window:\n                continue\n            if sum(volume_series) > 0:  # Check if there's any trading activity\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        signal = Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n        # Ensure risk rules are met\n        portfolio_loss = sum([weight * 3.0 for _ in picks])\n        if portfolio_loss > 5.0:\n            return Signal(information_available_at=stamp, weights={})\n\n        return signal\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19012,
+    "output_tokens": 5635
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the daily closing price, looking back over a 30-day period. This choice prioritizes recent market conditions while maintaining a reasonable lookback for robust data.",
+    "The signal will be the daily volume, looking back over a 60-day period. This choice emphasizes liquidity and trading activity trends, ensuring a longer lookback to capture seasonal and cyclical patterns in trading behavior.",
+    "The portfolio will hold 30 equally weighted positions, reflecting the 30-day lookback period while ensuring a balanced distribution of risk across recent market conditions.",
+    "The portfolio will hold 30 equally-weighted stocks based on their daily volume over the past 60 days, ensuring a balanced exposure while leveraging liquidity trends.",
+    "The portfolio will hold 30 equally weighted positions, ensuring a balanced distribution of risk across the recent market conditions captured in the 30-day lookback period. This approach simplifies management while maintaining sensitivity to recent price movements.",
+    "The portfolio will hold 30 equally-weighted stocks based on their daily volume over the past 60 days, ensuring a balanced exposure while leveraging liquidity trends. This approach simplifies management and reduces complexity compared to more sophisticated weighting methods, yet still effectively captures trading activity patterns in the Indian market.",
+    "For each position, set a stop-loss at 5% of the initial investment to limit individual position risk. Additionally, if the portfolio's daily loss exceeds 3%, trading will be halted for the day to prevent exacerbating losses.",
+    "For this systematic equity strategy in the Indian market, the risk rule will be set such that no single position loss exceeds 3% of the portfolio value, and the total portfolio loss is capped at 5%. This ensures individual stock risks are managed while maintaining overall portfolio stability.",
+    "For this systematic equity strategy in the Indian market, the risk rule will be set such that no single position loss exceeds 3% of the portfolio value, and the total portfolio loss is capped at 5%. This ensures individual stock risks are managed while maintaining overall portfolio stability.",
+    "The risk rule will be set to limit any single stock position loss to no more than 5% of the portfolio value to protect against adverse liquidity events. Additionally, the strategy will stop trading if the portfolio's daily drawdown exceeds 10%, ensuring that significant losses are mitigated promptly.",
+    "For the risk rule, I propose setting a stop-loss of 5% on an individual position and a portfolio-wide loss limit of -10%. This will cap the maximum potential loss per position while safeguarding against significant portfolio drawdowns."
+  ],
+  "seconds": 184.6862298999913,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 48
+}

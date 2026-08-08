@@ -1,0 +1,26 @@
+{
+  "index": 199,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"During periods of high range compression, market prices move less in absolute terms \"\n        \"but with similar volatility. This often signals a breakout or reversal in the near future.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression_scores = {}\n        for symbol in view.symbols:\n            hist = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            high_min = hist.select(pl.col(\"high\").min()).item()\n            low_max = hist.select(pl.col(\"low\").max()).item()\n            range_compression_score = (high_min - low_max) / max(hist[\"close\"].std().item(), 1e-6)\n            range_compression_scores[symbol] = range_compression_score\n\n        top_symbols = sorted(range_compression_scores, key=range_compression_scores.get, reverse=True)[:5]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3961,
+    "output_tokens": 1316
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several merits but also some issues that could affect its robustness and effectiveness.\n\n### Merits:\n1. **Rationale Alignment**: The rationale aligns with the idea that high range compression often precedes price breakouts or reversals. This is a common trading concept, making the strategy theoretically sound.\n2. **Parameter Flexibility**: The `window` parameter allows users to adjust the lookback period, which can be useful for tuning the strategy.\n\n### Criticisms and Issues:\n\n1. **Rationale vs Code Disagreement**:\n   - **Line 24**: The rationale mentions \"market prices move less in absolute terms but with similar volatility,\" while the code calculates range compression using `high_min - low_max` divided by standard deviation. This discrepancy is minor as both measures can indicate range compression, but it's worth noting for clarity.\n   \n2. **Potential Failures**:\n   - **Line 15**: If `history.is_empty()` or if the history has fewer than the specified window size (`self._window`), the function returns an empty signal. This is fine as long as this scenario is rare and handled appropriately in backtesting or live trading.\n\n3. **Fragile Parameters**:\n   - **Line 15**: The minimum of `close` standard deviation is set to \\(1e-6\\) to avoid division by zero. While this is a common practice, it could be overly conservative if the data contains very low volatility periods.\n   - **Line 38**: Only the top 5 symbols are selected for trading. This can lead to issues in markets with fewer than 5 active symbols or when the market structure changes.\n\n4. **Possible Stopping Conditions**:\n   - **Line 26-31**: If no symbols meet the range compression criteria, an empty signal is returned. While this avoids undefined behavior, it might miss potential trading opportunities if such conditions are common.\n   - **Line 9**: The use of `pl` (Polars) implies that backtesting or live data handling is assumed to be done with Polars. If not using Polars, the strategy would need adaptation.\n\nIn summary, while the strategy's core concept and implementation are sound, careful parameter tuning and robustness checks are necessary to ensure its reliability across different market conditions."
+  ],
+  "seconds": 34.208058500000334,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 404
+}

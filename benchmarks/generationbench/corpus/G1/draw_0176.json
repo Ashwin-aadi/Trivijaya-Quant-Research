@@ -1,0 +1,23 @@
+{
+  "index": 176,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfDirMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves suggest strong market sentiment in a particular \"\n        \"direction. This strategy identifies symbols with significant volume on a close that is \"\n        \"either higher or lower than the previous close, indicating a strong directional move.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_breakouts: dict[str, float] = {}\n        for symbol in view.symbols:\n            history = view.history().select([\"session_date\", \"close\", \"volume\"]).filter(pl.col(\"symbol\") == symbol)\n            if history.height < self._window + 1:\n                continue\n\n            latest_close = float(history.select(\"close\").tail(1)[\"close\"][0])\n            previous_close = float(history.select(\"close\").tail(2)[\"close\"][-1])\n\n            # Check for volume increase with a directional move\n            if (latest_close > previous_close and history[\"volume\"].sum() > 1.5 * history.select(\"volume\").mean()) or \\\n               (latest_close < previous_close and history[\"volume\"].sum() > 1.5 * history.select(\"volume\").mean()):\n                volume_breakouts[symbol] = latest_close\n\n        if not volume_breakouts:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(volume_breakouts)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in volume_breakouts.keys()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfDirMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 478
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.72753720000037,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 180
+}

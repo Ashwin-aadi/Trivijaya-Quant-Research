@@ -1,0 +1,23 @@
+{
+  "index": 181,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion is a phenomenon where asset prices that have deviated significantly \"\n        \"from their historical mean tend to revert back. In the short term, stocks that have \"\n        \"underperformed compared to their peers are more likely to outperform in the near future.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute the mean close price for each symbol over the lookback period\n        symbol_means = (\n            closes.group_by(\"symbol\")\n                  .agg(pl.col(\"adj_close\").mean().alias(\"mean\"))\n                  .with_columns((pl.col(\"adj_close\") - pl.col(\"mean\")).abs().alias(\"deviation_from_mean\"))\n        )\n\n        # Rank symbols by their deviation from the mean\n        ranked = symbol_means.sort(\"deviation_from_mean\", descending=True)\n\n        picks: list[str] = []\n        for i in range(len(view.symbols)):\n            symbol = ranked[\"symbol\"].to_list()[i]\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            if values[-1] <= min(values):\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 503
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.465118700005405,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 187
+}

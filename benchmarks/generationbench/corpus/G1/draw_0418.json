@@ -1,0 +1,23 @@
+{
+  "index": 418,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Historical data in Indian markets suggests that certain seasons or months exhibit \"\n        \"repetitive patterns of higher returns. This strategy aims to capitalize on these trends.\"\n    )\n\n    def __init__(self, lookback_period: int = 5) -> None:\n        self._lookback_period = lookback_period\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_period)\n\n        if history.height < self._lookback_period:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol = history[\"symbol\"].item()\n        closes = [float(v) for v in history.select(\"adj_close\").to_pandas().iloc[:, 0].dropna()]\n\n        month_of_year = stamp.month\n        historical_closes_by_month = (\n            view.history(lookback=self._lookback_period * 12).select(\"symbol\", \"session_date\", \"adj_close\")\n            .with_columns(pl.col(\"session_date\").dt.replace_time_zone(\"UTC\").dt.strftime(\"%Y-%m\"))\n            .group_by(\"symbol\", pl.col(\"session_date\").dt.month())\n            .agg(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"),\n                (pl.col(\"session_date\")).alias(\"date\")\n            )\n            .sort(\"symbol\", \"date\").collect()\n        )\n\n        returns_by_month = historical_closes_by_month.filter(pl.col(\"date\").dt.month() == month_of_year)\n        if returns_by_month.height < 12:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_return = float(returns_by_month.select(pl.col(\"return\")).mean().item())\n        recent_close = view.latest_close()[symbol]\n\n        if (recent_close / recent_close * (1 + mean_return)) > recent_close:\n            weight = 1.0\n        else:\n            weight = 0.0\n\n        return Signal(\n            information_available_at=stamp, weights={symbol: weight}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 550
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.948777199999313,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 424
+}

@@ -1,0 +1,47 @@
+{
+  "index": 26,
+  "paradigm": "G7_mcts",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy follows trends adjusted for volatility by calculating the 20-day \"\n        \"exponentially weighted moving average (EWMA) of daily closing prices and scaling it \"\n        \"by a 10-day standard deviation of daily price returns. This approach aims to capture \"\n        \"the direction of the trend while mitigating risk through volatility adjustment.\"\n    )\n\n    def __init__(self, ewma_window: int = 20, std_window: int = 10, positions: int = 5) -> None:\n        self._ewma_window = ewma_window\n        self._std_window = std_window\n        self._positions = positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._ewma_window + self._std_window)\n\n        if history.height < self._ewma_window + self._std_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        ewma_column = f\"ewma_{self._ewma_window}\"\n        std_column = f\"std_{self._std_window}\"\n\n        # Calculate 20-day EWMA of daily closing prices\n        ewma = (\n            history.lazy()\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\").rolling_mean(self._ewma_window)).alias(ewma_column)\n            )\n            .collect()\n        )\n\n        # Calculate 10-day std of daily price returns\n        returns = (history[\"adj_close\"] / history[\"adj_close\"].shift(1) - 1.0).alias(\"returns\")\n        std_history = (\n            history.lazy()\n            .with_columns(returns)\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"returns\").rolling_std(self._std_window)).alias(std_column)\n            )\n            .collect()\n        )\n\n        combined = ewma.join(std_history, on=\"symbol\", how=\"inner\")\n        scaled_trend = combined[ewma_column] / combined[std_column]\n\n        top_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in combined.columns:\n                continue\n            value = float(scaled_trend[symbol].to_list()[-1])\n            if value >= max(scaled_trend.get_symbol().to_list()):\n                top_symbols.append(symbol)\n\n        top_symbols = top_symbols[: self._positions]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19547,
+    "output_tokens": 8059
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the 20-day exponentially weighted moving average of daily closing prices, scaled by the 10-day standard deviation of daily price returns, indicating trends adjusted for volatility.",
+    "The signal will be the 20-day exponentially weighted moving average of daily high prices, scaled by the 10-day standard deviation of daily price closes, to capture trend strength adjusted for market volatility.",
+    "For this strategy, we will hold a portfolio of 5 equities when a position is opened or closed, with each name weighted equally at 20%. This equal weighting ensures simplicity and reduces the impact of individual stock performance on the overall portfolio.",
+    "The portfolio will hold up to five equity names at any given time, with weights of 30%, 20%, 15%, 10%, and 25% respectively for the top-ranked signals based on the volatility-scaled trend following strategy.",
+    "For this strategy, we will hold a portfolio of 5 equities when a position is opened or closed, with each name weighted equally at 20%. This equal weighting ensures simplicity and reduces the impact of individual stock performance on the overall portfolio.",
+    "The portfolio will hold up to five equity names at any given time, assigning weights of 30%, 20%, 15%, 10%, and 25% respectively to the top-ranked signals based on the volatility-scaled trend following strategy.",
+    "For this volatility-scaled trend following strategy in the Indian market, we will set a risk rule that limits the loss on any single position to no more than 15% of the portfolio value at the time of entry. This bound ensures that individual positions do not dominate the overall risk profile while maintaining the ability to respond to market trends.",
+    "For each individual equity position, set a stop-loss at 5% of the entry price to limit per-position risk. This ensures no single position can lose more than 5% before exiting, while maintaining flexibility in portfolio composition as dictated by the volatility-scaled trend following signal rankings.",
+    "For this systematic equity strategy in the Indian market, we will set a stop-loss rule on an individual position loss of -5%, which will trigger a closing of that position to limit potential losses. This rule ensures risk management while maintaining the strategy's integrity.",
+    "For the risk rule, I will set a stop-loss of 5% on an individual position to limit potential losses, and a portfolio-wide loss threshold of 10%, beyond which trading will be halted to prevent further capital erosion.",
+    "For this volatility-scaled trend following strategy in the Indian market, we will set a risk rule that limits the loss on any single position to no more than 15% of the portfolio value at the time of entry. This bound ensures that individual positions do not dominate the overall risk profile while maintaining the ability to respond to market trends.",
+    "For each individual equity position, set a stop-loss at 5% of the entry price to limit per-position risk. This ensures no single position can lose more than 5% before exiting, while maintaining flexibility in portfolio composition as dictated by the volatility-scaled trend following signal rankings."
+  ],
+  "seconds": 227.15789799997583,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 330
+}

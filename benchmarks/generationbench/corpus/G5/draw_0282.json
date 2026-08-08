@@ -1,0 +1,26 @@
+{
+  "index": 282,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Relative strength (RS) identifies the strength of a stock compared to its peers. \"\n        \"By holding stocks outperforming their sector, we aim to capture excess returns.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        rs_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            latest_close = _safe_latest_close(closes[symbol])\n            avg_price = _safe_mean(closes[symbol].sort(\"session_date\", descending=True).head(self._window))\n            rs_score = (latest_close / avg_price - 1.0) if avg_price != 0 else 0.0\n            rs_scores[symbol] = rs_score\n\n        sorted_rs = sorted(rs_scores.items(), key=lambda x: x[1], reverse=True)\n        picks = [symbol for symbol, _ in sorted_rs[:self._top_n]]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date).item()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _safe_latest_close(column: pl.Series) -> float:\n    max_val = column.max()\n    if not max_val.is_null():\n        return max_val.item()\n    else:\n        return 0.0\n\n\ndef _safe_mean(column: pl.Series) -> float:\n    mean_val = column.mean()\n    if not mean_val.is_null() and mean_val != 0.0:\n        return mean_val.item()\n    else:\n        return 1.0",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4073,
+    "output_tokens": 1522
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains some weaknesses and potential issues:\n\n### Strengths:\n1. **Rationale Clarity**: The rationale explains that the strategy aims to capture excess returns by holding stocks outperforming their sector.\n2. **Dynamic Window Size**: The use of a variable `window` allows for flexibility in selecting the lookback period.\n\n### Weaknesses and Potential Issues:\n\n1. **Performance Measure Calculation**:\n   - Line 30: `latest_close = closes[symbol].max().item()`. This line assumes that the maximum value within the window is the latest close price, which might not be accurate if there are gaps or missing data in the time series.\n   \n2. **Average Price Calculation**:\n   - Line 34: `avg_price = (closes[symbol] ... .head(self._window) ... .mean() ...)`. The use of `.head(self._window)` to get the first `n` values might not represent the most recent data, especially if the dataset has missing dates.\n   \n3. **Fragile Parameters**:\n   - Line 24: Setting a default `top_n` value is good practice. However, this parameter could be fragile if the market changes and the top few stocks are no longer meaningful.\n   - Line 15: The window size might need to be adjusted based on market conditions or data availability.\n\n4. **Potential Failures**:\n   - Lines 27-30: If any stock in `view.symbols` is not present in the `closes` DataFrame, the code will skip it entirely without providing a weight for that symbol.\n   - Line 19: The check to see if `closes.height < self._window * len(view.symbols)` might fail if the data source does not provide enough historical data.\n\n5. **Code Execution**:\n   - Lines 23-24: `_latest_visible` function assumes that there is at least one visible date in the history, which could be problematic if no trades or observations have been made yet.\n   \n6. **Data Handling**:\n   - The strategy assumes a specific structure for `closes` and `view`, and any deviation from this structure could cause runtime errors.\n\n### Conclusion:\nThe strategy is well-motivated by its rationale but has several potential issues that could impact its robustness and reliability. Specifically, the calculation of performance metrics and the handling of missing data are critical areas that require careful consideration to ensure the strategy works as intended across different market conditions."
+  ],
+  "seconds": 38.6515459000002,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 572
+}

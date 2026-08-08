@@ -1,0 +1,27 @@
+{
+  "index": 345,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"This strategy exploits the empirical evidence that lower volatility stocks tend to outperform higher volatility stocks over long periods. By constructing a portfolio tilted towards low-volatility stocks, we aim to capture persistent outperformance while maintaining diversification and managing risk.\"\n    )\n\n    def __init__(self, lookback: int = 252, bottom_percentile: float = 0.5) -> None:\n        self._lookback = lookback\n        self._bottom_percentile = bottom_percentile\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n\n        if history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\")\n            )\n            .drop_nulls()\n            .sort(\"session_date\", descending=False)\n        )\n\n        # Compute historical volatility for each stock\n        volatilities = (\n            history.groupby(\"symbol\")\n            .agg(pl.sum(\"r\").alias(\"returns\"))\n            .with_columns(\n                (pl.col(\"returns\") / self._lookback).std().alias(\"volatility\")\n            )\n        )\n\n        # Rank stocks by their historical volatility\n        ranked_volatilities = volatilities.sort(by=\"volatility\", descending=False)\n\n        bottom_count = int(len(ranked_volatilities) * self._bottom_percentile)\n        bottom_symbols = [s for s, _ in ranked_volatilities.head(bottom_count).iter_rows()]\n\n        if not bottom_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(bottom_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in bottom_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2382,
+    "output_tokens": 889
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy focusing on low-volatility tilting in the Indian market, we aim to exploit the empirical evidence suggesting that lower volatility stocks tend to outperform higher volatility stocks over long periods. This phenomenon is often attributed to risk-return trade-offs and investor behavior where low-volatility stocks are perceived as less risky, leading to higher valuations and returns.\n\nThe strategy would involve constructing a portfolio that systematically tilts towards low-volatility stocks while maintaining diversification across sectors and companies. The rule for exploiting this mechanism could be based on ranking all stocks by their historical volatility, selecting the bottom 30-50% of the ranked list, and rebalancing the portfolio annually or semi-annually. This approach aims to capture the persistent outperformance of low-volatility stocks without overconcentrating risk in any single stock.",
+    "The signal for this strategy is based on calculating the historical volatility of each stock. Volatility can be computed using the standard deviation of daily returns over a specified lookback period, such as 252 days (a typical trading year). On any given day, all stocks listed on Indian exchanges are ranked by their calculated historical volatility. The bottom 30-50% of these ranked stocks are then selected to form the portfolio. This ranking and selection process is repeated annually or semi-annually for rebalancing.",
+    "The portfolio will hold between 30-50% of the total listed stocks on Indian exchanges, ensuring a diversified selection. Positions will be equally weighted to avoid concentration risks. To manage overall risk, the maximum allowable loss per annum is capped at 10%. This limit aims to balance potential returns from low-volatility tilting while safeguarding against significant drawdowns, promoting long-term sustainability of the strategy."
+  ],
+  "seconds": 27.752889099996537,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 351
+}

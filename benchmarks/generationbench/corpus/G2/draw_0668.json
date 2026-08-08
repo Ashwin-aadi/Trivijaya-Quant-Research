@@ -1,0 +1,23 @@
+{
+  "index": 668,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate that a significant number of traders are \"\n        \"committing to the direction of the move. This suggests a strong trend is forming, which \"\n        \"may offer profitable opportunities.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_changes: list[float] = []\n        price_changes: list[float] = []\n        for symbol in view.symbols:\n            close_series = history.select(pl.col(symbol).alias(\"close\"))\n            volume_series = history.select(pl.col(symbol + \"_volume\").alias(\"volume\"))\n\n            # Calculate daily changes\n            price_changes.extend(\n                float(close / prev_close - 1)\n                for close, prev_close in zip(\n                    close_series[\"close\"].to_list()[1:], close_series[\"close\"].to_list()[:-1]\n                )\n            )\n            volume_changes.extend(\n                float(v) for v in volume_series[\"volume\"].to_list()[1:]\n            )\n\n        # Filter out non-changing days\n        valid_indices = [\n            i\n            for i, (change, vol_change) in enumerate(zip(price_changes, volume_changes))\n            if abs(change) > 0 and abs(vol_change) > 0.2 * max(volume_changes)\n        ]\n\n        if not valid_indices:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Pick the most recent valid move\n        latest_valid_index = valid_indices[-1]\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            price_change = float(history.select(pl.col(symbol).alias(\"close\"))[\"close\"].to_list()[latest_valid_index + 1] / history.select(pl.col(symbol).alias(\"close\"))[\"close\"].to_list()[latest_valid_index] - 1)\n            if abs(price_change) > max(abs(change) for change in price_changes):\n                picks.append(symbol)\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 595
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.547507800001767,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 679
+}

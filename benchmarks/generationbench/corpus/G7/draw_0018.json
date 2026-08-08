@@ -1,0 +1,47 @@
+{
+  "index": 18,
+  "paradigm": "G7_mcts",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength60d(Strategy):\n    rationale = (\n        \"Relative strength over a 60-day period measures how well a stock is performing \"\n        \"compared to its peers. A higher relative strength indicates that the stock has outperformed \"\n        \"the broader market and may be undervalued, making it a potential buy.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        relative_strengths: list[tuple[str, float]] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            recent_closes = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(recent_closes) < self._window:\n                continue\n\n            avg_close = sum(recent_closes) / len(recent_closes)\n            relative_strength = recent_closes[-1] / avg_close - 1\n            relative_strengths.append((symbol, relative_strength))\n\n        sorted_strengths = sorted(relative_strengths, key=lambda x: x[1], reverse=True)\n        top_symbols = [s for s, _ in sorted_strengths[: self._top_n]]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength60d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20452,
+    "output_tokens": 6778
+  },
+  "calls": 24,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I will use the daily closing price to measure relative strength over a 60-day lookback period. This approach captures the end-of-day market sentiment while considering recent trends.",
+    "I will use the highest high from each day's intraday trading session to measure relative strength over a 25-day lookback period. This approach focuses on intra-day price peaks, capturing the strongest intraday performance while considering more recent activity without the noise of daily open and close fluctuations.",
+    "The portfolio will hold 20 names, equally weighted, ensuring a balanced exposure across selected stocks while simplifying management and reducing complexity.",
+    "I will hold a maximum of 50 stock names in the portfolio, equally weighted at 2% each, to balance between diversification and management feasibility.",
+    "The portfolio will hold 20 names, equally weighted, ensuring a balanced exposure across selected stocks while simplifying management and reducing complexity. This approach promotes diversification and ease in monitoring each position.",
+    "For the risk rule, I will set a stop-loss threshold of -5% on an individual position to limit potential losses on any single stock. This ensures that no position can drop more than 5% before triggering a sell order, thereby protecting against excessive downside risk while maintaining the strategy's simplicity and focus on relative strength.",
+    "For the risk rule, I will set an individual stock position loss limit to -5%, and a portfolio-wide loss limit to -10%. These bounds will stop trading if exceeded, ensuring that no single stock or the overall portfolio experiences excessive losses.",
+    "I will hold a maximum of 50 stock names in the portfolio, equally weighted at 2% each. This approach balances diversification needs with practical portfolio management, ensuring no single stock dominates while maintaining simplicity in rebalancing.",
+    "For the risk rule, I will set a portfolio-wide stop-loss threshold at -3%, which triggers a rebalance or liquidation of the entire portfolio if the overall value drops by 3% from its highest point within the last 60 days. This safeguard limits potential overall losses while allowing individual stocks to fluctuate more freely based on their relative strength, maintaining the strategy's focus and reducing frequent trades.",
+    "For the risk rule, I will set an individual position loss limit of -2%, which aligns with each stock's 2% weight, preventing any single stock from causing a significant portfolio impact. This limit also serves as a stop trading mechanism for positions that drop below this threshold, ensuring timely exit to preserve capital.",
+    "For the risk rule, I will implement a stop-loss mechanism where each stock position is capped at a -5% loss, and the entire portfolio's maximum allowable loss is set to -10%. This limit will trigger a sell order if either threshold is reached, preventing significant individual or overall losses."
+  ],
+  "seconds": 233.99660980002955,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 233
+}

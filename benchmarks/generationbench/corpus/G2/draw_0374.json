@@ -1,0 +1,23 @@
+{
+  "index": 374,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"High volatility often precedes a trend reversal. By scaling trades with historical \"\n        \"volatility, one can capture more returns during trending periods while reducing exposure \"\n        \"to range-bound markets where no clear direction exists.\"\n    )\n\n    def __init__(self, window: int = 20, scaling_factor: float = 1.5) -> None:\n        self._window = window\n        self._scaling_factor = scaling_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_volatility: dict[str, float] = {}\n        for symbol in view.symbols:\n            prices = history.filter(pl.col(\"symbol\") == symbol)[[\"adj_close\"]]\n            log_returns = (prices / prices.shift(1) - 1).drop_nulls()\n            volatility = log_returns.std().item() * self._scaling_factor\n            symbol_volatility[symbol] = volatility\n\n        sorted_symbols = [\n            s for _, s in sorted(symbol_volatility.items(), key=lambda item: -item[1])\n        ]\n        top_n_symbols = sorted_symbols[: int(self._window / 2)]\n\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_n_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 442
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.298503199999686,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 382
+}

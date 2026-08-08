@@ -1,0 +1,26 @@
+{
+  "index": 82,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Historical data in the Indian market often exhibits seasonality effects, where \"\n        \"certain times of the year consistently show favorable price movements. This strategy \"\n        \"aims to capitalize on these seasonal patterns by identifying and trading symbols \"\n        \"during their historically strong periods.\"\n    )\n\n    def __init__(self, window: int = 365, q2_min: float = 0.1, q3_min: float = 0.1) -> None:\n        self._window = window\n        self._q2_min = q2_min\n        self._q3_min = q3_min\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(s) for s in view.symbols]\n        closes = history.select(pl.col(\"symbol\").is_in(symbols).alias(\"in_symbols\"))\n        filtered_history = closes.filter(pl.col(\"in_symbols\"))\n\n        seasonality = (\n            filtered_history.groupby(\"symbol\")\n                             .agg(\n                                 (pl.col(\"close\").rolling_mean(window_size=self._window / 4)).alias(\"mean_q1\"),\n                                 (pl.col(\"close\").rolling_mean(window_size=self._window / 4, offset=30).alias(\"mean_q2\")),\n                                 (pl.col(\"close\").rolling_mean(window_size=self._window / 4, offset=60).alias(\"mean_q3\")),\n                                 (pl.col(\"close\").rolling_mean(window_size=self._window / 4, offset=90).alias(\"mean_q4\"))\n                             )\n        )\n\n        # Identify symbols with strong performance in Q2 and Q3\n        q2_q3_strong = seasonality.filter(\n            (pl.col(\"mean_q2\") > self._q2_min * pl.col(\"mean_q1\")) & \n            (pl.col(\"mean_q3\") > self._q3_min * pl.col(\"mean_q2\"))\n        ).select(pl.col(\"symbol\"))\n\n        picks: list[str] = [row[\"symbol\"] for row in q2_q3_strong.to_dicts()]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4136,
+    "output_tokens": 1545
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears to be well-documented with a clear rationale focused on exploiting seasonal patterns in the Indian market. However, several aspects can be critiqued for potential issues or improvements:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale mentions \"certain times of the year consistently show favorable price movements.\" This is not directly reflected in the code, which focuses on rolling means over quarters without specifying particular favorable periods.\n\n2. **Potential Failure Cases**:\n   - Line 36: `if history.is_empty() or history.height < self._window`: If there are no historical data points for symbols within the lookback period, the strategy will return an empty signal.\n   \n3. **Fragile Parameters**:\n   - The choice of rolling window size (`self._window / 4`) might be too rigid. Line 52: `pl.col(\"close\").rolling_mean(window_size=self._window / 4)`, this hardcoded fraction assumes a specific seasonal cycle length, which may not hold in all markets.\n   \n4. **Potential Run-Time Issues**:\n   - Line 76: The assumption that each row in the DataFrame will have a \"symbol\" column might fail if the data structure changes or if symbols are missing.\n\n5. **Code Soundness**:\n   - The strategy logic is sound in its approach to identifying strong performance periods, but it could benefit from more robust error handling and clearer documentation of edge cases.\n\nOverall, while the core idea of the strategy is well-defined, the implementation could be improved by making parameter choices more flexible and ensuring thorough testing for various market conditions."
+  ],
+  "seconds": 39.26413290000073,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 167
+}

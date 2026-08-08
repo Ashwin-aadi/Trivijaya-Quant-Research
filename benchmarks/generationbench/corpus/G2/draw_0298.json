@@ -1,0 +1,23 @@
+{
+  "index": 298,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffectStrategy(Strategy):\n    rationale = (\n        \"Certain sectors or industries may exhibit predictable patterns in their performance \"\n        \"based on calendar effects. For instance, tourism-related stocks might show higher returns \"\n        \"during the festive season. By identifying these seasonal trends, we can capitalize on \"\n        \"predictable market movements.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Extract the month from the session date for seasonal analysis\n        history = (\n            history.with_columns(\n                pl.col(\"session_date\").dt.month().alias(\"month\")\n            )\n            .group_by(\"symbol\", \"month\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"avg_monthly_return\"))\n            .sort(\"month\")\n        )\n\n        # Calculate the average return for each month over the entire period\n        avg_returns = history.group_by(\"month\").agg(\n            pl.col(\"avg_monthly_return\").mean().alias(\"avg_monthly_return\")\n        ).collect()\n\n        # Identify months with above-average returns\n        recent_avg_return = (\n            view.history(lookback=self._window).select(pl.col(\"session_date\").dt.month()).to_series()\n        )\n        recent_returns = history.filter(\n            pl.col(\"month\").is_in(recent_avg_return.to_list())\n        ).select(\"avg_monthly_return\")\n\n        above_average_months = recent_returns.height > 0\n\n        if not above_average_months:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Select symbols with returns in the identified months\n        symbols_with_above_avg_returns = (\n            history.filter(pl.col(\"month\").is_in(recent_avg_return.to_list()))\n            .select(\"symbol\")\n            .to_series()\n            .unique()\n            .to_list()\n        )\n\n        weight = 1.0 / len(symbols_with_above_avg_returns)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols_with_above_avg_returns},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffectStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 572
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.036965899998904,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 305
+}

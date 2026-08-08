@@ -1,0 +1,26 @@
+{
+  "index": 267,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity-screened equal weighting involves selecting the most liquid stocks \"\n        \"and assigning them equal weights. This strategy aims to reduce transaction costs and \"\n        \"improve trade execution while maintaining a diversified portfolio.\"\n    )\n\n    def __init__(self, liquidity_window: int = 20) -> None:\n        self._liquidity_window = liquidity_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._liquidity_window)\n        if history.is_empty() or history.height < self._liquidity_window * 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history.groupby(\"symbol\")\n            .agg(\n                pl.col(\"volume\").sum().alias(\"total_volume\"),\n            )\n            .sort(\"total_volume\", descending=True)\n            .head(10)[\"symbol\"]\n            .to_list()\n        )\n\n        if not liquidity_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(liquidity_scores)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in liquidity_scores},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3735,
+    "output_tokens": 1092
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy, `LiquidityWeightedEqual`, generally aligns well with its rationale but has some potential issues:\n\n1. **Rationale vs Code Mismatch**: The rationale states that the strategy aims to reduce transaction costs and improve trade execution by selecting the most liquid stocks and assigning them equal weights. However, the code only selects the top 5 most liquid symbols based on total volume over a rolling window without explicitly mentioning any threshold or criteria for \"most liquid.\" This could be misleading as it doesn't necessarily ensure lower transaction costs.\n\n2. **Potential Rule Failure**: The rule might fail if there are insufficient data points in `history`. Specifically, line 16 checks if the history is empty or shorter than the lookback period but does not handle cases where there are enough data points but they don't span the required window.\n\n3. **Fragile Parameters**:\n   - Line 7: The parameter `liquidity_window` could be problematic if set too low, as it might not capture meaningful liquidity metrics.\n   - Line 16: This check is crucial but should also consider whether the data points are sufficiently recent and representative of current market conditions.\n\n4. **Potential Issues for Running**:\n   - Lines 9-13: The code assumes that `history` will contain a column named \"volume\" and that it is properly formatted, which could fail if historical data is missing or incorrectly structured.\n   - Line 20: The assertion on line 20 (`assert isinstance(newest, date)`) might not always hold true if the history data contains non-date types, leading to runtime errors.\n\nOverall, the strategy is sound in its basic approach but requires careful consideration of parameter values and robust handling of input data to ensure it performs as intended."
+  ],
+  "seconds": 29.84514980000131,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 542
+}

@@ -1,0 +1,24 @@
+{
+  "index": 695,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeFeatureStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two simple indicators: the 20-day moving average and the \"\n        \"5-day RSI. The idea is that a stock breaking above its 20-day moving average and having \"\n        \"a positive 5-day RSI might indicate strong upward momentum.\"\n    )\n\n    def __init__(self, ma_window: int = 20, rsi_window: int = 5) -> None:\n        self._ma_window = ma_window\n        self._rsi_window = rsi_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._ma_window + self._rsi_window)\n        if history.height < self._ma_window + self._rsi_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        ma_column_name = f\"ma_{self._ma_window}\"\n        rsi_column_name = f\"rsi_{self._rsi_window}\"\n\n        # Compute 20-day moving average\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\").rolling_mean(window_size=self._ma_window)).alias(ma_column_name)\n            )\n            .with_columns((pl.col(\"close\") / pl.col(ma_column_name) - 1.0).alias(\"ma_deviation\"))\n        )\n\n        # Compute 5-day RSI\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\").diff().sign() * 100)\n                .rolling_sum(window_size=self._rsi_window, by=\"symbol\")\n                .alias(rsi_column_name)\n            )\n            .with_columns((pl.col(rsi_column_name) / self._rsi_window).alias(\"normalized_rsi\"))\n        )\n\n        # Select symbols that break above the 20-day MA and have a positive RSI\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if (\n                float(history.filter(pl.col(\"symbol\") == symbol)[\"ma_deviation\"].to_list()[-1]) > 0.0\n                and float(history.filter(pl.col(\"symbol\") == symbol)[rsi_column_name].to_list()[-1]) > 0.0\n            ):\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeFeatureStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2498,
+    "output_tokens": 1170
+  },
+  "calls": 2,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 32.24621280000429,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 709
+}

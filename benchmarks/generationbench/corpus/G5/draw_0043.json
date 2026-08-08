@@ -1,0 +1,26 @@
+{
+  "index": 43,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"During periods of range compression, the volatility tends to increase in subsequent \"\n        \"periods. By identifying such periods, we can potentially capture profitable trades when \"\n        \"the market breaks out of its tight range.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.symbol.unique().to_list():\n                continue\n            opens = history.select(pl.col(\"open\")[history[\"symbol\"] == symbol])\n            closes = history.select(pl.col(\"close\")[history[\"symbol\"] == symbol])\n            opens_values = [float(v) for v in opens.drop_nulls().to_list()[0]]\n            closes_values = [float(v) for v in closes.drop_nulls().to_list()[0]]\n\n            if len(opens_values) < self._window or len(closes_values) < self._window:\n                continue\n\n            high_range = max(opens_values[-self._window:]) - min(opens_values[-self._window:])\n            low_range = max(min(closes_values[-self._window:]) - closes_values[:-1])\n\n            if high_range > 0 and low_range > 0:\n                score = (high_range + low_range) / sum(\n                    [abs(o - c) for o, c in zip(opens_values[-self._window:], closes_values[-self._window-1:-1])]\n                )\n                range_compression_scores[symbol] = score\n\n        if not range_compression_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = sorted(range_compression_scores.items(), key=lambda item: item[1], reverse=True)[:5]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, _ in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4201,
+    "output_tokens": 1555
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several potential issues and areas for improvement:\n\n1. **Rationale vs. Code Disagreement:**\n   - The rationale suggests trading during periods of range compression to capture subsequent volatility increases. However, the code does not directly measure \"range compression\" but rather a combination of high and low ranges. This discrepancy could lead to suboptimal trades if the market's behavior deviates from expectations.\n\n2. **Potential Failure Scenarios:**\n   - The strategy might fail during periods where both `high_range` and `low_range` are very small, as the score calculation will be disproportionately large.\n   - If all symbols have low range compression scores, the strategy returns an empty signal, which could lead to inaction.\n\n3. **Fragile Parameters:**\n   - The choice of window size (20) is somewhat arbitrary and might not always capture meaningful patterns. A more dynamic approach or backtesting for different window sizes would be beneficial.\n   - The score calculation uses a simple sum of absolute differences, which may not accurately reflect range compression.\n\n4. **Code Issues:**\n   - Line 36: `opens_values = [float(v) for v in opens.drop_nulls().to_list()[0]]` assumes that the first element is always valid. This could fail if there are no nulls.\n   - Line 42: `if high_range > 0 and low_range > 0:` checks for non-zero values, but this might not be ideal as small positive values could still indicate compression.\n   - Line 51: The score calculation assumes a linear relationship between range differences and compression, which may not always hold.\n\n5. **Other Considerations:**\n   - No handling of missing or incomplete data in `history`.\n   - No validation on the symbols present in `history`.\n\nOverall, while the strategy has an interesting concept, it requires refinement to ensure robustness and accuracy. Backtesting with a variety of market conditions and parameter tuning would be essential before deploying this strategy."
+  ],
+  "seconds": 39.105458799999724,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 89
+}

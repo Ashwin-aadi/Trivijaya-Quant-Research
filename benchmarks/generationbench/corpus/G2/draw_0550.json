@@ -1,0 +1,23 @@
+{
+  "index": 550,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrading(Strategy):\n    rationale = (\n        \"Stock prices may exhibit seasonal patterns due to recurring events such as \"\n        \"holiday seasons or earnings reports. If the market tends to be more active and \"\n        \"prices higher during certain months of the year, a strategy that buys into these \"\n        \"seasons could potentially generate returns.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_factors: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.symbol.to_list():\n                continue\n            factor = _calculate_seasonal_factor(history[history[\"symbol\"] == symbol])\n            if factor is None:\n                continue\n            seasonal_factors[symbol] = factor\n\n        sorted_factors = sorted(seasonal_factors.items(), key=lambda x: x[1], reverse=True)\n        top_symbols = [symbol for symbol, _ in sorted_factors[:5]]\n        \n        weight = 1.0 / len(top_symbols) if top_symbols else 0\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_seasonal_factor(history: pl.DataFrame) -> float | None:\n    close_series = history.select(pl.col(\"adj_close\"))\n    if close_series.height < 20:\n        return None\n\n    avg_close = close_series.mean().item()\n    jan_avg = close_series.filter((pl.col(\"session_date\").dt.month() == 1)).mean().item()\n    octo_avg = close_series.filter((pl.col(\"session_date\").dt.month() == 10)).mean().item()\n\n    if abs(jan_avg - avg_close) > 5 or abs(octo_avg - avg_close) > 5:\n        return None\n\n    seasonal_factor_jan = (jan_avg / avg_close - 1.0).round(4)\n    seasonal_factor_octo = (octo_avg / avg_close - 1.0).round(4)\n\n    if abs(seasonal_factor_jan) < 0.1 and abs(seasonal_factor_octo) < 0.1:\n        return None\n\n    return max(seasonal_factor_jan, seasonal_factor_octo)",
+  "class_name": "SeasonalTrading",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 625
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.041569599998184,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 559
+}

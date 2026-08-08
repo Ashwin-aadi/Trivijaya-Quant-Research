@@ -1,0 +1,26 @@
+{
+  "index": 129,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"By tilting our portfolio towards low volatility, we aim to capture this anomaly.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history[\"symbol\"].to_list()]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: list[dict[str, float]] = []\n        for symbol in symbols:\n            prices = history.filter(pl.col(\"symbol\") == symbol)[\n                [\"session_date\", \"adj_close\"]\n            ]\n            returns = [float(prices.select(\"adj_close\").to_series().pct_change().drop_nulls().sum())]\n            if len(returns) < 1:\n                continue\n            vol = (sum(r**2 for r in returns) / len(returns)).sqrt()\n            volatilities.append({\"symbol\": symbol, \"volatility\": float(vol)})\n\n        if not volatilities:\n            return Signal(information_available_at=stamp, weights={})\n\n        sorted_volatilities = sorted(volatilities, key=lambda x: x[\"volatility\"])\n        picks = [sv[\"symbol\"] for sv in sorted_volatilities[:10]]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4050,
+    "output_tokens": 1371
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to capture outperformance from low-volatility stocks by tilting a portfolio towards them. Here are some critiques:\n\n1. **Rationale vs. Code Discrepancies**:\n   - The rationale suggests long-term outperformance of low-volatility stocks, but the code only looks back 20 sessions (lines 8-9), which is likely insufficient for capturing long-term trends.\n   \n2. **Potential Failures**:\n   - Line 31: If there are no symbols in `history`, a signal with empty weights is returned. However, this might not be optimal if the model requires at least one symbol to make a decision.\n   - Line 45: The strategy only selects the top 5 stocks based on volatility (low-volatility picks). This could lead to over-concentration in a few stocks and ignoring other potentially valuable symbols.\n\n3. **Fragile Parameters**:\n   - The window size of 20 sessions (line 8) is hardcoded, which might not be optimal for different market conditions or data frequencies.\n   - The number of picks (5, line 45) is also hardcoded; this could limit the strategy's adaptability.\n\n4. **Potential Issues**:\n   - Line 36: The calculation of returns assumes daily rebalancing and might not account for weekends or holidays in financial markets.\n   - Lines 12-14: If `history` contains duplicate session dates, it will incorrectly calculate volatility (line 38).\n   - Line 49: The strategy does not handle the case where there are fewer than 5 symbols with non-null volatilities.\n\nOverall, while this strategy aims to capture low-volatility outperformance, its current implementation has several limitations that could impact its effectiveness."
+  ],
+  "seconds": 35.63847390000046,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 262
+}

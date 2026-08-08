@@ -1,0 +1,26 @@
+{
+  "index": 148,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionTrailing(Strategy):\n    rationale = (\n        \"Price reverts towards the mean over time. By identifying symbols that have moved \"\n        \"farthest from their trailing average and then trading in the direction of the mean, \"\n        \"we can exploit this tendency for profit.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or not closes.columns:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            closes.select(pl.col(\"adj_close\").mean())\n            .to_series()\n            .item()\n        )\n        deviations = [\n            (float(closes[symbol].max()) - mean_close) / mean_close\n            for symbol in view.symbols\n            if symbol in closes.columns and not closes[symbol].is_empty()\n        ]\n\n        sorted_symbols = [s for _, s in sorted(zip(deviations, view.symbols), reverse=True)]\n        top_n = sorted_symbols[: self._top_n]\n\n        if not top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionTrailing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3839,
+    "output_tokens": 1229
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy seems mostly sound but has a few areas for improvement and potential issues:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale states the strategy identifies symbols that have moved farthest from their trailing average and trades in the direction of the mean. However, the code does not actually trade; it only selects top N symbols based on deviations from the mean. This discrepancy should be addressed to align the rationale with the actual implementation.\n\n2. **Potential Failure:**\n   - The strategy will fail if there are no symbols that have moved far enough from the trailing average (i.e., `deviations` list is empty). Currently, this scenario is not handled explicitly.\n     ```python\n     deviations = [\n         (float(closes[symbol].max()) - mean_close) / mean_close\n         for symbol in view.symbols\n         if symbol in closes.columns and not closes[symbol].is_empty()\n     ]\n     ```\n\n3. **Fragile Parameters:**\n   - The `window` parameter is set to 20 by default, but there's no validation or flexibility provided for this value.\n     ```python\n     self._window = window\n     ```\n   - The selection of top 5 symbols (`top_n = sorted_symbols[:5]`) is hardcoded and might not be optimal. Consider making it configurable.\n\n4. **Potential Issues:**\n   - `closes` could contain empty columns, which would cause issues when calculating deviations.\n     ```python\n     if symbol in closes.columns and not closes[symbol].is_empty()\n     ```\n   - The strategy assumes that the `MarketView` object contains historical prices, but this is not explicitly checked.\n\n5. **Improvements:**\n   - Add a condition to handle cases where `deviations` are empty.\n   - Make `top_n` configurable or dynamic based on some threshold.\n   - Ensure robust handling of empty columns in `closes`.\n\nOverall, the strategy is sound for identifying top N symbols with significant deviations from the mean but needs improvements for robustness and flexibility."
+  ],
+  "seconds": 32.465659499999674,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 300
+}

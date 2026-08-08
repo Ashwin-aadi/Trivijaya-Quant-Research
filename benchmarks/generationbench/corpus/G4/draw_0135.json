@@ -1,0 +1,27 @@
+{
+  "index": 135,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy focuses on highly liquid stocks to capitalize on the liquidity premium. \"\n        \"By equally weighting selected equities based on their liquidity metrics, we aim to benefit \"\n        \"from lower trading costs and higher price accuracy, which are often associated with larger \"\n        \"and more frequently traded stocks.\"\n    )\n\n    def __init__(self, window_volume: int = 20, window_turnover: int = 30, top_n: int = 15) -> None:\n        self._window_volume = window_volume\n        self._window_turnover = window_turnover\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._window_volume, self._window_turnover))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_data = (\n            history.lazy()\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"volume\").sum()).alias(\"total_volume\"),\n                pl.col(\"close\").mean().alias(\"average_close\"),\n            )\n            .collect()\n        )\n\n        turnover_data = (\n            view.closes(lookback=self._window_turnover)\n            .lazy()\n            .join(volume_data, on=\"symbol\")\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") / pl.col(\"average_close\") - 1.0).alias(\"turnover_ratio\"),\n            )\n        )\n\n        liquidity_scores = (\n            turnover_data.with_columns(\n                ((pl.col(\"total_volume\").rank(method=\"max\", descending=True)) / 20).alias(\"volume_rank\"),\n                (pl.col(\"turnover_ratio\").rank(method=\"max\", descending=True)) / 30\n            ).select(\n                pl.col(\"symbol\"),\n                \"volume_rank\",\n                \"turnover_ratio\"\n            )\n        )\n\n        liquidity_scores = (\n            liquidity_scores.sort([\"volume_rank\", \"turnover_ratio\"], descending=[True, True])\n            .head(self._top_n)\n            .with_columns((1 / self._top_n).alias(\"weight\"))\n        )\n\n        weights = {row[\"symbol\"]: row[\"weight\"] for row in liquidity_scores.iter_rows()}\n        return Signal(\n            information_available_at=stamp,\n            weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2254,
+    "output_tokens": 954
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to capitalize on the liquidity premium by focusing on highly liquid stocks while maintaining an equal weighting across selected equities. The economic mechanism exploits the fact that liquid stocks often have lower trading costs and higher price accuracy, leading to higher returns. This persistence is due to market inefficiencies where smaller investors may face higher transaction costs, allowing larger players to benefit disproportionately. The rule would involve screening stocks for liquidity based on metrics like trading volume and turnover, then equally weighting them in the portfolio. Regular rebalancing ensures continued exposure to this effect.",
+    "The signal for this strategy is based on liquidity metrics. Each day, compute the following for each stock in the universe:\n\n1. **Average Trading Volume**: Calculate the 20-day average trading volume to assess liquidity.\n2. **Turnover Ratio**: Compute the ratio of daily turnover (trading volume) to market capitalization over a 30-day lookback period.\n\nRank stocks based on their liquidity metrics, focusing on higher values indicating greater liquidity. Select the top N most liquid stocks by these metrics for equal weighting in the portfolio. Regularly rebalance the portfolio according to these rankings to ensure continuous exposure to the liquidity premium.",
+    "This strategy holds a portfolio of top N highly liquid stocks, typically ranging from 20 to 30 names, based on liquidity metrics. Each stock is equally weighted within the portfolio. Position sizing limits the concentration risk, ensuring no single stock exceeds 6.7% (1/15) of the total portfolio value. Risk management includes setting a loss limit of 5% for any single trading day to protect against significant market downturns or unexpected liquidity events. Regular rebalancing maintains exposure to the liquidity premium while mitigating risk."
+  ],
+  "seconds": 29.11886510000477,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 138
+}

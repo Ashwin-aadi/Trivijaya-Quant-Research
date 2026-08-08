@@ -1,0 +1,23 @@
+{
+  "index": 369,
+  "paradigm": "G2_cot",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Lower volatility assets tend to have higher expected returns due to risk premium. \"\n        \"By tilting our portfolio towards lower-volatility stocks, we can potentially capture \"\n        \"this risk premium.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            returns = (\n                history[f\"{symbol}_close\"]\n                .to_list()[1:]\n                .pct_change()\n                .drop_nulls()\n                .to_list()\n            )\n            if len(returns) < self._window - 1:\n                continue\n            volatility = (sum([r**2 for r in returns]) / (self._window - 1)) ** 0.5\n            volatilities[symbol] = float(volatility)\n\n        sorted_symbols = [k for k, v in sorted(volatilities.items(), key=lambda item: item[1])]\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 434
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.14700509999966,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 377
+}

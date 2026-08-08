@@ -1,0 +1,23 @@
+{
+  "index": 479,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two simple characteristics: short-term momentum and \"\n        \"long-term support. Short-term momentum signals strength over the past 10 days, while \"\n        \"support levels indicate areas where prices have historically found a floor.\"\n    )\n\n    def __init__(self, short_window: int = 10, long_window: int = 50) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._long_window + 1)\n        if closes.height < self._long_window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        short_momentum = pl.Series([float(v) for v in closes[\"close\"].to_list()[-self._short_window:]])\n        long_support = _find_long_term_support(closes)\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            short_momentum_factor = (closes[symbol][-1] - short_momentum.mean()) / short_momentum.std()\n            support_factor = 1.0 if closes[symbol][-1] >= long_support[symbol] else 0.0\n\n            if short_momentum_factor > 0.5 and support_factor == 1.0:\n                picks.append(symbol)\n\n        weight = 1.0 / len(picks) if picks else 0.0\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _find_long_term_support(closes: pl.DataFrame) -> dict[str, float]:\n    support_levels = {}\n    for symbol in closes.columns[1:]:\n        min_price = closes[symbol].min()\n        support_levels[symbol] = min_price\n    return support_levels",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 514
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.978429499999038,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 485
+}

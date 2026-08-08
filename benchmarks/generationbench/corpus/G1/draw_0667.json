@@ -1,0 +1,23 @@
+{
+  "index": 667,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression20d(Strategy):\n    rationale = (\n        \"Range compression indicates that prices are moving within a narrower band than usual, \"\n        \"suggesting increased volatility and potentially higher returns. By identifying symbols with the most significant range compression, we can capture these opportunities.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily range\n        high_low_diff = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"high\") - pl.col(\"low\")).alias(\"range\")\n            ).group_by(\"symbol\").agg(pl.col(\"range\").max().alias(\"max_range\"))\n        )\n        recent_highs = view.closes(lookback=self._window).select(\n            pl.col(\"session_date\"), pl.col(view.symbols[0]).alias(\"recent_high\")\n        )\n\n        # Join to get the most recent high for each symbol\n        recent_highs = (\n            history.join(recent_highs, on=\"symbol\", how=\"inner\")\n            .select(pl.col(\"symbol\"), \"range\", \"recent_high\")\n        )\n        \n        # Calculate range compression as a percentage of historical max range\n        compressed_range = (recent_highs.with_columns(\n            ((pl.col(\"recent_high\") - pl.col(\"high\")) / pl.col(\"max_range\")).alias(\"compression_ratio\")\n        ).sort(\"compression_ratio\").select(pl.col(\"symbol\"), \"compression_ratio\"))\n\n        # Filter and select top N symbols with the highest range compression\n        compressed_range = (\n            compressed_range.head(self._window)\n            .with_column(\n                (pl.col(\"compression_ratio\") / self._window).alias(\"weight\")\n            )\n        )\n\n        if compressed_range.height == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Convert to dictionary of symbol: weight\n        top_symbols = compressed_range.select(pl.col(\"symbol\"), \"weight\").to_dict(as_series=False)\n\n        return Signal(\n            information_available_at=stamp,\n            weights=top_symbols\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1245,
+    "output_tokens": 585
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.928545600007055,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 680
+}

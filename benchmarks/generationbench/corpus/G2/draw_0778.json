@@ -1,0 +1,23 @@
+{
+  "index": 778,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality effects can arise due to recurring events or economic conditions that \"\n        \"influence stock prices. For instance, certain sectors may experience higher demand or \"\n        \"activity during specific times of the year, leading to higher returns.\"\n    )\n\n    def __init__(self, lookback_years: int = 5) -> None:\n        self._lookback_years = lookback_years\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_years * 252)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol = history[\"symbol\"].item()\n        closes = history.select(pl.col(\"adj_close\"))\n\n        # Calculate the average close for each day of the year\n        yearly_closes = (\n            closes.group_by(pl.date.DateChunkedColumn(history[\"session_date\"])).mean().transpose()\n        )\n        avg_closes = {date_str: float(close) for date_str, close in yearly_closes.rows()}\n\n        today = stamp.toordinal()\n        seasonal_index = 365 + (today - (today % 365)) // 30\n        seasonally_adj_close = avg_closes.get(date(seasonal_index).toordinal(), history[\"adj_close\"][0])\n\n        if view.as_of.month == 12 and view.as_of.day >= 25:\n            # Check for end-of-year trend\n            recent_highs = (\n                history.select(pl.col(\"close\").alias(\"high\"))\n                .groupby(\"symbol\")\n                .agg((pl.col(\"high\") / seasonally_adj_close - 1.0).mean().alias(\"recent_return\"))\n                .sort(\"recent_return\", descending=True)\n            )\n            picks = [symbol for symbol, _ in recent_highs.sort(\"recent_return\", descending=True).rows()][:5]\n        else:\n            picks = []\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 572
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.894103499987978,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 790
+}

@@ -1,0 +1,26 @@
+{
+  "index": 172,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass TrailingReversion(Strategy):\n    rationale = (\n        \"Price reverts to the mean over time. By identifying assets that have significantly \"\n        \"underperformed their historical averages, we can exploit potential mean-reverting \"\n        \"behavior in the market.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.groupby(\"symbol\")\n                   .agg(pl.col(\"adj_close\").mean().alias(\"mean_adj_close\"))\n                   .with_columns(\n                       (pl.col(\"close\") / pl.col(\"mean_adj_close\") - 1.0).alias(\"reversion_signal\")\n                   )\n        )\n        \n        reversion_signal = mean_close.sort(\"reversion_signal\", descending=True)[\"reversion_signal\"]\n        if len(reversion_signal.to_list()) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        threshold_met = any(signal < -self._threshold for signal in reversion_signal.to_list()[:self._window])\n        \n        if not threshold_met:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols_of_interest: list[str] = [row[0] for row in\n                                          mean_close.to_pandas().itertuples(index=False)][:5]\n        \n        if not symbols_of_interest:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols_of_interest)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols_of_interest}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "TrailingReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4041,
+    "output_tokens": 1436
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "### Critique of the Systematic Equity Trading Strategy\n\n1. **Rationale vs. Code:**\n   - The rationale states that \"Price reverts to the mean over time,\" but the code only calculates a simple ratio between the current close price and the historical mean adjusted close price. It does not explicitly check for mean reversion behavior, which could be a misalignment.\n\n2. **Potential Failure:**\n   - If the market shows an extended period of non-reverting behavior (e.g., persistent underperformance), this strategy might continue to generate signals indefinitely even if no true mean reversion is occurring.\n     ```python\n     if (mean_close[\"reversion_signal\"].to_list()[0] < -self._threshold):\n         return Signal(information_available_at=stamp, weights={})\n     ```\n\n3. **Fragile Parameters:**\n   - The window size (`20`) and the threshold value (`0.1`) are hard-coded and could be sensitive to market conditions.\n   ```python\n   self._window = 20\n   self._threshold = 0.1\n   ```\n   These values should ideally be tuned or dynamically adjusted based on historical data.\n\n4. **Potential Issues:**\n   - The code assumes that `view.history()` is always non-empty, which might not be the case.\n     ```python\n     if history.height < self._window:\n         return Signal(information_available_at=stamp, weights={})\n     ```\n   This could lead to issues where the strategy fails without any meaningful signal.\n\n5. **Improvements:**\n   - The current implementation only selects the top 3 symbols with the highest reversion signals.\n     ```python\n     symbols_of_interest: list[str] = [row[0] for row in\n                                       mean_close.to_pandas().itertuples(index=False)][:3]\n     ```\n   This could be expanded to include more sophisticated filtering or ranking mechanisms.\n\n6. **Sound Parts:**\n   - The general structure of the strategy, using `polars` for data manipulation, and sorting symbols based on reversion signals are sound.\n   \nIn summary, while the code implements a basic form of mean reversion trading, it lacks robustness in detecting true mean reversion behavior, has fragile parameters, and could fail without meaningful history. Further enhancements are needed to improve its reliability and effectiveness."
+  ],
+  "seconds": 36.90843810000115,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 349
+}

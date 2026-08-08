@@ -1,0 +1,48 @@
+{
+  "index": 7,
+  "paradigm": "G7_mcts",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Dispersion20d(Strategy):\n    rationale = (\n        \"The dispersion of daily High-Low ranges over a 20-day period can indicate \"\n        \"whether the market is trending or range-bound. Higher dispersion suggests more \"\n        \"volatility and less predictability, making it a potential opportunity for trading.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        high_low_ranges = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"high\") - pl.col(\"low\")).alias(\"range\"),\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"range\").mean().alias(\"mean_range\"))\n        )\n\n        top_symbols = (\n            high_low_ranges.sort(\"mean_range\", descending=True)\n            .head(self._top_n)\n            .select(\"symbol\")\n            .to_series()\n            .to_list()\n        )\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights=dict(zip(top_symbols, [weight] * len(top_symbols)))\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Dispersion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20980,
+    "output_tokens": 6760
+  },
+  "calls": 25,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the systematic equity strategy targeting dispersion or range compression in the Indian market, I propose using the daily High-Low range as the signal. Measure this over a 20-day lookback period to capture both short-term volatility and trending behavior effectively.",
+    "To measure dispersion or range compression in the Indian market for your systematic equity strategy, use the daily High-Low range as the signal, with a 20-day lookback period. This approach captures both short-term volatility and longer-term trends efficiently.",
+    "Decide on a portfolio of 5 equally weighted positions when opening or closing a position. This balances exposure while maintaining simplicity in management.",
+    "For this systematic equity strategy in the Indian market, we will hold a portfolio of 5 names when positions are opened or closed, equally weighted across all selected stocks to balance diversification and simplicity.",
+    "Decide on a portfolio of 5 equally weighted positions when opening or closing a position. This approach balances exposure and simplifies management, aligning with the predefined strategy focus on dispersion or range compression using daily High-Low ranges over a 20-day lookback period.",
+    "For the risk rule, I propose setting an individual position loss limit of -3% per day and a portfolio-wide loss limit of -5% over any 5-day period. Exceeding these bounds will stop the strategy from trading for the next 2 days to allow for market conditions to stabilize.",
+    "For this systematic equity strategy, we will hold a portfolio of 5 names when positions are opened or closed, with each name equally weighted. This approach balances diversification benefits with the simplicity of easy-to-manage portfolios.",
+    "For the risk rule, I propose setting an individual position loss limit of 5% per day to protect against extreme market movements while allowing for some volatility capture. Additionally, the strategy will halt trading if the portfolio loss exceeds 10% over any single trading day to prevent significant drawdowns.",
+    "For the risk rule, set a stop-loss threshold of 5% for each individual position to limit potential losses. Additionally, halt trading if the portfolio loss exceeds 3% in a single day to prevent significant drawdowns.",
+    "For the risk rule, I propose setting an individual position loss limit of -3% per day and a portfolio-wide loss limit of -5% over any 5-day period. Exceeding these bounds will stop the strategy from trading for the next 2 days to allow for market conditions to stabilize.",
+    "For this systematic equity strategy, set the maximum loss bound for a single position to 2% of the portfolio value to control individual risk exposure. This limit ensures that no single trade can significantly impact the overall portfolio while allowing the strategy to fully participate in market movements.",
+    "For the risk rule, set a stop-loss threshold of 5% for each individual position to limit potential losses. Additionally, halt trading if the portfolio loss exceeds 3% in a single day to prevent significant drawdowns."
+  ],
+  "seconds": 262.69046309997793,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 97
+}

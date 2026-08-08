@@ -1,0 +1,23 @@
+{
+  "index": 42,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength against the broader market are more likely to outperform. \"\n        \"This strategy identifies stocks that have performed better than their peers over a certain period.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        # Calculate relative strength\n        symbols = [symbol for symbol in view.symbols if symbol in closes.columns]\n        relative_strengths: list[float] = []\n\n        for symbol in symbols:\n            symbol_closes = history[symbol].to_list()\n            universe_closes = history[\"adj_close\"].to_list()\n\n            if len(symbol_closes) < self._window or len(universe_closes) < self._window:\n                continue\n\n            # Calculate simple returns\n            symbol_returns = [float(v / symbol_closes[i-1] - 1.0) for i, v in enumerate(symbol_closes)][self._window:]\n            universe_returns = [float(v / universe_closes[i-1] - 1.0) for i, v in enumerate(universe_closes)][self._window:]\n\n            # Calculate mean returns\n            symbol_mean_return = sum(symbol_returns) / len(symbol_returns)\n            universe_mean_return = sum(universe_returns) / len(universe_returns)\n\n            # Calculate relative strength\n            relative_strength = (symbol_mean_return - universe_mean_return) / universe_mean_return if universe_mean_return != 0 else 0.0\n\n            relative_strengths.append(relative_strength)\n\n        top_symbols = [symbols[i] for i in sorted(range(len(relative_strengths)), key=lambda j: relative_strengths[j], reverse=True)[:5]]\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(information_available_at=stamp, weights={s: weight for s in top_symbols})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 557
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.780937400006223,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 45
+}

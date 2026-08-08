@@ -1,0 +1,23 @@
+{
+  "index": 298,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Historical data often shows that certain stocks exhibit higher returns during specific \"\n        \"times of the year due to seasonal effects. This strategy aims to capture these gains by \"\n        \"allocating capital to sectors or individual stocks that have historically performed well \"\n        \"during a particular month.\"\n    )\n\n    def __init__(self, season: int = 12) -> None:\n        self._season = season\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=365 * 4)  # Use a lookback of 4 years\n        if history.height < 1200:  # At least 10 years of data is needed for reliable seasonality\n            return Signal(information_available_at=stamp, weights={})\n\n        grouped = history.group_by(\"symbol\").agg(\n            (pl.col(\"session_date\").dt.month().alias(\"month\")),\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\"),\n        )\n        means = grouped.select(\n            [pl.col(\"symbol\"), pl.col(\"month\").mean(), pl.col(\"r\").mean()]\n        ).collect()\n\n        top_symbols: list[str] = []\n        for _, row in means.iter_rows():\n            if row[\"month\"].item() == self._season and abs(row[\"r\"].item()) > 0.1:\n                top_symbols.append(row[\"symbol\"].item())\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().item()  # Use item() to get the date object\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 493
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.181301699994947,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 303
+}

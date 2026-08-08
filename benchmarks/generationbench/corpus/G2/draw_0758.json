@@ -1,0 +1,23 @@
+{
+  "index": 758,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following exploits the observation that assets with higher \"\n        \"volatility tend to have more pronounced trends. By scaling trades based on recent \"\n        \"volatility, one can capture these trends while potentially reducing risk compared \"\n        \"to a simple momentum strategy.\"\n    )\n\n    def __init__(self, window: int = 20, volatility_window: int = 10) -> None:\n        self._window = window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities = {}\n        for symbol in view.symbols:\n            close_series = history.select(pl.col(\"adj_close\")[symbol]).to_pandas()[0]\n            volatility = _rolling_stddev(close_series, self._volatility_window)\n            volatilities[symbol] = volatility\n\n        sorted_symbols = [\n            (symbol, volatilities[symbol])\n            for symbol in view.symbols\n            if symbol in volatilities\n        ]\n        sorted_symbols.sort(key=lambda x: -x[1])\n\n        weights = {}\n        for i, (symbol, _) in enumerate(sorted_symbols):\n            weights[symbol] = 1.0 / (i + 1)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={k: v for k, v in weights.items() if v > 0},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _rolling_stddev(series: list[float], window: int) -> float:\n    mean = sum(series[-window:]) / window\n    variance = sum((x - mean) ** 2 for x in series[-window:]) / window\n    return variance**0.5 if variance > 0 else 0.0",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 509
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.782432599997264,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 770
+}

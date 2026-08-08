@@ -1,0 +1,27 @@
+{
+  "index": 180,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum6m(Strategy):\n    rationale = (\n        \"This strategy exploits the cross-sectional momentum in Indian equities by \"\n        \"investing in stocks with strong historical performance over the last 6 months. \"\n        \"It leverages investor behavior and market expectations to capture excess returns.\"\n    )\n\n    def __init__(self, window: int = 180, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        symbols = set(closes.columns) & set(history[\"symbol\"].to_list())\n\n        momentum_scores: dict[str, float] = {}\n        for symbol in symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            prices = history.filter(pl.col(\"symbol\") == symbol)[\n                [\"session_date\", \"adj_close\"]\n            ]\n            returns = (\n                (prices.with_column(prices[\"adj_close\"] / prices[\"adj_close\"].shift(1) - 1.0).select(\n                    pl.col(\"adj_close\").tail(self._window).alias(\"returns\")\n                )).select(pl.col(\"returns\").sum().alias(f\"return_{symbol}\"))\n            ).to_series()\n            momentum_scores[symbol] = returns\n\n        sorted_symbols = [s for s, _ in sorted(momentum_scores.items(), key=lambda x: -x[1])]\n        top_symbols = sorted_symbols[: self._top_n]\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum6m",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2522,
+    "output_tokens": 948
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy based on cross-sectional momentum in the Indian market, we will capitalize on the tendency for stocks with strong past performance to continue outperforming those with poor historical returns. This phenomenon is rooted in investor behavior\u2014positive past performance can lead to higher analyst ratings and institutional interest, reinforcing the stock's upward momentum.\n\nThe strategy involves ranking all listed Indian equities based on their recent returns (e.g., over the last 6 months). We then allocate capital to the top-ranked stocks, rebalancing periodically. This approach exploits persistency in stock performance due to market expectations and psychological biases. By focusing on outperforming assets, we aim to capture excess returns before momentum reverses or mean-reverts.\n\nThis strategy leverages the economic principle of investor herding and adaptive behavior, where past performance signals future outcomes. However, it's crucial to manage risks through stop-loss mechanisms and diversification across sectors to mitigate potential market fluctuations.",
+    "The signal for this systematic equity strategy is the cross-sectional momentum of Indian equities. It is computed as the average return over the last 6 months (lookback period) for each stock using daily open, high, low, close prices. The volume data can be used to weight the returns or identify liquidity issues but is not directly part of the core signal.\n\nOn a given day, stocks are ranked based on their average return over the past 6 months in descending order. Higher-ranked stocks with stronger historical performance are selected for investment. This ranking helps in allocating capital to the top-performing stocks and rebalancing periodically to capture persistent momentum effects while managing risks through stop-loss mechanisms and sector diversification.",
+    "For this systematic equity strategy, we will hold positions in the top 20 stocks ranked by their cross-sectional momentum over the last 6 months. Positions will be equally weighted to simplify management and reduce concentration risk. To manage risks, stop-loss mechanisms will be set at a 5% loss threshold for each individual position. Additionally, sector diversification will limit any single sector's exposure to no more than 30% of the total portfolio value. This approach ensures balanced allocation while capturing momentum effects without excessive risk exposure."
+  ],
+  "seconds": 29.050056799998856,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 183
+}

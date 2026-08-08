@@ -1,0 +1,47 @@
+{
+  "index": 12,
+  "paradigm": "G7_mcts",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum3mo(Strategy):\n    rationale = (\n        \"Cross-sectional momentum leverages the tendency for stocks with high recent \"\n        \"performance to continue outperforming. By focusing on daily highs over a 3-month \"\n        \"lookback period, we aim to capture these strong performers and allocate capital accordingly.\"\n    )\n\n    def __init__(self, lookback: int = 90, position_limit: float = 0.05, portfolio_limit: float = 0.03) -> None:\n        self._lookback = lookback\n        self._position_limit = position_limit\n        self._portfolio_limit = portfolio_limit\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        high_prices = (\n            history\n            .select(\"symbol\", pl.col(\"high\"))\n            .group_by(\"symbol\")\n            .agg(pl.col(\"high\").max().alias(\"max_high\"))\n            .sort(\"max_high\", descending=True)\n            .head(20)[\"symbol\"].to_list()\n        )\n\n        weights = {s: 1.0 / len(high_prices) for s in high_prices}\n        if sum(weights.values()) > self._portfolio_limit:\n            adjustment_factor = self._portfolio_limit / sum(weights.values())\n            weights = {s: w * adjustment_factor for s, w in weights.items()}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum3mo",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19661,
+    "output_tokens": 5837
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the cross-sectional momentum strategy in the Indian market, I propose using the daily closing price with a 6-month lookback period to calculate the return for each stock. This approach captures medium-term trends while mitigating noise from shorter-term fluctuations.",
+    "For the cross-sectional momentum strategy in the Indian market, I propose using the daily high price over a 3-month lookback period to determine the return for each stock. This choice focuses on intraperiod price action, capturing more immediate momentum effects and reducing the impact of end-of-day adjustments or overnight volatility.",
+    "The portfolio will hold 20 names with equal weights of 5% each, ensuring a balanced exposure while simplifying rebalancing.",
+    "For this cross-sectional momentum strategy in the Indian market, we will hold a portfolio of 20 equally weighted names when positions are opened and closed. This approach balances diversification benefits with manageability, ensuring each stock contributes uniformly to the overall performance.",
+    "The portfolio will hold 20 names with equal weights of 5% each, ensuring balanced exposure and simplifying rebalancing.",
+    "For this cross-sectional momentum strategy in the Indian market, we will hold a portfolio of 20 equally weighted names when positions are opened and closed. This ensures balanced exposure and simplifies rebalancing efforts while maintaining sufficient diversification to mitigate individual stock risk.",
+    "For the risk rule, I propose setting a stop-loss of -3% on an individual position to limit potential losses from short-term market fluctuations, while maintaining flexibility in the strategy's momentum-based approach. This threshold strikes a balance between mitigating risks and allowing for the capture of medium-term trends.",
+    "To manage risk, I propose setting a stop-loss rule at -30% for each individual position to limit potential losses from any single stock. This ensures that no single investment can cause the overall portfolio loss to exceed 60%, providing a balanced risk management approach while adhering to the equal-weighted portfolio structure.",
+    "For the risk rule, I propose setting an individual stock position limit of a 5% daily loss threshold to prevent excessive exposure to any single stock. Additionally, the portfolio-wide loss limit will be set at 3%, acting as a stop-loss mechanism to protect against severe market downturns and ensuring the strategy's overall risk is managed effectively.",
+    "For the risk rule, I propose setting an individual stock position limit of a 5% daily loss threshold. This prevents excessive exposure to any single stock while allowing for some volatility capture. Additionally, a portfolio-wide loss limit of 3% will act as a stop-loss mechanism to protect against severe market downturns and ensure overall strategy risk is managed effectively.",
+    "To limit risk, I propose setting an individual stock loss bound of -5% for each position. This bound will stop trading if a stock's value falls by 5% from its entry price, ensuring that no single position can significantly impact the overall portfolio performance.",
+    "For the risk rule, I propose setting a stop-loss at -5% on the portfolio as a whole to limit cumulative losses from a series of adverse market conditions. This ensures that the strategy can withstand multiple short-term downturns without significant overall damage, while still allowing individual positions to follow their momentum trends."
+  ],
+  "seconds": 459.6692466000095,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 159
+}

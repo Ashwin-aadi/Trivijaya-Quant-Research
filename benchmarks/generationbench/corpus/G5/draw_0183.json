@@ -1,0 +1,26 @@
+{
+  "index": 183,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity screening ensures that only stocks with sufficient trading volume are \"\n        \"considered. Equal weighting among these stocks promotes diversification and can \"\n        \"reduce the impact of individual stock-specific risks.\"\n    )\n\n    def __init__(self, window: int = 20, liquidity_threshold: float = 10_000_000) -> None:\n        self._window = window\n        self._liquidity_threshold = liquidity_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter symbols by liquidity\n        liquidity_screened = (\n            history\n            .group_by(\"symbol\")\n            .agg(pl.col(\"volume\").mean().alias(\"avg_volume\"))\n            .filter(pl.col(\"avg_volume\") > self._liquidity_threshold)\n        )\n\n        symbols = [str(row[\"symbol\"]) for row in liquidity_screened.select(\"symbol\").rows()]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Equal weighting among filtered symbols\n        weights = {s: 1.0 / len(symbols) for s in symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3793,
+    "output_tokens": 1189
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has a clear rationale focused on ensuring sufficient liquidity while promoting diversification through equal weighting. However, several issues and potential pitfalls can be identified:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale mentions \"trading volume,\" but the code filters based on `avg_volume`. This discrepancy could lead to confusion or misapplication of the strategy.\n\n2. **Potential Failure Scenarios**:\n   - Line 30: If no symbols pass the liquidity filter, the function returns an empty weights dictionary, which might not be sufficient for all backtesting environments.\n   - Line 14: The check `if history.is_empty() or history.height < self._window:` ensures that there is enough data but does not handle cases where the data is present but insufficient.\n\n3. **Fragile Parameters**:\n   - The threshold value of `10_000_000` for average volume (Line 28) might be too high or too low depending on market conditions and asset classes.\n   - The equal weighting approach assumes that all filtered symbols are equally important, which may not always be the case.\n\n4. **Potential Issues**:\n   - Line 15: Using `pl.col(\"volume\").mean().alias(\"avg_volume\")` might lead to errors if there is no volume data or null values.\n   - The `information_available_at` field in the returned `Signal` object uses the maximum session date from the history, which could be problematic if historical data is sparse.\n\n5. **General Considerations**:\n   - The strategy assumes that all symbols are treated equally after passing the liquidity filter, which might not account for other relevant factors like market capitalization or industry characteristics.\n   - The `MarketView` and `Signal` classes assumed here must be defined elsewhere in the codebase; their absence could cause runtime errors.\n\nOverall, while the core concept of filtering by liquidity is sound, the implementation has several areas that need refinement to ensure robustness and adaptability."
+  ],
+  "seconds": 31.593861800000013,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 371
+}

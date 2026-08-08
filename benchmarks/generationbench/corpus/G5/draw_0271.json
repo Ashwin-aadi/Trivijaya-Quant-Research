@@ -1,0 +1,26 @@
+{
+  "index": 271,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates that the stock prices are consolidating within a narrow \"\n        \"range. This can be an indication of upcoming breakout or trend reversal, making it a \"\n        \"potentially profitable entry point.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily range\n        history = history.with_columns(\n            (pl.col(\"high\") - pl.col(\"low\")).alias(\"range\")\n        )\n\n        # Normalize ranges by the first day's close to compare across symbols\n        history = (\n            history.with_columns(\n                (pl.col(\"range\") / pl.col(\"close\").shift(1)).alias(\"norm_range\")\n            )\n            .sort(\"session_date\", descending=False)\n            .with_column((pl.col(\"norm_range\").rolling_mean(window_size=self._window)).alias(\"mean_norm_range\"))\n        )\n\n        # Identify symbols with compressed range\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if f\"{symbol}_range\" not in history.columns or f\"{symbol}_mean_norm_range\" not in history.columns:\n                continue\n\n            max_range = float(history[f\"{symbol}_range\"][-1])\n            mean_range = float(history[f\"{symbol}_mean_norm_range\"][-1])\n\n            # Identify potential breakouts or reversals\n            if max_range / mean_range <= self._threshold and max_range > 2 * history[f\"{symbol}_range\"].shift(1):\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4108,
+    "output_tokens": 1490
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears mostly sound but contains some potential issues and areas for improvement:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale mentions \"upcoming breakout or trend reversal,\" yet the code does not explicitly account for breakouts or reversals. It simply identifies symbols with a compressed range.\n     - **Line 28**: `if max_range / mean_range <= self._threshold:` should ideally incorporate some condition to identify potential breakouts or reversals.\n\n2. **Potential Failures**:\n   - The strategy may fail if the input data is incomplete or incorrect, as indicated by the check in `_latest_visible` and `generate`.\n     - **Line 146**: `if visible.is_empty()`: If no historical data exists, the function returns an arbitrary date (`date(1900, 1, 1)`), which could be problematic.\n     - **Line 37-52**: The normalization and rolling mean calculations assume that the history is complete and correctly formatted.\n\n3. **Fragile Parameters**:\n   - The window size and threshold are hardcoded values (`window: int = 20` and `threshold: float = 0.1`). These may need to be adjusted based on market conditions.\n     - **Line 7**: `self._window = 20`\n     - **Line 8**: `self._threshold = 0.1`\n\n4. **Potential Stops**:\n   - The strategy could fail if the data is not properly aligned or if there are issues with missing values in the Polars DataFrame.\n     - **Line 37-52**: Ensure that all necessary columns (`\"high\"`, `\"low\"`, `\"close\"`) are present and correctly formatted.\n\nIn summary, while the core logic of identifying range compression is sound, improvements could be made to explicitly handle breakouts or reversals, ensure robustness against incomplete data, and make parameter values more configurable."
+  ],
+  "seconds": 38.19242730000042,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 550
+}

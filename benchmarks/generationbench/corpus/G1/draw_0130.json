@@ -1,0 +1,23 @@
+{
+  "index": 130,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Stocks often exhibit seasonality based on calendar effects. For example, certain \"\n        \"industries may see increased trading volumes or prices during specific months of the year.\"\n    )\n\n    def __init__(self, window: int = 60, threshold: float = 1.05) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window or len(history.columns) < 21:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the average close for each symbol over the lookback period\n        avg_closes = (\n            history.group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\").mean()).alias(\"avg\"))\n            .select([\"symbol\", \"avg\"])\n        )\n\n        # Get the latest closes for all symbols\n        latest_closes = view.closes()\n\n        symbol_scores: dict[str, float] = {}\n        for symbol in avg_closes[\"symbol\"]:\n            if symbol not in latest_closes.columns:\n                continue\n\n            avg_close = float(avg_closes.filter(pl.col(\"symbol\") == symbol)[\"avg\"][0])\n            latest_close = float(latest_closes[symbol][-1])\n\n            # Check if the current price is above the average by more than the threshold\n            if latest_close / avg_close > self._threshold:\n                symbol_scores[symbol] = (latest_close / avg_close - 1) * 10\n\n        sorted_scores = {k: v for k, v in sorted(symbol_scores.items(), key=lambda item: item[1], reverse=True)}\n\n        top_symbols = list(sorted_scores.keys())[:5]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 544
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.324415299997781,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 134
+}

@@ -1,0 +1,23 @@
+{
+  "index": 154,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Certain stocks in the Indian market exhibit strong seasonal trends. By identifying \"\n        \"these patterns, we can predict buying opportunities during favorable seasons.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter for NIFTY 100 symbols\n        nifty_symbols = tuple(s for s in view.symbols if s.startswith(\"NIFTY\"))\n        filtered_history = history.select(\n            pl.col(\"symbol\").filter(pl.col(\"symbol\").is_in(nifty_symbols))\n        )\n\n        # Calculate the average return over the window period\n        avg_returns = (\n            filtered_history.group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"avg_return\"))\n            .sort(\"avg_return\", descending=True)\n            .head(5)[\"symbol\"]\n            .to_list()\n        )\n\n        if not avg_returns:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(avg_returns)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in avg_returns},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 417
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.744424799995613,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 158
+}

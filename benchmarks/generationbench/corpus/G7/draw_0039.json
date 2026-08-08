@@ -1,0 +1,46 @@
+{
+  "index": 39,
+  "paradigm": "G7_mcts",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeighted(Strategy):\n    rationale = (\n        \"This strategy selects the top 50 liquid stocks based on daily volume over a 20-day lookback period. \"\n        \"Each selected stock is given an equal weight in the portfolio to ensure liquidity-driven diversification.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 50) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume = (\n            history.select([\"symbol\", \"volume\"])\n            .group_by(\"symbol\")\n            .agg(pl.col(\"volume\").sum().alias(\"total_volume\"))\n            .sort(\"total_volume\", descending=True)\n            .head(self._top_n)\n            .select(\"symbol\")\n        )\n\n        if volume.is_empty() or len(volume) < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / self._top_n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in volume[\"symbol\"].to_list()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeighted",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19149,
+    "output_tokens": 5453
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the liquidity-screened equal weighting strategy in the Indian market, I propose using daily volume as the signal, measured over a 20-day lookback period. This ensures sufficient data while focusing on trading liquidity.",
+    "For the liquidity-screened equal weighting strategy in the Indian market, I propose using daily volume as the signal, measured over a 20-day lookback period. This approach balances data sufficiency with relevance to trading liquidity.",
+    "The portfolio will consist of the top 50 liquid stocks selected based on daily volume over a 20-day lookback period, with each stock weighted equally in the final portfolio.",
+    "The portfolio will hold 50 names, each equally weighted with a weight of 2%. This equal weighting ensures simplicity and fairness in the portfolio construction process.",
+    "The portfolio will consist of the top 50 liquid stocks selected based on daily volume over a 20-day lookback period, with each stock weighted equally in the final portfolio. This approach ensures simplicity and fairness in weighting while maintaining a balanced exposure to liquidity.",
+    "The portfolio will hold 50 names, each equally weighted with a weight of 2%. This equal weighting ensures simplicity and fairness in the portfolio construction process.",
+    "I propose setting a stop-loss rule of -5% for individual positions and -7% for the overall portfolio to manage risk effectively while allowing the strategy to ride out short-term fluctuations. This rule will halt trading if either threshold is breached, ensuring that losses are contained.",
+    "To manage risk, I propose setting an individual position loss limit of -5% for each stock in the portfolio. Additionally, the strategy will halt trading if the total portfolio loss exceeds -10%. This ensures that no single position can cause significant harm while protecting against broader market downturns.",
+    "I propose setting a stop-loss rule of -5% for individual positions and -7% for the overall portfolio to manage risk effectively while allowing the strategy to ride out short-term fluctuations. This rule will halt trading if either threshold is breached, ensuring that losses are contained.",
+    "For the risk rule, I propose setting an individual position loss bound of -3% to prevent significant losses on any single stock. Additionally, the portfolio-wide loss should not exceed -5% at any point to safeguard overall strategy performance. These bounds will stop trading if exceeded, ensuring risk management.",
+    "For the risk rule, I propose setting an individual position loss bound of -3% and a portfolio-wide loss limit of -5%. Exceeding these thresholds would trigger a halt in trading to prevent significant losses and safeguard overall strategy performance."
+  ],
+  "seconds": 187.0196778999525,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 489
+}

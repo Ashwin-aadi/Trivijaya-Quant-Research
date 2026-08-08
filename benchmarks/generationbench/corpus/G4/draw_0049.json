@@ -1,0 +1,27 @@
+{
+  "index": 49,
+  "paradigm": "G4_planning",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"This strategy identifies stocks that have deviated significantly from their historical \"\n        \"price levels due to transient factors and are expected to revert towards their long-term means. \"\n        \"The short-horizon mean reversion in the Indian equity market is exploited by selecting stocks with sharp deviations, \"\n        \"entering trades when prices approach or cross their respective moving averages.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        sma_10 = (\n            history.groupby(\"symbol\")\n                   .agg((pl.col(\"adj_close\").shift(-self._window).mean().over(pl.col(\"session_date\"))).alias(\"sma\"))\n        )\n        history = history.join(sma_10, on=\"symbol\", how=\"inner\")\n\n        deviations = (history[\"adj_close\"] - history[\"sma\"]).abs()\n        ranked_symbols = deviations.sort(by=\"sma\", descending=True).select([\"symbol\", \"session_date\", \"adj_close\", \"sma\", \"deviations\"])[:self._top_n]\n\n        weights = {row.symbol: 1.0 / len(ranked_symbols) for row in ranked_symbols.rows()}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2552,
+    "output_tokens": 906
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy focuses on exploiting short-horizon mean reversion in the Indian equity market. The economic mechanism involves identifying stocks that have deviated significantly from their historical price levels due to transient factors (such as market sentiment or temporary news events) but are expected to revert towards their long-term means. This persistence arises because markets often overreact to short-term events, causing prices to overshoot both upwards and downwards.\n\nThe trading rule would involve selecting stocks that show a sharp deviation from moving averages or other historical price metrics within a specific timeframe (e.g., 5-20 days). Upon identification, a trade is initiated when the stock's price approaches its mean level. The strategy aims for quick entry and exit to capture short-term price corrections, leveraging the tendency of prices to revert over shorter periods. This approach requires frequent monitoring and rapid execution to capitalize on fleeting market opportunities.",
+    "The signal for this strategy involves computing the deviation of a stock's recent price from its moving average. Specifically, calculate the difference between the closing price of each stock (obtained daily) and a short-term simple moving average (e.g., 10-day or 20-day SMA), over a lookback period of 5-20 days. The moving average can be based on either closing prices or volume-weighted averages to account for liquidity.\n\nOn any given day, rank the candidates by the absolute value of their price-deviation-from-moving-average signal. Stocks with larger deviations (in absolute terms) are considered more attractive for trade initiation, as they exhibit stronger potential for mean reversion. The top-ranked stocks based on this criterion would be selected for trading, with positions entered when prices approach or cross their respective moving averages, and exited shortly thereafter to capture the expected price correction.",
+    "For this strategy, maintain a portfolio of approximately 20-30 highly-ranked stocks based on their price-deviation-from-moving-average signals. Weight each stock equally within the portfolio to simplify management while leveraging the collective mean-reverting behavior. Set stop-loss limits at around 1-2% below entry prices to manage risk and prevent excessive drawdowns, ensuring that no single position can cause a significant loss. This approach balances exposure across multiple stocks, reducing individual risk while capturing short-term price corrections efficiently."
+  ],
+  "seconds": 28.1281519999975,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 51
+}

@@ -1,0 +1,23 @@
+{
+  "index": 78,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Companies that consistently outperform the broader market may have superior management \"\n        \"or business models. This strategy aims to identify such companies by comparing their \"\n        \"performance against the NIFTY 100 index.\"\n    )\n\n    def __init__(self, window: int = 252) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        if view.closes().height < (len(view.symbols) + 1):\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_closes = view.closes(symbol=\"^NSEI\", lookback=self._window)\n        stock_closes = view.closes(lookback=self._window)\n\n        if nifty_closes.height < self._window or stock_closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_returns = (\n            (nifty_closes[\"adj_close\"] / nifty_closes[\"adj_close\"].shift(1) - 1.0)\n            .to_list()\n            [1:]\n        )\n        stock_returns = [\n            float(v)\n            for v in (\n                (stock_closes[view.symbols[0]] / stock_closes[view.symbols[0]].shift(1) - 1.0)\n                .drop_nulls()\n                .to_list()\n            )[: self._window]\n        ]\n\n        if len(stock_returns) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_nifty_return = sum(nifty_returns) / self._window\n        avg_stock_return = sum(stock_returns) / self._window\n\n        if avg_stock_return > (avg_nifty_return + 0.1 * abs(avg_nifty_return)):\n            return Signal(\n                information_available_at=stamp,\n                weights={view.symbols[0]: 1.0},\n            )\n        else:\n            return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 536
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.170320400000492,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 81
+}

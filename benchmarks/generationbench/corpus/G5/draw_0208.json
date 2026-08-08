@@ -1,0 +1,26 @@
+{
+  "index": 208,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionTrailing(Strategy):\n    rationale = (\n        \"Price reverts against a trailing reference level. \"\n        \"This approach captures mean-reverting behavior in the stock price.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"m\"))\n            .select([\"symbol\", \"m\"])\n            .with_columns((pl.col(\"adj_close\") - pl.col(\"m\")).alias(\"deviation\"))\n            .sort(\"deviation\", descending=True)\n            .head(self._top_n())\n        )\n\n        top_symbols = mean_close.select(\"symbol\").to_series().to_list()\n        weights = self._compute_weights(top_symbols, history)\n\n        return Signal(\n            information_available_at=stamp, weights={s: w for s, w in zip(top_symbols, weights)}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\nclass ReversionTrailing(Strategy):\n    def _top_n(self) -> int:\n        # Adjust the number of top symbols based on the window size\n        return min(self._window // 2, len(view.symbols))\n\n\ndef _compute_weights(self, symbols: list[str], history: pl.DataFrame) -> list[float]:\n    weights = []\n    for symbol in symbols:\n        latest_close = float(history.filter(pl.col(\"symbol\") == symbol).select(\"adj_close\").head(1)[\"adj_close\"])\n        mean_close = float(history.group_by(\"symbol\").agg(pl.col(\"adj_close\").mean()).filter(pl.col(\"symbol\") == symbol).select(\"m\")[0, 1])\n        deviation = latest_close - mean_close\n        weight = max(0.0, min(self._threshold * (self._window / len(symbols)), abs(deviation)))\n        weights.append(weight)\n    return weights",
+  "class_name": "ReversionTrailing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4151,
+    "output_tokens": 1508
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several issues that need addressing:\n\n1. **Rationale vs Code**: The rationale states \"Price reverts against a trailing reference level,\" but the code does not explicitly implement a trailing reference level. Instead, it computes an arithmetic mean of closing prices over a window period and uses deviations from this mean to determine weights. This discrepancy might confuse users expecting a trailing average.\n\n2. **Potential Failures**:\n   - **Empty History**: The strategy assumes `history` is non-empty when calculating means (lines 19-23). If the history is empty or too short, it will fail.\n   - **Symbol Handling**: `_top_n` method references `view.symbols`, which is not defined in the provided code. This function should be updated to correctly handle symbols.\n\n3. **Fragile Parameters**:\n   - The threshold (`threshold`) parameter (line 7) is set but its impact on weight calculation is unclear without further context.\n   - The window size (`window`) could lead to inconsistent behavior if not carefully chosen, as it directly affects the number of top symbols and weights computation.\n\n4. **Code Fragility**:\n   - `_top_n` should be a method within `ReversionTrailing`.\n   - `_compute_weights` references `view.symbols`, which is undefined; this needs to be corrected.\n   - The strategy does not handle cases where there are no visible symbols or sessions, leading to potential errors.\n\n5. **Potential Stops**:\n   - If the history data contains missing values or non-adj_close columns, the code will fail (lines 20 and 23).\n   - The `assert` statement on line 31 is unnecessary if `history.is_empty()` is checked properly.\n\nTo improve this strategy, ensure that all dependencies are clearly defined, error handling is robust, and the rationale aligns with the implementation."
+  ],
+  "seconds": 38.246040099998936,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 422
+}

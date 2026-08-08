@@ -1,0 +1,48 @@
+{
+  "index": 40,
+  "paradigm": "G7_mcts",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionStrategy(Strategy):\n    rationale = (\n        \"This strategy identifies price reversion opportunities by comparing daily closing \"\n        \"prices against a trailing 50-day simple moving average (SMA). When prices deviate significantly from the SMA, it suggests a potential reversion, and we take action.\"\n    )\n\n    def __init__(self, window: int = 50) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"].to_list()\n        sma = sum(closes[-self._window:]) / self._window\n        deviations = [abs((c - sma) / sma) for c in closes]\n\n        if max(deviations) > 0.1:\n            top_symbol = view.symbols[0]\n            weight = 1.0\n            return Signal(\n                information_available_at=stamp,\n                weights={top_symbol: weight},\n            )\n        else:\n            return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 21157,
+    "output_tokens": 7038
+  },
+  "calls": 25,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the daily closing price, measured against a trailing 50-day simple moving average (SMA) of closing prices. Deviations from this SMA will indicate price-level reversion opportunities in the Indian market.",
+    "The signal will be the daily closing price, measured against a trailing 50-day simple moving average (SMA) of closing prices. Deviations from this SMA will indicate price-level reversion opportunities in the Indian market.",
+    "We will hold a portfolio of 5 stocks with equal weights (20% each) when a position is opened based on the price-level reversion signal against the trailing 50-day SMA. This ensures diversification while maintaining simplicity in management.",
+    "The portfolio will consist of a single name when a position is opened or closed, with a weight of 100%. This\u4e13\u6ce8\u5355\u4e00\u80a1\u7968\u7684\u505a\u6cd5\u786e\u4fdd\u4e86\u5728\u8fdb\u884c\u4e70\u5356\u64cd\u4f5c\u65f6\u7684\u6e05\u6670\u6027\u548c\u7b80\u6d01\u6027\uff0c\u540c\u65f6\u4e5f\u4fbf\u4e8e\u96c6\u4e2d\u8d44\u6e90\u548c\u7ba1\u7406\u98ce\u9669\u3002",
+    "Holding a portfolio of 5 stocks with equal weights (20% each) when a position is opened aligns with the requirement for both diversification and simplicity. As an alternative, we can hold a portfolio of 3 stocks, each weighted at 33.33%, to maintain a balanced approach while offering slightly more flexibility in stock selection and management.",
+    "\u9009\u62e9\u5355\u4e00\u80a1\u7968\u4f5c\u4e3a\u6301\u4ed3\uff0c\u5728\u5f00\u4ed3\u6216\u5e73\u4ed3\u65f6\u7ed9\u4e88\u5176100%\u7684\u6743\u91cd\u3002\u8fd9\u79cd\u65b9\u6cd5\u786e\u4fdd\u4ea4\u6613\u6e05\u6670\u7b80\u6d01\uff0c\u5e76\u6709\u52a9\u4e8e\u96c6\u4e2d\u8d44\u6e90\u548c\u7ba1\u7406\u98ce\u9669\u3002",
+    "For risk management, we will set an individual position loss limit of -10% from the entry price for each stock, and a portfolio-wide stop-loss at -5% from the total portfolio value at initialization. This ensures that no single position can cause significant portfolio harm while providing flexibility in trading opportunities.",
+    "To manage risk, we will set a stop-loss order at 5% below the entry price for each position. This limit ensures that any single stock's loss is capped at 5%, protecting the overall portfolio from excessive exposure to individual stocks while maintaining the strategy's focus and simplicity.",
+    "For this systematic equity strategy, I propose setting a risk rule that limits the loss on any single position to no more than 5% of the portfolio value. This bound would stop trading for that particular stock if its price falls by at least 5% from the entry price. This rule ensures risk management while maintaining the simplicity and diversification required.",
+    "For this systematic equity strategy, I propose setting the loss bound on a single position to no more than 3% of the portfolio value at risk (VaR). This limit ensures manageable risk while allowing the strategy to explore price-level reversion opportunities effectively. Additionally, we will stop trading if consecutive losses exceed 5%, to prevent overexposure and manage drawdowns.",
+    "For this systematic equity strategy, I propose setting a loss bound of no more than INR 100,000 per position. This limit balances risk management with the need to capture price-level reversion opportunities effectively, ensuring that individual trades do not significantly impact the overall portfolio. Trading will be stopped if three consecutive losses exceed this threshold, helping to manage drawdowns and prevent overexposure.",
+    "For risk management, we will set an individual position loss limit of -10% from the entry price for each stock and a portfolio-wide stop-loss at -5% from the total portfolio value at initialization. This limits potential losses on any single stock while maintaining overall portfolio stability."
+  ],
+  "seconds": 221.18461980001302,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 502
+}

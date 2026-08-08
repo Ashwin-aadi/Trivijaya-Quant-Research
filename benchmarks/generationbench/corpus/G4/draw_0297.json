@@ -1,0 +1,27 @@
+{
+  "index": 297,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilt(Strategy):\n    rationale = (\n        \"Historical empirical evidence suggests that stocks with lower volatility tend to \"\n        \"outperform those with higher volatility over time. This strategy exploits this \"\n        \"phenomenon by selecting and weighting stocks based on their 12-month trailing \"\n        \"volatility, thereby capturing the 'low-volatility premium'.\"\n    )\n\n    def __init__(self, window: int = 365) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(sym) for sym in view.symbols]\n        daily_returns = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"ret\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"ret\").mean().alias(\"avg_ret\"), pl.col(\"ret\").std().alias(\"vol\"))\n            .with_columns(\n                (pl.col(\"vol\") / pl.col(\"vol\").max() * 100).alias(\"rank\")\n            )\n        )\n\n        if daily_returns.height < len(symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        sorted_symbols = daily_returns.sort(\"rank\", descending=False)[\"symbol\"].to_list()\n        top_n = min(len(sorted_symbols), 200)\n        weight = 1.0 / top_n\n        return Signal(\n            information_available_at=stamp,\n            weights=dict(zip(sorted_symbols[:top_n], [weight] * top_n)),\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilt",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2454,
+    "output_tokens": 900
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan involves exploiting the empirical observation that stocks with lower volatility tend to outperform those with higher volatility over time. This phenomenon is often attributed to risk aversion among investors, who are willing to pay a premium for stable returns. The persistence may stem from market inefficiencies and the tendency of low-volatility stocks to exhibit underreaction to information.\n\nTo exploit this, we would implement a rule that systematically selects and weights stocks with lower historical volatility in the portfolio. Specifically, the strategy could rank stocks by their 12-month trailing volatility and allocate more capital to those at the lower end of the spectrum, while maintaining or slightly increasing exposure to these low-volatility assets as they outperform. This approach seeks to capture the \"low-volatility premium\" without making directional bets on market movements.",
+    "The signal for this systematic equity strategy is based on the 12-month trailing volatility of each stock. To compute this, you would calculate the standard deviation of daily returns over a 12-month period using the high, low, open, and close prices. Volume data can be used to further refine return calculations if necessary, but it is not strictly required for the volatility calculation.\n\nOn any given day, all stocks in the universe are ranked by their 12-month trailing volatility. Stocks with lower volatility scores rank higher. The portfolio then allocates more capital to the low-volatility stocks, maintaining or increasing exposure as they outperform. This ranking and allocation process is repeated daily to continuously adjust the portfolio based on the most recent market data.",
+    "This systematic equity strategy holds a diversified portfolio of approximately 200-300 low-volatility stocks. Positions are sized to maintain equal weights in terms of volatility score, ensuring no single stock dominates the portfolio. The total exposure is capped at 10% per name to limit individual risk. Loss bounds are set to protect against significant drawdowns, with a maximum portfolio loss limit of -20% over any rolling 6-month period to balance between capturing the low-volatility premium and managing risk."
+  ],
+  "seconds": 28.00712129999738,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 302
+}

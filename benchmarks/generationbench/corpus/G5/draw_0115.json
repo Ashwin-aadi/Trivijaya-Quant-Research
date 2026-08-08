@@ -1,0 +1,26 @@
+{
+  "index": 115,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates that the stock is experiencing reduced volatility \"\n        \"relative to its recent price range. This can be an opportunity for mean reversion, \"\n        \"as prices often revert back to their mean after a period of high compressions.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        ranges = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"high\") - pl.col(\"low\")).alias(\"range\"),\n                (pl.col(\"adj_close\").shift(-1) - pl.col(\"adj_close\")).abs().alias(\"price_change\"),\n            )\n            .sort(\"symbol\")\n        )\n\n        symbols = ranges[\"symbol\"].to_list()\n        range_values = [float(v[0]) for v in ranges.select(\"range\").rows()]\n        price_change_values = [float(v[0]) if v[0] != 0 else 1e-6 for v in ranges.select(\"price_change\").rows()]\n\n        compressed_symbols: list[str] = []\n        for i, (symbol, range_val, change) in enumerate(zip(symbols, range_values, price_change_values)):\n            if range_val / change < 2.0:\n                compressed_symbols.append(symbol)\n\n        weight = 1.0 / len(compressed_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in compressed_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4004,
+    "output_tokens": 1373
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also exhibits some weaknesses and potential issues:\n\n### Strengths:\n1. **Rationale Alignment**: The rationale for the `RangeCompression` strategy aligns well with common trading principles. It correctly identifies that reduced volatility (range compression) can signal a mean reversion opportunity.\n\n2. **Backtesting Framework**: The use of `MarketView`, `Signal`, and `Strategy` classes suggests a structured approach to backtesting, which is beneficial for systematic strategies.\n\n### Criticisms and Issues:\n\n1. **Rationale vs. Code Mismatch**:\n   - **Line 14-17**: The rationale mentions \"mean reversion\" based on reduced volatility. However, the code focuses solely on range compression without explicitly checking mean levels or historical price movements.\n   \n2. **Potential Failures**:\n   - **Line 38-45**: This section identifies symbols with high range compression by comparing `range` and `price_change`. If a stock has no significant price change (`price_change` is zero), the condition `range_val / change < 2.0` will raise an error or return incorrect results, as division by zero is not handled.\n   \n3. **Fragile Parameters**:\n   - **Line 12**: The window parameter is hardcoded to 20 without any user input or dynamic adjustment. While 20 might be a reasonable default for some markets, it could be adjusted based on the specific market dynamics and time frame.\n\n4. **Potential Stopping Conditions**:\n   - **Line 36-37**: If `history.height < self._window`, an empty signal is returned. This could lead to missed trades or incorrect signals if historical data is incomplete.\n   \n5. **Data Handling**:\n   - **Line 29-30**: The use of `.shift(-1)` in calculating price change might not be valid for the first row, leading to `NaN` values.\n\n### Recommendations:\n- Add error handling for division by zero (e.g., using a conditional statement or default value).\n- Allow dynamic adjustment of the window parameter based on user input.\n- Ensure historical data is complete before processing.\n- Handle edge cases in data preparation more robustly."
+  ],
+  "seconds": 35.537671999999475,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 234
+}

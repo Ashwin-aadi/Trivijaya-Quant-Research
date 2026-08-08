@@ -1,0 +1,26 @@
+{
+  "index": 69,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"By tilting towards lower volatility stocks, we aim to capture this effect while mitigating risk.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(sym) for sym in view.symbols]\n        closes = history.filter(pl.col(\"symbol\").is_in(symbols)).select(\n            pl.col(\"symbol\"), pl.col(\"adj_close\")\n        )\n        volatilities = _calculate_volatility(closes)\n        sorted_symbols = [\n            str(symbol) for symbol, volatility in sorted(volatilities.items(), key=lambda x: x[1])\n        ]\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_n = min(len(sorted_symbols), self._top_n)\n        weight = 1.0 / top_n\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in sorted_symbols[:top_n]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_volatility(closes: pl.DataFrame) -> dict[str, float]:\n    volatilities = {}\n    for symbol in closes.unique(subset=\"symbol\").iter_rows():\n        symbol_closes = [float(v) for v in closes.filter(pl.col(\"symbol\") == symbol[0])[\"adj_close\"].to_list()]\n        if len(symbol_closes) >= 2:\n            returns = [(symbol_closes[i] - symbol_closes[i-1]) / symbol_closes[i-1] for i in range(1, len(symbol_closes))]\n            volatilities[str(symbol)] = (sum([r**2 for r in returns])**0.5)\n    return volatilities",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4100,
+    "output_tokens": 1474
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale of tilting towards low-volatility stocks. However, there are a few issues and potential improvements:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale mentions outperforming high-volatility stocks over the long term by tilting to lower volatility, but the code only selects the top 5 symbols with the lowest volatility without any explicit consideration for performance or risk-adjusted return.\n     - Line: `top_n = min(len(sorted_symbols), 5)` and subsequent weight assignment.\n\n2. **Rule Failure**:\n   - If no data is available within the lookback period, the strategy returns an empty weights dictionary, which may lead to decision-making issues if this occurs frequently.\n     - Line: `if history.height < self._window:`\n\n3. **Fragile Parameters**:\n   - The window size is hardcoded at 20, but the optimal window for volatility calculations can vary by asset class and market conditions.\n     - Line: `self._window = window`\n   - The number of top symbols selected (5) is also hardcoded; this should be configurable or data-driven.\n     - Lines: `top_n = min(len(sorted_symbols), 5)` and subsequent weight assignment.\n\n4. **Potential Issues**:\n   - The `_calculate_volatility` function assumes there are at least two closing prices to compute returns, which could fail for new symbols with insufficient history.\n     - Line: `if len(symbol_closes) >= 2:`\n\n5. **Other Considerations**:\n   - No checks or handling for missing values in the data frames.\n   - The strategy does not account for transaction costs, taxes, or other real-world constraints.\n\nOverall, while the core concept is sound, the implementation has some room for improvement to address these issues and make it more robust."
+  ],
+  "seconds": 37.79540629999974,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 141
+}

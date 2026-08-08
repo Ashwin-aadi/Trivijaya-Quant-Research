@@ -1,0 +1,27 @@
+{
+  "index": 0,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MomentumBasedStrategy(Strategy):\n    rationale = (\n        \"This strategy leverages the cross-sectional momentum effect by identifying \"\n        \"high-performing stocks over a recent period and allocating higher weights to \"\n        \"them in the portfolio. It aims to capture excess returns from past winners' \"\n        \"tendency to continue outperforming.\"\n    )\n\n    def __init__(self, lookback: int = 120, top_n: int = 30) -> None:\n        self._lookback = lookback\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.is_empty() or history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            opens = [float(v) for v in history[symbol][\"open\"].to_list()]\n            closes = [float(v) for v in history[symbol][\"close\"].to_list()]\n            if len(opens) < self._lookback or len(closes) < self._lookback:\n                continue\n\n            cumulative_return = (closes[-1] - opens[0]) / opens[0]\n            momentum_scores[symbol] = cumulative_return\n\n        sorted_symbols = [\n            symbol\n            for _, symbol in sorted(\n                momentum_scores.items(), key=lambda item: -item[1]\n            )\n        ][: self._top_n]\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MomentumBasedStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2391,
+    "output_tokens": 890
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan focuses on exploiting the cross-sectional momentum effect in India's equity market. The economic mechanism involves identifying stocks that have performed well recently (positive momentum) and anticipating they will continue to outperform in the near future. This persistence can be attributed to various factors, including investor behavior, firm-specific events, and industry dynamics.\n\nThe trading rule would identify the top-performing stocks over a recent period (e.g., 3-6 months). These high-momentum stocks are then weighted more heavily in the portfolio, while underperforming stocks are given lower weights or excluded. The strategy aims to capture excess returns by leveraging the tendency for past winners to continue outperforming. Regular rebalancing ensures that the portfolio adapts to changing market conditions and maintains exposure to momentum-driven opportunities.",
+    "The signal for this systematic equity strategy is based on the cumulative return of stocks over a recent lookback period (e.g., 3-6 months). For each stock, compute the percentage change in its closing price from the beginning to the end of the lookback period. Rank all stocks daily based on these momentum scores, with higher positive returns indicating stronger past performance. Stocks with the highest momentum scores are selected for inclusion or increased weighting in the portfolio, while underperforming stocks are given lower weights or excluded. This ranking process helps identify and prioritize high-momentum candidates for investment, ensuring the portfolio is consistently aligned with recent market trends.",
+    "This strategy typically holds a concentrated portfolio of approximately 20-30 top-momentum stocks identified from the market. Each stock's weight is proportional to its momentum score, ensuring higher weights for stocks with stronger recent performance. Position sizes are adjusted regularly post-rebalancing to maintain optimal exposure while limiting risk. To manage downside risk, the strategy sets a stop-loss mechanism to cap potential losses at around 5-10% per position. This limit helps in mitigating heavy drawdowns and aligning with overall risk tolerance."
+  ],
+  "seconds": 33.574041300002136,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 1
+}

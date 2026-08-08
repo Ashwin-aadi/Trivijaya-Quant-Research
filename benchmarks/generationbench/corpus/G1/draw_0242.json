@@ -1,0 +1,23 @@
+{
+  "index": 242,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"Trends in asset prices are more likely to continue than reverse. By scaling trades by \"\n        \"volatility, we can potentially benefit from these trends while limiting risk.\"\n    )\n\n    def __init__(self, window: int = 20, volatility_window: int = 10) -> None:\n        self._window = window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._volatility_window - 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if all(s in history.columns)]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        trends: dict[str, float] = {}\n        volatilities: dict[str, float] = {}\n\n        for symbol in symbols:\n            closes = history.select(pl.col(symbol)).to_numpy().flatten()\n            trend = (closes[-1] - closes[0]) / self._window\n            volatility = pl.DataFrame(closes).select(\n                (pl.col(0) - pl.col(0).mean()).abs().sum() / self._volatility_window\n            ).item()\n            trends[symbol] = trend\n            volatilities[symbol] = volatility\n\n        ranked_trends = sorted(trends.items(), key=lambda x: abs(x[1]), reverse=True)\n        top_symbols = [s for s, _ in ranked_trends[: self._volatility_window]]\n\n        weights = {}\n        for symbol in top_symbols:\n            weight = 1.0 / len(top_symbols) * (abs(trends[symbol]) / volatilities[symbol])\n            if symbol not in trends or symbol not in volatilities:\n                continue\n            weights[symbol] = max(min(weight, 0.5), -0.5)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in weights.items() if abs(w) > 0},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 562
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.747409199990216,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 247
+}

@@ -1,0 +1,26 @@
+{
+  "index": 279,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity-weighted equal weighting involves assigning weights based on the \"\n        \"liquidity of each stock. More liquid stocks are given a higher weight to ensure\"\n        \" that the portfolio is not overly exposed to less tradable securities.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"volume\").sum() / pl.col(\"adj_close\").mean()).alias(\"liquidity_score\"),\n            )\n            .sort(\"liquidity_score\", descending=True)\n            .select(pl.col(\"symbol\"))\n        )\n\n        if liquidity_scores.height < 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(row[\"symbol\"]) for row in liquidity_scores.rows()]\n        total_liquid_volume = float(liquidity_scores.select(pl.sum(\"volume\")).item())\n        weights = {s: (float(liquidity_scores.filter(pl.col(\"symbol\") == s).select(\"volume\").item()) / total_liquid_volume) for s in symbols}\n\n        return Signal(\n            information_available_at=stamp, weights={s: w for s, w in weights.items()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3865,
+    "output_tokens": 1218
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears generally sound but has some issues that could impact its robustness and reliability:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states that the strategy assigns higher weights to more liquid stocks to avoid overexposure to less tradable securities. However, the code only uses volume to calculate liquidity scores without considering other factors like trading frequency or bid-ask spread.\n     - **Line**: `pl.col(\"volume\").sum() / pl.col(\"adj_close\").mean()` (LiquidityScore Calculation)\n   \n2. **Potential Failure**:\n   - The strategy assumes that historical data will always be available and non-empty, which can lead to issues if there are no trading days within the lookback window.\n     - **Line**: `if history.is_empty(): return Signal(...)` (line 18)\n\n3. **Fragility of Parameters**:\n   - The parameter `window` is hardcoded as an input, but its optimal value may vary significantly depending on market conditions and data availability.\n     - **Line**: `self._window = window`\n\n4. **Potential Issues in Running the Strategy**:\n   - If there are no symbols present in the historical data (`if liquidity_scores.height < 1`), the code returns an empty weights dictionary, which might not be ideal for all backtesting scenarios.\n     - **Line**: `if liquidity_scores.height < 1: return Signal(...)`\n   - The strategy does not handle cases where there are no recent sessions available or when the data is incomplete.\n     - **Line**: `_latest_visible` function (line 28)\n\nOverall, the strategy has a solid concept but requires improvements in handling edge cases and ensuring robustness. Specifically, it could benefit from additional checks and fallback mechanisms to ensure reliable operation under various market conditions."
+  ],
+  "seconds": 32.37852319999911,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 566
+}

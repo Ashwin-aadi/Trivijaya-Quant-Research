@@ -1,0 +1,27 @@
+{
+  "index": 171,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy focuses on exploiting the liquidity premium by selecting and \"\n        \"equally weighting stocks with high average daily trading volume (ADTV) and low bid-ask spreads. \"\n        \"Highly liquid stocks tend to offer better price discovery and lower transaction costs, potentially leading to higher returns.\"\n    )\n\n    def __init__(self, window_adtv: int = 60, top_n: int = 20) -> None:\n        self._window_adtv = window_adtv\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_adtv)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_measures = self._compute_liquidity_measures(history)\n\n        # Select top N most liquid stocks\n        top_n_symbols = [s for s in liquidity_measures.columns if s != \"session_date\"][: self._top_n]\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_n_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _compute_liquidity_measures(history: pl.DataFrame) -> pl.DataFrame:\n    # Calculate Average Daily Trading Volume (ADTV)\n    adtv = (\n        history.group_by(\"symbol\")\n               .agg((pl.col(\"volume\").sum() / self._window_adtv).alias(\"adtv\"))\n               .sort(\"adtv\", descending=True)\n    )\n\n    # Calculate Bid-Ask Spread\n    bid_ask_spread = (\n        history.sort(\"session_date\")\n                .groupby_rolling(window=self._window_adtv, by=\"symbol\", closed=\"both\")\n                .agg(\n                    ((pl.col(\"high\").max() - pl.col(\"low\").min()) / 2).alias(\"bid_ask_spread\"),\n                )\n    )\n\n    # Combine and rank based on ADTV and bid-ask spread\n    liquidity_measures = adtv.join(bid_ask_spread, on=\"symbol\")\n    liquidity_measures = (\n        liquidity_measures.with_columns(\n            (pl.col(\"adtv\") + pl.col(\"bid_ask_spread\")).rank(method=\"average\", descending=True).alias(\"rank\")\n        )\n               .sort(\"rank\")\n    )\n\n    return liquidity_measures",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2444,
+    "output_tokens": 1018
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy focuses on exploiting the liquidity premium by utilizing a liquidity-screened equal-weighting approach. The economic mechanism relies on the observation that stocks with higher liquidity tend to have smaller bid-ask spreads and lower transaction costs, potentially leading to higher returns. This phenomenon persists because market participants are willing to pay a premium for liquid stocks due to their ease of trade, which can be attributed to better price discovery and reduced risk.\n\nThe strategy involves screening the Indian equity market for stocks with high liquidity, then constructing an equal-weighted portfolio from these screened assets. This approach ensures that no single stock dominates the portfolio, potentially reducing concentration risk while leveraging the liquidity premium. The rule would involve periodically re-evaluating the liquidity of stocks and rebalancing the portfolio to maintain equal weights among selected liquid equities.",
+    "The signal for this systematic equity strategy is based on liquidity metrics. On a given day, compute the following liquidity measures for each stock in the Indian equity market:\n\n1. **Average Daily Trading Volume (ADTV)**: Over a 60-day lookback period.\n2. **Bid-Ask Spread**: Calculated as the difference between the highest bid price and the lowest ask price observed during the trading day.\n\nStocks are then ranked based on these metrics, with higher ADTV and lower bid-ask spread values indicating greater liquidity. The top N stocks (e.g., those in the highest decile) are selected for inclusion in the equal-weighted portfolio. This process is repeated daily to ensure the portfolio is updated with the most liquid stocks available.",
+    "The systematic equity strategy holds positions in the top 20% most liquid stocks by ADTV and bid-ask spread. Each stock is equally weighted within the portfolio, ensuring a balanced distribution of risk. The total portfolio size is capped to limit potential losses; specifically, no single day's loss should exceed 1% of the portfolio value, thus managing drawdowns and preserving capital. This approach ensures diversification while adhering to risk constraints."
+  ],
+  "seconds": 30.646653000003425,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 174
+}

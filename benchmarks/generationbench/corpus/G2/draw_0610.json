@@ -1,0 +1,23 @@
+{
+  "index": 610,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain times of the year may see higher returns due to seasonal factors such as \"\n        \"holiday spending, earnings releases, or weather patterns affecting industries. \"\n        \"By identifying these seasonal trends and timing trades accordingly, we can potentially \"\n        \"capitalize on predictable market movements.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter out symbols not in the current period\n        symbols_in_period = [symbol for symbol in view.symbols if symbol in history.columns]\n        if len(symbols_in_period) < 3:  # Ensure we have enough data points to consider\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute seasonality factor by comparing the current close to historical closes\n        seasonal_factors = {}\n        for symbol in symbols_in_period:\n            symbol_history = history.select(\n                pl.col(\"session_date\"), pl.col(symbol)\n            ).sort(\"session_date\")\n            latest_close = float(view.latest_close()[symbol])\n            average_seasonal_factor = (\n                symbol_history.with_columns(\n                    (pl.col(symbol) / pl.col(symbol).shift(1)).alias(\"ratio\")\n                )\n                .select(pl.col(\"ratio\").mean())\n                .get(0)\n            )\n\n            seasonal_factors[symbol] = latest_close / average_seasonal_factor\n\n        # Rank symbols by their seasonality factor\n        ranked_symbols = [\n            (symbol, factor)\n            for symbol, factor in sorted(\n                seasonal_factors.items(), key=lambda x: x[1], reverse=True\n            )\n        ]\n\n        if not ranked_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [s[0] for s in ranked_symbols[:3]]\n        weight_per_symbol = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight_per_symbol for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 567
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.882138300003135,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 619
+}

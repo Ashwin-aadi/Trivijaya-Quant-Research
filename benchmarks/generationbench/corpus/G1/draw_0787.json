@@ -1,0 +1,23 @@
+{
+  "index": 787,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression is a phenomenon where the trading range of a stock narrows \"\n        \"over time. It often indicates an upcoming breakout or consolidation in price action.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.05) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * 2 + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_closes = history.select([\"symbol\", \"session_date\", \"adj_close\"])\n        recent_highs = history.select([\"symbol\", \"session_date\", \"high\"])\n        recent_lows = history.select([\"symbol\", \"session_date\", \"low\"])\n\n        ranges = (\n            (recent_highs - recent_lows)\n            .group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").max().alias(\"max_adj_close\"),\n                 pl.col(\"adj_close\").min().alias(\"min_adj_close\"))\n            .with_columns(\n                ((pl.col(\"max_adj_close\") - pl.col(\"min_adj_close\")) / (pl.col(\"max_adj_close\") - pl.col(\"min_adj_close\")).shift(1) - 1.0).alias(\"range_ratio\")\n            )\n        )\n\n        compressed_symbols = ranges.filter(pl.col(\"range_ratio\") < self._threshold).select(\"symbol\").to_series().to_list()\n\n        if not compressed_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(compressed_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in compressed_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1245,
+    "output_tokens": 493
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.37501039999188,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 802
+}

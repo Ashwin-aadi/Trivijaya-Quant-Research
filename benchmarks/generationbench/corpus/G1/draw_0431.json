@@ -1,0 +1,23 @@
+{
+  "index": 431,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"Combining two weakly related characteristics can sometimes generate more robust \"\n        \"signals than relying on a single factor. This strategy looks at both 20-day momentum \"\n        \"and recent volatility to determine potential breakout opportunities.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            if values[-1] >= max(values):\n                breakout_symbols.append(symbol)\n\n        volatility_symbols: list[str] = []\n        history = view.history(lookback=self._window)\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            daily_returns = (history[symbol].slice(-2, 1) / history[symbol].slice(-3, 1) - 1.0).to_list()\n            if len(daily_returns) < 2:\n                continue\n            volatility = abs(sum([r for r in daily_returns if not pl.col(\"r\").is_nan()]))\n            if volatility > 0.1:\n                volatility_symbols.append(symbol)\n\n        common_symbols = set(breakout_symbols).intersection(set(volatility_symbols))\n        if not common_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(common_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in common_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 515
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.612545399999362,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 437
+}

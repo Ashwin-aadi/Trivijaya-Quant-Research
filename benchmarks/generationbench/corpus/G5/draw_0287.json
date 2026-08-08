@@ -1,0 +1,26 @@
+{
+  "index": 287,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentumAndVolatility(Strategy):\n    rationale = (\n        \"This strategy combines two signals: a momentum signal based on 50-day returns and \"\n        \"a volatility signal based on 20-day standard deviation. Both are meant to capture \"\n        \"momentum and stability in the market, which can help identify strong but stable \"\n        \"stocks for investment.\"\n    )\n\n    def __init__(self, momentum_window: int = 50, vol_window: int = 20) -> None:\n        self._momentum_window = momentum_window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._momentum_window, self._vol_window))\n        if history.height < max(self._momentum_window, self._vol_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores: dict[str, float] = {}\n        volatilities: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(prices) < self._momentum_window + 1:\n                continue\n\n            # Calculate momentum score\n            momentum_score = (prices[-1] - prices[0]) / prices[0]\n            momentum_scores[symbol] = momentum_score\n\n            # Calculate volatility over the last 20 days\n            returns = [(prices[i+1] - prices[i]) / prices[i] for i in range(len(prices) - 1)]\n            volatilities[symbol] = pl.DataFrame({\"returns\": returns}).select(\n                (pl.col(\"returns\") ** 2).mean().alias(\"variance\")\n            ).tail(self._vol_window)[0][\"variance\"] ** 0.5\n\n        # Filter symbols based on momentum and volatility\n        candidates = sorted(momentum_scores, key=lambda x: -momentum_scores[x])\n        filtered_symbols = [s for s in candidates if volatilities[s] < pl.Series(volatilities).mean()]\n\n        top_3_symbols = filtered_symbols[:3]\n        if not top_3_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_3_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_3_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentumAndVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4315,
+    "output_tokens": 1673
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy has several strengths but also some potential issues:\n\n**Strengths:**\n1. **Combines Momentum and Volatility:** The rationale effectively captures both momentum (50-day returns) and stability (20-day standard deviation), aiming to identify strong yet stable stocks.\n\n**Potential Issues:**\n\n1. **Rationale vs Code Discrepancy:**\n   - Line 19 states that the volatility signal is based on \"20-day standard deviation,\" but the code actually calculates the standard deviation of daily returns over a period (`pl.col(\"returns\") ** 2).mean().alias(\"variance\").collect()[0][\"variance\"] ** 0.5`). This should be explicitly documented as `20-day return volatility`.\n\n2. **Fragile Parameters:**\n   - The momentum window is set to 50 days, and the volatility window is 20 days (line 7). These values might not be optimal for all markets or time periods.\n   - Line 36 suggests that the strategy could fail if there are insufficient data points. This can be mitigated by setting a minimum `lookback` period in the `__init__` method.\n\n3. **Potential Failures:**\n   - Line 25 checks if `history.height < max(self._momentum_window, self._vol_window)`. If this condition is true, it should return an empty weights dictionary, as stated.\n   - The volatility calculation (line 40-41) could fail if there are missing values or NaNs in the price series. Consider handling these cases more robustly.\n\n4. **Code Fragility:**\n   - Line 56 uses `pl.Series(volatilities).mean()` without checking if the dictionary is empty, which can lead to a runtime error.\n   - Ensure that `candidates` and `filtered_symbols` are not empty before proceeding with line 59.\n\nOverall, while the strategy aims to combine momentum and volatility effectively, it would benefit from more robust handling of edge cases and clearer documentation."
+  ],
+  "seconds": 42.47220030000062,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 582
+}

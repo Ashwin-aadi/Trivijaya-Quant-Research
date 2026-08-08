@@ -1,0 +1,26 @@
+{
+  "index": 190,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Historical data often show certain stocks in the Indian market outperform during specific \"\n        \"months or seasons. This strategy aims to capitalize on these patterns by identifying symbols \"\n        \"that have historically performed well at particular times of the year.\"\n    )\n\n    def __init__(self, lookback_years: int = 5) -> None:\n        self._lookback_years = lookback_years\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_years * 252).sort(\"session_date\")\n        if history.height < self._lookback_years * 252:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_effect: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.select(pl.col(\"symbol\")).unique().to_numpy():\n                continue\n            symbol_history = history.filter(pl.col(\"symbol\") == symbol)\n            closes = [float(v) for v in symbol_history[\"adj_close\"].drop_nulls().to_list()]\n            month_effect = max(closes[i] / closes[i - 252] for i in range(252, len(closes)))\n            seasonal_effect[symbol] = month_effect\n\n        top_symbols = sorted(seasonal_effect.items(), key=lambda x: x[1], reverse=True)[:10]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in [symbol for symbol, _ in top_symbols]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3992,
+    "output_tokens": 1346
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify stocks in the Indian market that outperform during specific months or seasons by leveraging historical price data. The code generally aligns with this rationale but contains several issues and potential failures:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale mentions \"identifying symbols that have historically performed well at particular times of the year,\" but the implementation only looks back 3 years, which might not capture seasonal effects reliably if they occur over a longer period.\n\n2. **Potential Failures and Fragile Parameters:**\n   - Line 18: `self._lookback_years` is hardcoded to 3. This could be too short for capturing annual or multi-year seasonal patterns.\n   - Line 24: The strategy uses the last 252 trading days of historical data (`symbol_history[\"adj_close\"].drop_nulls().to_list()`) for each symbol, which might not be appropriate if there are missing dates in `history`.\n\n3. **Fragile Implementation:**\n   - Line 19-27: The logic to calculate the \"month_effect\" is overly simplistic and assumes that the most recent 252 days are representative of a full year\u2019s performance.\n   - Line 34-36: Only considering the top 5 symbols might miss out on other potentially strong performers, especially if the market conditions change.\n\n4. **Possible Issues That Could Stop It from Running:**\n   - Line 15: The function `_latest_visible` assumes that `view.history()` is not empty and has a column \"session_date.\" If these assumptions are violated, the function will raise an assertion error.\n   - Lines 20-26: If there are symbols in `history` that do not appear in `view.symbols`, the code will skip those symbols entirely, which might not be ideal.\n\nOverall, while the strategy aims to capture seasonal effects, it could benefit from a more robust approach to handling historical data and setting parameters."
+  ],
+  "seconds": 34.93988019999961,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 385
+}

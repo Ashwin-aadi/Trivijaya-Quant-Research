@@ -1,0 +1,26 @@
+{
+  "index": 138,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks with the highest relative strength against the NIFTY 100 index \"\n        \"can help identify outperformers. The idea is that stocks with higher returns \"\n        \"relative to the market may offer better risk-adjusted returns.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_returns = (closes[\"^NSEI\"] / closes[\"^NSEI\"].shift(1) - 1.0).to_list()[self._window:]\n        symbol_returns: dict[str, float] = {}\n        \n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window + 1:\n                continue\n            \n            # Calculate relative return of the stock against NIFTY 100\n            nifty_last_close = float(nifty_returns[-1])\n            symbol_mean_return = sum((close / nifty_last_close - 1.0 for close in values[:self._window]), start=0.0)\n            \n            if not pl.all(pl.Series(symbol_mean_return).is_nan()):\n                symbol_returns[symbol] = symbol_mean_return\n\n        sorted_returns = sorted(symbol_returns.items(), key=lambda x: x[1], reverse=True)[:self._top_n]\n        \n        if not sorted_returns:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(sorted_returns)\n        return Signal(\n            information_available_at=stamp,\n            weights={symb: weight for symb, _ in sorted_returns}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4078,
+    "output_tokens": 1477
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy appears to be fundamentally sound in its concept of identifying outperforming stocks relative to the NIFTY 100 index. However, there are several issues and potential pitfalls that need addressing:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states selecting stocks with \"higher returns relative to the market,\" but the code calculates mean return over a lookback period instead of comparing each stock's return directly against the NIFTY 100 index. This discrepancy could lead to misinterpretation.\n\n2. **Potential Failures and Fragilities**:\n   - **Line 48**: The logic for calculating `mean_return` is based on the last close value, which may not accurately represent the overall performance of the stock over the lookback period.\n   - **Line 50**: If a symbol's data is missing or incomplete (`len(values) < self._window + 1`), it will be skipped without any error handling. This could result in incorrect signals if critical symbols are omitted.\n   - **Line 64**: The `_latest_visible` function assumes that the `session_date` column exists and is of type `date`. If not, this assertion will fail, causing an error.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window`) is hardcoded at 20. This value should be configurable to allow tuning based on different market conditions or data characteristics.\n   - The strategy only selects the top 5 stocks by mean return, which might not always be the best approach depending on the distribution of returns.\n\n4. **Potential Issues**:\n   - **Line 36**: `closes[\"^NSEI\"]` and `closes[symbol]` assume that these columns exist in the data frame `closes`. If they are missing, this will raise an error.\n   - **Line 59**: The use of list comprehensions and slicing could be optimized for performance with large datasets.\n\nIn summary, while the core idea is sound, the implementation has several potential issues that need addressing to ensure robustness and accuracy."
+  ],
+  "seconds": 37.587935099998504,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 280
+}

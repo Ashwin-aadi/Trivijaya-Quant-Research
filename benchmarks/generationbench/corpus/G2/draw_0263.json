@@ -1,0 +1,23 @@
+{
+  "index": 263,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"Dual momentum exploits two different time horizons: short-term price strength and \"\n        \"long-term price direction. Strong short-term performance coupled with positive long-term \"\n        \"trends suggests a high probability of continued outperformance.\"\n    )\n\n    def __init__(self, short_window: int = 20, long_window: int = 60) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._long_window + max(self._short_window, 1))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"]\n        short_returns = (closes / closes.shift(self._short_window) - 1.0).to_list()\n        long_returns = (closes / closes.shift(self._long_window) - 1.0).to_list()\n\n        short_tickers: list[str] = []\n        for symbol in view.symbols:\n            if f\"{symbol}_short_return\" not in locals():\n                continue\n            if max(short_returns) == float(local[f\"{symbol}_short_return\"][-1]):\n                short_tickers.append(symbol)\n\n        long_tickers: list[str] = []\n        for symbol in view.symbols:\n            if f\"{symbol}_long_return\" not in locals():\n                continue\n            if max(long_returns) == float(local[f\"{symbol}_long_return\"][-1]):\n                long_tickers.append(symbol)\n\n        short_tickers = short_tickers[: min(len(short_tickers), 5)]\n        long_tickers = long_tickers[: min(len(long_tickers), 5)]\n\n        if not short_tickers or not long_tickers:\n            return Signal(information_available_at=stamp, weights={})\n\n        combined_weights: dict[str, float] = {}\n        for symbol in set(short_tickers + long_tickers):\n            combined_weights[symbol] = 0.5\n\n        return Signal(\n            information_available_at=stamp,\n            weights=combined_weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 557
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.704398900001252,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 269
+}

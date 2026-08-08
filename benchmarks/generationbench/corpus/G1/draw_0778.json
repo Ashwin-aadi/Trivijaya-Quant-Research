@@ -1,0 +1,23 @@
+{
+  "index": 778,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Certain stocks exhibit stronger performance during specific times of the year. \"\n        \"By identifying these seasonal effects, we can allocate capital to perform better in those periods.\"\n    )\n\n    def __init__(self, window: int = 365, seasonality_period: int = 4) -> None:\n        self._window = window\n        self._seasonality_period = seasonality_period\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Determine the seasonal period\n        seasonality_period = 4  # Quarterly effect for this example\n\n        # Calculate the average returns by season\n        seasons = [history.select(pl.col(\"session_date\").dt.quarter())]\n        avg_returns_by_season = {\n            season: history.filter(\n                pl.col(\"session_date\").dt.quarter() == season\n            ).select(pl.col(\"adj_close\")).to_dict()[0][1:]\n            for season in range(1, 5)\n        }\n\n        # Find the season with the highest average return\n        best_season = max(avg_returns_by_season.keys(),\n                          key=lambda s: sum(avg_returns_by_season[s]) / len(avg_returns_by_season[s]))\n        \n        symbols_in_best_season = view.symbols\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            if history.select(pl.col(\"session_date\").dt.quarter() == best_season).filter(\n                pl.col(symbol) > 0\n            ).height == 0:\n                symbols_in_best_season.remove(symbol)\n\n        # Allocate weights to the selected symbols\n        weight = 1.0 / len(symbols_in_best_season)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in symbols_in_best_season}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 517
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.588895599998068,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 793
+}

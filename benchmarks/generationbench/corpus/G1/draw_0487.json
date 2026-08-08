@@ -1,0 +1,23 @@
+{
+  "index": 487,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression is a period where the daily high and low are unusually close, \"\n        \"indicating reduced volatility. In such periods, it can be an opportune time to enter \"\n        \"positions in both directions.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes()\n        symbols = [s for s in closes.columns if s not in [\"session_date\"]]\n        \n        means = history.groupby(\"symbol\").agg(\n            pl.col(\"high\").min().alias(\"low_min\"),\n            pl.col(\"low\").max().alias(\"high_max\"),\n            (pl.col(\"high\") - pl.col(\"low\")).mean().alias(\"range_mean\")\n        ).sort(\"range_mean\", descending=True)\n\n        if means.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [s for s in symbols if s in means.columns and means[means[\"symbol\"] == s].shape[0] > 0]\n        weight = 1.0 / len(top_symbols)\n\n        weights = {s: weight for s in top_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1245,
+    "output_tokens": 418
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.505929399994784,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 493
+}

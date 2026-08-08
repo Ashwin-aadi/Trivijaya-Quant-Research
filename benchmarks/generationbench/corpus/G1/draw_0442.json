@@ -1,0 +1,23 @@
+{
+  "index": 442,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality in stock markets often reflects recurring events or behaviors that affect \"\n        \"stock prices. By identifying stocks with historical trends during specific times of the year, \"\n        \"investors can capitalize on these patterns.\"\n    )\n\n    def __init__(self, window: int = 365, seasonality_window: int = 90) -> None:\n        self._window = window\n        self._seasonality_window = seasonality_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes()\n        seasonality_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._seasonality_window:\n                continue\n\n            # Calculate the average close price for each month within the seasonality window\n            monthly_closes = (\n                history.select(\n                    pl.col(\"session_date\").dt.month_name(),\n                    pl.col(symbol),\n                )\n                .group_by(pl.col(\"session_date\").dt.month_name())\n                .agg([pl.col(symbol).mean()])\n                .collect()\n            )\n\n            # Compute the average close price for each month over the past year\n            mean_monthly_closes = (\n                monthly_closes.sort(\"session_date\")\n                .select(\n                    pl.col(\"month\").shift_and_fill(self._seasonality_window - 1),\n                    pl.col(symbol).mean().alias(\"average\"),\n                )\n                .sort(\"month\", descending=False)\n                .collect()\n            )\n\n            # Calculate the seasonality score as the difference between current close and mean of past year\n            current_close = values[-1]\n            if not mean_monthly_closes.is_empty():\n                latest_mean_close = float(mean_monthly_closes.select(\"average\").to_list()[-1])\n                seasonality_scores[symbol] = abs(current_close - latest_mean_close)\n\n        top_symbols = [s for s, score in sorted(seasonality_scores.items(), key=lambda x: x[1], reverse=True)][:5]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 650
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.37577159999637,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 448
+}

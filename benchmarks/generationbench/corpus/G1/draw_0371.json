@@ -1,0 +1,23 @@
+{
+  "index": 371,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: the 50-day moving average \"\n        \"and the relative strength index (RSI) to identify potential entry points. The moving \"\n        \"average helps filter out noise and smooth price action, while RSI indicates overbought \"\n        \"or oversold conditions.\"\n    )\n\n    def __init__(self, ma_window: int = 50, rsi_lookback: int = 14) -> None:\n        self._ma_window = ma_window\n        self._rsi_lookback = rsi_lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._rsi_lookback + max(self._ma_window, 1))\n        if closes.height < self._rsi_lookback + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        ma_signal: list[str] = []\n        rsi_signal: list[str] = []\n\n        for symbol in view.symbols:\n            history = view.history(lookback=self._ma_window + max(self._rsi_lookback, 1))\n            if symbol not in history.columns:\n                continue\n\n            # Calculate moving average\n            ma_close = float(\n                history[symbol].mean().item()\n            )\n            current_close = float(view.latest_close()[symbol])\n            if current_close > ma_close:\n                ma_signal.append(symbol)\n\n            # Calculate RSI\n            closes_series = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            price_changes = [(closes_series[i] - closes_series[i-1]) / abs(closes_series[i-1]) if closes_series[i-1] != 0 else 0 for i in range(1, len(closes_series))]\n            gains = [change for change in price_changes if change > 0]\n            losses = [-change for change in price_changes if change < 0]\n\n            avg_gain = sum(gains) / self._rsi_lookback\n            avg_loss = sum(losses) / self._rsi_lookback\n\n            rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')\n            rsi = 100 - (100 / (1 + rs))\n            if rsi < 30:\n                rsi_signal.append(symbol)\n\n        # Intersection of both signals\n        combined_signals = list(set(ma_signal) & set(rsi_signal))\n\n        if not combined_signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(combined_signals)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in combined_signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 688
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.276948400001856,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 377
+}

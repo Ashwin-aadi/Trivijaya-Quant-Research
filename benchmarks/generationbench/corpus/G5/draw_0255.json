@@ -1,0 +1,26 @@
+{
+  "index": 255,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"Liquidity screening aims to identify stocks with high single-day trading volume. \"\n        \"These stocks are more likely to be available at the desired price and quantity, \"\n        \"reducing slippage risk. Equal weighting across selected assets promotes a balanced portfolio.\"\n    )\n\n    def __init__(self, liquidity_threshold: float = 50_000) -> None:\n        self._liquidity_threshold = liquidity_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=365)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        high_volume_symbols = (\n            history.select(pl.col(\"symbol\"), pl.col(\"volume\").alias(\"daily_volume\"))\n            .filter(pl.col(\"daily_volume\") > self._liquidity_threshold)\n            .select(\"symbol\")\n            .to_dict(True)[\"symbol\"]\n        )\n\n        if not high_volume_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(high_volume_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in high_volume_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date), \"Expected session_date to be of type date\"\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3834,
+    "output_tokens": 1197
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also some potential weaknesses and areas for improvement:\n\n### Strengths:\n1. **Rationale**: The rationale aligns well with the code logic. It correctly states that liquidity screening helps in identifying stocks with high trading volume to reduce slippage risk, which is then balanced by equal weighting across selected assets.\n\n2. **Code Implementation**: The strategy is implemented effectively using `polars`, ensuring efficient data manipulation and processing.\n\n### Weaknesses and Areas for Improvement:\n\n1. **Rationale vs. Code Disagreement**:\n   - Line 37: The rationale states that the goal is to identify stocks with high trading volume, but the code filters by `total_volume` only. This should be `volume` (the single-day volume) rather than the sum of volumes over a year.\n\n2. **Potential Failures and Fragilities**:\n   - Line 31: If there are no symbols meeting the liquidity threshold (`high_volume_symbols` is empty), the strategy returns an empty weights dictionary without logging or raising an error.\n   - Line 50: The function `_latest_visible` assumes that `visible['session_date']` will always be a date, but this should include type checking to handle potential errors.\n\n3. **Fragile Parameters**:\n   - The liquidity threshold (`self._liquidity_threshold`) is hard-coded as 50,000. While it works for some cases, it might not be optimal across different markets or periods.\n   - The strategy does not account for market conditions, regulatory changes, or varying trading volumes over time.\n\n4. **Running Issues**:\n   - Line 12: `from __future__ import annotations` is generally used with type hints, which may not be necessary if the codebase is already modern.\n   - Line 35: The function `_latest_visible` assumes that `view.history()` returns a DataFrame with a column named 'session_date'. This assumption should be validated.\n\nIn summary, while the strategy aligns well with its rationale and is implemented effectively, there are areas where it could benefit from additional robustness, error handling, and flexibility in parameter settings."
+  ],
+  "seconds": 31.889300200000434,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 518
+}

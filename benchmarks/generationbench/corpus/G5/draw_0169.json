@@ -1,0 +1,26 @@
+{
+  "index": 169,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion suggests that prices will revert to the mean after \"\n        \"deviating from it. By identifying symbols that have moved significantly away from \"\n        \"their recent average price and are currently below or above a threshold, we can \"\n        \"profit from their expected return to normal levels.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 2.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\").mean().alias(\"mean\")))\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"mean\")).abs().alias(\"deviation\")\n            )\n            .sort(\"deviation\", descending=True)\n        )\n\n        candidates: list[str] = []\n        for symbol in mean_close[\"symbol\"].to_list():\n            if (\n                float(history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].last())\n                - self._threshold * mean_close.filter(pl.col(\"symbol\") == symbol)[\n                    \"mean\"\n                ].item()\n            ) < 0:\n                candidates.append(symbol)\n            elif (\n                self._threshold * mean_close.filter(pl.col(\"symbol\") == symbol)[\n                    \"mean\"\n                ].item()\n                - float(history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].last())\n            ) > 0:\n                candidates.append(symbol)\n\n        weight = 1.0 / len(candidates)\n        if not candidates:\n            return Signal(information_available_at=stamp, weights={})\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in candidates},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3986,
+    "output_tokens": 1403
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code generally aligns with its rationale but has a few potential issues:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states: \"Short-horizon mean reversion suggests that prices will revert to the mean after deviating from it.\" However, your logic in `generate` method considers only symbols that have moved significantly away from their recent average and are currently below a threshold, which might not fully capture short-term mean reversion. A more appropriate approach would be to select symbols above the threshold as well.\n\n2. **Potential Failure Cases**:\n   - The code may fail if there's no history available within the lookback period (line 15). This can be mitigated by adding a check in `generate` method.\n   - If all symbols are filtered out due to the condition, it returns an empty weights dictionary (lines 30-34), which might not be ideal if you need to handle such cases differently.\n\n3. **Fragile Parameters**:\n   - The threshold value is hardcoded as 2.0 (line 8). Depending on market conditions or asset characteristics, this might need adjustment.\n   - The window size of 10 days (line 7) could be too short for some markets, potentially leading to more frequent false signals.\n\n4. **Potential Issues**:\n   - Line 29: `mean_close.filter(pl.col(\"symbol\") == symbol)[\"mean\"].item()` might raise an error if there's no data for a particular symbol.\n   - The strategy assumes that the last closing price is available and meaningful in determining whether to short or go long (lines 30-34).\n\n5. **Improvements**:\n   - Ensure robust handling of missing or insufficient history by adding checks before processing.\n   - Consider adding more conditions to handle different market scenarios, such as including symbols above the threshold.\n\nOverall, the strategy is sound in its basic structure but could benefit from additional safeguards and more nuanced parameter tuning."
+  ],
+  "seconds": 36.87357940000038,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 343
+}

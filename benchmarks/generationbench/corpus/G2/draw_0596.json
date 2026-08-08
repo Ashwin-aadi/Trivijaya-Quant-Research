@@ -1,0 +1,23 @@
+{
+  "index": 596,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Large volume breaks in price direction are often indicative of significant buying or \"\n        \"selling pressure. These moves can lead to sustained trends and potentially higher returns.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=False)\n            .drop_nulls()\n        )\n\n        # Identify the largest volume day\n        max_volume_day = (\n            history.select(\n                pl.col(\"volume\").max().alias(\"max_volume\"),\n                (pl.col(\"session_date\") == pl.col(\"session_date\").shift(-1).filter(pl.col(\"volume\") == pl.col(\"max_volume\"))).alias(\"is_max_volume\")\n            )\n            .with_columns(pl.when(pl.col(\"is_max_volume\")).then(pl.col(\"session_date\")).otherwise(None).alias(\"max_volume_date\"))\n            .select(\n                pl.col(\"max_volume_date\").first().alias(\"max_volume_date\"),\n                pl.col(\"return\").filter(pl.col(\"session_date\") == pl.col(\"max_volume_date\")).first().alias(\"max_return\")\n            )\n        )\n\n        if max_volume_day.is_empty() or max_volume_day.height < 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Determine the breakout direction\n        breakout_direction = \"bullish\" if max_volume_day[\"max_return\"] > 0 else \"bearish\"\n\n        # Find symbols that confirmed the move with high volume on subsequent days\n        confirmation_threshold = history.select(pl.col(\"volume\").quantile(0.95)).first().item()\n        confirmation_symbols = (\n            history.filter(\n                (pl.col(\"session_date\") > max_volume_day[\"max_volume_date\"])\n                & (pl.col(\"volume\") >= confirmation_threshold)\n            )\n            .group_by([\"symbol\"])\n            .agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n            .filter(pl.col(\"avg_return\").abs() > 0.02)  # 2% minimum move as a threshold\n        )\n\n        if confirmation_symbols.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / confirmation_symbols.height\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight for symbol in confirmation_symbols[\"symbol\"].to_list()\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 694
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.41640030000417,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 605
+}

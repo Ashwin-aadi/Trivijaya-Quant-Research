@@ -1,0 +1,26 @@
+{
+  "index": 262,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date, timedelta\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Certain stocks in the Indian market exhibit strong seasonal trends. \"\n        \"Historical data suggests that certain months of the year consistently see higher returns for specific sectors or companies. \"\n        \"This strategy aims to capitalize on these predictable patterns.\"\n    )\n\n    def __init__(self, season: str = \"December\", threshold: float = 0.1) -> None:\n        self._season = season\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=365 * 2)\n        if history.height < 365 * 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        season_dates = [\n            date(year, self._season.month, self._season.day) + timedelta(days=-14),  # Adjust for week before\n            date(year, self._season.month, self._season.day),\n            date(year, self._season.month, self._season.day) + timedelta(days=14)\n        ]\n        \n        seasonal_returns: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.symbol.unique().to_list():\n                continue\n            closes = [float(v) for v in history[history[\"symbol\"] == symbol][\"adj_close\"].to_list()]\n            season_closes = [closes[i - 1] for i, d in enumerate(history[\"session_date\"]) if d in season_dates]\n            non_season_closes = [closes[i - 1] for i, d in enumerate(history[\"session_date\"]) if d not in season_dates]\n            \n            if len(season_closes) < 3 or len(non_season_closes) < 3:\n                continue\n            \n            seasonal_return = (max(season_closes) / min(season_closes)) - 1.0\n            non_seasonal_return = (max(non_season_closes) / min(non_season_closes)) - 1.0\n            \n            if abs(seasonal_return - non_seasonal_return) >= self._threshold:\n                seasonal_returns[symbol] = seasonal_return\n\n        picks: list[str] = []\n        for symbol, return_ in seasonal_returns.items():\n            if return_ > self._threshold:\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4299,
+    "output_tokens": 1683
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several issues and potential weaknesses:\n\n1. **Rationale vs Code Mismatch**: The rationale mentions \"specific months,\" but the code always uses December (`self._season = season`). This mismatch could lead to incorrect application of the strategy if the historical data does not support a strong seasonal trend in December.\n\n2. **Seasonal Return Calculation**:\n   - Line 23: `history[history[\"symbol\"] == symbol][\"adj_close\"].to_list()` might return empty lists, causing errors when trying to find `max` and `min`.\n   - The logic for calculating `seasonal_return` and `non_seasonal_return` is overly simplistic. It uses only the maximum and minimum prices within a season, which may not capture the full trend.\n\n3. **Threshold Sensitivity**:\n   - Line 41: The threshold parameter (`self._threshold`) is hardcoded to `0.1`. This value might be too high or low for different datasets, making the strategy unreliable.\n   \n4. **Fragile Parameters and Data Handling**:\n   - Lines 32-38: The logic for determining `season_dates` assumes a linear range of years from the current year back 10 years. If the data does not span at least 10 years, this will fail.\n   - Line 45: The check on `history.height < 365 * 2` might be too strict for datasets with fewer observations.\n\n5. **Potential Data Issues**:\n   - Lines 39-47: If a symbol is missing from the history (e.g., due to incomplete data), it will be skipped, potentially biasing the results.\n   - Line 60: The check `if not picks` might return an empty weights dictionary without providing any signal.\n\nOverall, while the strategy has a solid idea behind it, the implementation needs significant refinement. Specifically, addressing the issues with seasonal dates calculation, threshold sensitivity, robust data handling, and potential edge cases would make this strategy more reliable and effective."
+  ],
+  "seconds": 41.836955699998725,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 532
+}

@@ -1,0 +1,26 @@
+{
+  "index": 163,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates that the price is consolidating, which can precede \"\n        \"a breakout or a reversal. By identifying symbols with reduced volatility, we aim to \"\n        \"capture potential breakout opportunities.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate range compression\n        range_compression = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"high\").max() - pl.col(\"low\").min()).alias(\"range\"),\n                (pl.col(\"close\") / pl.col(\"open\").shift(1) - 1.0).alias(\"return\"),\n            )\n            .with_columns(\n                ((pl.col(\"range\") / pl.col(\"return\")) * 100.0).alias(\"compression_ratio\")\n            )\n        )\n\n        # Filter out symbols with no non-zero returns or ranges\n        range_compression = (\n            range_compression.filter(\n                (pl.col(\"range\") > 0) & (pl.col(\"close\") / pl.col(\"open\").shift(1) - 1.0).is_not_null()\n            )\n        )\n\n        if range_compression.height == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Sort and select top N symbols based on compression ratio\n        top_n_symbols = [\n            symbol for _, row in range_compression.sort(\"compression_ratio\", descending=True).iter_rows()\n            if float(row[\"compression_ratio\"]) > 0.1 * max(range_compression[\"compression_ratio\"].to_list())\n        ]\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_n_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3967,
+    "output_tokens": 1390
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears to be generally sound but has several areas for improvement or clarification:\n\n1. **Rationale vs. Code Mismatch**:\n   - The rationale mentions identifying symbols with reduced volatility (range compression) to capture potential breakout opportunities. However, the code calculates a \"compression ratio\" which combines range and return, making it more complex than just range alone.\n\n2. **Potential Failures and Fragilities**:\n   - **Line 24**: `return (pl.col(\"high\").max() - pl.col(\"low\").min()).alias(\"range\"),` This might not always represent \"range compression\" as intended if the time frame or data source is not consistent.\n   - **Line 36**: `if float(row[\"compression_ratio\"]) > 0.1 * max(compression_ratios)`, The threshold of 0.1 times the maximum ratio seems arbitrary and may need tuning based on historical data.\n   - **Line 45**: `_latest_visible(view)` returns a default date if history is empty, which might be problematic without knowing the actual start date.\n\n3. **Code Fragility**:\n   - The `compression_ratio` calculation could fail if there are no non-zero returns or ranges, leading to division by zero.\n   - Assuming all columns exist (`\"symbol\", \"high\", \"low\", \"close\", \"open\"`) and data types match expected values might cause runtime errors.\n\n4. **Potential Issues**:\n   - If `history` is too short (Line 16), the strategy could return an empty list of symbols, leading to undefined behavior.\n   - The use of `.head(self._window)` without checking if there are enough symbols can lead to issues when few symbols have high compression ratios.\n\nOverall, the strategy has a solid foundation but needs adjustments for robustness and clarity. Specifically, defining more rigorous checks and ensuring consistent data preprocessing would enhance its reliability."
+  ],
+  "seconds": 35.83638580000115,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 331
+}

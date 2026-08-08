@@ -1,0 +1,23 @@
+{
+  "index": 760,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Price reversion occurs when a security's price deviates significantly from its mean. \"\n        \"By identifying those that have deviated the most and are likely to revert towards their mean, we can generate profitable trades.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_adj_close = (\n            closes.groupby(\"symbol\").agg(pl.col(\"adj_close\").mean().alias(\"m\")).select([\"symbol\", \"m\"])\n        )\n        latest_closes = view.closes()\n        \n        reversion_scores: list[float] = []\n        picks: list[str] = []\n\n        for symbol in view.symbols:\n            if symbol not in closes.columns or symbol not in mean_adj_close[\"symbol\"].to_list():\n                continue\n            adj_close_values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            latest_adj_close_value = float(latest_closes[0][symbol])\n            mean_adj_close_value = mean_adj_close.filter(pl.col(\"symbol\") == symbol)[\"m\"].item()\n            score = abs(latest_adj_close_value - mean_adj_close_value)\n            reversion_scores.append(score)\n\n        top_n_scores = sorted(reversion_scores, reverse=True)[: self._window]\n        \n        for i, symbol in enumerate(view.symbols):\n            if symbol not in closes.columns or symbol not in mean_adj_close[\"symbol\"].to_list():\n                continue\n            score = abs(\n                float(latest_closes[0][symbol]) - \n                mean_adj_close.filter(pl.col(\"symbol\") == symbol)[\"m\"].item()\n            )\n            if score >= top_n_scores[self._window // 2]:\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 585
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.007645299992873,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 775
+}

@@ -1,0 +1,23 @@
+{
+  "index": 334,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Stocks often exhibit seasonal patterns due to macroeconomic factors, \"\n        \"such as weather-related events or holiday seasonality. This strategy aims to identify \"\n        \"and exploit these patterns by focusing on periods with historically positive returns.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_effect: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns or len(history[symbol].to_list()) < self._window:\n                continue\n            returns = [\n                (float(history[symbol][i + 1]) - float(history[symbol][i])) / float(history[symbol][i])\n                for i in range(len(history[symbol]) - 1)\n            ]\n            avg_return = sum(returns) / len(returns)\n            if avg_return > 0:\n                seasonal_effect[symbol] = avg_return\n\n        sorted_symbols = [\n            s\n            for _, s in sorted(seasonal_effect.items(), key=lambda item: item[1], reverse=True)\n        ][:5]\n\n        weights = {s: 1.0 / len(sorted_symbols) for s in sorted_symbols}\n        return Signal(\n            information_available_at=stamp, weights={**weights, \"CASH\": 1 - sum(weights.values())}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 444
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.016350199992303,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 340
+}

@@ -1,0 +1,26 @@
+{
+  "index": 168,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed well \"\n        \"relative to their peers in the recent past to continue outperforming them. This strategy \"\n        \"identifies such stocks and allocates capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or not closes.columns:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the returns over the window period\n        returns = (\n            (closes / closes.shift(1) - 1.0).drop_nulls()\n        ).rename(\"returns\")\n\n        # Get the latest close prices to rank symbols by recent performance\n        latest_closes = view.latest_close()\n        ranked_symbols = (\n            returns.join(latest_closes, on=\"symbol\")\n            .sort(by=\"returns\", descending=True)\n            .head(self._window)[\"symbol\"]\n            .to_list()\n        )\n\n        if not ranked_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Allocate capital based on the top N performing symbols\n        weight = 1.0 / len(ranked_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in ranked_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3898,
+    "output_tokens": 1256
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy generally aligns well with its stated rationale of exploiting cross-sectional momentum. However, there are a few critical points to consider:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale mentions \"identifying such stocks and allocating capital accordingly,\" but the code does not explicitly allocate capital based on the weights generated. Instead, it simply allocates equal weight to the top-performing symbols (`weight = 1.0 / len(ranked_symbols)`). This discrepancy could lead to confusion.\n\n2. **Potential Failures**:\n   - Line 34: If `closes.columns` is empty or `returns.height < self._window`, an empty weights dictionary is returned, which might not be handled elsewhere in the system as expected.\n   - Line 26: The strategy assumes that historical data spans at least one window period. If it doesn't, `_latest_visible` returns a default date (1900-01-01), but this should ideally raise an error or handle such cases more gracefully.\n\n3. **Fragile Parameters**:\n   - Line 6: The `window` parameter is hardcoded as 20 in the docstring, but not set via an argument to `__init__`. This makes it difficult to adjust without changing the code.\n   - Line 49: The strategy assumes that exactly `self._window` symbols are ranked. If more or fewer symbols are available due to missing data, this could lead to unexpected behavior.\n\n4. **Potential Issues**:\n   - Lines 21-30: Handling null values in returns is crucial but the `.drop_nulls()` method might not be sufficient; it should consider how to handle these cases.\n   - Line 57: The `assert` statement to check if `newest` is of type `date` can fail if historical data spans multiple time zones or has incomplete dates.\n\nOverall, the strategy is sound in its core logic but requires careful handling of edge cases and parameter flexibility."
+  ],
+  "seconds": 34.76836729999923,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 341
+}

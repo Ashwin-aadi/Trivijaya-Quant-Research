@@ -1,0 +1,26 @@
+{
+  "index": 277,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion assumes that asset prices will eventually return to the mean. \"\n        \"In a short horizon, deviations from this mean are temporary but can provide profitable trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 2.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = history.select(\n            pl.col(\"adj_close\").mean().alias(\"mean\")\n        ).to_series()[0]\n        deviations = (\n            (history[\"adj_close\"] - mean_close).abs()\n            / history[\"adj_close\"].std(ddof=1)\n        )\n        \n        breakout_symbols = [\n            symbol\n            for symbol in view.symbols\n            if float(deviations[history.height - 1][symbol]) > self._threshold\n        ]\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in breakout_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3909,
+    "output_tokens": 1258
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy implements a mean reversion approach with a 10-day window, aiming to identify assets that have deviated significantly from their historical mean price. Here are some critiques:\n\n### Rationale vs Code Discrepancies:\n- **Rationale mentions rental yields**, but the code only deals with asset prices (`adj_close`). This discrepancy should be addressed.\n  \n### Potential Failures and Fragilities:\n1. **Threshold Sensitivity** (Line 16):\n   - The threshold is hard-coded to `2.0`, which might not work universally for all assets or markets.\n\n2. **History Length Check** (Lines 24-27):\n   - The check if the history length is less than the window could return an empty weights dictionary, leading to no trades being executed if the market data is insufficient.\n\n3. **Standard Deviation Calculation** (Line 30):\n   - Dividing by `adj_close`'s standard deviation might not make sense since `adj_close` itself is a series of prices, and its standard deviation could be close to zero for certain assets or datasets.\n\n4. **Breakout Detection Logic** (Lines 32-38):\n   - This logic assumes that any asset with a price deviation greater than the threshold during the last day of the window period is considered a breakout. This might lead to false positives, as it doesn't consider the entire window's data for each symbol.\n\n### Fragile Parameters:\n- **Window Size** (Line 12): The `window` parameter could be too short or long depending on market conditions.\n- **Threshold Value** (Line 16): A universally applicable threshold value might not exist; it should be dynamically adjusted based on historical data.\n\n### Potential Run-Time Issues:\n- **Empty History Check**: If the history is empty, `_latest_visible()` returns an arbitrary date (`1900-01-01`), which could cause issues in the backtest environment.\n  \nIn summary, while the logic is sound for implementing mean reversion, the hard-coded parameters and assumptions need to be better adjusted based on specific market conditions. Additionally, robust error handling should be added to manage edge cases like insufficient history or zero standard deviation."
+  ],
+  "seconds": 33.16533929999969,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 562
+}

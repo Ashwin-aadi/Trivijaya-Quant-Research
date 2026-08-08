@@ -1,0 +1,26 @@
+{
+  "index": 149,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After a significant breakout in one direction, prices often reverse and continue \"\n        \"towards the opposite extreme. This strategy looks for symbols that have just \"\n        \"broken out to the upside and are now close to their 20-day low, suggesting they may \"\n        \"reverse and move higher.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1).sort(\"session_date\")\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        for symbol in view.symbols:\n            hist = history.select(\n                pl.col(\"symbol\") == symbol\n            ).sort(\"session_date\").to_pandas()\n\n            # Check if the latest close is a breakout (upward)\n            if (\n                len(hist) > 1\n                and float(hist.iloc[-1][\"close\"]) >= float(hist.iloc[-2][\"adj_close\"])\n            ):\n                # Find the lowest price in the last window days excluding today's low\n                recent_low = min(float(v) for v in hist[\"low\"].to_list()[:-1])\n                latest_close = float(hist.iloc[-1][\"close\"])\n\n                # Check if it is close to its 20-day low\n                if (\n                    1.05 * recent_low <= latest_close < 1.3 * recent_low\n                    and (latest_close - recent_low) / recent_low < 0.25\n                ):\n                    return Signal(\n                        information_available_at=stamp,\n                        weights={symbol: 1.0},\n                    )\n\n        return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4111,
+    "output_tokens": 1442
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify symbols that have just broken out to the upside but are now close to their 20-day low, suggesting a potential reversal upwards. While the rationale provides a coherent idea, there are several issues in the implementation:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale suggests looking for reversals after an initial breakout, yet the code focuses on checking if the latest close is above 120% of its lowest price over the last 20 days without clearly indicating a breakout condition.\n\n2. **Potential Failures and Fragilities:**\n   - **Line 36:** The condition `if len(hist) > 1` and subsequent checks for a breakout are too simple and might fail to capture all meaningful breakouts.\n   - **Line 43:** The logic `latest_close > 1.1 * recent_low` is overly rigid. A more flexible range (e.g., between 1.05 and 1.2 times the low) could be more appropriate for different market conditions.\n   - **Line 46:** The condition `(latest_close - recent_low) / recent_low < 0.2` might not effectively capture true reversals, as it only checks a narrow band around 120% of the recent low.\n\n3. **Fragile Parameters:**\n   - The window size (20 days) is hardcoded and might not be optimal for all market conditions or symbols.\n   - The threshold `1.1` in line 43 and the range check in line 46 are arbitrary and could benefit from tuning based on backtesting.\n\n4. **Potential Issues:**\n   - **Line 20:** The `history(lookback=self._window + 1)` might include incomplete data, especially if sessions are missing.\n   - **Type Checking (e.g., `assert isinstance(newest, date)`) is unnecessary and could be removed unless there's a strong reason to ensure date types.\n\nOverall, the strategy has potential but needs refinement in breakout detection, parameter tuning, and robustness checks."
+  ],
+  "seconds": 37.06536889999916,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 302
+}

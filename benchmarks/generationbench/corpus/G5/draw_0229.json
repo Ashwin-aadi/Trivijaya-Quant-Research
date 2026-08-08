@@ -1,0 +1,26 @@
+{
+  "index": 229,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion identifies stocks that have moved significantly from their mean price \"\n        \"and are likely to revert back. Short-horizon mean reversion exploits this phenomenon.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 2.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\").mean()).alias(\"mean\"))\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"mean\")).alias(\"deviation\"),\n                ((pl.col(\"adj_close\") - pl.col(\"mean\")) / pl.col(\"adj_close\")).alias(\"z_score\"),\n            )\n        )\n\n        latest_closes = view.closes(lookback=self._window)\n        merged_df = history.join(mean_close, on=\"symbol\", how=\"inner\").join(latest_closes, on=\"symbol\", how=\"inner\")\n\n        mean_reversion_signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in merged_df.columns or merged_df.filter(pl.col(\"symbol\") == symbol).is_empty():\n                continue\n\n            latest_close_value = float(merged_df.filter(pl.col(\"symbol\") == symbol)[\"close\"][0])\n            z_score = float(merged_df.filter(pl.col(\"symbol\") == symbol)[\"z_score\"][0])\n\n            if abs(z_score) > self._threshold:\n                mean_reversion_signals.append(symbol)\n\n        mean_reversion_signals = mean_reversion_signals[:5]\n        if not mean_reversion_signals:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(mean_reversion_signals)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in mean_reversion_signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4134,
+    "output_tokens": 1485
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy appears to be generally well-structured but has some issues and potential improvements:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale states that the strategy identifies stocks that have moved significantly from their mean price, suggesting a focus on absolute deviations.\n   - However, the code calculates the z-score based on the range of adjusted closes (`max(adj_closes) - min(adj_closes)`), which measures relative deviation. This discrepancy could be confusing as it implies both an absolute and a relative measure are used.\n\n2. **Potential Failure**:\n   - The strategy might fail when there are very few or no historical data points, leading to empty DataFrames in `merged_df`. For example, if the history length is less than 10 but there's not enough unique symbols, it could return an empty DataFrame (line 32).\n\n3. **Fragile Parameters**:\n   - The threshold parameter (`self._threshold`) might be too strict or lenient depending on the data distribution. A hard-coded value of `0.5` is quite arbitrary and could lead to false positives or negatives.\n   - The window size (`self._window = 10`) may not always capture meaningful mean reversion, especially in volatile markets.\n\n4. **Potential Issues**:\n   - Line 32: `if history.height < self._window:` \u2014 This check might fail if there are no records for a symbol within the lookback period.\n   - Line 59: The z-score calculation uses the range of adjusted closes, which could be zero or very small, leading to division by zero errors.\n\nOverall, while the strategy is well-defined and follows a reasonable approach, it lacks robust handling for edge cases and overly strict parameter settings. Improving these aspects would enhance its reliability and performance."
+  ],
+  "seconds": 37.81010409999908,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 464
+}

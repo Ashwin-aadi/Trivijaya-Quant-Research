@@ -1,0 +1,24 @@
+{
+  "index": 539,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"Combining short-term and long-term momentum can provide a more robust signal. \"\n        \"Short-term momentum suggests recent strength, while long-term momentum indicates sustained\"\n        \"performance.\"\n    )\n\n    def __init__(self, short_window: int = 5, long_window: int = 20) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._long_window)\n        if closes.height < self._long_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        short_mom = (closes[f\"close_{self._short_window}\"].to_list()[-1] / \n                     closes[f\"close_{self._short_window}\"].shift(1).to_list()[0] - 1.0)\n        long_mom = (closes[f\"close_{self._long_window}\"].to_list()[-1] /\n                    closes[f\"close_{self._long_window}\"].shift(1).to_list()[0] - 1.0)\n\n        short_ranks = pl.Series(short_mom).rank(method=\"ordinal\", descending=True).to_list()\n        long_ranks = pl.Series(long_mom).rank(method=\"ordinal\", descending=True).to_list()\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if (short_ranks[-1][symbol] + long_ranks[-1][symbol]) >= len(view.symbols) / 2:\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2498,
+    "output_tokens": 1396
+  },
+  "calls": 2,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 36.383229499988374,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 548
+}

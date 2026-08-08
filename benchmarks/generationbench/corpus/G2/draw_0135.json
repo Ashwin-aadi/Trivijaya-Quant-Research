@@ -1,0 +1,23 @@
+{
+  "index": 135,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"High liquidity stocks are typically more responsive to market conditions and can \"\n        \"provide a smoother performance. By equal-weighting these liquid stocks, we aim to \"\n        \"capitalize on their consistent trading behavior without overconcentrating risk in \"\n        \"less active securities.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter out symbols with insufficient trading volume\n        min_volume_threshold = 10_000_000\n        filtered_history = (\n            history.filter(pl.col(\"volume\").gt(min_volume_threshold))\n            .group_by(\"symbol\")\n            .agg(\n                pl.col(\"adj_close\").mean().alias(\"avg_price\"),\n                pl.count().alias(\"trade_count\"),\n            )\n        )\n\n        # Ensure we have enough symbols to proceed\n        if filtered_history.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Equal weight allocation among the top liquid stocks\n        n_symbols = min(filtered_history.height, 10)\n        equal_weight = 1.0 / n_symbols\n        liquidity_picks: list[str] = filtered_history.select(\"symbol\").to_dict()[0]\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: equal_weight for s in liquidity_picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 445
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.39912909999839,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 139
+}

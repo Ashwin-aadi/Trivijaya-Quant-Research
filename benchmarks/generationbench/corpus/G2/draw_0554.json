@@ -1,0 +1,23 @@
+{
+  "index": 554,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySCTF(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to capture trends by scaling the position size \"\n        \"by the recent volatility of an asset. High volatility assets may be expected to have \"\n        \"large price movements, and thus larger positions can be taken with a similar risk \"\n        \"profile compared to low-volatility assets.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility = (\n            (history[\"close\"].shift(-1) - history[\"close\"]).abs()\n            / history[\"volume\"]\n        ).mean().item()\n\n        weights: dict[str, float] = {}\n        for symbol in view.symbols:\n            recent_closes = [float(v) for v in history[symbol].to_list()]\n            if len(recent_closes) < self._window:\n                continue\n            trend = (\n                (recent_closes[-1] - recent_closes[0])\n                / sum([abs(c2 - c1) for c1, c2 in zip(recent_closes[:-1], recent_closes[1:])])\n            )\n            if abs(trend) < 0.1:  # avoid zero division and small trends\n                continue\n\n            weights[symbol] = volatility * trend\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilitySCTF",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 443
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.3279296000037,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 563
+}

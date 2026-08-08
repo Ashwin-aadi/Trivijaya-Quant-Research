@@ -1,0 +1,23 @@
+{
+  "index": 583,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates that the market is consolidating and may be setting up \"\n        \"for a breakout. This strategy identifies symbols with reduced volatility over a period.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            opens = [float(o) for o in history[symbol + \"_open\"].to_list()]\n            closes = [float(c) for c in history[symbol + \"_close\"].to_list()]\n\n            # Calculate range (high - low) and price change (close - open)\n            ranges = [(h - l, c - o) for h, l, c, o in zip(\n                history[symbol + \"_high\"].to_list(), \n                history[symbol + \"_low\"].to_list(), \n                closes, opens\n            )]\n\n            # Filter out null values and calculate range compression ratio\n            ranges = [(r, p_change) for r, p_change in ranges if not (pl.col(symbol + \"_high\").is_null() | pl.col(symbol + \"_low\").is_null())]\n            \n            if len(ranges) < self._window:\n                continue\n\n            # Calculate mean and standard deviation of range\n            avg_range = sum([r[0] for r in ranges]) / len(ranges)\n            std_dev_range = (sum([(r[0] - avg_range)**2 for r in ranges])/len(ranges))**0.5\n            \n            if avg_range > 0:\n                compression_ratio = std_dev_range / avg_range\n                if compression_ratio < 0.3:  # Threshold can be adjusted\n                    picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1245,
+    "output_tokens": 591
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.40616169999703,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 593
+}

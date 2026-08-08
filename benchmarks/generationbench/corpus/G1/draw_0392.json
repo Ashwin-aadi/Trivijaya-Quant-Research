@@ -1,0 +1,23 @@
+{
+  "index": 392,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirm(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are more likely to be sustained than those \"\n        \"without significant volume support. This strategy aims to capture such moves by \"\n        \"identifying symbols with strong price movements and substantial volume increases.\"\n    )\n\n    def __init__(self, window: int = 10, min_volume_increase: float = 2.0) -> None:\n        self._window = window\n        self._min_volume_increase = min_volume_increase\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1).sort(\"session_date\")\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = set(history[\"symbol\"].to_list())\n        signals: dict[str, float] = {}\n\n        for symbol in symbols:\n            sym_history = history.filter(pl.col(\"symbol\") == symbol)\n            if sym_history.height < self._window + 1:\n                continue\n\n            open_prices = [float(v) for v in sym_history[\"open\"].to_list()]\n            close_prices = [float(v) for v in sym_history[\"close\"].to_list()]\n\n            # Calculate daily returns\n            returns = [(close - open_) / open_ if open_ != 0 else float('inf') for open_, close in zip(open_prices[:-1], close_prices[1:])]\n\n            # Check for significant price movement and volume increase\n            last_session_open, last_session_close = open_prices[-2], close_prices[-1]\n            last_session_volume = float(sym_history.filter(pl.col(\"symbol\") == symbol)[\"volume\"].tail(1).to_list()[0])\n            prev_session_volume = float(history.filter((pl.col(\"symbol\") == symbol) & (pl.col(\"session_date\") < view.as_of)).sort(\"session_date\", descending=True).filter(pl.col(\"volume\").is_not_null()).head(1)['volume'])\n\n            if last_session_close / last_session_open > 0.95 and last_session_volume / prev_session_volume >= self._min_volume_increase:\n                signals[symbol] = 1.0\n\n        return Signal(information_available_at=stamp, weights={s: weight for s, weight in signals.items() if weight != 0})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirm",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 590
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.174783399997978,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 398
+}

@@ -1,0 +1,27 @@
+{
+  "index": 237,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilt(Strategy):\n    rationale = (\n        \"Low-volatility stocks have historically outperformed higher-volatility counterparts due to \"\n        \"reduced risk and the persistent low-volatility factor in equity markets. This strategy aims to \"\n        \"capitalize on this phenomenon by selecting a portfolio heavily weighted towards low-volatility \"\n        \"stocks.\"\n    )\n\n    def __init__(self, window: int = 252, min_symbols: int = 30, max_symbols: int = 50) -> None:\n        self._window = window\n        self._min_symbols = min_symbols\n        self._max_symbols = max_symbols\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_returns = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .group_by(\"symbol\")\n            .agg((pl.col(\"return\").std().alias(\"volatility\")))\n            .sort(\"volatility\", descending=False)\n        )\n\n        if symbol_returns.height < self._min_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row[\"symbol\"] for row in symbol_returns.to_dicts()[:self._max_symbols]]\n\n        volatility_weights = {\n            symbol: 1.0 / len(top_symbols) * (2 if i == 0 else 1)\n            for i, symbol in enumerate(top_symbols)\n        }\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, weight in volatility_weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilt",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2448,
+    "output_tokens": 902
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To exploit the low-volatility tilt strategy in the Indian market, we aim to capitalize on the empirical observation that low-volatility stocks tend to outperform their higher-volatility counterparts over the long term. This phenomenon is supported by various economic theories, including the risk premium theory and behavioral finance, which suggest that investors are willing to accept lower returns for lower risk.\n\nThe strategy involves selecting a portfolio of low-volatility stocks while tilting towards them. The rule would be to rank stocks based on historical volatility over a specific period (e.g., one year) and construct a portfolio that heavily weights the lowest-volatility stocks, while optionally including a small allocation to higher-volatility stocks for diversification.\n\nThis approach aims to benefit from reduced downside risk and potentially higher returns, aligning with the historical persistence of low-volatility factors in equity markets.",
+    "The signal for this strategy is computed using historical volatility over a specific lookback period, such as one year. Daily data including open, high, low, close prices, and volume are used to calculate the daily returns of each stock. The annualized volatility of these returns is then calculated as the ranking metric.\n\nOn a given day, candidates are ranked based on their one-year historical volatility. Lower volatility ranks higher, with the stocks having the lowest volatility over the past year receiving the highest rank. This ranking helps in selecting the portfolio of low-volatility stocks to be weighted more heavily in the final equity strategy.",
+    "The strategy will hold a portfolio of approximately 30-50 low-volatility stocks, ensuring diversification while maintaining focus on lower-risk securities. Each stock in the portfolio is weighted based on its ranking, with the lowest volatility stocks receiving higher weights. The maximum position size for any single stock does not exceed 2%, and the total portfolio weight for low-volatility stocks ranges from 70% to 85%. Risk limits are set to prevent significant drawdowns, limiting daily losses to no more than 1% of the portfolio value."
+  ],
+  "seconds": 28.07717060000141,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 241
+}

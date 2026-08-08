@@ -1,0 +1,45 @@
+{
+  "index": 45,
+  "paradigm": "G7_mcts",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility tilting is a strategy that seeks to exploit the profitability of \"\n        \"low-volatility stocks by identifying and investing in them. Over time, such stocks \"\n        \"tend to outperform high-volatility counterparts.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            # Calculate the daily returns\n            returns = [(values[i] - values[i-1]) / values[i-1] if i > 0 else 0.0 for i in range(len(values))]\n            mean_return = sum(returns) / len(returns)\n            squared_deviations = [(r - mean_return)**2 for r in returns]\n            volatility = (sum(squared_deviations) / self._window) ** 0.5\n            volatilities[symbol] = volatility\n\n        sorted_symbols = sorted(volatilities, key=volatilities.get)[:self._top_n]\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in sorted_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19106,
+    "output_tokens": 6467
+  },
+  "calls": 22,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the 30-day average of daily closing prices, measuring the low-volatility tilting strategy by selecting stocks with the lowest price volatility over this period.",
+    "The signal will be the 5-day rolling standard deviation of daily log returns, selecting stocks with the lowest volatility over this lookback period. This approach captures recent price fluctuations more acutely than a longer 30-day average, allowing for timely adjustments in the portfolio based on the most recent market conditions.",
+    "The portfolio will consist of the top 5 stocks with the lowest 30-day price volatility, each equally weighted at 20% to balance risk while leveraging the low-volatility tilting strategy effectively.",
+    "The portfolio will hold 20 names with equal weighting of 5% each, ensuring a balanced exposure while maintaining flexibility for timely adjustments based on the low-volatility signal.",
+    "The portfolio will consist of the top 5 stocks with the lowest 30-day price volatility, each equally weighted at 20%. This approach balances risk and leverages the low-volatility tilting strategy effectively by spreading risk across five names while maintaining a simple and manageable portfolio structure.",
+    "The risk rule will be set to limit the loss on any individual position to no more than a 10% drop from the entry price, and the total portfolio loss will be capped at 5% from the initial portfolio value before any trades are executed or adjusted. This ensures that each stock contributes equally to potential losses while keeping the overall risk manageable.",
+    "The portfolio will hold 20 names, each weighted at 5%, ensuring balanced exposure and flexibility in response to the low-volatility signal.",
+    "The risk rule will limit the loss on any individual position to no more than a 10% drop from the entry price, and the total portfolio loss will be capped at 5% from the initial portfolio value before any trades are executed or adjusted. This ensures balanced risk across individual stocks while maintaining overall portfolio stability.",
+    "For this low-volatility tilting strategy in the Indian market, set a stop-loss rule at 5% per position to limit individual stock losses, ensuring risk is managed while adhering to the predefined portfolio structure.",
+    "For the risk rule, I propose setting an individual position loss limit of -3%, which will prevent any single stock from causing a significant portfolio drawdown. Additionally, if the total portfolio loss exceeds -5% in a single day, trading for that day will be halted to avoid exacerbating losses."
+  ],
+  "seconds": 211.66506540001137,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 563
+}

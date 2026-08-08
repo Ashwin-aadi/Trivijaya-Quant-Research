@@ -1,0 +1,27 @@
+{
+  "index": 24,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy exploits the tendency for stocks with strong past performance (momentum) \"\n        \"to continue outperforming in the near future. By ranking stocks based on their cumulative \"\n        \"returns over a lookback period and allocating capital to top-performing ones, we aim to \"\n        \"capitalize on this momentum effect while implementing risk management techniques such as \"\n        \"position sizing and stop-loss orders.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1).sort(\"session_date\")\n        if history.height < self._window + 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(sym) for sym in view.symbols]\n        closes = view.closes(lookback=self._window)\n        returns: pl.DataFrame = (\n            history.select(\n                \"symbol\",\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\"),\n            )\n            .with_columns(pl.col(\"return\").cumsum().alias(\"cum_return\"))\n            .filter(pl.col(\"session_date\") == history[\"session_date\"].max())\n            .select([\"symbol\", \"cum_return\"])\n        )\n\n        ranked_symbols = (\n            returns.group_by(\"symbol\")\n            .agg(\n                pl.col(\"cum_return\").mean().alias(\"avg_cum_return\"),\n            )\n            .sort(\"avg_cum_return\", descending=True)\n            .head(self._top_n)\n            .select(\"symbol\")\n            .to_series()\n            .to_list()\n        )\n\n        if not ranked_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(ranked_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in ranked_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2206,
+    "output_tokens": 864
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan is to implement a systematic equity trading strategy based on cross-sectional momentum in the Indian market. The economic mechanism involves exploiting the tendency for stocks with strong past performance (momentum) to continue outperforming in the near future. This persistence likely stems from investor behavior, where positive price trends may lead to continued buying, reinforcing upward momentum. The rule would identify top-performing stocks over a lookback period and allocate capital accordingly, while also incorporating risk management techniques such as position sizing and stop-loss orders to mitigate losses during downturns.",
+    "The signal for this systematic equity strategy will be based on the cumulative return of stocks over the past 60 trading days. Specifically, compute the simple return (close price of the current day divided by the close price of the previous lookback period minus one) for each stock's daily closing price. Rank all stocks in the Indian market based on these returns, with the highest returning stocks ranked first. This ranking will identify the top-performing stocks to be allocated capital according to predefined rules. The lookback period is set to 60 days to capture recent momentum effects while remaining sensitive to short-term market dynamics.",
+    "For this strategy, hold a portfolio of top 20-30 performing stocks identified from the ranking process. Weight these positions equally to simplify management and reduce complexity. Implement stop-loss orders at a predefined level (e.g., -10% below the entry price) to limit potential losses. This approach ensures diversification while maintaining responsiveness to momentum, with robust risk control measures in place."
+  ],
+  "seconds": 27.164031799999066,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 25
+}

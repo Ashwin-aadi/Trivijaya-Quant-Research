@@ -1,0 +1,26 @@
+{
+  "index": 50,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy follows trends by scaling them with the recent volatility. \"\n        \"Long positions are taken in symbols that have been trending positively and \"\n        \"have low historical volatility, while short positions are taken in those trending negatively.\"\n    )\n\n    def __init__(self, window: int = 20, n_trends: int = 5) -> None:\n        self._window = window\n        self._n_trends = n_trends\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        trends: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].unique():\n                continue\n            adj_closes = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].to_list()]\n            if len(adj_closes) < self._window + 1:\n                continue\n\n            trend_score = (adj_closes[-1] - adj_closes[0]) / (len(adj_closes) - 1)\n            volatility = adj_closes.std()  # Use standard deviation as a measure of volatility\n            trends[symbol] = trend_score / max(volatility, 1e-6)\n\n        sorted_trends = sorted(trends.items(), key=lambda x: x[1], reverse=True)\n        longs = [k for k, v in sorted_trends[:self._n_trends]]\n        shorts = [k for k, v in sorted_trends[-self._n_trends:]]\n\n        weights = {s: 0.5 / len(longs) for s in longs}\n        if shorts:\n            weights.update({s: -0.5 / len(shorts) for s in shorts})\n\n        return Signal(information_available_at=stamp, weights={k: v for k, v in weights.items() if v != 0})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4313,
+    "output_tokens": 1651
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains some weaknesses and potential issues:\n\n### Strengths:\n1. **Rationale Alignment**: The rationale aligns well with the implemented logic, aiming to take long positions in symbols trending positively and low-volatility, while taking short positions in negatively trending symbols.\n\n2. **Parameterization**: The strategy is parameterized with `window` (20 days) and `n_trends` (5 trends), providing flexibility.\n\n### Weaknesses and Potential Issues:\n\n1. **Volatility Calculation**:\n   - Line 37: The volatility calculation uses a simple sum of absolute differences, which can be misleading if the data is sparse or has large gaps.\n   - A more robust method would be to use standard deviation calculated over the same window.\n\n2. **Trend Scoring**:\n   - Line 35-36: The trend score is calculated as `(adj_closes[-1] - adj_closes[0]) / (len(adj_closes) - 1)`, which does not account for the time duration of the trend.\n   - A more accurate measure would be to use a moving average or another robust trend detection method.\n\n3. **Parameter Sensitivity**:\n   - Line 2: `n_trends` is fixed at 5, which might be too rigid and should ideally be configurable based on historical data analysis.\n   - The choice of window size (20 days) could also be optimized using backtesting.\n\n4. **Empty History Check**:\n   - Lines 32-36: Checking if `history.height < self._window + 1` is a good practice, but the code should handle more gracefully by skipping symbols with insufficient history rather than continuing without weights.\n\n5. **Potential Bugs**:\n   - Line 49: The volatility calculation uses `max(volatility, 1e-6)`, which might not be necessary and could lead to numerical instability.\n   - It\u2019s better to use a small constant directly in the formula or handle division by zero explicitly.\n\n### Fragile Elements:\n- **Volatility Calculation**: Simplistic approach may fail with non-stationary data.\n- **Trend Scoring**: Time duration is not considered, leading to potentially inaccurate trend scores.\n- **Parameter Hardcoding**: `n_trends` and window size are hardcoded, making the strategy less adaptable.\n\n### Run-Time Issues:\n- The code assumes all symbols in history will be present, which might fail if some symbols are missing or new ones are added dynamically.\n\nOverall, while the core idea is sound, several improvements can enhance its robustness and adaptability."
+  ],
+  "seconds": 41.16665589999957,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 103
+}

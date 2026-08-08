@@ -1,0 +1,26 @@
+{
+  "index": 126,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"A stock with a higher recent relative strength compared to the NIFTY 100 index \"\n        \"is likely to outperform in the near term. This strategy aims to identify such stocks.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_100 = [symbol for symbol in view.symbols if \"NIFTY\" in symbol]\n        if not nifty_100:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_100_close = view.closes(lookback=self._window).select(\n            pl.col(nifty_100).mean().alias(\"nifty_mean\")\n        )\n\n        relative_strengths: list[tuple[str, float]] = []\n        for symbol in view.symbols:\n            if \"NIFTY\" not in symbol or symbol == nifty_100[0]:\n                continue\n            close_series = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            mean_close = sum(close_series[-self._window:]) / self._window\n            relative_strength = mean_close / float(nifty_100_close.select(\"nifty_mean\")[symbol])\n            if relative_strength > 1.2:\n                relative_strengths.append((symbol, relative_strength))\n\n        if not relative_strengths:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_n_stocks = sorted(relative_strengths, key=lambda x: x[1], reverse=True)[:5]\n        weight = 1.0 / len(top_n_stocks)\n        return Signal(\n            information_available_at=stamp, weights=dict(top_n_stocks)\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4207,
+    "output_tokens": 1554
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears generally sound but has several areas for improvement and potential issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale suggests identifying stocks with higher relative strength compared to the NIFTY 100 index. However, the code calculates `relative_strength` as the mean of recent close prices divided by the average NIFTY 100 close price over a window period, which does not directly measure relative strength.\n   - **Line**: The calculation for `relative_strength`: `relative_strength = mean_close / float(nifty_100_close.select(\"nifty_mean\")[symbol])`.\n\n2. **Potential Failures and Fragility**:\n   - **Parameter Sensitivity**: The strategy's performance heavily depends on the choice of window size (`self._window`). A very small or large value could lead to suboptimal results.\n   - **Fragile Code for NIFTY 100 Symbol Identification**: The code assumes that at least one symbol contains \"NIFTY\" in its name. If no such symbols are present, the strategy fails without providing a fallback mechanism.\n   - **Missing Handling of Missing Data**: If `closes` or `nifty_100_close` have missing values, the code attempts to convert them directly into floats, which could lead to errors if non-numeric data is encountered.\n   - **Potential Type Errors**: The use of `pl.col(nifty_100).mean().alias(\"nifty_mean\")` and `float(nifty_100_close.select(\"nifty_mean\")[symbol])` might raise type errors if the dataframe operations do not return expected types.\n\n3. **Stopping It from Running**:\n   - If no symbols are present in `view.symbols` that contain \"NIFTY\", the strategy will fail.\n   - If `closes` or `nifty_100_close` have missing data, it could cause a crash if not properly handled.\n\n4. **Sound Parts**:\n   - The overall structure of generating signals based on relative strength is conceptually sound and follows the rationale to some extent.\n   - The sorting mechanism for selecting top stocks by relative strength is logical.\n\nTo improve this strategy, consider adding more robust error handling and ensuring that the `relative_strength` calculation aligns with its intended purpose."
+  ],
+  "seconds": 40.318710499999725,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 256
+}

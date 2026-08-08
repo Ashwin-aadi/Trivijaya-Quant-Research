@@ -1,0 +1,23 @@
+{
+  "index": 535,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression suggests that when a stock's price volatility decreases significantly \"\n        \"over a period, it often leads to a breakout in the near future. This phenomenon can be used \"\n        \"to identify potential trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression_scores = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].unique().to_list():\n                continue\n            highs = history.filter(pl.col(\"symbol\") == symbol)[\"high\"].to_list()\n            lows = history.filter(pl.col(\"symbol\") == symbol)[\"low\"].to_list()\n\n            high_diffs = [highs[i] - max(highs[:i]) for i in range(1, len(highs))]\n            low_diffs = [lows[i] - min(lows[:i]) for i in range(1, len(lows))]\n\n            if not all(high_diffs) or not all(low_diffs):\n                continue\n\n            max_highs = max(high_diffs)\n            min_lows = min(low_diffs)\n\n            range_compression_score = (min_lows + max_highs) / 2\n            range_compression_scores[symbol] = range_compression_score\n\n        if not range_compression_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = sorted(range_compression_scores.items(), key=lambda x: x[1], reverse=True)[:5]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, _ in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 515
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.890768400000525,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 544
+}

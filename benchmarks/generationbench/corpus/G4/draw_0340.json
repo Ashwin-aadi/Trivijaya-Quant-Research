@@ -1,0 +1,27 @@
+{
+  "index": 340,
+  "paradigm": "G4_planning",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion200d(Strategy):\n    rationale = (\n        \"This strategy aims to capitalize on mean-reverting behavior in stock prices \"\n        \"relative to a trailing 200-day moving average. Stocks that have deviated significantly\"\n        \" from their long-term equilibrium are expected to revert, providing profitable trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 200, top_n: int = 50) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"]\n        sma_200 = (closes.rank(method=\"dense\") - 1).rolling_sum(window=self._window) / self._window\n        sma_200 = sma_200.fill_null(strategy=\"forward\").alias(\"sma_200\")\n\n        history_with_sma = history.with_columns(sma_200)\n        deviations = (history[\"adj_close\"] - history_with_sma[\"sma_200\"]).abs().alias(\"deviation\")\n\n        ranked_deviations = (\n            history_with_sma\n            .select([\"symbol\", \"session_date\", \"deviation\"])\n            .sort(\"deviation\", descending=True)\n            .head(self._top_n)\n        )\n\n        picks: list[str] = [row[\"symbol\"] for row in ranked_deviations.to_dict(as_series=False).values()]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion200d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2576,
+    "output_tokens": 986
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to capitalize on mean-reverting behavior in stock prices relative to a trailing reference level. The economic mechanism is based on the tendency of stock prices to oscillate around their long-term equilibrium levels due to market inefficiencies and investor psychology. This phenomenon might persist as short-term noise and sentiment can cause prices to deviate from fundamental values, but historical data often shows they revert over time.\n\nThe trading rule would involve identifying stocks that have moved significantly away from a trailing moving average (e.g., 50 or 200-day moving average). When the stock price crosses below this reference level (buy signal) or above it (sell signal), trades are executed. This approach leverages the statistical tendency of prices to revert back towards their long-term average, aiming for profitable trades as prices adjust.",
+    "The precise signal for this strategy involves calculating a trailing moving average (e.g., 200-day) of the closing prices. On any given trading day, compute the difference between the current day's closing price and the 200-day moving average. \n\nFor each stock in the portfolio:\n1. Calculate the 200-day simple moving average of daily closing prices.\n2. Compute the deviation from this moving average for that day.\n\nOn a given day, rank stocks based on the magnitude of their deviation (absolute value) from the 200-day moving average. Positive deviations indicate overbought conditions, while negative deviations suggest oversold conditions. \n\nTrades are generated when:\n- The closing price crosses below the 200-day moving average (buy signal).\n- The closing price crosses above the 200-day moving average (sell signal).\n\nRanking stocks by their deviation magnitude allows the strategy to focus on those with the most significant price divergences, optimizing for potential mean reversion.",
+    "This strategy can hold positions in a diversified portfolio of approximately 30-50 stocks to capture mean-reverting behavior effectively. Positions should be weighted based on the magnitude of each stock's deviation from its 200-day moving average, with larger deviations receiving greater weight but ensuring no single position exceeds 10% of the total portfolio value. Risk limits can be set such that the maximum potential loss does not exceed 5% of the portfolio value in any given trading period to manage drawdowns and maintain capital integrity."
+  ],
+  "seconds": 29.83236520000355,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 346
+}

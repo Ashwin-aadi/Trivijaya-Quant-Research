@@ -1,0 +1,27 @@
+{
+  "index": 136,
+  "paradigm": "G4_planning",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"This strategy exploits price-level reversion against a trailing reference. It \"\n        \"identifies assets that have deviated significantly from their 20-day moving average \"\n        \"and generates buy/sell signals accordingly.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or len(closes.columns) <= 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [col for col in closes.columns if col != \"session_date\"]\n        sma = (\n            closes.select(pl.col(symbols).mean())\n            .with_columns(\n                (pl.col(symbols) / pl.col(\"mean\").alias(\"relative_price\")).rowwise()\n                .sum()\n                .over(\"session_date\")\n                .alias(\"z_score\")\n            )\n            .sort(\"session_date\", descending=True)\n            .head(1)[\"z_score\"]\n        )\n\n        signal_weights = {}\n        for symbol in symbols:\n            z_score = float(sma[symbol])\n            if abs(z_score) > 1.0:\n                weight = (2.5 / len(symbols)) * (-1 if z_score < 0 else 1)\n                signal_weights[symbol] = max(-0.03, min(0.03, weight))\n\n        return Signal(information_available_at=stamp, weights=signal_weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2734,
+    "output_tokens": 1046
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy exploits the economic mechanism of price-level reversion against a trailing reference, which is based on the tendency of asset prices to revert to historical price levels over time. This phenomenon can be driven by market psychology, technical analysis, and liquidity factors. The rule would involve identifying assets that have deviated significantly from their trailing average price level. If an asset's price has fallen below its moving average, a buy signal is generated, while if it rises above the average, a sell signal is given. This strategy aims to capitalize on mean reversion by entering positions when prices return to more typical levels, leveraging the persistent nature of this market behavior in the Indian equity market.",
+    "The precise signal for this strategy can be described as follows:\n\n1. **Compute Moving Average**: Calculate a simple moving average (SMA) of the closing prices over a specified lookback period (e.g., 20 days). This SMA will serve as the trailing reference level.\n\n2. **Price Deviation Calculation**: For each asset, compute its daily closing price relative to this moving average. Specifically, calculate the z-score for the closing price using the formula: \\( Z = \\frac{(P_t - MA)}{\\sigma} \\), where \\( P_t \\) is the current day's closing price, \\( MA \\) is the 20-day SMA of closing prices, and \\( \\sigma \\) is the standard deviation of closing prices over the same period.\n\n3. **Generate Signals**: \n   - If \\( Z < -1 \\) (i.e., the asset's price has fallen significantly below its moving average), generate a buy signal.\n   - If \\( Z > 1 \\) (i.e., the asset's price has risen significantly above its moving average), generate a sell signal.\n\n4. **Ranking Assets**: On a given day, rank assets based on their z-scores. Positive z-scores indicate overbought conditions (sell signals), while negative z-scores indicate oversold conditions (buy signals). The magnitude of the z-score can be used as the ranking criterion, with more extreme values indicating stronger signals.\n\nThis method allows for systematic identification and prioritization of assets based on their price deviation relative to historical levels.",
+    "For this strategy, a balanced approach is recommended:\n\n- **Position Sizing**: Hold positions in approximately 30-40 stocks to diversify risk while leveraging market-wide mean reversion. Each stock can be allocated an equal weight of 2.5%-3% of the portfolio, ensuring no single position dominates.\n  \n- **Risk Limits**: Implement stop-loss orders at around -2% from entry price for each position to limit individual losses. The overall portfolio should not exceed a 5% daily drawdown to safeguard against extreme market movements.\n\nThis setup balances exposure and risk management effectively in the Indian equity market, aligning with mean reversion principles."
+  ],
+  "seconds": 31.043793500000902,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 139
+}

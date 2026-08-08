@@ -1,0 +1,26 @@
+{
+  "index": 21,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"By tilting our portfolio towards low-volatility stocks, we aim to capture these \"\n        \"outperformance benefits.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"]:\n                continue\n            prices = history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].to_list()\n            if len(prices) < self._window:\n                continue\n            returns = [(prices[i + 1] - prices[i]) / prices[i] for i in range(len(prices) - 1)]\n            volatility = (sum([r**2 for r in returns]) / len(returns)) ** 0.5\n            volatilities[symbol] = float(volatility)\n\n        sorted_symbols = [k for k, _ in sorted(volatilities.items(), key=lambda item: item[1])]\n        picks = sorted_symbols[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 0.2 / len(picks)\n        weights = {s: weight for s in picks}\n        return Signal(\n            information_available_at=stamp,\n            weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4002,
+    "output_tokens": 1355
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy aims to tilt a portfolio towards low-volatility stocks based on historical volatility calculations. Here are some critiques:\n\n1. **Rationale vs. Code Mismatch:**\n   - The rationale states that \"low-volatility stocks tend to outperform high-volatility stocks over the long term.\" However, the code only calculates and selects the lowest 5 volatilities without explicitly weighting them by their low volatility. This could potentially miss the intended goal of focusing on lower-risk stocks.\n\n2. **Rule Failure Scenarios:**\n   - If there are fewer than 5 symbols in `sorted_symbols`, the strategy returns an empty weights dictionary, which might not be optimal if only a few low-volatility stocks are available.\n   - If all symbols have similar volatilities (e.g., due to market conditions or data issues), no picks will be selected, leading to an empty portfolio.\n\n3. **Fragile Parameters:**\n   - The `window` parameter for calculating volatility is hardcoded at 20, which might not be optimal for all markets and time periods. A more dynamic window size could improve performance.\n   - The decision to select only the top 5 symbols based on volatility is arbitrary and may need adjustment based on market conditions.\n\n4. **Potential Issues:**\n   - Line 38: `assert isinstance(newest, date)` might fail if there are non-date values in the dataset, which could be mitigated by using type checking or handling such cases gracefully.\n   - The code assumes that all symbols will have sufficient historical data to calculate volatility, but this may not always be true. Additional checks should be added to handle missing data.\n\n5. **Sound Parts:**\n   - The strategy correctly identifies and selects low-volatility stocks by calculating their volatilities over a specified period.\n   - The use of `polars` for data manipulation is efficient and appropriate for this task.\n\nIn summary, while the core idea of tilting towards low-volatility stocks is sound, there are several areas where improvements can be made to enhance robustness and performance."
+  ],
+  "seconds": 35.16806700000052,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 45
+}

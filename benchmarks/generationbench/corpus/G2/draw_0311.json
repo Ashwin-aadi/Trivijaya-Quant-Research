@@ -1,0 +1,23 @@
+{
+  "index": 311,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MomentumAndVolatility(Strategy):\n    rationale = (\n        \"This strategy leverages the idea that stocks with high momentum (recent price increase) \"\n        \"and low volatility tend to continue their current trend. High momentum suggests strong \"\n        \"buying pressure and low volatility indicates stable prices, both of which are often positive \"\n        \"signals for future returns.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, vol_window: int = 10) -> None:\n        self._momentum_window = momentum_window\n        self._volatility_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._momentum_window + self._volatility_window)\n\n        if history.is_empty() or history.height < self._momentum_window + self._volatility_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"close\"]\n        returns = (closes / closes.shift(1) - 1.0).drop_nulls().to_list()[self._volatility_window:]\n        \n        volatilities = [pl.col(\"adj_close\").std().alias(\"volatility\")] * len(view.symbols)\n        vol_history = history.select(*volatilities)\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns or symbol not in vol_history.columns:\n                continue\n            momentum_score = max(returns) if returns else 0.0\n            volatility_score = float(vol_history[symbol].select(\"volatility\").item())\n            combined_score = (momentum_score - min(momentum_score, 0)) / (1 + volatility_score)\n            if combined_score > 0:\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MomentumAndVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 536
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.422507399998722,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 319
+}

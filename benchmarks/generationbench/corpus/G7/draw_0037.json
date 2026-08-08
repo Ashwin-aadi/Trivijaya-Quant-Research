@@ -1,0 +1,48 @@
+{
+  "index": 37,
+  "paradigm": "G7_mcts",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion aims to profit from the tendency of prices to revert \"\n        \"to their average levels over a certain period. By identifying stocks that have moved\"\n        \" significantly away from their 5-day moving average, we can exploit potential price reversals.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(s) for s in view.symbols]\n        closes = history.select(\n            pl.col(\"symbol\").cast(pl.Utf8),\n            (pl.col(\"adj_close\") - pl.col(\"adj_close\").rolling_mean(window_size=self._window)).alias(\"deviation\"),\n        )\n\n        picks: list[str] = []\n        for symbol in symbols:\n            if symbol not in closes.columns or symbol == \"symbol\":\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window + 1:\n                continue\n            current_deviation = values[-1]\n            if abs(current_deviation) > max(abs(v) for v in values[:-1]):\n                picks.append(symbol)\n\n        picks = list(set(picks))[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20957,
+    "output_tokens": 6725
+  },
+  "calls": 25,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the daily closing price, measuring the deviation from the 5-day moving average. This lookback period balances responsiveness to recent market movements while reducing noise, aligning with short-horizon mean reversion strategy goals.",
+    "The signal will be the daily high price, measuring the deviation from a 3-day moving average. This choice increases sensitivity to intraday price action while maintaining a focus on recent trends, fitting well within a short-horizon mean reversion strategy.",
+    "The portfolio will consist of 5 equally-weighted names whenever a position is opened or closed, ensuring a balanced exposure and simplifying the strategy implementation.",
+    "The portfolio will hold three equities with weights of 40%, 35%, and 25% respectively when a position is opened. This allocation balances sensitivity to short-term price movements while managing risk through diversification.",
+    "The portfolio will consist of 5 equally-weighted names whenever a position is opened or closed, ensuring balanced exposure and simplified strategy implementation.",
+    "The portfolio will hold three equities with weights of 40%, 35%, and 25% respectively when a position is opened, balancing sensitivity to short-term price movements while managing risk through diversification.",
+    "The loss on a single position will be capped at -5% of the portfolio value to limit risk exposure, while the strategy will stop trading if the overall portfolio loss exceeds -10%, ensuring both position and portfolio risk are managed effectively.",
+    "The risk rule will be that no single equity position can lose more than 5% in a single day, and the total portfolio loss cannot exceed 3% in a single day. These bounds will stop the strategy from trading if exceeded, ensuring risk is managed within acceptable limits.",
+    "For this systematic equity strategy in the Indian market focusing on short-horizon mean reversion, I propose setting a stop-loss rule at -3% for an individual position and -5% for the entire portfolio. This rule will prevent significant losses by exiting positions when they fall 3% below the entry price and halt trading if the total portfolio value drops 5%, ensuring risk management is balanced yet responsive to market movements.",
+    "The risk rule will be to limit the maximum loss on a single equity position to -5% from the entry price and the total portfolio loss to -10% from the initial value, stopping trading if either threshold is breached.",
+    "The loss on a single position will be capped at -3% of the portfolio value, with the strategy halting operations if the total portfolio loss reaches -8%. This approach provides a more balanced risk management by slightly reducing the individual position risk while maintaining the overall portfolio protection.",
+    "The risk rule will be that no single equity position can lose more than 5% in a single day, and the total portfolio loss cannot exceed 3% in a single day. Exceeding these thresholds will halt trading to manage risk effectively."
+  ],
+  "seconds": 397.26733070000773,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 465
+}

@@ -1,0 +1,23 @@
+{
+  "index": 335,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignal(Strategy):\n    rationale = (\n        \"Combining volatility and momentum can capture varying market conditions. Volatility \"\n        \"signals potential reversals or mean reversion opportunities, while momentum signals a \"\n        \" continuation of the current trend. This composite strategy uses both to filter out noisy \"\n        \"periods.\"\n    )\n\n    def __init__(self, vol_window: int = 10, mom_window: int = 20) -> None:\n        self._vol_window = vol_window\n        self._mom_window = mom_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._vol_window + self._mom_window)\n\n        if closes.height < self._vol_window + self._mom_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        vol_signals: dict[str, float] = {}\n        mom_signals: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            adj_closes = [float(v) for v in closes[symbol].to_list()]\n            if len(adj_closes) < self._vol_window + self._mom_window:\n                continue\n\n            vol_mean = pl.Series(adj_closes[-self._vol_window:]).mean()\n            mom_return = (adj_closes[-1] - adj_closes[-self._mom_window]) / adj_closes[\n                -self._mom_window\n            ]\n            if len(adj_closes) < self._vol_window + 1:\n                vol_signals[symbol] = 0.5\n                mom_signals[symbol] = 0.5\n            else:\n                vol_signals[symbol] = (adj_closes[-1] > vol_mean) * 1.0\n                mom_signals[symbol] = (mom_return >= 0) * 1.0\n\n        combined_signal = {\n            symbol: 2 * vol_signals[symbol] + 3 * mom_signals[symbol]\n            for symbol in view.symbols\n        }\n\n        top_symbols = sorted(combined_signal.items(), key=lambda x: x[1], reverse=True)\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_n = min(len(top_symbols), 5)\n        weight = 1.0 / top_n\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight for symbol, _ in top_symbols[:top_n]\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignal",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 620
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.83553870000469,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 343
+}

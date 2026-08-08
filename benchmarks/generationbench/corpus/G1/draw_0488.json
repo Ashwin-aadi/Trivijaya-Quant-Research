@@ -1,0 +1,23 @@
+{
+  "index": 488,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"A directional move in price accompanied by an increase in volume suggests a \"\n        \"stronger momentum and greater conviction from market participants. This strategy \"\n        \"identifies such moves to capitalize on the increased likelihood of sustained trends.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=False)\n            .with_columns(pl.col(\"symbol\").alias(\"symbol_id\"))\n        )\n\n        # Filter out rows where the return is zero or null\n        history = history.filter((pl.col(\"return\") != 0) & (pl.col(\"return\").is_not_null()))\n\n        # Calculate daily volume change\n        history = (\n            history.with_columns(\n                ((pl.col(\"volume\") - pl.col(\"volume\").shift(1)) / pl.col(\"volume\").shift(1) * 100).alias(\"vol_change\")\n            )\n            .sort(\"session_date\", descending=False)\n        )\n\n        # Identify breakout days\n        breakout_days = history.select(\n            [\n                pl.col(\"symbol_id\"),\n                (pl.col(\"return\") >= 0.05).cast(pl.int64) + (pl.col(\"return\") <= -0.05).cast(pl.int64),\n                (pl.col(\"vol_change\") > 20).alias(\"high_vol\"),\n            ]\n        ).filter((pl.col(\"return\") >= 0.05) | (pl.col(\"return\") <= -0.05)).sort(\"session_date\", descending=False)\n\n        # Get the latest breakout day\n        last_breakout = breakout_days.sort(\"session_date\", descending=True).rows(1)\n        if not last_breakout:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_id = last_breakout[0][0]\n        high_vol = bool(last_breakout[0][2])\n\n        symbols = history.filter(pl.col(\"symbol_id\") == symbol_id)[\"symbol\"].to_list()\n        weight = 1.0 / len(symbols) if symbols else 0\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols if high_vol},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 670
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.74990650000109,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 494
+}

@@ -1,0 +1,23 @@
+{
+  "index": 325,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"Mean reversion exploits the tendency for financial assets to revert to their historical \"\n        \"mean. In a short horizon, extreme deviations from the mean can be expected to correct, \"\n        \"offering trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_close = view.latest_close()\n        mean = history.select(\n            pl.col(\"adj_close\").mean().alias(\"mean\")\n        ).to_dict(full=False)[\"mean\"][0]\n        \n        deviations = {\n            symbol: abs(recent_close[symbol] - mean)\n            for symbol in view.symbols\n            if symbol in recent_close and symbol in recent_close\n        }\n\n        extreme_deviations = [\n            (symbol, deviation)\n            for symbol, deviation in deviations.items()\n            if deviation > self._threshold * mean\n        ]\n\n        if not extreme_deviations:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks, _ = zip(*extreme_deviations)\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_dict(full=False)[\"session_date\"][0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 448
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.395592799999577,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 333
+}

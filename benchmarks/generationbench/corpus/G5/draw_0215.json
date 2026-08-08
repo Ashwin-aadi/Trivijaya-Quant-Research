@@ -1,0 +1,26 @@
+{
+  "index": 215,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines the recent strength of a stock with its relative strength \"\n        \"against the NIFTY 100 index. A strong closing price and high relative strength can \"\n        \"indicate future positive performance.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_100_close = [float(v) for v in closes[\"^NSEI\"].drop_nulls().to_list()]\n        symbol_closes = {symbol: [float(v) for v in closes[symbol].drop_nulls().to_list()] for symbol in view.symbols}\n\n        picks: list[str] = []\n        for symbol, values in symbol_closes.items():\n            if len(values) < self._window:\n                continue\n            recent_close = values[-1]\n            nifty_100_recent_close = nifty_100_close[-1]\n            if recent_close >= max(values):\n                relative_strength = (recent_close / nifty_100_recent_close - 1.0) * 100\n                if relative_strength > self._threshold:  # Consider stocks with strong relative performance\n                    picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3962,
+    "output_tokens": 1324
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains some potential issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale mentions \"recent strength of a stock with its relative strength against the NIFTY 100 index,\" but the code focuses solely on recent closing prices and relative strength, without explicitly mentioning these terms.\n\n2. **Potential Failure Scenarios**:\n   - Lines 24-31: If `nifty_100_close` or any stock's close values are missing (e.g., due to holidays), it can lead to incorrect calculations.\n   - Line 36: The `if recent_close >= max(values)` condition might fail if the dataset has duplicate maximum closing prices.\n\n3. **Fragile Parameters**:\n   - The window size is hardcoded as 20, which may not be optimal for all datasets or market conditions. This can be improved by making it a parameter that can be tuned.\n   - Line 48: The `relative_strength > 5` threshold might be too high or low depending on the data distribution; this could benefit from being a tunable parameter.\n\n4. **Potential Issues in Execution**:\n   - Line 20: Ensure `closes[\"^NSEI\"]` and symbols' closes exist before attempting to convert them.\n   - Lines 18-35: The logic assumes that the history is complete, which might not always be true due to missing data or market holidays.\n\nOverall, while the strategy aims to combine recent strength with relative performance against NIFTY 100, it needs some adjustments for robustness and flexibility. Making key parameters tunable and addressing potential data gaps would improve its reliability."
+  ],
+  "seconds": 34.40053909999915,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 436
+}

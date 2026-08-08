@@ -1,0 +1,23 @@
+{
+  "index": 11,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy aims to identify stocks with both high recent volatility and positive \"\n        \"price momentum. High volatility suggests that the stock is experiencing heightened \"\n        \"trading activity, potentially driven by news or events. Positive price momentum indicates \"\n        \"that the stock has been performing well recently, suggesting continued buying interest.\"\n    )\n\n    def __init__(self, volatility_window: int = 10, momentum_window: int = 20) -> None:\n        self._volatility_window = volatility_window\n        self._momentum_window = momentum_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._volatility_window, self._momentum_window))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        high_volatility_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].unique().to_list():\n                continue\n            vol_close = (history.select(pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).sort(\"session_date\", descending=True)\n                         .head(self._volatility_window)[\"adj_close\"])\n            volatility = vol_close.std()\n            momentum_close = (history.filter(\n                pl.col(\"symbol\") == symbol\n            ).select(pl.col(\"adj_close\")).sort(\"session_date\", descending=True)\n                              .head(self._momentum_window)[\"adj_close\"])\n            if volatility > 0.01 and momentum_close[-1] / momentum_close[0] >= 1.05:\n                high_volatility_symbols.append(symbol)\n\n        high_volatility_symbols = list(set(high_volatility_symbols))[:5]\n        if not high_volatility_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(high_volatility_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in high_volatility_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 532
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.139182699997036,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 12
+}

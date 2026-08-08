@@ -1,0 +1,27 @@
+{
+  "index": 252,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum20d(Strategy):\n    rationale = (\n        \"This strategy exploits cross-sectional momentum by selecting stocks with recent \"\n        \"positive price performance. It aims to capture short-term outperformance and benefit \"\n        \"from the tendency of high-performing stocks to continue outperforming over a 1-3 month period.\"\n    )\n\n    def __init__(self, top_n: int = 20, window: int = 20) -> None:\n        self._top_n = top_n\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_stocks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            last_close = float(values[-1])\n            twenty_day_ago_close = float(values[0])\n            return_percentage = ((last_close - twenty_day_ago_close) / twenty_day_ago_close) * 100\n            top_stocks.append((symbol, return_percentage))\n\n        top_stocks.sort(key=lambda x: x[1], reverse=True)\n        top_stocks = [s for s, _ in top_stocks[: self._top_n]]\n        if not top_stocks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_stocks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_stocks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2447,
+    "output_tokens": 914
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To exploit cross-sectional momentum in the Indian equity market, the strategy will focus on identifying stocks with recent positive price performance. The economic mechanism involves capturing gains from the tendency of high-performing stocks to continue outperforming over short-term horizons. This persistence might persist due to fundamental improvements, investor sentiment, or market inefficiencies that can delay full pricing.\n\nThe rule would select the top 10-20% of stocks based on recent returns and hold them for a period (e.g., 1-3 months). Regularly rebalancing the portfolio ensures alignment with current momentum trends. This approach aims to leverage the mean reversion tendencies observed in financial markets, while capturing the benefits of persistent short-term performance.",
+    "The signal for this equity strategy can be defined as the return percentage of each stock over the past 20 trading days. This is computed from the daily closing prices (Close). Specifically:\n\n- **Signal Calculation**: For each stock, calculate the percentage return using the formula: \\((\\text{Today's Close} - \\text{20-day Ago Close}) / \\text{20-day Ago Close} \\times 100\\).\n- **Lookback Period**: The lookback period is 20 trading days.\n- **Ranking**: On a given day, rank all eligible stocks based on their calculated return percentage. Select the top 10-20% of stocks with the highest returns to form the portfolio.\n\nThis ranking ensures that only stocks showing recent strong price performance are selected for inclusion in the strategy's portfolio.",
+    "The strategy will hold a maximum of 2-4 stocks based on their top returns over the past 20 trading days. Each selected stock will be weighted equally within the portfolio to ensure no single stock dominates risk. The total exposure to any one stock will not exceed 25% of the portfolio value, limiting individual stock risk. The overall portfolio loss limit is set to 10%, ensuring that the strategy aims to preserve capital while capturing short-term momentum. Regular rebalancing every month ensures dynamic risk management and adaptation to changing market conditions."
+  ],
+  "seconds": 28.3269702999969,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 256
+}

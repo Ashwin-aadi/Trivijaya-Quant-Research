@@ -1,0 +1,47 @@
+{
+  "index": 58,
+  "paradigm": "G7_mcts",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalVolume(Strategy):\n    rationale = (\n        \"Historical data suggests that trading volumes exhibit seasonal patterns. By analyzing \"\n        \"the average daily volume over a 3-year period, we can identify months with higher liquidity \"\n        \"and investor interest. This allows us to time our trades for periods of increased market activity.\"\n    )\n\n    def __init__(self, window: int = 1095, top_n: int = 10, stop_loss: float = -0.05) -> None:\n        self._window = window\n        self._top_n = top_n\n        self._stop_loss = stop_loss\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_avg = (\n            history.group_by(\"symbol\")\n                   .agg((pl.col(\"volume\").mean().alias(\"avg_volume\")))\n                   .sort(\"avg_volume\", descending=True)\n                   .select(\"symbol\", \"avg_volume\")\n                   .to_pandas()\n        )\n\n        symbols = list(volume_avg[\"symbol\"].head(self._top_n))\n        weights = {s: 1.0 / len(symbols) for s in symbols}\n        return Signal(\n            information_available_at=stamp, \n            weights={s: w for s, w in weights.items() if view.latest_close().get(s, 0) * (1 + self._stop_loss) > 0}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalVolume",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19605,
+    "output_tokens": 7252
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I propose measuring the seasonal effect on closing prices. Specifically, we will calculate the average monthly returns from January to December over a lookback period of 5 years. This focuses on the closing price to capture market closure dynamics and uses a sufficient historical span to establish trends.",
+    "I propose measuring the seasonal effect using the volume data. We will calculate the average daily trading volume for each month over a lookback period of 3 years. This approach captures market activity levels, which can indicate periods of increased or decreased liquidity and investor interest.",
+    "For the portfolio rule, we will hold a fixed number of 10 names in each month's portfolio, equally weighted, to simplify implementation and reduce management complexity while capturing significant market dynamics.",
+    "We will hold a portfolio of 10 equities, equally weighted, when a position is opened or closed. This balanced approach ensures diversification while simplifying portfolio management.",
+    "For the portfolio rule, we will hold a fixed number of 10 names in each month's portfolio, equally weighted. This approach simplifies implementation and reduces management complexity while ensuring that no single stock dominates the portfolio, thereby potentially mitigating risk and enhancing diversification.",
+    "We will hold a portfolio of 10 equities, equally weighted, when a position is opened or closed. This balanced approach ensures diversification and simplifies portfolio management.",
+    "For the risk rule, I propose setting an individual position loss bound of -5% to limit potential losses on any single stock, while stopping the strategy from trading if the portfolio loss exceeds -10%. This balance between individual and overall portfolio risk management ensures both protection and flexibility in execution.",
+    "For the risk rule, I propose setting a loss bound of -5% on an individual position and -10% on the overall portfolio to stop trading. This limit balances protection against significant losses with the need for active strategy execution.",
+    "To bound the loss on each position, I propose setting a stop-loss trigger at a 10% decline from the entry price. This limit helps control risk by preventing significant losses while allowing for some market volatility. For the portfolio, I suggest capping the maximum drawdown at 20% over any 3-month period to ensure that no single downturn disproportionately impacts the overall strategy.",
+    "I propose setting a stop-loss rule of -5% for an individual equity position to limit potential losses and prevent excessive risk exposure. This rule will also serve as a trigger to exit positions if the market conditions worsen significantly, ensuring that the portfolio's overall risk is managed effectively.",
+    "For the risk rule, I propose setting an individual position loss bound of -3% to limit potential losses on any single stock, while stopping the strategy from trading if the portfolio loss exceeds -8%. This approach provides a tighter control on individual risks while still maintaining the ability to rebalance and trade when necessary.",
+    "For the risk rule, I propose setting a stop-loss at -3% for individual positions and -7% for the overall portfolio. This threshold provides a more sensitive response to market fluctuations while still offering adequate protection."
+  ],
+  "seconds": 247.114440299978,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 724
+}

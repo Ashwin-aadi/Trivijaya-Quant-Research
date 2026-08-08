@@ -1,0 +1,27 @@
+{
+  "index": 303,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy leverages the anomaly where less-liquid stocks tend to underperform \"\n        \"more liquid ones due to trading frictions and information asymmetry. By equally \"\n        \"weighting highly liquid stocks selected from the top decile, we aim to capture outperformance \"\n        \"from relatively neglected but investable illiquid stocks while maintaining diversification.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        liquidity_scores = pl.DataFrame({\"symbol\": symbols})\n        for symbol in symbols:\n            liquidity_score = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .select(\n                    (pl.col(\"adj_close\").shift(-1) / pl.col(\"adj_close\")) - 1.0\n                )\n                .sort(\"session_date\", descending=True)\n                .head(self._window)\n                .select(pl.col(\"adj_close\").mean())\n            )\n            liquidity_scores = liquidity_scores.with_column(liquidity_score.alias(symbol))\n\n        top_decile_symbols = [\n            symbol for _, symbol in liquidity_scores.sort(symbol, descending=True).rows()[: self._top_n]\n        ]\n        weight = 1.0 / len(top_decile_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_decile_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2325,
+    "output_tokens": 840
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan involves leveraging the liquidity-screened equal-weighting strategy in India's equity market. The economic mechanism exploits the anomaly where less-liquid stocks tend to underperform more liquid ones due to trading frictions and information asymmetry. This persistence could arise from investors' reluctance to trade illiquid stocks, leading to mispricing. The rule involves first screening for highly liquid stocks using liquidity metrics like turnover or bid-ask spread. Then, equally weighting the selected stocks in the portfolio to avoid bias towards larger-cap companies that are naturally more liquid. This approach aims to capture the outperformance of relatively neglected, but still investable, illiquid stocks while maintaining diversification benefits through equal weighting.",
+    "The signal for this strategy can be derived from liquidity metrics such as turnover or bid-ask spread. For each stock in the Indian equity market, compute the 30-day average turnover ratio (volume traded divided by float) or bid-ask spread over a similar lookback period. On any given day, rank the stocks based on their liquidity metrics, with lower values indicating higher liquidity. Select the top decile of most liquid stocks as candidates for equal-weighting in the portfolio. This ranking and selection process ensure that only highly liquid stocks are considered, reducing the impact of trading frictions and information asymmetry.",
+    "This strategy involves holding positions in 20-30 stocks selected from the top decile of liquid Indian equities based on metrics like turnover ratio or bid-ask spread. Each stock is equally weighted within the portfolio to avoid bias towards larger-cap companies. Position sizing ensures diversification while capturing illiquid stock anomalies. Risk limits are managed through equal weighting, reducing the impact of any single stock's performance. The strategy aims for a maximum loss limit of 10% in any given quarter to balance potential returns with risk management."
+  ],
+  "seconds": 26.830479399999604,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 308
+}

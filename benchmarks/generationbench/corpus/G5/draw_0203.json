@@ -1,0 +1,26 @@
+{
+  "index": 203,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two simple characteristics: the 20-day closing price momentum \"\n        \"and the 10-day volatility. Entries are triggered when both conditions are favorable.\"\n    )\n\n    def __init__(self, window_c: int = 20, window_v: int = 10) -> None:\n        self._window_c = window_c\n        self._window_v = window_v\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window_c)\n        if closes.height < self._window_c:\n            return Signal(information_available_at=stamp, weights={})\n\n        vol_history = view.history(lookback=self._window_v).select(\n            pl.col(\"symbol\"), (pl.col(\"adj_close\").std().alias(\"volatility\"))\n        )\n        picks: list[str] = []\n\n        for symbol in view.symbols:\n            if symbol not in closes.columns or symbol not in vol_history.select(\"symbol\"):\n                continue\n            values_c = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            values_v = [float(v) for v in vol_history.filter(pl.col(\"symbol\") == symbol)[\"volatility\"].to_list()]\n\n            if len(values_c) < self._window_c or len(values_v) < self._window_v:\n                continue\n\n            close_slope = (values_c[-1] - values_c[0]) / max(1, self._window_c)\n            volatility = float(max(values_v))\n            if close_slope > 0 and volatility <= max(values_v):\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4091,
+    "output_tokens": 1441
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears well-structured for combining 20-day closing price momentum with 10-day volatility to generate signals. However, there are several critiques and potential issues:\n\n1. **Rationale vs. Code Mismatch**: The rationale mentions both \"20-day closing price momentum\" and \"10-day volatility,\" but the code uses `window_c = 20` for the window size in closing prices and `window_v = 10` for volatility, which is consistent with the rationale.\n\n2. **Potential Fails**:\n   - The strategy could fail if there are no valid symbols in the view's history. Line 35 checks if the symbol exists in both closes and vol_history but does not handle cases where neither dataset contains recent data.\n   - If `close_slope` is calculated using only one value (since values_c has just two elements), it might always be interpreted as positive, leading to false entries.\n\n3. **Fragile Parameters**:\n   - The parameter `window_v = 10` for volatility might be too short; a shorter window could lead to unreliable volatility estimates.\n   - Hard-capping the number of picks at 5 (line 47) is arbitrary and could limit diversification or miss good opportunities.\n\n4. **Potential Issues**:\n   - Line 39: `close_slope = (values_c[-1] - values_c[0]) / 20.0` assumes a linear trend, which might not accurately represent momentum.\n   - Line 45: `volatility < max(values_v)` is redundant since it's always true if the window size matches.\n\n5. **Non-Runnable Issues**:\n   - The function `_latest_visible(view: MarketView) -> date` should be defined or imported, but it isn't in the provided code.\n   - Ensure that `MarketView`, `Signal`, and necessary imports (like `pl`) are correctly defined elsewhere.\n\nOverall, while the core logic is sound, improvements could make the strategy more robust."
+  ],
+  "seconds": 36.797630000000936,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 412
+}

@@ -1,0 +1,23 @@
+{
+  "index": 424,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion(Strategy):\n    rationale = (\n        \"Price levels revert to a mean over time due to mean reversion theory. \"\n        \"Prices that have deviated significantly from their historical mean are likely to move back towards it.\"\n    )\n\n    def __init__(self, window: int = 50) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (closes.select(pl.col(\"adj_close\").mean())[\"adj_close\"][0]).round(decimals=2)\n\n        weights: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            adj_closes = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            recent_close = adj_closes[-1]\n            diff_from_mean = (recent_close - mean_close).round(decimals=2)\n            if abs(diff_from_mean) > 0.5:\n                weight = 2 / len(view.symbols) * (1 - abs(diff_from_mean))\n                weights[symbol] = weight\n\n        return Signal(\n            information_available_at=stamp, weights={s: w for s, w in weights.items() if w != 0}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 409
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.588179599995783,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 432
+}

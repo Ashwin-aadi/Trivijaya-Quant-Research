@@ -1,0 +1,47 @@
+{
+  "index": 55,
+  "paradigm": "G7_mcts",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Dispersion20d(Strategy):\n    rationale = (\n        \"By measuring the daily closing price deviation from a 20-day simple moving average, \"\n        \"this strategy captures recent momentum and mean reversion tendencies. Deviations from \"\n        \"the moving average indicate potential shifts towards dispersion or range compression in \"\n        \"the Indian market.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        sma_values = []\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            close_series = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(close_series) < self._window:\n                continue\n\n            sma20 = sum(close_series[-self._window:]) / self._window\n            deviation = (close_series[-1] - sma20) / sma20\n            sma_values.append(deviation)\n\n        sma_values.sort(reverse=True)\n        top_deviations = sma_values[: self._top_n]\n        for symbol, deviation in zip(view.symbols, sma_values):\n            if deviation >= max(top_deviations):\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Dispersion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19385,
+    "output_tokens": 6703
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will measure the daily range (High - Low) over a 5-day lookback period. This approach captures recent volatility changes, which can indicate dispersion or range compression trends in the Indian market.",
+    "The signal will measure the daily closing price deviation from the 20-day simple moving average, over a 10-day lookback period. This approach captures recent momentum and mean reversion tendencies, indicating potential shifts towards dispersion or range compression in the Indian market.",
+    "The portfolio will consist of 5 equally weighted stocks when a position is opened or closed. This approach ensures diversification while maintaining simplicity in management.",
+    "The portfolio will consist of 5 equally weighted positions when a position is opened or closed. This approach balances diversification with manageable risk exposure across the selected stocks.",
+    "The portfolio will consist of 5 equally weighted stocks when a position is opened or closed, ensuring diversification and simplifying management.",
+    "The portfolio will consist of 5 equally weighted positions when a position is opened or closed. This approach ensures balanced diversification and manageable risk exposure across the selected stocks, aligning with the theme of dispersion or range compression by spreading risk evenly among the chosen equities.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent any single stock from significantly impacting the portfolio. Additionally, the strategy should halt trading if the total portfolio loss exceeds -10%, ensuring overall risk is managed effectively.",
+    "For this systematic equity strategy in the Indian market, I propose setting a stop-loss rule that limits position loss to no more than 5% of the portfolio value at any given time. This ensures risk management while allowing for potential temporary price fluctuations within the broader momentum trends. Portfolio-wide losses will be capped at 10%, triggering a strategy pause and review if exceeded.",
+    "For the risk rule, I propose setting an individual position loss limit of -3% to mitigate risks associated with volatile stocks while maintaining flexibility. The strategy should also halt trading if the total portfolio loss exceeds -8%, balancing risk management with potential profit opportunities.",
+    "For this systematic equity strategy in the Indian market, I propose setting a stop-loss rule that limits position loss to no more than 5% of the portfolio value at any given time. This ensures risk management while allowing for potential temporary price fluctuations within the broader momentum trends. Portfolio-wide losses will be capped at 10%, triggering a strategy pause and review if exceeded.",
+    "The risk rule will limit the loss on a single position to no more than 2% of the portfolio value, and the strategy will stop trading if the overall portfolio loss exceeds 5%. This ensures that individual risks are managed while protecting the entire portfolio from significant losses.",
+    "For each position, set a stop-loss limit at 5% of the entry price to manage individual risk exposure. For the portfolio, implement a total loss threshold of 10% from peak value to prevent significant overall capital erosion. If either bound is triggered, trading will halt for a reevaluation period of 3 days before resuming."
+  ],
+  "seconds": 212.83153039996978,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 686
+}

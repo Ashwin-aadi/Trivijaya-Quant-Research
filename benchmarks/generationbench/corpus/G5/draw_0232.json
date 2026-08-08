@@ -1,0 +1,26 @@
+{
+  "index": 232,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionToTrailingMean(Strategy):\n    rationale = (\n        \"Price reverts to the mean over time. By identifying symbols where the current price \"\n        \"is far from their trailing average, we can generate buy or sell signals based on \"\n        \"this tendency.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        trailing_means: pl.DataFrame = (\n            history.group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\").mean().alias(\"trailing_mean\")))\n            .select([\"symbol\", \"trailing_mean\"])\n        )\n\n        closes: pl.DataFrame = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        reversion_scores: list[tuple[str, float]] = []\n        for symbol in view.symbols:\n            if symbol not in trailing_means.column_names or symbol not in closes.column_names:\n                continue\n            adj_close_series = [float(v) for v in closes[symbol].to_list()]\n            trailing_mean = float(trailing_means.filter(pl.col(\"symbol\") == symbol).select(\"trailing_mean\").item())\n            score = abs(adj_close_series[-1] - trailing_mean)\n            reversion_scores.append((symbol, score))\n\n        reversion_scores.sort(key=lambda x: x[1], reverse=True)\n        top_symbols = [s for s, _ in reversion_scores[:5]]\n        weight = 1.0 / len(top_symbols) if top_symbols else 0.0\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionToTrailingMean",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4050,
+    "output_tokens": 1397
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify symbols whose prices are far from their trailing mean, suggesting potential reversion opportunities. Here are some criticisms:\n\n1. **Rationale vs. Code Disagreement:**\n   - The rationale mentions \"buy or sell signals based on this tendency,\" but the code only generates a `Signal` with weights for top symbols, without explicit buy/sell actions (lines 24-38).\n\n2. **Potential Failures:**\n   - If `view.closes()` returns fewer than `self._window` records (line 31), an error might occur because the condition checks are insufficient to handle such cases.\n   - The strategy assumes that every symbol in `trailing_means` will also be present in `closes`, which could fail if symbols are dropped or added dynamically.\n\n3. **Fragile Parameters:**\n   - Setting a fixed window length (`self._window`) might not work well for all market conditions, as different time frames can impact the strategy's performance (line 10).\n\n4. **Code Fragility and Potential Stops:**\n   - The `reversion_scores` calculation assumes that symbols are consistently named in both `trailing_means` and `closes`. This could break if symbols change or data is inconsistent.\n   - If any DataFrame operations fail due to missing data, the script might crash without proper error handling.\n\n5. **Sound Parts:**\n   - The core logic of comparing current prices with trailing means (line 34-38) is sound and follows the rationale well.\n   - Grouping by symbols and calculating mean prices is a robust approach (lines 20-26).\n\nOverall, while the strategy's concept aligns with the provided rationale, specific implementations need improvements to handle edge cases and ensure robustness."
+  ],
+  "seconds": 36.01906029999918,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 470
+}

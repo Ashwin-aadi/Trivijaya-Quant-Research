@@ -1,0 +1,24 @@
+{
+  "index": 17,
+  "paradigm": "G1_plain",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"Breakouts are often followed by a continuation of the trend. Identifying \"\n        \"breakout symbols and their continuation can provide profitable opportunities.\"\n    )\n\n    def __init__(self, window: int = 20, lookback_period: int = 1) -> None:\n        self._window = window\n        self._lookback_period = lookback_period\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history_df = view.history(lookback=self._window + self._lookback_period)\n\n        if history_df.height < self._window + self._lookback_period:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history_df.columns:\n                continue\n            close_series = history_df[symbol].drop_nulls()\n            if len(close_series) < self._window + self._lookback_period:\n                continue\n\n            last_close = float(close_series[-1])\n            prev_max = max(close_series[self._window : -self._lookback_period])\n            next_open = float(history_df[symbol][self._window - 1])\n\n            if last_close > prev_max and next_open >= last_close:\n                breakout_symbols.append(symbol)\n\n        breakout_symbols = list(set(breakout_symbols))[: self._lookback_period]\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2486,
+    "output_tokens": 949
+  },
+  "calls": 2,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 23.70328739999968,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 19
+}

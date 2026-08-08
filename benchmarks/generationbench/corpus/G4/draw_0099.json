@@ -1,0 +1,27 @@
+{
+  "index": 99,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the small-firm effect by focusing on stocks with high \"\n        \"trading volumes, ensuring diversification and mitigating concentration risk. \"\n        \"By equally weighting selected stocks each trading day, we aim to capture higher \"\n        \"returns associated with market inefficiencies in smaller firms.\"\n    )\n\n    def __init__(self, min_volume: float = 1_000_000, top_n: int = 50) -> None:\n        self._min_volume = min_volume\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=1)\n        if closes.height < 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            daily_volume = float(closes[symbol].to_list()[0])\n            if daily_volume >= self._min_volume:\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2121,
+    "output_tokens": 683
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy focuses on exploiting the \"small-firm effect,\" where smaller firms often exhibit higher returns due to market inefficiencies and lower liquidity. By screening for stocks with high trading volumes and applying an equal-weighted approach, we can capture these returns while mitigating concentration risk. The rule would involve identifying a liquidity-screened universe of stocks each trading day, then equally weighting them in the portfolio. This approach aims to benefit from persistent market anomalies while maintaining diversification.",
+    "The signal for this strategy is based on stock liquidity, specifically trading volume. Each trading day, a universe of stocks is screened to include those with the highest daily trading volumes. These candidates are then equally weighted in the portfolio without further ranking or selection. The lookback period is one trading day, as the focus is on current market activity. Higher trading volumes indicate greater liquidity and are used to filter the stock universe, helping to mitigate concentration risk while capturing the small-firm effect.",
+    "This strategy holds a diversified portfolio of approximately 30-50 smaller-cap stocks each day, ensuring broad exposure to the small-firm effect. Positions are equally weighted, meaning each stock represents roughly 2%-4% of the total portfolio value. To limit risk, the maximum allowable loss is set at 10% per trading day, protecting against significant drawdowns while capturing market anomalies through daily rebalancing and liquidity screening."
+  ],
+  "seconds": 23.424430200000643,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 102
+}

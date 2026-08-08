@@ -1,0 +1,26 @@
+{
+  "index": 230,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy follows the logic of trend-following but scales trades by volatility. \"\n        \"During periods of high volatility, trades are scaled down to avoid excessive risk, and during low volatility, trades are increased to capitalize on stable trends.\"\n    )\n\n    def __init__(self, window: int = 20, vol_window: int = 15) -> None:\n        self._window = window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"]\n        vol_history = view.history(lookback=self._vol_window)\n        close_series = [float(v) for v in closes.to_list()]\n        vol = (pl.Series(close_series).rolling_std(window=self._vol_window)).item()\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        weights: dict[str, float] = {}\n        for symbol in symbols:\n            close_series_symbol = closes[symbol].to_list()\n            trend_score = sum(\n                (close - min(close_series_symbol)) / (max(close_series_symbol) - min(close_series_symbol))\n                for close in close_series_symbol\n            ) / len(close_series_symbol)\n\n            if vol > 1.0:  # High volatility, scale down trade size\n                weights[symbol] = max(0.01, trend_score * 0.2)\n            else:  # Low volatility, scale up trade size\n                weights[symbol] = max(0.01, trend_score * 2.0)\n\n        if not any(weights.values()):\n            return Signal(information_available_at=stamp, weights={})\n\n        total_weight = sum(weights.values())\n        for symbol in symbols:\n            if symbol in weights:\n                weights[symbol] /= total_weight\n            else:\n                weights[symbol] = 0\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in weights.items() if w > 0},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4144,
+    "output_tokens": 1507
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code effectively aligns with its rationale of scaling trades based on volatility. However, there are several areas for improvement or potential issues:\n\n1. **Volatility Calculation**: The volatility calculation uses the absolute average return over a specified window (`vol_window`). This approach is simplistic and might not fully capture market conditions. Line 24 calculates the mean absolute return but does not consider more sophisticated methods like standard deviation.\n\n2. **Trend Scoring Logic**: The trend score in lines 36-40 normalizes close prices, which could lead to issues if there are extreme outliers or flat periods where `max(close_series) - min(close_series)` becomes very small, causing division by near-zero values.\n\n3. **Volatility Thresholds and Scales**: The hardcoded thresholds (e.g., `vol > 0.5`) in lines 42-47 might be too rigid. Volatility levels can vary significantly across different markets and time periods, making these fixed scales less effective over a wide range of conditions.\n\n4. **Parameter Fragility**: The parameters `window` and `vol_window` are critical but not explicitly discussed or optimized. Their values (20 and 10) may need adjustment depending on the market characteristics being analyzed.\n\n5. **Empty DataFrame Handling**: While an empty dataframe check is present in line 38, it could be more robust by checking for specific conditions (e.g., `history.height == 1`).\n\n6. **Type Annotations and Imports**: The imports from `src.backtest.strategy`, `datetime.date`, and `polars as pl` are missing, which could cause runtime errors if not correctly configured in the environment.\n\nOverall, while the strategy concept is sound, these issues make it less robust and adaptable to various market conditions."
+  ],
+  "seconds": 38.272845999999845,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 466
+}

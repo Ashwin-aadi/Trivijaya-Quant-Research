@@ -1,0 +1,26 @@
+{
+  "index": 103,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression suggests a market is consolidating and may be due for a breakout. \"\n        \"We target stocks where the recent high-low range has significantly shrunk.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        compressed_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or \"session_date\" not in history.columns:\n                continue\n\n            highs = [float(v) for v in history.select(pl.col(symbol).max()).to_series()]\n            lows = [float(v) for v in history.select(pl.col(symbol).min()).to_series()]\n            ranges = [(high - low) / 2.0 for high, low in zip(highs, lows)]\n            latest_range = ranges[-1]\n\n            if len(ranges) < self._window:\n                continue\n\n            avg_range = sum(ranges) / len(ranges)\n            compression_ratio = latest_range / avg_range\n            if compression_ratio <= 0.5:\n                compressed_symbols.append(symbol)\n\n        weights: dict[str, float] = {s: 1.0 for s in compressed_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3851,
+    "output_tokens": 1213
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is generally well-structured but contains several potential issues:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale suggests targeting stocks with significant range compression, indicating a market consolidation phase that may lead to a breakout. However, the code focuses on identifying symbols where the recent high-low range has shrunk significantly, which is somewhat different. Line 25 checks if `latest_range <= 0.5 * avg_range`, implying a threshold rather than strict range compression.\n\n2. **Potential Failures**:\n   - Line 17: The strategy might fail if any symbol in the `view.symbols` list does not exist in the historical data (`history.columns`). This could result in an incomplete list of compressed symbols.\n   - Line 25: The calculation assumes that the history is ordered by date, which isn't explicitly checked. If the data is unordered or missing dates, this could lead to incorrect range calculations.\n\n3. **Fragile Parameters**:\n   - The `window` parameter (line 6) sets the lookback period but does not account for varying market conditions or volatility levels.\n   - The threshold of `0.5 * avg_range` is hard-coded and might not be appropriate for all markets or time periods.\n\n4. **Potential Issues in Execution**:\n   - Line 21: The code assumes that the history contains a column named \"session_date\" which must exist, even though it's not checked if it does.\n   - Line 30: The strategy could fail if `ranges` is shorter than the window size, leading to incorrect averages.\n\nOverall, while the strategy aims to identify range compression, some aspects need refinement. Specifically, improving data checks and making parameters more flexible would enhance its robustness."
+  ],
+  "seconds": 32.13284119999935,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 210
+}

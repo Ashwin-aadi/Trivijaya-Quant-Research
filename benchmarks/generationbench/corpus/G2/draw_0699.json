@@ -1,0 +1,23 @@
+{
+  "index": 699,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"High liquidity stocks are more efficiently priced and have lower trading costs. \"\n        \"By equal-weighting these stocks, we aim to benefit from the reduced trading frictions \"\n        \"and potentially higher market-wide average returns.\"\n    )\n\n    def __init__(self, min_volume: int = 100_000) -> None:\n        self._min_volume = min_volume\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=50)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        high_liquidity_symbols = []\n        for symbol in view.symbols:\n            daily_volumes = history.select(pl.col(symbol)).to_numpy().ravel()\n            daily_volumes = [float(v) for v in daily_volumes if not pl.col(\"close\").is_nan()]\n            if len(daily_volumes) < 20 or any(volume <= self._min_volume for volume in daily_volumes):\n                continue\n            high_liquidity_symbols.append(symbol)\n\n        weights = {symbol: 1.0 / len(high_liquidity_symbols) for symbol in high_liquidity_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 383
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.176885399996536,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 710
+}

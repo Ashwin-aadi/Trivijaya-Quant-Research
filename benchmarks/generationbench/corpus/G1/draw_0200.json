@@ -1,0 +1,23 @@
+{
+  "index": 200,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are likely to continue. By identifying symbols \"\n        \"that have recently made a significant move in one direction and confirmed it with \"\n        \"volume, we can capitalize on the momentum.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Identify symbols with significant directional moves\n        directional_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.symbol.to_list():\n                continue\n\n            prices = [float(v) for v in history[history[\"symbol\"] == symbol][\"adj_close\"].to_list()]\n            direction_changes = [\n                (prices[i] - prices[i-1]) / abs(prices[i-1])\n                for i in range(1, len(prices))\n            ]\n            if all(d > self._threshold for d in direction_changes):\n                directional_symbols.append(symbol)\n            elif all(d < -self._threshold for d in direction_changes):\n                directional_symbols.append(symbol)\n\n        # Filter symbols with volume confirmation\n        volume_confirmed = []\n        for symbol in directional_symbols:\n            vol_history = view.history(lookback=self._window).filter(\n                pl.col(\"symbol\") == symbol\n            )\n            volumes = [float(v) for v in vol_history[\"volume\"].to_list()]\n            if any(volumes[i] > 1.2 * max(volumes[:i]) for i in range(self._window, len(volumes))):\n                volume_confirmed.append(symbol)\n\n        # Select top N symbols\n        volume_confirmed = volume_confirmed[:5]\n        if not volume_confirmed:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(volume_confirmed)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in volume_confirmed}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 568
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.317357899999479,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 204
+}

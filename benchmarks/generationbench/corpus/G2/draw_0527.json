@@ -1,0 +1,23 @@
+{
+  "index": 527,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"The strategy leverages two weakly related characteristics: the 20-day momentum of \"\n        \"the stock and its implied volatility. Momentum can indicate future price movement \"\n        \"trends, while implied volatility suggests potential for large moves in prices. By \"\n        \"combining these signals, we aim to identify stocks that are both trending positively \"\n        \"and have high implied volatility, suggesting they could experience significant price \"\n        \"action.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, top_n: int = 5) -> None:\n        self._momentum_window = momentum_window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._momentum_window)\n        if closes.height < self._momentum_window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._momentum_window + 1:\n                continue\n            momentum_score = (values[-1] - values[0]) / abs(values[0])\n            if momentum_score > 0.05:  # Simple threshold for positive momentum\n                momentum_picks.append(symbol)\n\n        picks = _filter_high_volatility(momentum_picks, view)\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _filter_high_volatility(picks: list[str], view: MarketView) -> list[str]:\n    closes = view.closes(lookback=20)\n    high_volatility_symbols: list[str] = []\n    for symbol in picks:\n        if symbol not in closes.columns:\n            continue\n        values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n        if len(values) < 20 + 1:\n            continue\n        implied_volatility = _implied_volatility(values)\n        if implied_volatility > 0.2:  # Simple threshold for high volatility\n            high_volatility_symbols.append(symbol)\n\n    return high_volatility_symbols\n\n\ndef _implied_volatility(prices: list[float]) -> float:\n    prices.sort(descending=True)\n    log_returns = [(prices[i] - prices[i + 1]) / abs(prices[i + 1]) for i in range(len(prices) - 1)]\n    mean_log_return = sum(log_returns) / len(log_returns)\n    variance = sum([x ** 2 for x in log_returns]) / len(log_returns)\n    volatility = (mean_log_return + 0.5 * variance) * 252\n    return volatility",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 754
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.67309419999947,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 536
+}

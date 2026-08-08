@@ -1,0 +1,27 @@
+{
+  "index": 17,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"Breakouts are often followed by a continuation of the trend. Identifying \"\n        \"breakout symbols and their continuation can provide profitable opportunities.\"\n    )\n\n    def __init__(self, window: int = 20, lookback_period: int = 1) -> None:\n        self._window = window\n        self._lookback_period = lookback_period\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history_df = view.history(lookback=self._window + self._lookback_period)\n\n        if history_df.height < self._window + self._lookback_period:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history_df.columns:\n                continue\n            close_series = history_df[symbol].drop_nulls()\n            if len(close_series) < self._window + self._lookback_period:\n                continue\n\n            last_close = float(close_series[-1])\n            prev_high = float(max(close_series[self._window : -self._lookback_period]))\n            next_open = float(history_df[symbol][self._window])\n\n            # Check if the symbol broke out and is continuing\n            if (last_close > prev_high) and (next_open >= last_close):\n                breakout_symbols.append(symbol)\n\n        breakout_symbols = list(set(breakout_symbols))[: self._lookback_period]\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 5203,
+    "output_tokens": 1823
+  },
+  "calls": 4,
+  "candidates_evaluated": 3,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code generally aligns well with its rationale of identifying breakout symbols followed by a trend continuation. However, there are several areas for improvement and potential issues:\n\n1. **Rationale vs Code Discrepancy**: The rationale suggests that breakouts often lead to continued trends, but the implementation checks only if the next open price is greater than or equal to the last close (line 26). This misses the typical breakout criteria which involve identifying a new high/low over a period and then breaking through it. For example, consider adding logic to check for a closing price above a moving average line.\n\n2. **Potential Failure Scenarios**:\n   - Line 25: The `next_open` value is not checked against the current high of the breakout window, which could lead to false positives.\n   - Line 17: The condition `if len(close_series) < self._window + self._lookback_period:` might incorrectly skip valid data. Ensure that the history DataFrame fully covers the required periods.\n\n3. **Fragile Parameters**:\n   - The parameters `window` and `lookback_period` are hardcoded in multiple places (lines 7, 24, 26). These should be passed consistently through the strategy initialization.\n   - Line 29: The `_lookback_period` is used to filter breakout symbols, which might not always make sense. Ensure this parameter aligns with your trading logic.\n\n4. **Code Issues**:\n   - Lines 18-20: The `breakout_symbols` list could contain duplicates; use a set comprehension instead.\n   - Line 35: The `_latest_visible` function assumes that the history DataFrame has a column named \"session_date\". Ensure this is consistent across your data.\n\nOverall, while the basic idea of identifying breakouts and continuing trends is sound, the implementation lacks some crucial checks and assumptions. Improving these areas will enhance the robustness and accuracy of the strategy."
+  ],
+  "seconds": 46.8908162000007,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 37
+}

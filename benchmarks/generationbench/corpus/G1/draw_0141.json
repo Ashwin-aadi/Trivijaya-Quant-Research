@@ -1,0 +1,23 @@
+{
+  "index": 141,
+  "paradigm": "G1_plain",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform the market over the long term. By tilting \"\n        \"our portfolio towards these stocks, we aim to capture this effect.\"\n    )\n\n    def __init__(self, window: int = 60) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_list = [symbol for symbol in view.symbols if symbol in history.columns]\n        history_filtered = history[symbol_list]\n\n        volatilities: list[float] = []\n        for symbol in symbol_list:\n            adj_closes = history_filtered[f\"{symbol}.adj_close\"].to_list()\n            returns = [(float(adj_closes[i]) - float(adj_closes[i-1])) / float(adj_closes[i-1])\n                       if i > 0 else 0.0 for i in range(len(adj_closes))]\n            volatility = (sum([r**2 for r in returns]) / len(returns)) ** 0.5\n            volatilities.append(volatility)\n\n        top_symbols = [symbol_list[i] for i, _ in\n                       sorted(zip(range(len(symbol_list)), volatilities), key=lambda x: x[1])[:3]]\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 444
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.300236099996255,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 145
+}

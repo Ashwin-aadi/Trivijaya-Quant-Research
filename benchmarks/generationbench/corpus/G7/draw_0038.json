@@ -1,0 +1,46 @@
+{
+  "index": 38,
+  "paradigm": "G7_mcts",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy follows trends adjusted by historical volatility. The 30-day moving \"\n        \"average of daily high minus daily low (range) is scaled by the 75-day historical \"\n        \"volatility to capture both intraday price action and trend strength, while overall \"\n        \"market volatility adjusts the signal.\"\n    )\n\n    def __init__(self, window_range: int = 30, window_volatility: int = 75, top_n: int = 5) -> None:\n        self._window_range = window_range\n        self._window_volatility = window_volatility\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_range + self._window_volatility)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_history = {}\n        for symbol in view.symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            highs = [float(v) for v in df[\"high\"].to_list()]\n            lows = [float(v) for v in df[\"low\"].to_list()]\n            if len(highs) < self._window_range or len(lows) < self._window_volatility:\n                continue\n            range_values = [(h - l) / 2 for h, l in zip(highs[-self._window_range:], lows[-self._window_range:])]\n            vol_values = [float(v) for v in df[\"adj_close\"].shift(-1).to_list()[:-1]]\n            if len(range_values) < self._window_range or len(vol_values) < self._window_volatility:\n                continue\n            range_mean = sum(range_values[-self._window_range:]) / self._window_range\n            vol_mean = (sum([(v - sum(vol_values[-self._window_volatility:]) / self._window_volatility)**2 for v in vol_values[-self._window_volatility:]])\n                        / self._window_volatility) ** 0.5\n            if vol_mean == 0:\n                continue\n            scaled_range = range_mean / (vol_mean * 10)\n            symbol_history[symbol] = scaled_range\n\n        symbols_sorted = sorted(symbol_history.items(), key=lambda x: x[1], reverse=True)[:self._top_n]\n        weights = {s: 0.2 for s, _ in symbols_sorted}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19206,
+    "output_tokens": 8330
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the 20-day closing price change percentage, scaled by the 50-day historical volatility of the asset. This approach captures recent trends while adjusting for market volatility.",
+    "The signal will be the 30-day moving average of daily high minus daily low (range), scaled by the 75-day historical volatility. This approach captures both intraday price action and trend strength, adjusted for overall market volatility.",
+    "The portfolio will hold a maximum of three names at any time, with weights of 40%, 35%, and 25% for the top-three ranked signals, respectively. This structure balances responsiveness to trends while mitigating overconcentration risk.",
+    "The portfolio will hold 5 names at any given time, with equal weights of 20% each, ensuring a balanced exposure across the selected stocks while simplifying management.",
+    "The portfolio will hold a maximum of three names at any time, with equal weights of 33.33% each for the top-three ranked signals. This approach ensures balanced exposure to the most promising trends while maintaining simplicity and reducing potential bias towards any single asset.",
+    "The portfolio will hold 5 names at any given time, with equal weights of 20% each, ensuring a balanced exposure across the selected stocks while simplifying management.",
+    "For this systematic equity strategy in the Indian market, I propose setting a risk rule that limits the loss on any single position to no more than 5% of the portfolio value at any time. This bound helps control individual stock risk while allowing for diversified exposure across five stocks. Trading will be stopped if the overall portfolio loss exceeds 10%.",
+    "For each individual position, limit the maximum loss to -15% of the investment value to protect against adverse market movements while allowing for trend persistence. This rule stops trading if a position's value drops below 85% of its initial investment, ensuring risk management without overreacting to short-term volatility.",
+    "For the risk rule, I will set an individual position loss limit of -15% to prevent significant losses on any single stock, which aligns with a balanced portfolio approach while safeguarding against extreme market movements. This limit also acts as a stop criterion for trading, halting new trades when this threshold is approached.",
+    "For the risk rule, I will set an individual position loss limit of -15%, preventing significant losses on any single stock and acting as a stop criterion to halt new trades when this threshold is approached. This aligns with a balanced portfolio approach while safeguarding against extreme market movements.",
+    "For this systematic equity strategy, I propose setting an individual position loss bound of -5% to limit potential losses on any single position. Additionally, the strategy will stop trading if the portfolio loss exceeds -10%. This ensures that no single asset can significantly impact the overall portfolio, maintaining risk control while allowing flexibility in trend following."
+  ],
+  "seconds": 299.01017510000383,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 477
+}

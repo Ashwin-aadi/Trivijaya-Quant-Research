@@ -1,0 +1,26 @@
+{
+  "index": 3,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"We screen for high liquidity stocks by selecting the top 30 most traded symbols \"\n        \"based on their average daily volume over a lookback period. Then we equally weight \"\n        \"these selected stocks across the portfolio to capture their trading volume without \"\n        \"overconcentration risk.\"\n    )\n\n    def __init__(self, lookback: int = 20) -> None:\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_screened = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"volume\").mean().alias(\"avg_volume\"))\n            .sort(by=\"avg_volume\", descending=True)\n            .head(30)\n        )\n\n        symbols = [str(row[\"symbol\"]) for row in liquidity_screened.to_dicts()]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_per_symbol = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight_per_symbol for s in symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3832,
+    "output_tokens": 1200
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains some weaknesses and potential issues:\n\n### Strengths:\n- **Rationale Clarity**: The rationale clearly states the goal of selecting high liquidity stocks to avoid overconcentration risk while equally weighting them.\n\n### Issues and Criticisms:\n1. **Rationale vs. Code Disagreement**:\n   - Line 23: The code uses a fixed number of top symbols (`30`), which contradicts the rationale that mentions \"top 30 most traded symbols\" without specifying why it is static.\n   \n2. **Fragility and Robustness**:\n   - Line 16: If `view.history(lookback=self._lookback)` returns an empty DataFrame, the code immediately returns an empty weights dictionary. This could be misleading if the market view lacks data but still has relevant information.\n   - Lines 29-32: Filtering by volume and selecting top symbols is a good approach, but it does not account for other factors like trading frequency or recent activity.\n   \n3. **Potential Failures**:\n   - Line 26: If the `history` DataFrame contains no data (or only one symbol), the code will return an empty weights dictionary without any indication of why this might be the case, making it difficult to diagnose issues.\n   - Lines 15-18: The use of `.head(30)` is brittle and could fail if there are fewer than 30 unique symbols in the history. Consider adding a check for the number of unique symbols.\n\n4. **Parameter Fragility**:\n   - Line 7: The `lookback` parameter is hardcoded to `20`. Depending on market conditions, this value might need adjustment.\n   \n5. **Code Readability and Maintenance**:\n   - Line 13: `_latest_visible(view)` is a helper function that could be better integrated into the main class or made more descriptive by renaming it.\n\n### Conclusion:\nThe strategy has good intentions but lacks flexibility and robust error handling. Improvements include dynamic parameter adjustment, clear documentation of parameters, and handling edge cases where data might be insufficient. The fixed number of symbols and lack of explicit checks for such conditions make the implementation somewhat fragile."
+  ],
+  "seconds": 31.860836700000164,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 8
+}

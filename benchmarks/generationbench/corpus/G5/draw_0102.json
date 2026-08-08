@@ -1,0 +1,26 @@
+{
+  "index": 102,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Investing in stocks that have performed better than the broader market \"\n        \"can provide excess returns. This strategy selects the top performers based on their \"\n        \"10-day cumulative return relative to the NIFTY 50 index.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 20)\n        if history.height < self._window + 20:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        nifty_closes = closes.filter(pl.col(\"symbol\") == \"NIFTY50\")\n        if nifty_closes.height < 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_last_close = float(nifty_closes.select(pl.col(\"adj_close\").last()).item())\n        nifty_returns = (closes[\"adj_close\"] / nifty_closes[\"adj_close\"].shift(1) - 1.0).alias(\"nifty_return\")\n\n        symbols = [symbol for symbol in view.symbols if symbol != \"NIFTY50\"]\n        performance = history.filter(pl.col(\"symbol\").is_in(symbols)).with_columns(\n            (pl.col(\"close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"cumulative_return\")\n        )\n\n        ranked_performance = (\n            performance.group_by(\"symbol\")\n            .agg(nifty_returns.sum().alias(\"nifty_total_return\"), pl.col(\"cumulative_return\").mean().alias(\"avg_return\"))\n            .sort(pl.col(\"nifty_total_return\", \"avg_return\"), descending=[True, True])\n            .head(self._window)\n        )\n\n        top_symbols = ranked_performance.select(\"symbol\").to_list()\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4105,
+    "output_tokens": 1500
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy seems fundamentally sound but has some areas for improvement and potential issues:\n\n1. **Rationale vs Code**:\n   - The rationale states investing in stocks based on their 10-day cumulative return relative to the NIFTY 100 index, yet the code uses \"NIFTY50\" instead of \"NIFTY100\". Line 29: `nifty_closes = closes.filter(pl.col(\"symbol\") == \"NIFTY50\")`.\n\n2. **Potential Failures**:\n   - If the history data is incomplete, specifically if it doesn't have enough entries to meet the lookback period (line 17), the function will return an empty weights dictionary, which could lead to errors in subsequent execution.\n   - The strategy relies on `nifty_closes` and `closes` having a common \"session_date\" column for joining. If this is not guaranteed, it could lead to incorrect results.\n\n3. **Fragile Parameters**:\n   - The window parameter (line 7) should be robust against user input; ideally, it would have default handling or validation.\n   - The `nifty_total_return` calculation uses a fixed lookback period of self._window + 20 days in the `history` function call (line 17), which might not always align with the required data availability.\n\n4. **Code Issues**:\n   - Line 53: `.head(self._window)` could fail if there are fewer than `self._window` top performers, leading to an empty weights dictionary.\n   - The strategy assumes that \"symbol\" is a valid column name and does not handle the case where symbols might be missing or invalid.\n\nIn summary, while the core logic of ranking stocks based on their outperformance relative to NIFTY 50 seems sound, the implementation needs adjustments to address these issues for robustness."
+  ],
+  "seconds": 38.06681339999977,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 208
+}

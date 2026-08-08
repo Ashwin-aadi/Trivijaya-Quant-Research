@@ -1,0 +1,48 @@
+{
+  "index": 11,
+  "paradigm": "G7_mcts",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeRatio(Strategy):\n    rationale = (\n        \"By combining daily trading volume with its 20-day simple moving average (SMA), \"\n        \"we can identify stocks experiencing unusual volume spikes. Such spikes may indicate \"\n        \"significant buying or selling pressure and could be a precursor to price movement.\"\n    )\n\n    def __init__(self, lookback_volume: int = 5, window_sma: int = 20) -> None:\n        self._lookback_volume = lookback_volume\n        self._window_sma = window_sma\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback_volume)\n\n        if closes.height < self._lookback_volume + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_ratios: list[tuple[str, float]] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            sma_volume = sum(values[-self._window_sma:]) / self._window_sma\n            ratio = values[-1] / sma_volume\n            if ratio > 1.5:  # Example threshold for significant volume spike\n                volume_ratios.append((symbol, ratio))\n\n        symbols_with_ratio = [pair[0] for pair in volume_ratios]\n        if not symbols_with_ratio:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols_with_ratio)\n        return Signal(\n            information_available_at=stamp,\n            weights={(symbol): weight for symbol in symbols_with_ratio},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeRatio",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 21171,
+    "output_tokens": 7611
+  },
+  "calls": 25,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the signal in this systematic equity strategy for the Indian market, I propose measuring the difference between daily closing price and 50-day simple moving average of closing prices over a lookback period of 10 days. This composite characteristic combines momentum (closing price) with trend following (50-day SMA).",
+    "For the signal in this systematic equity strategy for the Indian market, I propose measuring the ratio of daily trading volume to the 20-day simple moving average of volume over a lookback period of 5 days. This composite characteristic blends volume volatility with medium-term volume trends.",
+    "For the portfolio rule, we will hold a maximum of 30 names in the portfolio, each equally weighted at 3.33%. This balanced approach ensures diversification while maintaining simplicity in management.",
+    "The portfolio will hold up to 30 names, with equal weights of 3.33% each, to balance between diversification and responsiveness to signal strength.",
+    "For the portfolio rule, we will hold a maximum of 30 names in the portfolio, each equally weighted at 3.33%. This balanced approach ensures diversification while maintaining simplicity in management.",
+    "The portfolio will hold up to 30 names, with equal weights of 3.33% each, to balance between diversification and responsiveness to the signal strength.",
+    "For the risk rule, we will limit the maximum loss on any individual position to 2% of the portfolio value, and stop trading if the total portfolio loss exceeds 5% within a single trading day. This ensures that no single stock can cause significant harm while providing a clear trigger for strategy intervention to prevent excessive losses.",
+    "For the risk rule, I propose setting an individual position loss bound of -3% to limit potential losses on any single stock, and a portfolio loss bound of -5% to control overall risk exposure. Trading will be halted if either bound is breached.",
+    "For the risk rule, we will limit the loss on a single position to no more than -5% from the entry price, and stop trading if the portfolio value drops by more than 10% from its initial value. This ensures that individual stock losses are contained while protecting against severe overall market downturns.",
+    "For each individual position, I propose setting a loss bound of 5% to limit potential losses while allowing the strategy to capture stronger signals. This bound ensures responsiveness to signal strength while maintaining risk control.",
+    "For the risk rule, we will limit the maximum loss on any individual position to 2% of the portfolio value and stop trading if the total portfolio loss exceeds 5% within a single trading day. This ensures balanced protection against individual stock risks while providing a clear threshold for intervention to safeguard overall portfolio health.",
+    "For the risk rule, I propose setting an individual position loss bound of -2% to limit potential losses on any single stock, and a portfolio loss bound of -4% to control overall risk exposure. Trading will be halted if either bound is breached."
+  ],
+  "seconds": 264.0906645000214,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 147
+}

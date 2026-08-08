@@ -1,0 +1,47 @@
+{
+  "index": 8,
+  "paradigm": "G7_mcts",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong momentum. By analyzing the \"\n        \"percentage change in daily closing prices over a 5-day period, we can identify \"\n        \"significant trends that may offer trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            change_rate = (values[-1] / values[0]) - 1.0\n            if abs(change_rate) > 0.05:  # 5% move over the window\n                picks.append(symbol)\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19391,
+    "output_tokens": 6906
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the percentage change in daily closing price, looking back over a 5-day period. This measures the direction and strength of the move based on confirmed volume.",
+    "The signal will be the percentage change in daily closing price, looking back over a 5-day period. This measures the direction and strength of the move based on confirmed volume.",
+    "The portfolio will consist of 5 equally-weighted positions when a new position is opened, with each holding representing 20% of the total portfolio value. Positions are rebalanced daily based on the 5-day volume-confirmed directional move signal.",
+    "For the portfolio rule, we will hold a maximum of three names at any time, with weights of 40%, 35%, and 25% respectively, ensuring balanced exposure while maintaining flexibility in position sizing.",
+    "The portfolio will consist of 5 equally-weighted positions when a new position is opened, with each holding representing 20% of the total portfolio value. Positions are rebalanced daily based on the 5-day volume-confirmed directional move signal.",
+    "For the portfolio rule, we will hold a maximum of two names at any time, each weighted equally at 50%. This approach simplifies management while still allowing for focused exposure to strong directional moves.",
+    "For each individual position, set a stop-loss trigger at a 15% decline from the entry price to limit potential losses. This ensures that no single position can lose more than 20% of the total portfolio value due to rebalancing. Trading will be halted if the overall portfolio value declines by 25% from its initial value.",
+    "For the risk rule, I propose setting an individual position loss limit of -15% for each name in the portfolio to protect against significant single-stock downturns. Additionally, a total portfolio loss threshold of -20% will trigger a stop signal, halting further trading to prevent excessive drawdowns.",
+    "The maximum loss allowed on an individual position is capped at 5% of the total portfolio value to limit risk exposure. This rule ensures that no single trade can significantly impact the overall portfolio, providing a balanced approach to managing potential losses.",
+    "For the risk rule, I propose setting an individual position loss limit of -3% to prevent significant drawdowns on any single holding. This bound will stop trading if either of the two positions hits this threshold, ensuring that no single trade can jeopardize the overall portfolio's stability.",
+    "For each individual position, set a stop-loss trigger at a 15% decline from the entry price to limit potential losses. This ensures that no single position can lose more than 20% of the total portfolio value due to rebalancing. Trading will be halted if the overall portfolio value declines by 25% from its initial value.",
+    "For the risk rule, I propose setting an individual position loss limit of -15% for each name in the portfolio to protect against significant single-stock downturns. Additionally, a total portfolio loss threshold of -20% will trigger a stop signal, halting further trading to prevent excessive drawdowns."
+  ],
+  "seconds": 222.28847459994722,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 109
+}

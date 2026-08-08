@@ -1,0 +1,23 @@
+{
+  "index": 142,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Historical data suggests that certain stocks in the NIFTY 100 exhibit stronger \"\n        \"performance during specific times of the year. By identifying these seasonal trends,\"\n        \" we can construct a strategy to capitalize on such patterns.\"\n    )\n\n    def __init__(self, window: int = 365, threshold: float = 0.2) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = set(history[\"symbol\"].to_list())\n        filtered_history = (\n            history.filter(pl.col(\"session_date\").dt.month().is_in([12, 1, 2]))\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(365) - 1.0).alias(\"return_ratio\"),\n            )\n        )\n\n        filtered_history = (\n            filtered_history.with_columns(\n                pl.when(pl.col(\"return_ratio\") > self._threshold)\n                .then(1)\n                .otherwise(0)\n                .alias(\"seasonal_signal\")\n            )\n        ).filter(pl.col(\"seasonal_signal\").is_not_null())\n\n        if filtered_history.height < 3:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = (\n            filtered_history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"return_ratio\") * pl.col(\"seasonal_signal\")).sum().alias(\"weighted_return\"),\n            )\n            .sort(pl.col(\"weighted_return\"), descending=True)\n            .limit(5)[\"symbol\"]\n            .to_list()\n        )\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 552
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.531238899988239,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 146
+}

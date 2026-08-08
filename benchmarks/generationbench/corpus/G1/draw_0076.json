@@ -1,0 +1,23 @@
+{
+  "index": 76,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass PriceReversion(Strategy):\n    rationale = (\n        \"Price reversion strategies look for securities that have moved away from their \"\n        \"historical price levels and are expected to revert. This strategy identifies stocks \"\n        \"that have deviated significantly from their mean price over the past 20 days.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_price = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"mean\"))\n            .to_dict(True)\n        )\n        \n        deviations: list[tuple[str, float]] = []\n        for symbol in view.symbols:\n            if symbol not in mean_price:\n                continue\n            latest_close = view.latest_close()[symbol]\n            deviation = (latest_close - mean_price[symbol][\"mean\"]) / mean_price[symbol][\"mean\"]\n            deviations.append((symbol, deviation))\n\n        sorted_deviations = sorted(deviations, key=lambda x: abs(x[1]), reverse=True)\n        \n        if not sorted_deviations:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [s for s, d in sorted_deviations[:5]]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "PriceReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 451
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.389190499990946,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 80
+}

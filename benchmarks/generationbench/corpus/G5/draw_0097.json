@@ -1,0 +1,26 @@
+{
+  "index": 97,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion strategies exploit the tendency of stock prices to revert to their mean \"\n        \"over short time horizons (e.g., 10 days). By identifying stocks that have deviated significantly from \"\n        \"their recent average price, we can capture potential reversals.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 2.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1).sort(\"session_date\")\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history[\"symbol\"].to_list()]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.select(pl.col(\"adj_close\").mean())\n            .collect()\n            .with_column(pl.lit(symbols).alias(\"symbol\"))\n            .rename({\"col_0\": \"mean\"})\n            .to_dict(as_series=False)\n        )\n\n        thresholded = _threshold_mean_reversion(history, mean_close, self._threshold)\n\n        picks: list[str] = []\n        for symbol in symbols:\n            if f\"{symbol}_score\" not in thresholded.columns:\n                continue\n            score = float(thresholded[f\"{symbol}_score\"].to_list()[0])\n            if score > 0:\n                picks.append(symbol)\n        \n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _threshold_mean_reversion(history: pl.DataFrame, mean_close: dict[str, float], threshold: float) -> pl.DataFrame:\n    history = history.join(pl.DataFrame(mean_close), on=\"symbol\", how=\"inner\")\n    history = (\n        history.with_columns(\n            (pl.col(\"adj_close\") - pl.col(\"mean\")).abs().alias(\"deviation\"),\n            (((pl.col(\"adj_close\") - pl.col(\"mean\")) / pl.col(\"mean\")).abs() * 100).alias(\"percent_deviation\"),\n        )\n    ).with_column(pl.when((pl.col(\"deviation\") > threshold) | (pl.col(\"percent_deviation\") > threshold)).then(1).otherwise(0).alias(\"score\"))\n\n    return history",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4342,
+    "output_tokens": 1699
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy for mean reversion is generally well-structured, but several issues need to be addressed:\n\n1. **Rationale vs. Code Discrepancy**: The rationale mentions \"short time horizons\" (line 4), while the code uses a window of 10 days (`self._window = 10`). This should match in both places.\n\n2. **Potential Failure Cases**:\n   - Line 38: If `symbols` is empty, there's no check to return an empty signal immediately.\n   - Line 56: The logic for selecting top 5 symbols might fail if fewer than 5 symbols pass the threshold (`score > 0`).\n\n3. **Fragility of Parameters**:\n   - The parameters `window` (10 days) and `threshold` (2.0) are hardcoded in the rationale but aren't clearly defined for flexibility.\n   - These values could be more robustly handled with clearer documentation or default parameter settings.\n\n4. **Code Fragilities**:\n   - Line 63: The check `if f\"{symbol}_score\" not in thresholded.columns:` can lead to runtime errors if the column structure is unexpected.\n   - Line 28: The use of `.to_list()[0]` assumes a single-element list, which could fail with unexpected data.\n\n5. **Potential Stops**:\n   - The strategy relies on `polars`, so ensure this dependency is installed and supported in your environment.\n   - Ensure that the `MarketView` and `Signal` classes are correctly defined elsewhere in the codebase.\n\nIn summary, while the core logic of mean reversion is sound, there are specific issues with parameter definitions, potential edge cases, and assumptions about data structures. Addressing these will improve robustness and reliability."
+  ],
+  "seconds": 42.364325599999574,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 198
+}

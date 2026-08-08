@@ -1,0 +1,23 @@
+{
+  "index": 645,
+  "paradigm": "G2_cot",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility ones over the long term \"\n        \"due to reduced risk and potentially higher dividend yields. By tilting our portfolio \"\n        \"towards low-volatility stocks, we aim to capture this premium.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate historical returns\n        history = history.with_columns(\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n        ).sort(\"session_date\")\n\n        # Group by symbol and calculate mean return as a proxy for volatility\n        volatilities = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"return\").abs().mean().alias(\"volatility\"))\n            )\n            .select(\"symbol\", \"volatility\")\n        )\n\n        # Get the latest close prices to determine the most recent data available\n        closes = view.closes(lookback=self._window)\n        latest_closes = {symbol: float(close) for symbol, close in closes.to_dict().items()}\n\n        # Select symbols with lowest volatilities\n        low_vol_symbols = [\n            symbol for symbol, volatility in volatilities.sort(\"volatility\").to_dict(False).items()\n            if symbol in latest_closes and latest_closes[symbol] is not None\n        ][:5]\n\n        # Assign equal weights to the selected symbols\n        weight = 1.0 / len(low_vol_symbols)\n        return Signal(information_available_at=stamp, weights={s: weight for s in low_vol_symbols})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 513
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.205389700000524,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 656
+}

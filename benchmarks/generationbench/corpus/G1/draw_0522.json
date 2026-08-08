@@ -1,0 +1,23 @@
+{
+  "index": 522,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrengthStrategy(Strategy):\n    rationale = (\n        \"Stocks with higher returns compared to the broader market tend to outperform over \"\n        \"the long term. This strategy selects top-performing stocks based on their relative strength.\"\n    )\n\n    def __init__(self, window: int = 20, num_assets: int = 5) -> None:\n        self._window = window\n        self._num_assets = num_assets\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window or len(history[\"symbol\"].unique()) < 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\")\n            )\n            .sort(\"session_date\", descending=True)\n            .drop_nulls(subset=[\"symbol\"])\n        )\n\n        # Calculate mean returns for the entire universe\n        mean_returns = history.groupby(\"symbol\").agg(\n            (pl.col(\"r\").mean().alias(\"mean_r\"))\n        ).select(\"symbol\", \"mean_r\")\n\n        # Join to get symbol-wise mean returns and daily returns\n        merged_history = (\n            history.join(mean_returns, on=\"symbol\")\n            .with_columns((pl.col(\"r\") / pl.col(\"mean_r\")).alias(\"relative_strength\"))\n            .sort(\"session_date\", descending=True)\n        )\n\n        # Get the top N assets based on relative strength\n        top_assets = merged_history.top_k(self._num_assets, by=\"relative_strength\")\n\n        if not top_assets.height:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / self._num_assets\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_assets[\"symbol\"].to_list()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(\"session_date\").max().to_list()[0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrengthStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 529
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.28891589998966,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 530
+}

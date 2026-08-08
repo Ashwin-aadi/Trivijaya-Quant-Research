@@ -1,0 +1,23 @@
+{
+  "index": 589,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion aims to identify stocks that have deviated significantly \"\n        \"from their historical average and are likely to revert. This strategy exploits the \"\n        \"tendency of prices to return to a long-term average.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 20)  # Include extra days for mean calculation\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(pl.col(\"adj_close\").exclude(\"session_date\"))\n        means = (closes.mean().to_dict()[\"adj_close\"]).items()\n        std_devs = (closes.std().to_dict()[\"adj_close\"]).items()\n\n        signals: dict[str, float] = {}\n        for symbol in symbols:\n            latest_close = view.latest_close()[symbol]\n            mean = next(iter(means))[1][symbol]\n            std_dev = next(iter(std_devs))[1][symbol]\n\n            z_score = (latest_close - mean) / std_dev\n            if abs(z_score) > 2.0:  # Consider stocks with extreme z-scores for reversion\n                signals[symbol] = 1.0\n\n        return Signal(information_available_at=stamp, weights=signals)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 454
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.290848799995729,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 600
+}

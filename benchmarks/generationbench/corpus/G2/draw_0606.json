@@ -1,0 +1,23 @@
+{
+  "index": 606,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Assets that outperform the broader market in the short term are likely to continue \"\n        \"outperforming due to momentum effects. This strategy identifies and invests in the top\"\n        \"performers relative to the NIFTY 100 index.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        index_close = float(view.latest_close()[\"^NIFTY 100\"])\n        relative_strength: list[float] = []\n        for symbol in view.symbols:\n            if symbol == \"^NIFTY 100\":\n                continue\n            symbol_closes = [float(v) for v in closes[symbol].to_list()]\n            if len(symbol_closes) < self._window or index_close <= 0.0:\n                continue\n            ratio = max(symbol_closes[-1] / index_close - 1.0, 0.0)\n            relative_strength.append(ratio)\n\n        top_n_indices = sorted(range(len(relative_strength)), key=lambda i: relative_strength[i], reverse=True)[: self._top_n]\n        weights = {view.symbols[i]: 1.0 / len(top_n_indices) for i in top_n_indices}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 452
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.527380200001062,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 615
+}

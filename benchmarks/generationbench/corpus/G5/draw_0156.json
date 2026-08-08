@@ -1,0 +1,26 @@
+{
+  "index": 156,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy selects the top-performing stocks over a lookback period based on \"\n        \"return. Stocks with higher returns are expected to continue outperforming due to \"\n        \"momentum effects.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window or len(view.symbols) == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        daily_returns = (\n            history\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\")\n            )\n            .select(pl.exclude([\"symbol\", \"session_date\"])).to_numpy()\n        )\n\n        if not daily_returns.size:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_returns = {symbol: [] for symbol in view.symbols}\n        for i, row in enumerate(daily_returns):\n            for j, symbol in enumerate(view.symbols):\n                symbol_returns[symbol].append(row[j])\n\n        top_performers = []\n        for symbol, returns in symbol_returns.items():\n            if len(returns) < self._window:\n                continue\n            mean_return = sum(returns[-self._window:]) / len(returns)\n            if mean_return >= max(mean_return for mean_return in symbol_returns.values()):\n                top_performers.append(symbol)\n\n        weight = 1.0 / len(top_performers)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_performers}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4027,
+    "output_tokens": 1385
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy implements a cross-sectional momentum trading approach. While the rationale outlines the basic idea of selecting top-performing stocks based on recent returns, there are several issues and potential improvements:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states that \"Stocks with higher returns are expected to continue outperforming due to momentum effects.\" However, the code selects only those symbols whose latest mean return is the highest among all symbols. This might not capture true momentum as it focuses solely on recent performance.\n\n2. **Potential Failures**:\n   - Line 37: `mean_return >= max(symbol_returns[symbol])` should be replaced with a simple comparison to ensure only top performers are selected, but this logic is flawed because it doesn't account for the mean return over the window.\n   - Line 45-48: The code checks if `len(returns) < self._window`, which might not always be necessary as the mean calculation should naturally handle different lengths.\n\n3. **Fragile Parameters**:\n   - Parameter `self._window` (line 7) is critical but hard-coded in this example. Users need to set it appropriately, and its value can significantly impact performance.\n   - The strategy assumes that all symbols have historical data for the lookback period, which might not always be true.\n\n4. **Issues with Running**:\n   - Line 38: `assert isinstance(newest, date)` is unnecessary and could fail if `newest` is None or another type. Consider using a safer check.\n   - The strategy assumes that all symbols have non-zero returns in the window, which might not be valid.\n\n5. **Sound Parts**:\n   - The overall structure of selecting top-performing stocks based on recent performance (momentum) is sound and aligns with the rationale.\n   - The use of Polars for data manipulation is efficient and appropriate.\n\nTo improve this strategy, consider modifying the selection logic to ensure it captures true momentum effects and handle edge cases more robustly."
+  ],
+  "seconds": 35.66872939999848,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 316
+}

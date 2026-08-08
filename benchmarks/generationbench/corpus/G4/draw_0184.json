@@ -1,0 +1,27 @@
+{
+  "index": 184,
+  "paradigm": "G4_planning",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionToTrailingAverage(Strategy):\n    rationale = (\n        \"This strategy exploits the economic mechanism of price-level reversion against a \"\n        \"trailing reference. It suggests that stock prices tend to revert back to historical \"\n        \"average levels over time, as markets correct deviations from long-term norms.\"\n    )\n\n    def __init__(self, window: int = 200, threshold: float = 1.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_close = (\n            history.groupby(\"symbol\")\n                   .agg((pl.col(\"adj_close\").mean()).alias(\"avg_close\"))\n                   .collect()\n        )\n        latest_closes = view.closes(lookback=None)\n        deviations: dict[str, float] = {}\n        \n        for symbol in view.symbols:\n            if symbol not in avg_close[\"symbol\"].to_list():\n                continue\n            avg_close_val = float(avg_close.filter(pl.col(\"symbol\") == symbol)[\"avg_close\"])\n            latest_close_val = float(latest_closes[symbol].to_list()[-1])\n            deviation = (latest_close_val - avg_close_val) / avg_close_val if avg_close_val != 0 else 0\n            deviations[symbol] = deviation\n\n        sorted_symbols = [s for s, d in sorted(deviations.items(), key=lambda item: abs(item[1]))]\n        \n        buy_symbols = sorted_symbols[:len(sorted_symbols)//2]\n        sell_symbols = sorted_symbols[-len(sorted_symbols)//2:]\n        \n        weights = {symbol: 1.0 / len(buy_symbols) if symbol in buy_symbols else -1.0 / len(sell_symbols) for symbol in view.symbols}\n        return Signal(\n            information_available_at=stamp, \n            weights={s: w for s, w in weights.items() if w != 0}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionToTrailingAverage",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2497,
+    "output_tokens": 1018
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy exploits the economic mechanism of price-level reversion against a trailing reference. This phenomenon suggests that stock prices tend to revert back to historical average levels over time, as markets correct deviations from long-term norms. The persistence of this effect may stem from investor behavior and market inefficiencies that create temporary mispricings.\n\nTo exploit this, the rule would track key price metrics (like closing prices or moving averages) against a trailing reference level, such as a 50-day or 200-day simple moving average. When current prices deviate significantly from the trailing average, buy undervalued stocks and sell overvalued ones, with entry/exit rules defined by standard deviations or specific threshold values to minimize timing risks and costs.",
+    "The systematic equity strategy relies on computing the deviation of daily closing prices or moving averages (e.g., 50-day or 200-day simple moving average) from their trailing reference levels. For each stock in the portfolio, calculate the difference between the current close or moving average and a long-term average over the lookback period. \n\nOn a given day, rank stocks based on this deviation:\n- **Buy candidates** are those with closing prices or moving averages below a certain threshold (e.g., 1 standard deviation below the trailing average).\n- **Sell candidates** are those above a threshold (e.g., 1 standard deviation above the trailing average).\n\nThis ranking is performed daily, and entries/exits occur based on these signals, minimizing timing risks by adhering to predefined thresholds.",
+    "For this strategy, position sizing is crucial for managing risk. Typically, you might hold between 20 to 40 names in the portfolio to diversify risks while maintaining enough positions to capture significant market movements. Each position can be equally weighted or weighted based on liquidity and market capitalization. A conservative approach suggests equal weighting to avoid concentration risk.\n\nRisk limits are defined by setting stop-loss levels. For instance, you might limit individual stock losses to 5% of the portfolio value to ensure that no single stock significantly impacts overall performance. Additionally, a trailing stop loss could be set at 10-15% below the highest price reached during a holding period, helping to lock in profits and protect against further declines. Overall, this strategy aims for balanced exposure with controlled risk per position and portfolio-wide."
+  ],
+  "seconds": 30.379412400005094,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 187
+}

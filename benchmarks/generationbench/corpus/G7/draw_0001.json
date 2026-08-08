@@ -1,0 +1,47 @@
+{
+  "index": 1,
+  "paradigm": "G7_mcts",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"Short-horizon mean reversion looks for stocks that have deviated significantly from \"\n        \"their recent average price levels. If a stock's price is below its 5-day moving \"\n        \"average, it suggests the stock may revert to its mean in the near term.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_close = (\n            closes.select(pl.col(\"adj_close\").mean().alias(f\"avg_{self._window}d\"))\n            .to_dict(True)[0][f\"avg_{self._window}d\"]\n        )\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window + 1:\n                continue\n\n            latest_close = float(values[-1])\n            mean_reversion_signal = (latest_close - avg_close) / avg_close\n            signals[symbol] = mean_reversion_signal\n\n        sorted_signals = sorted(signals.items(), key=lambda x: abs(x[1]), reverse=True)\n        top_n_symbols = [symbol for symbol, _ in sorted_signals[:5]]\n\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19403,
+    "output_tokens": 6545
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the daily closing price, measuring the deviation from a 5-day simple moving average, indicating short-horizon mean reversion opportunities in the Indian equity market.",
+    "The signal will measure the daily high price against a 3-day simple moving average to identify short-horizon mean reversion opportunities in the Indian equity market. This approach focuses on intraday price movements and their tendency to revert to a shorter-term average.",
+    "We will hold a portfolio of 5 equities, each weighted equally at 20% in the strategy. This equal weighting ensures balanced exposure while simplifying risk management.",
+    "The portfolio will consist of three equally-weighted positions when a trade is initiated, ensuring balanced exposure to individual stocks while simplifying risk management.",
+    "We will hold a portfolio of 5 equities, each weighted equally at 20% in the strategy to ensure balanced exposure and simplify risk management.",
+    "The portfolio will consist of three equally-weighted positions when a trade is initiated, ensuring balanced exposure to individual stocks while simplifying risk management. This approach helps in evenly distributing the risk and leveraging mean reversion opportunities across multiple stocks rather than concentrating it on a single position.",
+    "The risk rule will be that no single equity position will lose more than 5% in a day, and the total portfolio loss will not exceed 3% in a single trading session to stop trading for the day. This ensures individual stock risk is capped while maintaining overall portfolio stability.",
+    "The risk rule for this systematic equity strategy will be set such that each position's loss is capped at a 5% drawdown from the entry price. This limit prevents significant losses on any single trade, ensuring that the overall portfolio risk remains manageable. Additionally, if a position breaches this 5% stop-loss, the strategy will exit that particular trade to prevent further potential losses.",
+    "For this systematic equity strategy, we will set a stop-loss rule at 5% per position to limit individual stock losses. This ensures that if any of the five stocks in our portfolio drops by more than 5%, we will exit the position to prevent significant portfolio-wide losses and manage risk effectively.",
+    "The risk rule will be set such that each individual position is capped at a maximum loss of -3% before exiting the trade to protect against excessive intraday volatility. This limit ensures that no single stock's loss exceeds 3%, maintaining portfolio stability while allowing for mean reversion trades.",
+    "The risk rule will be that no single equity position will lose more than 5% in a day, and the total portfolio loss will not exceed 3% in a single trading session, after which the strategy will halt trading for the day to manage risk.",
+    "The risk rule for this systematic equity strategy will be set such that each position's loss is capped at a 3-day rolling simple moving average minus 5% of the entry price. This limit ensures that positions are exited before significant declines, maintaining discipline in adhering to mean reversion principles while limiting potential losses."
+  ],
+  "seconds": 383.51398950000294,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 24
+}

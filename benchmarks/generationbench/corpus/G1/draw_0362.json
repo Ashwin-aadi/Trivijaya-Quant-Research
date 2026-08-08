@@ -1,0 +1,23 @@
+{
+  "index": 362,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy exploits trends by scaling the trend signal with volatility. \"\n        \"During periods of high volatility, the strategy reduces its exposure to maintain stability.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 60) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate log returns\n        log_returns = (\n            history\n            .with_columns((pl.col(\"close\").shift(-1) / pl.col(\"close\") - 1).alias(\"log_return\"))\n            .sort(\"session_date\", descending=False)\n            .select([\"symbol\", \"session_date\", \"log_return\"])\n        )\n\n        # Calculate mean and std of log returns\n        mean_log_return = (\n            log_returns.groupby(\"symbol\")\n            .agg(\n                (pl.col(\"log_return\").mean()).alias(\"mean_log_return\"),\n                (pl.col(\"log_return\").std()).alias(\"std_log_return\"),\n            )\n        ).collect()\n\n        # Filter out symbols with insufficient data\n        if mean_log_return.height < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute volatility-scaled trend signal\n        symbol_list = view.symbols\n        weights: dict[str, float] = {}\n        for symbol in symbol_list:\n            latest_close = view.latest_close()[symbol]\n            mean_log_return_val = mean_log_return.filter(pl.col(\"symbol\") == symbol).select(\"mean_log_return\").to_series().item()\n            std_log_return_val = mean_log_return.filter(pl.col(\"symbol\") == symbol).select(\"std_log_return\").to_series().item()\n\n            if std_log_return_val > 0:\n                trend_signal = (latest_close - latest_close * mean_log_return_val) / std_log_return_val\n                weights[symbol] = trend_signal\n\n        # Normalize weights to ensure they sum up to 1\n        total_weight = sum(weights.values())\n        normalized_weights = {k: v / total_weight for k, v in weights.items()}\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in normalized_weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 625
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.932556600004318,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 368
+}

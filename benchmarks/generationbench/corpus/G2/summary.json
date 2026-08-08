@@ -1,0 +1,23 @@
+{
+  "arm": "G2",
+  "paradigm": "G2_cot",
+  "updated_at_utc": "2026-08-07T09:01:27Z",
+  "requested": 800,
+  "completed": 800,
+  "usable": 800,
+  "trials_before_this_sitting": 666,
+  "trials_after": 811,
+  "seconds_this_sitting": 1829.0131578,
+  "draws_this_sitting": 144,
+  "tokens": {
+    "G2_cot": {
+      "prompt_tokens": 194930,
+      "output_tokens": 72863,
+      "calls": 145,
+      "draws": 144,
+      "accepted": 144,
+      "output_tokens_per_accepted": 505.99305555555554
+    }
+  },
+  "fitness": null
+}

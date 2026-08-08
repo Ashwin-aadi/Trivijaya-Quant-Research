@@ -1,0 +1,27 @@
+{
+  "index": 277,
+  "paradigm": "G4_planning",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion(Strategy):\n    rationale = (\n        \"This strategy aims to exploit short-term mean reversion in Indian equity markets by \"\n        \"identifying stocks that have deviated significantly from their historical price levels. \"\n        \"It uses Bollinger Bands to detect overbought or oversold conditions and capitalizes on \"\n        \"the anticipated reversion of prices.\"\n    )\n\n    def __init__(self, window: int = 20, band_width: float = 2.0, max_positions: int = 20) -> None:\n        self._window = window\n        self._band_width = band_width\n        self._max_positions = max_positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            sma = sum(values[-self._window:]) / self._window\n            std_dev = (sum((v - sma) ** 2 for v in values[-self._window:]) / self._window) ** 0.5\n            upper_band = sma + self._band_width * std_dev\n            lower_band = sma - self._band_width * std_dev\n\n            if closes[symbol][closes[symbol].height - 1] > upper_band:\n                picks.append(symbol)\n            elif closes[symbol][closes[symbol].height - 1] < lower_band:\n                picks.append(symbol)\n\n        picks = sorted(picks, key=lambda s: abs(closes[s][closes[s].height - 1] - sma), reverse=True)[: self._max_positions]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2541,
+    "output_tokens": 1055
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to exploit the economic mechanism of short-term mean reversion in Indian equity markets. This phenomenon occurs when stock prices tend to return to historical average levels over a short period due to market inefficiencies or noise trading. The persistence might arise from behavioral biases and delayed reactions to information among investors.\n\nTo capitalize on this, the strategy would involve identifying stocks that have deviated significantly from their mean price levels. Specifically, it could use technical indicators such as Bollinger Bands or simple moving averages to detect overbought or oversold conditions. Once identified, the rule would suggest short selling overvalued stocks and buying undervalued ones with a predefined holding period (e.g., 2-5 days). This approach seeks to profit from the anticipated mean reversion by profiting when prices revert to their average levels.",
+    "The strategy uses Bollinger Bands to generate signals. For each stock, compute the 20-day simple moving average (SMA) of the closing prices and the corresponding upper and lower bands, which are set at 2 standard deviations above and below the SMA, respectively. On a given day, identify stocks where the close price falls outside these bands. Specifically:\n\n- **Overbought Condition**: Close price exceeds the upper Bollinger Band.\n- **Oversold Condition**: Close price falls below the lower Bollinger Band.\n\nRank candidates based on their deviation from the band:\n- Prioritize short selling for stocks above the upper band.\n- Prioritize buying for stocks below the lower band.\n\nThis ranking helps in selecting the most promising stocks for trading within the 2-5 day holding period, aiming to profit from mean reversion.",
+    "The strategy involves a dynamic portfolio management approach with the following position sizing and risk limits:\n\n- **Position Limit**: Hold positions in up to 20 stocks at any given time to manage concentration risk.\n- **Weighting**: Each stock within the portfolio will be weighted equally, i.e., 5% of the total capital per stock. This ensures balanced exposure across selected candidates.\n- **Risk Management**: Implement a stop-loss mechanism to limit potential losses. For instance, set a maximum loss threshold of -10% on any single position to prevent excessive risk exposure.\n\nThese parameters help balance the opportunity for profit from mean reversion while mitigating risks associated with individual stock volatility and market fluctuations."
+  ],
+  "seconds": 31.226772699999856,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 282
+}

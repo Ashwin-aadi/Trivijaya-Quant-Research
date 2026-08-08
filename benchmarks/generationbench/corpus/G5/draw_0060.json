@@ -1,0 +1,26 @@
+{
+  "index": 60,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have performed \"\n        \"well relative to the market in recent periods to continue outperforming. This \"\n        \"strategy ranks assets based on their performance and invests in the top performers.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < (self._window * len(view.symbols)):\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(\n            pl.col(\"symbol\"), (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"mom\")\n        )\n\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mom_series = closes.sort(\"mom\", descending=True)[\"mom\"].to_list()\n        picks: list[str] = [row[0] for row in mom_series[: self._top_n]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3921,
+    "output_tokens": 1278
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy, `CrossSectionalMomentum`, generally aligns with its stated rationale of exploiting recent relative performance to predict future outperformance. However, there are several areas for criticism:\n\n1. **Fragility in Parameters**:\n   - The parameters `window` and `top_n` are hard-coded without default values or flexibility (Lines 9-10). This makes the strategy inflexible; users cannot easily adjust these parameters.\n   \n2. **Potential Errors and Edge Cases**:\n   - Line 31: If `history.select(...)` does not return enough rows (`closes.height < self._window`), the function returns an empty weights dictionary, but this could mask issues in data availability or processing.\n   - Line 45: The check for non-empty picks is necessary but might be overly simplistic. It would be better to have a more robust handling of cases where no momentum series can be calculated.\n\n3. **Data Handling and Assumptions**:\n   - Lines 21-28: Assumes the presence of `adj_close` and its shifted values, which may not always be available or accurate.\n   - Line 45: The logic assumes that if `mom_series` is empty, no signals can be generated. A better approach might involve handling such cases differently.\n\n4. **Code Readability and Maintenance**:\n   - The function `_latest_visible` is simple but could benefit from a more descriptive docstring explaining its purpose.\n   - The use of `pl.col(\"symbol\")` in Line 21 may raise an error if the column does not exist or if data types are inconsistent.\n\n5. **Potential Failures**:\n   - If `view.history()` returns no rows, the function incorrectly assumes that there is no information available (Line 18).\n   - The handling of date arithmetic and session dates might fail if `view.history()` contains invalid date values (Lines 32-34).\n\nIn summary, while the strategy aims to exploit cross-sectional momentum effectively, it requires improvements in parameter handling, error checking, and data validation to ensure robustness."
+  ],
+  "seconds": 33.401529599999776,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 123
+}

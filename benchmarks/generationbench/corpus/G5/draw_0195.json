@@ -1,0 +1,26 @@
+{
+  "index": 195,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"By screening stocks with sufficient trading volume, we ensure that only liquid \"\n        \"assets are considered for the portfolio. Equal weighting across selected stocks avoids \"\n        \"concentration risk and leverages the diversification benefits of a well-diversified market index.\"\n    )\n\n    def __init__(self, min_volume: int = 100000) -> None:\n        self._min_volume = min_volume\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=252)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_filter = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"volume\").sum().alias(\"total_volume\"))\n            .filter(pl.col(\"total_volume\") > self._min_volume)\n            .select(pl.col(\"symbol\"))\n        )\n\n        if volume_filter.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        selected_symbols = [str(s) for s in volume_filter[\"symbol\"].to_list()]\n        equal_weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: equal_weight for s in selected_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3785,
+    "output_tokens": 1121
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is mostly sound but has some areas for improvement and potential issues:\n\n1. **Rationale vs. Code**:\n   - The rationale states that the approach screens stocks with sufficient trading volume to avoid concentration risk. However, the code only filters out symbols based on a minimum volume threshold (line 20). It does not explicitly mention avoiding concentration risk or leveraging diversification benefits.\n\n2. **Potential Failures and Fragile Parameters**:\n   - Line 18: If `history` is empty, it returns an empty weights dictionary directly without considering the date of information availability.\n   - Lines 15-20: The filtering logic uses a strict threshold (`self._min_volume`), which might exclude too many stocks. This parameter should be adjusted based on market conditions and historical data to ensure meaningful diversification.\n   - Line 34: If fewer than 5 symbols pass the volume filter, it returns an empty weights dictionary (line 28). This could result in no trades being made if only a few symbols meet the criteria.\n\n3. **Potential Issues for Running**:\n   - The strategy assumes that `MarketView`, `Signal`, and `polars` are correctly implemented elsewhere in the codebase.\n   - Line 14: `_latest_visible(view)` is used without any implementation provided, which could lead to a runtime error if not defined or imported correctly.\n\nOverall, while the strategy aims to ensure liquidity by filtering out low-volume stocks and provides equal weighting for selected ones, it could be improved with clearer rationale alignment, robust handling of edge cases (e.g., few remaining symbols), and more detailed documentation."
+  ],
+  "seconds": 30.416439499998887,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 396
+}

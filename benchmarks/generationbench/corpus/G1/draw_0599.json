@@ -1,0 +1,23 @@
+{
+  "index": 599,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeAndMomentum(Strategy):\n    rationale = (\n        \"This strategy combines volume and momentum indicators to identify \"\n        \"overbought or oversold conditions. High volume with high close relative to the 20-day mean suggests \"\n        \"strong buying pressure, while low volume with a high close indicates potential profit-taking.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = [float(v) for v in history[\"adj_close\"].to_list()]\n        volumes = [float(v) for v in history[\"volume\"].to_list()]\n\n        mean_close = sum(closes[-self._window:]) / self._window\n        breakout_threshold = 1.05 * mean_close\n\n        potential_signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or len(history[symbol].drop_nulls().to_list()) < self._window + 1:\n                continue\n\n            recent_closes = [float(v) for v in history[symbol][\"adj_close\"].drop_nulls().to_list()[-self._window:]]\n            recent_volumes = [float(v) for v in history[symbol][\"volume\"].drop_nulls().to_list()[-self._window:]]\n\n            if (\n                max(recent_closes) >= breakout_threshold\n                and recent_volumes[0] > sum(recent_volumes) / self._window\n            ):\n                potential_signals.append(symbol)\n\n        if not potential_signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(potential_signals)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in potential_signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeAndMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 527
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.117353399997228,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 611
+}

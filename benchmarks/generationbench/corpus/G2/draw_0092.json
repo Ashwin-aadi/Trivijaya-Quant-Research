@@ -1,0 +1,23 @@
+{
+  "index": 92,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Large volume breaks in a clear directional move can indicate significant market \"\n        \"sentiment or news impact. Such moves often lead to continuation of the trend, \"\n        \"offering profitable trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_data = {}\n        for symbol in view.symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol).sort(by=\"session_date\")\n            close_prices = [float(v) for v in df[\"adj_close\"].to_list()]\n            volumes = [float(v) for v in df[\"volume\"].to_list()]\n\n            if len(close_prices) < self._window + 1:\n                continue\n\n            # Calculate directional move\n            last_price = close_prices[-1]\n            prev_price = close_prices[-2]\n            price_move = (last_price - prev_price) / prev_price\n            volume_change = volumes[-1] - volumes[-2]\n\n            if abs(price_move) < 0.05 and abs(volume_change) < self._threshold * max(volumes):\n                continue\n\n            symbol_data[symbol] = {\n                \"price_move\": price_move,\n                \"volume_change\": volume_change\n            }\n\n        # Filter out symbols that do not meet the criteria\n        filtered_symbols = [\n            s for s in symbol_data.keys()\n            if abs(symbol_data[s][\"price_move\"]) > 0.1 and abs(symbol_data[s][\"volume_change\"]) > self._threshold * max(volumes)\n        ]\n\n        if not filtered_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(filtered_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in filtered_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 557
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.700178200000664,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 96
+}

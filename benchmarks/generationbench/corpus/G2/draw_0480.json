@@ -1,0 +1,23 @@
+{
+  "index": 480,
+  "paradigm": "G2_cot",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum suggests that assets with the best recent performance \"\n        \"are likely to continue outperforming in the near future. By focusing on these top performers, \"\n        \"we can exploit this trend for potential returns.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or len(view.symbols) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (\n            closes.melt().with_columns(\n                (pl.col(\"value\") / pl.col(\"value\").shift(1) - 1.0).alias(\"return\")\n            )\n        )\n\n        # Select the top N performers based on recent cumulative returns\n        top_n_symbols = _select_top_performers(returns, self._window)\n\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in top_n_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _select_top_performers(returns: pl.DataFrame, window: int) -> list[str]:\n    # Calculate cumulative returns for the past window days\n    cum_returns = (\n        returns.group_by(\"symbol\")\n        .agg(\n            (pl.col(\"return\").sum().alias(\"cum_return\"))\n        )\n        .sort(\"cum_return\", descending=True)\n        .select(\"symbol\")\n        .to_series()\n        .to_list()[:window]\n    )\n\n    return cum_returns",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1342,
+    "output_tokens": 489
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.221967000004952,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 488
+}

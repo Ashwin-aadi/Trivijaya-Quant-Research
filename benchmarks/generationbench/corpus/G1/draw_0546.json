@@ -1,0 +1,23 @@
+{
+  "index": 546,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"This strategy selects the stocks that have performed better than the overall market \"\n        \"in a given period. The idea is to overweight these stocks in the portfolio.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        market_closes = view.closes(lookback=self._window)\n        symbols = [col for col in view.symbols if col in market_closes.columns]\n\n        market_returns = (market_closes[symbols] / market_closes[symbols].shift(1) - 1.0).to_series()\n        stock_returns = (view.closes(symbols=symbols, lookback=self._window) / history.shift(self._window + 1)[\"adj_close\"] - 1.0).to_series()\n\n        strength_ratio = stock_returns.to_frame().join(market_returns.to_frame(), on=\"session_date\")\n        strength_ratio = strength_ratio.with_columns(\n            (strength_ratio[f\"{symbols[0]}_return\"] / strength_ratio[\"market_return\"]).alias(\"strength_ratio\"),\n        )\n\n        top_stocks = strength_ratio.sort(\"strength_ratio\", descending=True).select(\"symbol\").to_series().head(5).to_list()\n        weight = 1.0 / len(top_stocks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_stocks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 453
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.837501399990288,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 556
+}

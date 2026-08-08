@@ -1,0 +1,23 @@
+{
+  "index": 768,
+  "paradigm": "G2_cot",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum strategies exploit the tendency of stocks in an upward \"\n        \"trend to continue outperforming those in a downward trend. This is based on the \"\n        \"idea that strong relative performance persists over time.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 60) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.is_empty() or history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute returns for each stock\n        history_with_returns = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\")\n            )\n            .sort(\"session_date\", descending=False)\n            .group_by(\"symbol\", maintaining_order=True)\n            .agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n        )\n\n        # Get top and bottom performing stocks\n        top_stocks = history_with_returns.sort(\"avg_return\", descending=True).head(self._lookback // 4)[\"symbol\"]\n        bottom_stocks = history_with_returns.sort(\"avg_return\").head(self._lookback // 4)[\"symbol\"]\n\n        # Calculate weights for the selected stocks\n        weight_top = 0.6 / len(top_stocks)\n        weight_bottom = -0.2 / len(bottom_stocks)\n\n        top_weights = {s: weight_top for s in top_stocks}\n        bottom_weights = {s: weight_bottom for s in bottom_stocks}\n\n        weights = {**top_weights, **bottom_weights}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1342,
+    "output_tokens": 508
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.662360599992098,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 780
+}

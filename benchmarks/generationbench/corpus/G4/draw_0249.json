@@ -1,0 +1,27 @@
+{
+  "index": 249,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Lower volatility stocks have historically shown higher average returns due to risk \"\n        \"premium compensation and market inefficiencies. This strategy selects the bottom decile \"\n        \"of stocks based on their 12-month realized volatility for inclusion in the portfolio, \"\n        \"aiming to reduce overall portfolio risk while potentially enhancing returns.\"\n    )\n\n    def __init__(self, window: int = 365, top_n: int = 10) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.select(\"symbol\").to_dict()[\"symbol\"]:\n                continue\n            daily_returns = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .select(\n                    pl.col(\"session_date\"),\n                    (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"r\")\n                )\n                .sort(\"session_date\", descending=False)\n                .drop_nulls()\n            )\n\n            if daily_returns.height < self._window:\n                continue\n            realized_volatility = (\n                daily_returns.select(pl.col(\"r\").std().alias(\"vol\"))\n                .with_columns(\n                    (pl.col(\"vol\") * 252**0.5).alias(\"ann_vol\")\n                )\n                .select(\"ann_vol\")\n                .item()\n            )\n\n            if len(picks) < self._top_n:\n                picks.append(symbol)\n            else:\n                current_max = max([pl.col(s).item() for s in picks], default=9999.0)\n                if realized_volatility < current_max:\n                    picks[picks.index(min(picks, key=lambda x: pl.col(x).item()))] = symbol\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2311,
+    "output_tokens": 946
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy for the Indian market will focus on low-volatility tilting, leveraging the phenomenon where lower volatility stocks have historically shown higher average returns. This effect is believed to persist due to risk premium compensation and market inefficiencies. The plan involves constructing a portfolio that systematically selects stocks with lower historical volatilities while maintaining exposure to the broader market index. The rule would involve ranking stocks by their 12-month realized volatility, selecting the bottom decile for inclusion in the portfolio, and rebalancing quarterly to capture ongoing low-volatility outperformance. This approach aims to reduce overall portfolio risk while potentially enhancing returns through the low-volatility effect.",
+    "The signal for this systematic equity strategy involves computing the 12-month realized volatility of each stock's daily returns. Realized volatility is calculated using the historical prices (open, high, low, close) over the past 12 months. On any given day, stocks are ranked based on their 12-month realized volatility in ascending order. The bottom decile of these rankings, representing the lowest volatility stocks, are selected for inclusion in the portfolio. This process is repeated quarterly to rebalance the portfolio and capture ongoing low-volatility outperformance.",
+    "This strategy will hold positions in approximately 10 stocks selected from the bottom decile based on their 12-month realized volatility. Each stock is equally weighted within the portfolio to simplify management and avoid bias towards larger market caps. The position size is set to ensure that no single stock exposure exceeds 10% of the total portfolio value, maintaining a balanced risk profile. Risk limits are designed to prevent losses exceeding 5% in any given quarter, ensuring stability and mitigating extreme market events. Quarterly rebalancing helps in capturing ongoing low-volatility outperformance while managing risks effectively."
+  ],
+  "seconds": 28.955349099996965,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 253
+}

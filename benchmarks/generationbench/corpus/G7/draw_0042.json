@@ -1,0 +1,47 @@
+{
+  "index": 42,
+  "paradigm": "G7_mcts",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"The relative strength strategy selects stocks that have outperformed the S&P BSE Sensex over \"\n        \"the last 60 days. This is based on daily closing prices to capture end-of-day sentiment and \"\n        \"determine market leadership, with a focus on diversification by limiting the portfolio size.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        sensex_history = history.filter(pl.col(\"symbol\") == \"SENSEX\")\n        stock_closes = history.drop([\"symbol\", \"session_date\"]).transpose().to_series()\n\n        if len(stock_closes) < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        sensex_close = float(sensex_history[\"adj_close\"].max())\n        stock_returns = (stock_closes / stock_closes.shift(1) - 1.0).to_list()\n        sensex_return = (sensex_close / sensex_history[\"adj_close\"].shift(1).max() - 1.0)\n\n        relative_strengths: list[tuple[str, float]] = []\n        for i, symbol in enumerate(view.symbols):\n            if symbol == \"SENSEX\":\n                continue\n            stock_close = float(history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].max())\n            return_ = (stock_close / history.filter(pl.col(\"symbol\") == symbol)[\n                           \"adj_close\"].shift(1).max() - 1.0)\n            if sensex_return != 0:\n                relative_strengths.append((symbol, return_ / sensex_return))\n\n        relative_strengths.sort(key=lambda x: x[1], reverse=True)\n\n        picks = [r[0] for r in relative_strengths[:self._top_n]]\n        weight = 1.0 / self._top_n\n        return Signal(\n            information_available_at=stamp, weights={p: weight for p in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19999,
+    "output_tokens": 7936
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the 5-day relative strength of daily closing prices against the S&P BSE Sensex over a 60-day lookback period. This measures each stock's performance compared to the broader market index, focusing on closing prices to capture end-of-day sentiment.",
+    "The signal will be the 7-day relative strength of daily high prices against the NIFTY 50 index over a 90-day lookback period. This approach focuses on intraday price action, specifically the day's highest point, to capture the stock's peak performance during the trading session, and compares it to the broader market index to identify strong performers.",
+    "The portfolio will hold a maximum of 30 names, each equally weighted at 3.33%, to balance between diversification and manageability while maintaining sensitivity to the relative strength signal.",
+    "The portfolio will hold a maximum of 30 stocks, each equally weighted at 3.33% to balance between diversification and responsiveness to relative strength signals.",
+    "The portfolio will hold a maximum of 30 names, each equally weighted at 3.33%. This approach balances diversification and manageability while ensuring that no single stock dominates the portfolio's performance, thus maintaining sensitivity to the relative strength signal.",
+    "The portfolio will hold a maximum of 30 stocks, each equally weighted at 3.33%. This approach balances diversification with the need to respond swiftly to relative strength signals, ensuring that no single stock dominates the portfolio while still allowing for meaningful weight in strong performers.",
+    "The risk rule will set a stop-loss at -5% for each individual position to prevent significant single-stock losses. Additionally, the portfolio-wide stop-loss will be triggered if the total portfolio loss exceeds -10%, forcing liquidation of losing positions and pausing new trades to protect capital.",
+    "For the risk rule, I propose setting an individual stock position limit of a maximum 5% loss before exiting the position to protect against adverse intraday price movements while maintaining responsiveness to relative strength signals. This bound ensures portfolio diversification is preserved yet allows for timely adjustments based on relative performance metrics.",
+    "The risk rule will be set such that no individual position loss exceeds 5% of the portfolio value, and the total portfolio drawdown is capped at 10%. This ensures that any single stock's underperformance has a limited impact while protecting against significant market downturns.",
+    "For the risk rule, I propose setting an individual stock position limit of a 5% maximum loss before exiting the position. This ensures that no single stock can significantly impact the portfolio while allowing for timely responses to relative strength signals. Additionally, the entire portfolio will have a 10% maximum drawdown threshold, triggering a stop-loss and halting further trades until the portfolio recovers, thus managing overall risk effectively.",
+    "The risk rule will set a stop-loss at -5% for each individual position to prevent significant single-stock losses. Additionally, the portfolio-wide stop-loss will be triggered if the total portfolio loss exceeds -10%, forcing liquidation of losing positions and pausing new trades to protect capital.",
+    "For the risk rule, I propose setting an individual stock position limit to exit the position if it experiences a 3% drawdown within the 7-day lookback period. This threshold balances protection against significant intraday losses with the strategy's need to react swiftly to relative strength signals, ensuring both downside risk management and responsiveness to market dynamics."
+  ],
+  "seconds": 233.48403490002966,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 527
+}

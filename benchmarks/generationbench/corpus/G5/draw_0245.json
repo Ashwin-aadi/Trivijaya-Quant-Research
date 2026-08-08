@@ -1,0 +1,26 @@
+{
+  "index": 245,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakouts often continue in the direction of the breakout. This strategy \"\n        \"identifies symbols that have recently broken out and continues to hold them.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 5) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback + self._window)\n\n        if history.height < self._window + self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = []\n        for symbol in view.symbols:\n            symbol_history = history.select(\n                pl.col(\"session_date\"), pl.col(symbol)\n            ).sort(\"session_date\")\n\n            if (\n                (symbol_history[\"session_date\"].to_list()[-1] - \n                 symbol_history[\"session_date\"].to_list()[0]).days\n                < self._window + self._lookback\n            ):\n                continue\n\n            recent_high = float(\n                max(symbol_history[symbol].drop_nulls().to_list()) / \n                symbol_history[symbol][-self._window:].mean()\n            )\n            if recent_high > 1.05:\n                breakout_symbols.append(symbol)\n\n        breakout_symbols = set(breakout_symbols)\n        weight = 1.0 / len(breakout_symbols) if breakout_symbols else 0\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in breakout_symbols},\n            actions=\"buy_and_hold\"\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3943,
+    "output_tokens": 1311
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale but has some issues and potential fragilities:\n\n1. **Rationale vs Code Disagreement:**\n   - The rationale suggests continuing to hold symbols after a breakout, implying long positions. However, the code does not explicitly indicate what actions are taken on these symbols (e.g., buying or shorting). This should be clarified in the `Signal` object.\n\n2. **Potential Failures and Fragilities:**\n   - **Line 23-27**: The condition checks if the history is recent enough but doesn't account for gaps in data or irregular trading sessions, which could lead to incorrect results.\n   - **Line 31**: The `recent_high` calculation assumes that all prices are available and non-null. If there are missing values, this calculation will fail.\n   - **Line 40-45**: The strategy implicitly assumes a buy-and-hold approach but does not specify the entry or exit criteria beyond identifying breakouts.\n\n3. **Fragile Parameters:**\n   - **`window` and `lookback` (Lines 10-11)**: These parameters are hard-coded and might need tuning for different markets or time frames. A more flexible parameterization could be beneficial.\n   - **`recent_high > 1.05` (Line 34)**: The threshold value of 1.05 is arbitrary and may not generalize well across different asset classes or market conditions.\n\n4. **Potential Stops:**\n   - **Line 28**: If the history period doesn't have enough data, the strategy will return an empty `Signal`, which might cause issues in a backtesting framework that expects non-empty signals.\n   - **Line 37-40**: Handling of null values and ensuring robustness with missing data is crucial but currently not addressed.\n\nOverall, while the core idea of following breakouts is sound, the implementation needs enhancements to handle edge cases, clarify actions, and make parameters more flexible."
+  ],
+  "seconds": 34.1356837000003,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 496
+}

@@ -1,0 +1,26 @@
+{
+  "index": 254,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy aims to follow trends while scaling positions based on volatility. \"\n        \"High volatility periods suggest increased risk and thus lower position sizes, whereas \"\n        \"low volatility periods allow for larger positions.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals = []\n        for symbol in symbols:\n            close_prices = _extract_close_prices(history, symbol)\n            trend = _calculate_trend(close_prices)\n            volatility = _calculate_volatility(close_prices)\n\n            weight = min(1.0, 2 * (trend / volatility))\n            signals.append((symbol, weight))\n\n        return Signal(\n            information_available_at=stamp,\n            weights=dict(signals),\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _extract_close_prices(history: pl.DataFrame, symbol: str) -> list[float]:\n    close_prices = history.select(pl.col(\"adj_close\")[history[\"symbol\"] == symbol]).to_series().to_list()\n    if not close_prices:\n        return []\n    return [float(v) for v in close_prices[0]]\n\n\ndef _calculate_trend(prices: list[float]) -> float:\n    returns = [prices[i] / prices[i - 1] - 1 for i in range(1, len(prices))]\n    positive_returns = sum([r > 0 for r in returns])\n    trend = positive_returns / max(len(returns), 1)\n    return trend\n\n\ndef _calculate_volatility(prices: list[float]) -> float:\n    returns = [prices[i] / prices[i - 1] - 1 for i in range(1, len(prices))]\n    volatility = (sum([r**2 for r in returns]) / max(len(returns), 1)) ** 0.5\n    return volatility",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3931,
+    "output_tokens": 1383
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy largely aligns with its rationale of following trends while scaling positions based on volatility. However, there are some areas for improvement and potential issues:\n\n1. **Rationale vs. Code Disagreement:**\n   - The rationale mentions using \"high\" and \"low\" volatility periods to determine position sizes. However, the code uses `min(1.0, 2 * (trend / volatility))` which does not directly implement this logic. This discrepancy can be addressed by explicitly scaling weights based on volatility conditions.\n\n2. **Potential Fails:**\n   - Line 36: The trend calculation only considers if returns are positive and does not account for the magnitude of these returns, which could lead to misinterpretation.\n   - Line 45: Volatility is calculated using the standard deviation of daily returns but doesn't adjust based on market conditions.\n\n3. **Fragile Parameters:**\n   - The window size (Line 7) is hardcoded and might not be optimal for all markets or time periods.\n   - The hard-coded value `2` in the weight calculation could be a constant that needs further tuning.\n\n4. **Stops It from Running:**\n   - Line 15-16: `_calculate_trend` function assumes non-empty lists, which might cause issues if `close_prices` is empty.\n   - Line 39-40: `_calculate_volatility` similarly assumes non-zero lists and uses a floating-point operation on an empty list.\n\nOverall, the strategy's core concept is sound but needs adjustments to better align with the stated rationale and handle edge cases more robustly."
+  ],
+  "seconds": 35.65187739999965,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 516
+}

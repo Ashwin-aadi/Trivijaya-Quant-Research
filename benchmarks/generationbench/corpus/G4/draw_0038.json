@@ -1,0 +1,27 @@
+{
+  "index": 38,
+  "paradigm": "G4_planning",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy aims to capitalize on the relationship between market volatility and trends in the Indian equity market. By scaling trading positions based on realized volatility, it seeks to capture trend profits while minimizing risk during volatile periods.\"\n    )\n\n    def __init__(self, window: int = 20, max_positions: int = 30) -> None:\n        self._window = window\n        self._max_positions = max_positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        realized_volatility = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"high\") - pl.col(\"low\")).rolling_sum(self._window) /\n                (history[\"close\"].shift(-1).to_list()[-self._window:])\n            ).with_columns(\n                (pl.col(\"high\") / pl.col(\"low\").shift(1) - 1.0).alias(\"daily_return\"),\n                ((pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(1)) /\n                 pl.col(\"adj_close\").shift(1)).abs().rolling_sum(self._window).alias(\"realized_volatility\")\n            ).select(\n                \"symbol\", \"session_date\", \"realized_volatility\"\n            )\n        )\n\n        if realized_volatility.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Rank by volatility and select top N symbols\n        ranked = realized_volatility.sort(\"realized_volatility\").group_by(\"symbol\").agg(\n            pl.col(\"realized_volatility\").mean().alias(\"avg_realized_volatility\")\n        ).sort(\"avg_realized_volatility\", descending=True).head(self._max_positions)\n\n        weights = {row[\"symbol\"]: 1.0 / len(ranked) for _, row in ranked.iter_rows()}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2353,
+    "output_tokens": 920
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to capitalize on the relationship between market volatility and trends in the Indian equity market. The plan is based on the observation that during periods of high volatility, markets often overshoot their equilibrium levels, creating temporary mispricings which can be exploited by trend-following strategies.\n\nThis mechanism might persist because heightened volatility often reflects increased uncertainty or significant news events, leading to stronger and more persistent price trends as market participants adjust their positions. The rule would involve scaling trading positions based on realized volatility: during high-volatility periods, reduce leverage to minimize risk, while increasing exposure in low-volatility phases when trends are more likely to persist. This adaptive approach aims to capture trend profits while mitigating risk during volatile times.",
+    "The signal for this strategy is calculated based on realized volatility. Daily realized volatility is computed using historical intraday price data (high, low, and closing prices) over a 20-day lookback period to capture recent market conditions. The candidates are then ranked by their current realized volatility levels. Higher volatility scores indicate higher risk but also potential for larger trends. On each trading day, stocks with lower realized volatility are given higher priority for increased exposure, as they are considered more likely to sustain trends. Conversely, during high-volatility periods, the system reduces leverage or avoids positions altogether to minimize risk.",
+    "This strategy employs dynamic position sizing based on realized volatility:\n- Up to 30 names are held at any time, with weights adjusted according to volatility rankings.\n- Lower volatility stocks receive higher weights (up to 5% each) in low-volatility phases.\n- Higher volatility stocks are given lower weights or no exposure during high-volatility periods.\n- Risk limits are set to ensure a maximum drawdown of 10% over any 6-month period, with individual stock positions capped at 2% of the portfolio to limit concentration risk."
+  ],
+  "seconds": 28.469854700000724,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 39
+}

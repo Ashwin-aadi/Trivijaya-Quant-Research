@@ -1,0 +1,26 @@
+{
+  "index": 259,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates increased investor sentiment and reduced volatility. \"\n        \"Such periods often precede price breakout or consolidation. By identifying stocks with high range \"\n        \"compression, we can benefit from potential subsequent moves.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.is_empty() or history.height < (2 * self._window + 1):\n            return Signal(information_available_at=stamp, weights={})\n\n        compression_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            high_series = history[symbol].select(\"high\").to_list()\n            low_series = history[symbol].select(\"low\").to_list()\n\n            if len(high_series) < self._window or len(low_series) < self._window:\n                continue\n\n            highest_high = max(high_series)\n            lowest_low = min(low_series)\n\n            range_compression = (highest_high - lowest_low) / highest_high\n            compression_scores[symbol] = range_compression\n\n        top_symbols = sorted(compression_scores, key=compression_scores.get, reverse=True)[:5]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3925,
+    "output_tokens": 1289
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy seems conceptually sound but contains several issues and potential pitfalls:\n\n1. **Rationale vs. Implementation Mismatch**:\n   - The rationale mentions identifying stocks with high range compression to benefit from potential price breakout or consolidation. However, the code calculates a simple ratio of `range_compression = (highest_high - lowest_low) / highest_high`. This might not accurately capture the intended signal as it does not consider the relative change in volatility over time.\n\n2. **Potential Failures**:\n   - Line 34: The condition `if history.is_empty() or history.height < (2 * self._window + 1):` may incorrectly return an empty weights dictionary if the data just falls short of the required lookback period, even though some symbols might have valid data.\n   - Lines 51-56: This section checks for the presence of high and low values. If there are any missing values in `high_series` or `low_series`, it will lead to incorrect range calculation.\n\n3. **Parameter Fragility**:\n   - The `_window` parameter might be too rigid. A fixed window length may not capture all instances of range compression, especially for stocks with varying volatility patterns.\n   - Line 14: Setting the top symbols as `[:5]` could limit the diversification and risk management. Consider dynamically adjusting the number based on historical data.\n\n4. **Potential Issues**:\n   - Lines 60-62: The logic assumes that all required data is available, which may not always be true in backtesting scenarios or real-time trading environments.\n   - Line 69: The use of `assert isinstance(newest, date)` can fail if the type does not match expectations.\n\nOverall, while the strategy's concept is valid, improvements could enhance its robustness and effectiveness. Specifically, refining the range compression calculation, dynamically adjusting parameters based on historical data, and handling missing values more gracefully would strengthen the implementation."
+  ],
+  "seconds": 33.6684709000001,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 526
+}

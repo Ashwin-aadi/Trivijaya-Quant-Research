@@ -1,0 +1,23 @@
+{
+  "index": 782,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"High volatility periods often precede reversals in trend. By focusing on \"\n        \"volatility-scaled trends, we aim to identify and capitalize on potential direction \"\n        \"changes in the market.\"\n    )\n\n    def __init__(self, window: int = 20, vol_window: int = 10) -> None:\n        self._window = window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window + self._vol_window - 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate log returns\n        returns = (closes[\"adj_close\"] / closes[\"adj_close\"].shift(1) - 1.0).alias(\"r\")\n        returns_df = closes.with_columns(returns)\n\n        # Volatility calculation using rolling standard deviation\n        volatility = (\n            returns_df.select(\n                pl.col(\"r\").rolling_std(window_size=self._vol_window, center=False)\n            )\n            .with_column(pl.lit(self._window).alias(\"window\"))\n            .select(pl.col(\"r.rolling_std\").alias(\"volatility\"))\n        )\n\n        # Calculate trend by comparing current close to the mean of the past window\n        trend = (\n            returns_df.join(volatility, on=\"session_date\")\n            .with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(self._window)).alias(\n                    \"trend\"\n                )\n            )\n            .select(\n                pl.when(pl.col(\"volatility\") > 0)\n                .then((pl.col(\"trend\") / pl.col(\"volatility\")) * 1.5 + 1)\n                .otherwise(0.0)\n                .alias(\"trend_score\")\n            )\n        )\n\n        # Identify symbols with high trend scores\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in trend.columns:\n                continue\n            values = [float(v) for v in trend[symbol].to_list()]\n            score = max(values)\n            if score > 0.5:\n                picks.append(symbol)\n\n        picks = picks[:10]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 644
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.481673899994348,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 797
+}

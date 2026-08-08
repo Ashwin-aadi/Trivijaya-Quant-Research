@@ -1,0 +1,23 @@
+{
+  "index": 146,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following identifies trends by comparing the current price \"\n        \"movement to its historical volatility. A breakout above a threshold multiple of the \"\n        \"volatility indicates a strong upward trend, prompting entry into the market.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * 2 + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        symbol_data: dict[str, pl.DataFrame] = {}\n\n        for symbol in symbols:\n            df = history.filter(pl.col(\"symbol\") == symbol)\n            if df.height < self._window * 2 + 1:\n                continue\n\n            opens = [float(v) for v in df[\"open\"].drop_nulls().to_list()]\n            closes = [float(v) for v in df[\"close\"].drop_nulls().to_list()]\n\n            close_mean = sum(closes[-self._window:]) / self._window\n            open_mean = sum(opens[-self._window:]) / self._window\n\n            daily_returns = [(c - o) / o for c, o in zip(closes, opens)]\n            volatility = pl.DataFrame({\"daily_return\": daily_returns}).select(\n                (pl.col(\"daily_return\") ** 2).mean().alias(\"volatility\")\n            ).row(0)[0] ** 0.5\n\n            trend_threshold = open_mean + self._threshold * volatility\n            if closes[-1] > trend_threshold:\n                symbol_data[symbol] = {\"open\": opens, \"close\": closes}\n\n        if not symbol_data:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_value = sum(len(v[\"close\"]) for v in symbol_data.values())\n        weight_per_symbol = 1.0 / len(symbol_data)\n\n        weights: dict[str, float] = {}\n        for symbol, data in symbol_data.items():\n            close_prices = [float(v) for v in data[\"close\"].drop_nulls().to_list()]\n            weight = (len(close_prices) - 1) * weight_per_symbol\n            weights[symbol] = weight\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in weights.items() if w > 0},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 654
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.461439899998368,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 150
+}

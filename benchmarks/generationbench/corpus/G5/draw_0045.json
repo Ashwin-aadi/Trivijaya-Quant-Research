@@ -1,0 +1,26 @@
+{
+  "index": 45,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility ones over the long term. \"\n        \"By tilting our portfolio towards low volatility, we aim to capture this effect.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily volatility for each stock\n        volatilities: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(prices) < self._window:\n                continue\n            returns = [(prices[i+1] - prices[i]) / prices[i] for i in range(len(prices)-1)]\n            daily_volatility = (sum([r**2 for r in returns]) / max(1, len(returns))) ** 0.5\n            volatilities[symbol] = daily_volatility\n\n        # Sort by volatility and pick top N symbols\n        sorted_symbols = [k for k, v in sorted(volatilities.items(), key=lambda item: item[1])]\n        picks = sorted_symbols[:5]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3987,
+    "output_tokens": 1342
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify low-volatility stocks by calculating daily volatility over a 20-day window and then selecting the top 5 symbols for investment. Here are some critiques:\n\n1. **Rationale vs. Code Mismatch**: The rationale states that \"low-volatility stocks tend to outperform high-volatility ones,\" but the code ranks stocks based on their daily volatility, which is a measure of price variation over time, not necessarily an indicator of performance.\n\n2. **Potential Failures**:\n   - Line 35: If any stock's price history is shorter than the window (20 days), it will be excluded without further handling.\n   - Line 46: The code assumes that `returns` are calculated correctly and avoids division by zero, but this assumption could fail if all prices in the series increase or decrease uniformly.\n\n3. **Fragile Parameters**:\n   - The window size of 20 days is hardcoded. This might be too short for some markets, potentially capturing noise rather than meaningful volatility.\n   - The number of top picks (5) is fixed and not dynamically adjusted based on market conditions or data availability.\n\n4. **Potential Issues for Running the Strategy**:\n   - Line 36: If there are no symbols in `history`, the strategy returns an empty `weights` dictionary, which might lead to errors if this signal isn't handled elsewhere.\n   - Line 51: The strategy assumes that all required data is present and correctly formatted. Missing or incorrectly formatted data could cause issues.\n\nIn summary, while the code aligns well with the rationale in terms of calculating daily volatility, it does not fully address the stated goal of outperforming high-volatility stocks. Additionally, the hardcoded parameters might need adjustment for different market conditions, and error handling should be improved to ensure robustness."
+  ],
+  "seconds": 34.81519180000032,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 93
+}

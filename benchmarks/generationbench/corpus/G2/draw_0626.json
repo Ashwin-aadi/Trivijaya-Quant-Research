@@ -1,0 +1,23 @@
+{
+  "index": 626,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySCTF(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following exploits the idea that assets in an uptrend are \"\n        \"more likely to continue trending upward. By scaling our position size based on the \"\n        \"recent volatility of each asset, we can capture more returns from strong trends while \"\n        \"limiting exposure during periods of low volatility.\"\n    )\n\n    def __init__(self, window: int = 20, trend_factor: float = 1.5) -> None:\n        self._window = window\n        self._trend_factor = trend_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_data = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            df = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            prices = [float(v) for v in df[\"adj_close\"].drop_nulls().to_list()]\n            trend_score = self._calculate_trend_score(prices)\n            vol = pl.DataFrame({\"close\": prices}).select(\n                (pl.col(\"close\").rolling_std(window=self._window)).alias(\"vol\")\n            ).collect()[\"vol\"][0]\n            symbol_data[symbol] = {\"trend_score\": trend_score, \"volatility\": vol}\n\n        sorted_symbols = sorted(symbol_data.items(), key=lambda x: -x[1][\"trend_score\"])\n        top_symbols = [symbol for symbol, data in sorted_symbols[: self._top_n]]\n        \n        weights = {}\n        total_volatility = sum([symbol_data[symbol][\"volatility\"] for symbol in top_symbols])\n        for symbol in top_symbols:\n            volatility = symbol_data[symbol][\"volatility\"]\n            weight = (volatility / total_volatility) * self._trend_factor\n            weights[symbol] = weight\n\n        return Signal(\n            information_available_at=stamp, weights={s: w for s, w in weights.items() if w > 0}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_trend_score(prices: list[float]) -> float:\n    returns = [p / prices[i - 1] - 1 for i, p in enumerate(prices[1:], start=1)]\n    trend_score = (sum(returns) / len(returns)) * len(returns)\n    return trend_score",
+  "class_name": "VolatilitySCTF",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 627
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.749906899989583,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 637
+}

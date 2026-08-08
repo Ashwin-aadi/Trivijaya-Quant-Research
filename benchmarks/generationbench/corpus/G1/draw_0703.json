@@ -1,0 +1,23 @@
+{
+  "index": 703,
+  "paradigm": "G1_plain",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression is a period during which the price movement is more confined within \"\n        \"a narrow range, suggesting that market sentiment might be shifting. By identifying such \"\n        \"periods, we can anticipate potential breakout or trend continuation.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        closes = history.select([\"symbol\", \"session_date\", pl.col(\"adj_close\").alias(\"close\")])\n\n        # Calculate daily range for each symbol\n        ranges = (\n            closes\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"close\").max() - pl.col(\"close\").min()).alias(\"range\"),\n            )\n        )\n\n        # Find symbols with the highest range compression\n        top_compressed: list[str] = []\n        for symbol in symbols:\n            if symbol not in ranges.columns or float(ranges.get_symbol(symbol)[\"range\"]) < 0.1 * self._window:\n                continue\n            top_compressed.append(symbol)\n\n        if not top_compressed:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_compressed)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_compressed}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1245,
+    "output_tokens": 441
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.634482800000114,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 717
+}

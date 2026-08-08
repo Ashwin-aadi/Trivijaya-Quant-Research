@@ -1,0 +1,23 @@
+{
+  "index": 26,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following exploits the idea that during periods of high volatility, \"\n        \"trends are more likely to persist. By scaling trends by their historical volatility, we can \"\n        \"potentially capture profitable movements in the market.\"\n    )\n\n    def __init__(self, window: int = 20, volatility_window: int = 10) -> None:\n        self._window = window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate simple returns\n        returns = closes.melt().pipe(\n            lambda df: df.with_columns(\n                (pl.col(\"value\").shift(-1) / pl.col(\"value\") - 1).alias(\"return\")\n            )\n        ).select([\"symbol\", \"session_date\", \"return\"])\n\n        # Calculate volatility for each symbol\n        volatilities = returns.groupby(\"symbol\").agg(\n            pl.col(\"return\").std().alias(\"volatility\")\n        )\n\n        # Calculate trend signal (mean of returns)\n        trends = (\n            returns.groupby(\"symbol\")\n            .agg((pl.col(\"return\") / pl.col(\"volatility\").shift(-1)).alias(\"trend\"))\n            .select([\"symbol\", \"session_date\", \"trend\"])\n        )\n\n        combined = volatilities.join(trends, on=\"symbol\")\n        trends_and_volatilities = (\n            combined.with_columns(\n                (pl.col(\"trend\") * pl.col(\"volatility\").shift(-1)).alias(\"signal\")\n            )\n            .sort(\"session_date\", descending=True)\n            .tail(20)\n            .select([\"symbol\", \"signal\"])\n            .to_dict(False)\n        )\n\n        # Select symbols with the highest signal\n        picks = sorted(trends_and_volatilities, key=lambda x: x[\"signal\"], reverse=True)[:5]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s[\"symbol\"]: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 606
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.54889479999838,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 28
+}

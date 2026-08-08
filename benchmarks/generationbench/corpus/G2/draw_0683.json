@@ -1,0 +1,23 @@
+{
+  "index": 683,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"By combining volume-based momentum with earnings surprise, we aim to identify \"\n        \"stocks that not only have strong recent trading volumes but also positive earnings \"\n        \"surprises. This dual characteristic often indicates a stock is undervalued and due for \"\n        \"a price increase.\"\n    )\n\n    def __init__(self, volume_window: int = 10, eps_window: int = 5) -> None:\n        self._volume_window = volume_window\n        self._eps_window = eps_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._volume_window, self._eps_window))\n        if history.height < max(self._volume_window, self._eps_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_signals: dict[str, float] = {}\n        eps_signals: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n\n            # Volume-based signal\n            volumes = history.filter(pl.col(\"symbol\") == symbol)[\n                \"volume\"\n            ].drop_nulls().to_list()\n            volume_signal = (\n                pl.DataFrame([{\"symbol\": symbol, \"volume\": v} for v in volumes])\n                .group_by(\"symbol\")\n                .agg((pl.col(\"volume\").mean() / pl.col(\"volume\").shift(1) - 1.0).alias(\"v_mean_ratio\"))\n                .sort(\"v_mean_ratio\", descending=True)\n                .select(\"symbol\")\n            )\n            volume_signals[symbol] = float(volume_signal[0][\"symbol\"]) if not volume_signal.is_empty() else 0.0\n\n            # EPS-based signal\n            eps_history = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\").tail(self._eps_window)\n            eps_signal = (\n                eps_history.with_columns(\n                    (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(1)).alias(\"eps_change\")\n                ).group_by(\"symbol\")\n                .agg((pl.col(\"eps_change\").mean() / pl.col(\"eps_change\").shift(1) - 1.0).alias(\"eps_mean_ratio\"))\n                .sort(\"eps_mean_ratio\", descending=True)\n                .select(\"symbol\")\n            )\n            eps_signals[symbol] = float(eps_signal[0][\"symbol\"]) if not eps_signal.is_empty() else 0.0\n\n        combined_scores = {s: (volume_signals[s] + eps_signals[s]) for s in view.symbols}\n        sorted_symbols = sorted(combined_scores, key=combined_scores.get, reverse=True)\n        top_symbols = sorted_symbols[:5]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 734
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.224282099996344,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 694
+}

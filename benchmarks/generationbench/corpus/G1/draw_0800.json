@@ -1,0 +1,23 @@
+{
+  "index": 800,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Directional moves are more likely to be sustained when they are accompanied by \"\n        \"increased volume. This strategy identifies symbols where the recent close is higher \"\n        \"than the previous close and has been consistently increasing in volume over the past 10 sessions.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            volumes = [int(v) for v in history[\"volume\"].drop_nulls().to_list()]\n\n            if (\n                len(adj_closes) < self._window + 2 or\n                adj_closes[-1] <= adj_closes[-2] or\n                sum(volumes[i] > volumes[i - 1] for i in range(1, self._window + 1)) != self._window\n            ):\n                continue\n\n            signals.append(symbol)\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(signals)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 451
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.413821199996164,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 815
+}

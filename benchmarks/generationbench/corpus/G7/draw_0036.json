@@ -1,0 +1,47 @@
+{
+  "index": 36,
+  "paradigm": "G7_mcts",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum identifies stocks with strong recent price trends and \"\n        \"allocates capital to those names, capturing the collective market sentiment towards \"\n        \"positive price movements.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 10) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            close_prices = [float(v) for v in history[symbol].to_list()]\n            recent_closes = close_prices[-self._window:]\n            daily_returns = [(recent_closes[i] - recent_closes[i-1]) / recent_closes[i-1] if i > 0 else 0.0 for i in range(len(recent_closes))]\n            momentum_score = sum(daily_returns) / self._window\n            momentum_scores[symbol] = momentum_score\n\n        top_symbols = sorted(momentum_scores.items(), key=lambda x: x[1], reverse=True)[:self._top_n]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, _ in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19524,
+    "output_tokens": 5874
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the cross-sectional momentum strategy in the Indian market, I propose using the daily closing price as the signal, measured over a 60-day lookback period. This choice captures recent price trends while maintaining computational efficiency.",
+    "For the cross-sectional momentum strategy in the Indian market, I propose using the daily high price as the signal, measured over a 45-day lookback period. This approach focuses on intraday strength and can provide timely signals for entry and exit decisions.",
+    "For this cross-sectional momentum strategy in the Indian market, I propose holding a portfolio of 10 equally weighted names when a position is opened or closed. This approach balances sensitivity to recent price trends with simplicity and computational efficiency.",
+    "For the portfolio rule, I propose holding a maximum of 50 names with equal weighting (2%) each. This balance between diversification and responsiveness ensures the strategy can capture momentum signals effectively while managing risk.",
+    "For this cross-sectional momentum strategy in the Indian market, I propose holding a portfolio of 10 equally weighted names when a position is opened or closed. This approach balances sensitivity to recent price trends with simplicity and computational efficiency.",
+    "For the portfolio rule, I propose holding a maximum of 30 names with an equal weight of 3.33% each. This approach strikes a balance between maintaining sufficient diversification to manage risk and retaining enough positions to capture meaningful momentum signals.",
+    "For this cross-sectional momentum strategy in the Indian market, I propose setting a stop-loss rule at -5% for an individual position and limiting the maximum portfolio drawdown to -10%. This rule will prevent excessive loss on any single position while maintaining overall portfolio stability.",
+    "For the risk rule, I propose setting an individual position loss bound of -5% and a portfolio loss bound of -3%. If either bound is exceeded, trading for that day will be halted to prevent excessive losses. This balance between sensitivity and risk management ensures the strategy remains robust in volatile markets.",
+    "For the risk rule, I propose setting an individual position loss bound of -3% to cap potential losses on any single name, ensuring that no single stock can significantly impact the overall portfolio performance. This limit balances risk management with the need to capture momentum signals effectively.",
+    "For the risk rule, I propose setting an individual position loss bound of -3% and a portfolio loss bound of -2%. Exceeding these bounds would halt trading for that day to mitigate potential significant losses while maintaining responsiveness to market trends.",
+    "For this cross-sectional momentum strategy in the Indian market, I propose setting a stop-loss rule at -5% for an individual position and limiting the maximum portfolio drawdown to -10%. This rule will protect against significant losses on any single holding while ensuring the portfolio remains robust.",
+    "To bound the risk, I propose setting a stop-loss at -5% for each position. This limit helps manage individual position risks while allowing the strategy to participate in momentum trends. For the portfolio, a total loss threshold of -10% will trigger a rebalance or halt trading to prevent excessive drawdowns."
+  ],
+  "seconds": 222.55697420000797,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 452
+}

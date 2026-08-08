@@ -1,0 +1,23 @@
+{
+  "index": 149,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"Continuation breakout strategies identify stocks that have just formed a \"\n        \"breakout and predict they will continue to trend. By buying such stocks, we aim \"\n        \"to capture the momentum of the breakout.\"\n    )\n\n    def __init__(self, window: int = 20, lookback_days: int = 10) -> None:\n        self._window = window\n        self._lookback_days = lookback_days\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._lookback_days)\n        if history.is_empty() or history.height < self._window + self._lookback_days:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_sigs: list[str] = []\n        for symbol in view.symbols:\n            hist_df = history.select(\n                pl.col(\"session_date\"), pl.col(symbol).alias(\"adj_close\")\n            )\n            if hist_df.height < self._window + self._lookback_days:\n                continue\n\n            # Find the breakout day\n            breakout_day: date | None = _find_breakout_day(hist_df, self._window)\n            if not breakout_day:\n                continue\n\n            # Check continuation condition for at least self._lookback_days after breakout\n            if hist_df.filter(pl.col(\"session_date\") > breakout_day).height < self._lookback_days + 1:\n                continue\n\n            breakout_sigs.append(symbol)\n\n        weight = 1.0 / len(breakout_sigs)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in breakout_sigs}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _find_breakout_day(df: pl.DataFrame, window: int) -> date | None:\n    breakout_dates: list[date] = []\n    for i in range(window, df.height):\n        current_close = float(df.select(pl.col(\"adj_close\").at(i - 1)).item())\n        previous_max = float(df.select(pl.col(\"adj_close\").slice(0, window).max().at(0)).item())\n        if current_close > previous_max:\n            breakout_dates.append(df.select(pl.col(\"session_date\").at(i - 1)).item())\n\n    if not breakout_dates:\n        return None\n\n    # Find the most recent breakout day\n    latest_breakout = max(breakout_dates)\n    return latest_breakout",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 614
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.794866399999592,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 154
+}

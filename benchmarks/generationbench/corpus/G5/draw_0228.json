@@ -1,0 +1,26 @@
+{
+  "index": 228,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum suggests that stocks which have performed well \"\n        \"relative to the market over a lookback period are likely to continue outperforming. \"\n        \"This strategy allocates capital to the top performers based on their relative performance.\"\n    )\n\n    def __init__(self, window: int = 20, num_top_symbols: int = 5) -> None:\n        self._window = window\n        self._num_top_symbols = num_top_symbols\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        market_close = view.closes().select(\"adj_close\").to_dict()[1][0]\n        returns = (\n            closes\n            .lazy()\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n            .sort(by=\"avg_return\", descending=True)\n            .collect()\n        )\n\n        top_symbols = [row[\"symbol\"] for row in returns.to_dicts()[:self._num_top_symbols]]\n        weights = {s: 1.0 / len(top_symbols) for s in top_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, pl.Date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3810,
+    "output_tokens": 1227
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code for cross-sectional momentum generally aligns with its rationale but has some areas for improvement and potential issues:\n\n1. **Rationale vs. Code Discrepancy**: The rationale mentions that \"stocks which have performed well relative to the market over a lookback period are likely to continue outperforming.\" However, the code computes the average return of each stock over the lookback period but does not explicitly account for relative performance against the market (e.g., using a market index). This discrepancy can be addressed by incorporating a market benchmark or adjusting weights based on relative performance.\n\n2. **Potential Failure**: The strategy may fail if there are insufficient observations to compute reliable returns, particularly in the first few windows where data might be sparse. For example, line 31 checks if `closes.height < self._window`, but this alone does not ensure enough valid data points across all symbols.\n\n3. **Fragile Parameters**: The hard-coded number of top-performing stocks (`top_symbols = returns[\"symbol\"].to_list()[:5]`) is brittle and could be improved by making it a parameter or dynamically adjusting based on the number of symbols available.\n\n4. **Code Fragility**:\n   - Line 38: `assert isinstance(newest, date)` might fail if the data type of `newest` is not explicitly a `date`, which can be addressed by adding proper validation.\n   - Line 26: The use of `pl.col(\"adj_close\").shift(self._window)` assumes that the adj_close column exists and has sufficient data points shifted correctly.\n\n5. **Runtime Issues**:\n   - Ensure that all necessary imports (`polars` and custom modules) are available before running the strategy.\n   - Verify that `MarketView`, `Signal`, `Strategy`, and related methods are properly defined elsewhere in your codebase.\n\nOverall, while the core logic of selecting top performers based on past returns is sound, addressing the above points would make the strategy more robust and versatile."
+  ],
+  "seconds": 32.550224399999934,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 462
+}

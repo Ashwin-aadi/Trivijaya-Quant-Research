@@ -1,0 +1,23 @@
+{
+  "index": 131,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: the 20-day simple moving \"\n        \"average of daily returns and the recent price action compared to its 50-day high. By \"\n        \"combining these signals, we aim to identify stocks with both a positive trend and \"\n        \"relatively strong current performance.\"\n    )\n\n    def __init__(self, window_20: int = 20, window_50: int = 50) -> None:\n        self._window_20 = window_20\n        self._window_50 = window_50\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._window_20, self._window_50))\n        if history.height < max(self._window_20, self._window_50):\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: list[str] = []\n\n        for symbol in view.symbols:\n            hist = history.filter(pl.col(\"symbol\") == symbol)\n            closes = hist.select(\n                pl.col(\"adj_close\").tail(self._window_20).alias(\"closes\"),\n                pl.col(\"adj_close\").tail(self._window_50).alias(\"high_50\")\n            )\n\n            if closes.is_empty():\n                continue\n\n            returns_20 = (closes[\"closes\"].to_list()[1:] / closes[\"closes\"].shift(1).to_list() - 1.0)\n            sma_20 = sum(returns_20) / self._window_20\n            high_50 = max(closes[\"high_50\"].to_list())\n\n            if closes[\"adj_close\"][-1] > high_50 * 0.98 and sma_20 >= 0:\n                signals.append(symbol)\n\n        weights = {s: 1.0 / len(signals) for s in signals} if signals else {}\n        return Signal(\n            information_available_at=stamp, weights={**weights}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max())[\"session_date\"].to_list()[0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 567
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.858230400001048,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 135
+}

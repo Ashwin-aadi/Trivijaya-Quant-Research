@@ -1,0 +1,23 @@
+{
+  "index": 272,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong momentum. \"\n        \"By identifying symbols that show a significant price move with high volume, we can capitalize on trending behavior.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (\n            history.select(\n                [\n                    pl.col(\"symbol\"),\n                    (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"),\n                    pl.col(\"volume\"),\n                ]\n            )\n            .sort(\"session_date\")\n            .with_column((pl.col(\"return\") * pl.col(\"volume\")).alias(\"volatility_return\"))\n        )\n\n        # Filter out symbols with too little history\n        filtered_history = returns.filter(pl.col(\"symbol\").is_in(view.symbols)).group_by(\n            \"symbol\"\n        ).agg(\n            (\n                (pl.col(\"return\").mean().alias(\"avg_return\")),\n                (pl.col(\"volatility_return\").mean().alias(\"avg_vol_return\")),\n            )\n        )\n\n        # Identify symbols with significant directional moves\n        breakout_symbols = filtered_history.filter(\n            pl.col(\"avg_return\") > 0.01 * filtered_history.select(pl.col(\"avg_vol_return\").max())\n        ).select([\"symbol\"])\n\n        if breakout_symbols.height < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in breakout_symbols[\"symbol\"].to_list()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max())\n    assert isinstance(newest.item(), date)\n    return newest.item()",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 510
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.419869199991808,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 277
+}

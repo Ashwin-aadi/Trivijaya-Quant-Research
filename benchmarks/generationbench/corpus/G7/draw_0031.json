@@ -1,0 +1,47 @@
+{
+  "index": 31,
+  "paradigm": "G7_mcts",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Dispersion5d(Strategy):\n    rationale = (\n        \"Range compression (difference between high and low) is a proxy for short-term volatility. \"\n        \"An increase in dispersion indicates heightened volatility and potential trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        dispersions: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            values = [float(v) for v in history[symbol].select(\n                (pl.col(\"high\") - pl.col(\"low\")).alias(\"dispersion\")\n            ).select(\"dispersion\").to_list()]\n            if len(values) < self._window:\n                continue\n\n            latest_dispersion = values[-1]\n            prev_mean_displacement = sum(values[:-1]) / len(values[:-1])\n            if (latest_dispersion - prev_mean_displacement) > 0.0:\n                dispersions[symbol] = latest_dispersion\n\n        picks = sorted(dispersions.keys(), key=lambda k: dispersions[k], reverse=True)[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Dispersion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19325,
+    "output_tokens": 6459
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "Choose the range (high - low) as the signal to measure dispersion over a 5-day lookback period. This will capture short-term volatility changes effectively in the Indian market.",
+    "Choose the range (high - low) as the signal to measure dispersion over a 5-day lookback period. This approach captures short-term volatility shifts, suitable for the Indian market dynamics.",
+    "Decide to hold 5 names in the portfolio, each weighted equally at 20%, when a position is opened or closed based on the dispersion signal.",
+    "For the portfolio rule, we will hold a maximum of three stocks in each position, with weights of 40%, 35%, and 25% respectively. This balanced approach ensures diversification while maintaining responsiveness to short-term volatility changes.",
+    "Decide to hold 5 names in the portfolio, each weighted equally at 20%, when a position is opened or closed based on the dispersion signal. This approach ensures diversification while maintaining simplicity and consistency in weight allocation.",
+    "For the portfolio rule, we will hold a maximum of three stocks in each position, with weights of 40%, 35%, and 25% respectively. This balanced approach ensures diversification while maintaining responsiveness to short-term volatility changes.",
+    "For the risk rule, I propose setting an individual position loss limit of -10% to prevent any single stock from causing significant portfolio volatility. Additionally, if the overall portfolio loss exceeds -5%, the strategy will halt trading to avoid excessive risk exposure.",
+    "To bound the loss on a position, set a stop-loss at -15% of the stock's value, and for the portfolio, limit the maximum drawdown to -10%. This ensures individual risk is contained while maintaining overall portfolio flexibility.",
+    "To manage risk, set a stop-loss of 5% for each individual position to limit potential losses on any single stock. This rule will also act as a trigger to close positions if the dispersion signal indicates a shift in market conditions. Additionally, implement a portfolio-wide risk limit of a maximum 10% drawdown over the 5-day lookback period to protect against broader market impacts.",
+    "To manage risk effectively while adhering to the given constraints, set a stop-loss of 5% for each individual position to limit potential losses on any single stock. This rule will also act as a trigger to close positions if the dispersion signal indicates a shift in market conditions. Additionally, implement a portfolio-wide risk limit of a maximum 10% drawdown over the 5-day lookback period to protect against broader market impacts.",
+    "For the risk rule, I propose setting an individual position loss limit of -10% to prevent any single stock from significantly impacting the portfolio. Furthermore, if the total portfolio loss surpasses -5%, the strategy will cease trading to mitigate excessive risk exposure.",
+    "For the risk rule, we will set an individual position loss bound of -20% to prevent any single stock from significantly impacting the portfolio. Additionally, the portfolio-wide loss limit will be -15%, which will halt trading if exceeded, ensuring that the strategy remains robust and controlled under adverse market conditions."
+  ],
+  "seconds": 266.5511336000054,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 390
+}

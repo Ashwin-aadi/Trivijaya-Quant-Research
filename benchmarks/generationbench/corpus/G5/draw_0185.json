@@ -1,0 +1,26 @@
+{
+  "index": 185,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After a strong price breakout, the continuation of this trend is often profitable. \"\n        \"This strategy identifies symbols that have recently broken out and are likely to continue their momentum.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.05) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            values = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(values) < self._window + 1:\n                continue\n\n            # Calculate the price change from the breakout point to the most recent close\n            open_price = values[0]\n            close_price = values[-1]\n            high_price = max(values)\n            low_price = min(values)\n\n            # Check for a valid breakout condition\n            if close_price >= high_price and (close_price - open_price) / open_price >= self._threshold:\n                breakout_symbols.append(symbol)\n\n        breakout_symbols = list(set(breakout_symbols))  # Remove duplicates\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in breakout_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3993,
+    "output_tokens": 1376
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy largely aligns with its stated rationale but contains several potential issues:\n\n1. **Rationale vs. Code Discrepancies**:\n   - The rationale suggests that the strategy focuses on symbols that have recently broken out and are likely to continue their momentum. However, the code does not explicitly account for a breakout event. Instead, it checks if the price change ratio meets or exceeds a threshold value (`_threshold`). This discrepancy might lead to false positives where symbols with large but non-breakout-related price movements are flagged.\n   - **Line**: `price_change_ratio = (close_price - open_price) / open_price`\n\n2. **Potential Failure Scenarios**:\n   - The strategy might fail if the market experiences sudden volatility or extreme events that cause the closing prices to deviate significantly from expected patterns.\n   - **Line**: `price_change_ratio = (close_price - open_price) / open_price`\n\n3. **Fragile Parameters**:\n   - The threshold parameter (`_threshold`) is hardcoded and might not be optimal for all market conditions or asset classes. A static value of 1.05 may work in certain markets but could underperform or overreact in others.\n   - **Line**: `self._threshold = threshold`\n\n4. **Code Fragilities**:\n   - The code assumes that the history data is always available and does not handle missing or inconsistent data gracefully, which can lead to errors.\n   - **Lines**: `if symbol not in history.columns` and `if len(values) < self._window + 1`\n   - Additionally, the strategy relies on Polars for data manipulation but does not include error handling or checks for data integrity.\n\n5. **Non-Runnable Issues**:\n   - The strategy requires a `MarketView` class to be defined elsewhere in the codebase.\n   - The function `_latest_visible` assumes that the input has at least one column named \"session_date\", which might not always be true depending on how `MarketView.history()` is implemented.\n\nOverall, while the core logic of identifying and weighting breakout symbols seems sound, improvements could be made to better align with the rationale, handle edge cases more robustly, and ensure the strategy can run reliably in various market conditions."
+  ],
+  "seconds": 35.550439200000255,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 375
+}

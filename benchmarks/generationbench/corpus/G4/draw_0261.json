@@ -1,0 +1,27 @@
+{
+  "index": 261,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term due \"\n        \"to risk-averse investor behavior and market inefficiencies. This strategy exploits this \"\n        \"phenomenon by constructing a portfolio weighted towards low-volatility assets, aiming to \"\n        \"capture the associated premium.\"\n    )\n\n    def __init__(self, window: int = 60, num_stocks: int = 50) -> None:\n        self._window = window\n        self._num_stocks = num_stocks\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate log returns\n        returns = (\n            history.select(\n                [\n                    \"symbol\",\n                    (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"log_return\"),\n                ]\n            )\n            .drop_nulls()\n            .filter(pl.col(\"log_return\") != 0)\n        )\n\n        # Calculate historical volatility\n        volatilities = (\n            returns.groupby(\"symbol\")\n            .agg(\n                (pl.col(\"log_return\").std().alias(\"volatility\")),\n            )\n            .sort(\"volatility\", descending=False)\n        ).to_pandas()\n\n        if len(volatilities) < self._num_stocks:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Rank stocks based on volatility\n        rank = volatilities.reset_index().set_index(\"symbol\").squeeze().rank(method=\"min\", ascending=True)\n\n        # Select top num_stocks based on inverse rank\n        selected_stocks = rank.nlargest(self._num_stocks).index.to_list()\n\n        weights = {s: 1.0 / len(selected_stocks) for s in selected_stocks}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2461,
+    "output_tokens": 955
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan is to develop a systematic equity trading strategy focusing on low-volatility tilting in the Indian market. The economic mechanism exploits the empirical observation that low-volatility stocks tend to outperform high-volatility stocks over the long term, driven by risk-averse investor behavior and market inefficiencies. This phenomenon persists due to persistent biases in investor psychology and institutional constraints, such as minimum investment requirements for higher volatility assets.\n\nThe trading rule would involve constructing a portfolio weighted towards low-volatility stocks while maintaining a diversified asset allocation. Specifically, we will rank the stocks based on their historical volatility and allocate capital inversely proportional to this ranking. This strategy aims to capture the premium associated with lower risk by systematically tilting the portfolio towards less volatile assets. Regular rebalancing would ensure alignment with market conditions and maintain the low-volatility tilt.",
+    "The signal for this strategy is the historical volatility of each stock. Historical volatility is calculated using the standard deviation of log returns over a 60-day lookback period. The daily log return is computed as \\( \\log\\left(\\frac{P_t}{P_{t-1}}\\right) \\), where \\( P_t \\) is the closing price on day \\( t \\). Stocks are then ranked based on their historical volatility, with lower values indicating lower risk. Lower-volatility stocks receive higher ranks, and these are selected for inclusion in the portfolio according to the inverse of their rank. Regular rebalancing ensures the portfolio remains aligned with this low-volatility tilt.",
+    "This strategy will hold a diversified portfolio of approximately 30-50 low-volatility stocks, selected based on their historical volatility ranks. Position sizes will be inversely proportional to each stock\u2019s rank, ensuring higher weights for lower-volatility assets. To manage risk, the total portfolio loss limit is set at 5% over any single trading day, with regular rebalancing to maintain this constraint and align with market conditions. This approach aims to capture the low-volatility premium while controlling potential daily drawdowns."
+  ],
+  "seconds": 29.151314299997466,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 266
+}

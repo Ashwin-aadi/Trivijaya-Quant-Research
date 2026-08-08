@@ -1,0 +1,23 @@
+{
+  "index": 227,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentumRSI(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: short-term momentum \"\n        \"and relative strength index (RSI). By buying stocks with strong recent performance \"\n        \"and high RSI values, we aim to capture both positive price trends and overbought conditions.\"\n    )\n\n    def __init__(self, lookback_short: int = 10, lookback_long: int = 50) -> None:\n        self._lookback_short = lookback_short\n        self._lookback_long = lookback_long\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_long + self._lookback_short - 1)\n\n        if history.height < self._lookback_long + self._lookback_short - 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        shorts = history.select(\n            pl.col(\"symbol\").alias(\"symbol\"),\n            (pl.col(\"close\") / pl.col(\"close\").shift(self._lookback_short) - 1).alias(\"short_momentum\"),\n        )\n        longs = history.select(\n            pl.col(\"symbol\").alias(\"symbol\"),\n            (pl.col(\"close\") / pl.col(\"close\").shift(self._lookback_long) - 1).alias(\"long_momentum\"),\n        )\n\n        rsi = _calculate_rsi(history, self._lookback_short)\n\n        shorts = shorts.join(rsi, on=\"symbol\", how=\"inner\")\n        shorts = shorts.sort(\n            \"short_momentum\", descending=True\n        ).sort(\"long_momentum\", descending=True).select(pl.col(\"symbol\"))\n\n        if shorts.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = [s[0] for s in shorts.head(5).to_numpy()]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_rsi(history: pl.DataFrame, window: int) -> pl.LazyFrame:\n    history = history.lazy().group_by(\"symbol\").agg(\n        (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1).alias(\"returns\")\n    ).collect()\n    rsi = history.select(\n        pl.col(\"symbol\"),\n        ((pl.col(\"returns\").rank(method=\"ordinal\", descending=True, ascending=False) / window * 100)).alias(\"rsi\"),\n    )\n    return rsi",
+  "class_name": "DualMomentumRSI",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 651
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.482342299990705,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 231
+}

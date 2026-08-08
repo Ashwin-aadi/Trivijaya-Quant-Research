@@ -1,0 +1,26 @@
+{
+  "index": 2,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy follows trends based on volatility. High volatility periods are expected \"\n        \"to continue trending in the same direction, allowing for profitable entries.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        vol = (history[\"close\"] / history[\"close\"].shift(1) - 1.0).abs().mean().item()\n        trend = history.sort(\"session_date\", descending=True)[\"close\"].head(1)[0].item()\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n\n            symbol_history = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                .sort(\"session_date\")\n                .select([\"close\"])\n            )\n\n            close_values = [float(v) for v in symbol_history[\"close\"].drop_nulls().to_list()]\n            if len(close_values) < self._window:\n                continue\n\n            last_close = close_values[-1]\n            mean_close = sum(close_values) / len(close_values)\n            std_dev = (sum((x - mean_close) ** 2 for x in close_values) / len(close_values)) ** 0.5\n            z_score = (last_close - mean_close) / std_dev\n\n            if abs(z_score) > vol:\n                picks.append(symbol)\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4055,
+    "output_tokens": 1399
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several issues that could impact its effectiveness and robustness:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale mentions following trends based on volatility, but the code primarily focuses on mean reversion using z-scores. This mismatch is evident in lines 35-42 where the z-score is calculated instead of looking at volatility directly.\n\n2. **Potential Failure Scenarios**:\n   - Line 31: If `history.height < self._window`, the function returns immediately without generating any signals, even if there are symbols that might be relevant.\n   - Line 40-56: The logic for determining which symbols to pick is based on z-scores relative to the window's mean and standard deviation. This could fail if the data in `history` has unexpected patterns or outliers.\n\n3. **Fragile Parameters**:\n   - The choice of `window = 20` (line 9) might be too rigid for all market conditions. A more dynamic method, such as adaptive window sizes based on volatility or historical data characteristics, would improve robustness.\n   - Line 47: Directly using the last close price in the history might not always capture long-term trends effectively.\n\n4. **Code Issues**:\n   - Line 21: The function `_latest_visible` assumes that `view.history()` will return a DataFrame with \"session_date\" column, which is not guaranteed without additional checks.\n   - Line 57-60: If no symbols meet the z-score threshold, the strategy returns an empty weights dictionary, which could lead to unexpected behavior in backtesting.\n\nWhile some parts of the code are sound (e.g., filtering and selecting relevant data), the overall design needs refinement to align with the stated rationale and improve robustness."
+  ],
+  "seconds": 35.884699100000034,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 6
+}

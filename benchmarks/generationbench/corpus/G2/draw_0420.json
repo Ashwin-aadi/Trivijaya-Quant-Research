@@ -1,0 +1,23 @@
+{
+  "index": 420,
+  "paradigm": "G2_cot",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for assets that have outperformed \"\n        \"in the recent past to continue outperforming. This phenomenon is often attributed to \"\n        \"market sentiment and the reluctance of traders to sell winners too quickly.\"\n    )\n\n    def __init__(self, lookback: int = 60, top_n: int = 10) -> None:\n        self._lookback = lookback\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.height < self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores = (\n            history\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(self._lookback)) / pl.col(\"adj_close\").shift(self._lookback).alias(\"momentum_score\"),\n            )\n            .sort(\"momentum_score\", descending=True)\n            .head(self._top_n)[[\"symbol\"]]\n        )\n\n        weights = {s: 1.0 / len(momentum_scores) for s in momentum_scores[\"symbol\"].to_list()}\n        return Signal(\n            information_available_at=stamp, weights={k: float(v) for k, v in weights.items()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1342,
+    "output_tokens": 405
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.6309356999991,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 428
+}

@@ -1,0 +1,26 @@
+{
+  "index": 40,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass PriceLevelReversion(Strategy):\n    rationale = (\n        \"Price reversion strategies aim to identify securities that have deviated significantly \"\n        \"from their historical price levels and expect them to revert to those levels. This strategy \"\n        \"focuses on identifying stocks with the highest absolute deviation from their 20-day mean, \"\n        \"hoping for a return towards this mean.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5, threshold: float = 2.0) -> None:\n        self._window = window\n        self._top_n = top_n\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or \"adj_close\" not in closes.columns:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_price = closes[\"adj_close\"].mean().to_list()[0]\n        deviations = [\n            (float(c) / mean_price - 1.0) * 100 for c in closes[\"adj_close\"].drop_nulls().to_list()\n        ]\n        if len(deviations) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [\n            symbol\n            for _, (symbol, dev) in sorted(\n                zip(view.symbols, deviations), key=lambda x: abs(x[1]), reverse=True\n            )\n            if abs(dev) >= self._threshold\n        ][: self._top_n]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "PriceLevelReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4079,
+    "output_tokens": 1449
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code generally aligns well with its rationale, but there are a few areas for improvement and potential issues:\n\n1. **Rationale vs Code Discrepancy**:\n   - The rationale states that the strategy focuses on \"identifying stocks with the highest percentage deviation from their 20-day mean.\" However, the implementation uses an absolute threshold of `dev >= 2.0` to select top symbols (line 38). This might not always be the best approach since it could ignore some meaningful deviations below this threshold.\n\n2. **Potential Failures**:\n   - If `view.closes()` returns fewer than `self._window` records, the code will return an empty `Signal`, which is appropriate (line 15-16).\n   - However, if `top_symbols` ends up being empty after filtering by the absolute deviation threshold (line 38), it would still produce a non-empty `Signal`. This could lead to unintended results since no top symbols are selected.\n\n3. **Fragile Parameters**:\n   - The parameter `top_n` is used to limit the number of top symbols, but there\u2019s no validation or default check for its value (line 7). If `top_n` is set too high, it might include a large number of symbols, which could be computationally expensive and less effective.\n   - Similarly, the deviation threshold (`2.0`) is hardcoded without any parameterization, making it inflexible.\n\n4. **Code Fragility**:\n   - The method `_latest_visible()` assumes that `visible.history().is_empty()` will always return a boolean (line 46). This might not be true in all cases due to the data structure of `view.history()`. A more robust check would ensure that handling empty datasets is handled gracefully.\n\n5. **Potential Issues**:\n   - The strategy relies on the assumption that `view.closes()` will always return a DataFrame with at least 20 records, which might not be the case if the market data is sparse or incomplete (line 14).\n   - Ensure that `adj_close` column exists and contains valid numeric values; otherwise, operations like mean calculation would fail.\n\nIn summary, while the strategy code generally follows its rationale, improvements could be made to handle edge cases more robustly and allow for parameter tuning."
+  ],
+  "seconds": 37.21387930000037,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 83
+}

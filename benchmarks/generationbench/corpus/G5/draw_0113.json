@@ -1,0 +1,26 @@
+{
+  "index": 113,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"After a strong breakout, stocks often continue in the direction of the breakout. \"\n        \"This strategy identifies such continuation patterns and provides trading signals based on\"\n        \" the relative performance of the stock compared to its recent history.\"\n    )\n\n    def __init__(self, window: int = 20, lookback: int = 10) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._lookback)\n        if history.height < self._window + self._lookback:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            hist = history.filter(pl.col(\"symbol\") == symbol).sort(by=\"session_date\")\n            recent_closes = [float(v) for v in hist[\"adj_close\"].to_list()[-self._window:]]\n            \n            if len(recent_closes) < self._window:\n                continue\n\n            breakout = max(recent_closes)\n            breakout_index = recent_closes.index(breakout)\n\n            if (\n                recent_closes[breakout_index - self._lookback] < breakout\n                and all(\n                    recent_closes[i] > recent_closes[breakout_index - self._lookback]\n                    for i in range(breakout_index + 1, len(recent_closes))\n                )\n            ):\n                breakout_symbols.append(symbol)\n\n        weights = {symbol: 1.0 / len(breakout_symbols) for symbol in breakout_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3889,
+    "output_tokens": 1288
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy provided aims to identify stocks that continue in the direction of a strong breakout after an initial period of outperformance. While the rationale is clear and logical, there are several issues with both the stated rationale and the code implementation:\n\n1. **Fragility in Parameters**:\n   - The parameters `window` and `lookback` (lines 8-9) could be problematic if not carefully chosen. A too small `window` might miss significant breakout signals, while a large `lookback` might introduce noise.\n   \n2. **Potential Failures**:\n   - Line 30: The check for the history's height is unnecessary and can be simplified to directly filter on the last `window + lookback` entries.\n   - Line 34: The logic assumes that the breakout occurs exactly at the maximum close price, which might not always be true in real-world data.\n\n3. **Assumptions and Fragility**:\n   - Line 39-46: This block relies on the assumption that the `session_date` for the breakout is correctly identified. If there are duplicates or missing dates, this could fail.\n   - Line 50-51: The weights assignment assumes equal distribution among all breakout symbols, which might not be optimal.\n\n4. **Potential Stops**:\n   - Lines 28 and 36: These lines assume that the history is always sorted by `session_date`, which might not be guaranteed in real-world data.\n   - Line 51: The use of `float(v)` can lead to type errors if `adj_close` contains non-numeric values.\n\nOverall, while the strategy conceptually makes sense, it could benefit from more robust parameter handling and error checking. Specifically, refining the breakout detection logic and ensuring that all data fields are correctly processed would strengthen the implementation."
+  ],
+  "seconds": 34.11200849999932,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 230
+}

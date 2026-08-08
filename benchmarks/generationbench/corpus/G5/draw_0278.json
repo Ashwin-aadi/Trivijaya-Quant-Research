@@ -1,0 +1,26 @@
+{
+  "index": 278,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy aims to follow trends by using a volatility scaling mechanism. \"\n        \"High volatility periods suggest more cautious position sizing, while lower volatility\"\n        \" indicates higher potential for trend continuation and thus larger positions.\"\n    )\n\n    def __init__(self, window: int = 20, scale_factor: float = 1.0) -> None:\n        self._window = window\n        self._scale_factor = scale_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"]\n        open_prices = history[\"open\"]\n        high_prices = history[\"high\"]\n        low_prices = history[\"low\"]\n\n        # Calculate daily true range\n        tr = (pl.concat([high_prices - low_prices, high_prices - pl.col(\"close\").shift(1), pl.col(\"close\").shift(1) - low_prices]).max(axis=1)).to_list()\n\n        close_values = [float(v) for v in closes.to_list()]\n        open_values = [float(v) for v in open_prices.to_list()]\n\n        # Calculate simple moving average of closing prices\n        sma_close = float(sum(close_values) / self._window)\n        # Calculate volatility using ATR (Average True Range)\n        atr = sum(tr) / self._window\n\n        if atr == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Trend direction based on close > open condition\n        trend_direction = 1 if sma_close >= open_values[-1] else -1\n        position_size = min(1.0, self._scale_factor * (sum(tr) / atr))\n\n        selected_symbols = view.symbols\n        weight_per_symbol = position_size / len(selected_symbols)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight_per_symbol for s in selected_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4075,
+    "output_tokens": 1470
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has some strengths but also several potential issues:\n\n**Strengths:**\n- The rationale aligns with the code in that it aims to leverage volatility scaling for trend following.\n- The use of ATR (Average True Range) as a measure of volatility is appropriate.\n\n**Issues and Criticisms:**\n\n1. **Volatility Calculation:**\n   - Line 25 calculates the range but does not account for true ranges, which include the closing price's distance from the high or low. This should be corrected to use `high_prices.max() - low_prices.min()` (Line 28).\n\n2. **SMA Close and Trend Direction:**\n   - The simple moving average (SMA) calculation on line 30 is correct, but it should ensure that the data type (`float`) is explicitly cast.\n   - Line 35\u2019s trend direction logic is straightforward but could be improved by considering more robust methods like a moving average crossover.\n\n3. **Position Sizing:**\n   - The position size calculation (Line 41) seems conceptually sound, scaling position size based on volatility, but it should ensure that `range_` and `atr` are positive to avoid division by zero or negative values.\n   \n4. **Code Fragility:**\n   - The code assumes a uniform time window for all assets in the portfolio (Line 10), which might not be ideal if different assets have varying liquidity or volatility profiles.\n\n5. **Potential Failures and Stoppers:**\n   - If `history` is empty, `history.height < self._window` will cause an issue because it returns a boolean rather than a date.\n   - The `weight_per_symbol` calculation could lead to rounding issues if `position_size` is not exactly divisible by the number of symbols (Line 41).\n\n6. **Backtest Context:**\n   - Ensure that the backtesting framework (`MarketView`, `Signal`) is correctly implemented and available, as missing or incorrectly implemented classes can prevent the strategy from running.\n\nOverall, with these corrections and improvements, the strategy could be more robust and effective in a live trading environment."
+  ],
+  "seconds": 37.472608899999614,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 564
+}

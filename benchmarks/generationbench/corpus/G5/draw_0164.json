@@ -1,0 +1,26 @@
+{
+  "index": 164,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong momentum and can lead to \"\n        \"potentially profitable opportunities. By identifying symbols that show a significant\"\n        \" price movement accompanied by increased trading volume, we aim to capture such trends.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate price change and volume change\n        moves = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"close\") - pl.col(\"adj_close\").shift(self._window)).alias(\"price_change\"),\n                (pl.col(\"volume\") / pl.col(\"volume\").mean()).rank(method=\"dense\", descending=True).alias(\"vol_rank\")\n            )\n            .filter(pl.col(\"price_change\") > 0)\n        )\n\n        # Filter for both significant price change and high volume\n        filtered_moves = (\n            moves.filter(\n                (pl.col(\"price_change\") / history.select(pl.col(\"close\")).row(0)[1] >= 0.1) & \n                (pl.col(\"vol_rank\") <= 5)\n            )\n            .group_by(\"symbol\", maintain_order=True)\n            .agg(\n                (pl.col(\"price_change\").max() / history.select(pl.col(\"close\")).row(0)[1]).alias(\"rel_move\"),\n                pl.col(\"vol_rank\").min().alias(\"vol_rank\")\n            )\n        )\n\n        if filtered_moves.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = (\n            filtered_moves.sort(\n                \"rel_move\", descending=True\n            ).select(pl.col(\"symbol\")).head(5).to_list()[0]\n        )\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3975,
+    "output_tokens": 1412
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale of identifying volume-confirmed directional moves to capture strong momentum. However, there are several critical issues and potential improvements:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale mentions \"significant price movement accompanied by increased trading volume,\" but the code only checks for a positive `move` (price change) without explicitly accounting for both conditions.\n     - Line: `if history.is_empty(): return Signal(information_available_at=stamp, weights={})`\n\n2. **Potential Failures**:\n   - The strategy might fail if there are no significant price movements or if the top symbols do not meet the criteria after filtering.\n     - Line: `top_symbols = (moves.sort(\"rel_move\", descending=True).select(pl.col(\"symbol\")).head(5).to_list()[0])`\n\n3. **Fragile Parameters**:\n   - The window size is hardcoded to 20, which might be too small or large for different markets.\n     - Line: `self._window = 20`\n   - The filtering of symbols based on the top 5 may not always yield meaningful results if there are fewer than 5 qualifying symbols.\n     - Line: `if moves.height < 5:`\n\n4. **Potential Issues in Running**:\n   - The function `_latest_visible` assumes that `view.history()` returns a DataFrame with a column named \"session_date\".\n     - Line: `newest = visible[\"session_date\"].max()`\n   - The use of dense ranking might not always provide meaningful results if the data is too noisy.\n     - Line: `(pl.col(\"volume\") / pl.col(\"volume\").mean()).rank(method=\"dense\").alias(\"vol_rank\")`\n\nIn summary, while the strategy conceptually aligns with its rationale, it lacks robustness in handling various market conditions and might require more nuanced parameter tuning and additional validation steps to ensure reliable performance."
+  ],
+  "seconds": 36.25039939999988,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 333
+}

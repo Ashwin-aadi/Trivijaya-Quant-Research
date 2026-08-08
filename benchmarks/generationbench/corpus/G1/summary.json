@@ -1,0 +1,23 @@
+{
+  "arm": "G1",
+  "paradigm": "G1_plain",
+  "updated_at_utc": "2026-08-07T12:30:08Z",
+  "requested": 830,
+  "completed": 830,
+  "usable": 830,
+  "trials_before_this_sitting": 506,
+  "trials_after": 844,
+  "seconds_this_sitting": 4741.586357799999,
+  "draws_this_sitting": 330,
+  "tokens": {
+    "G1_plain": {
+      "prompt_tokens": 421269,
+      "output_tokens": 164120,
+      "calls": 338,
+      "draws": 330,
+      "accepted": 330,
+      "output_tokens_per_accepted": 497.3333333333333
+    }
+  },
+  "fitness": null
+}

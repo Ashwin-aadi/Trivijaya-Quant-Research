@@ -1,0 +1,26 @@
+{
+  "index": 268,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Reversion to the mean suggests that prices which have moved significantly away \"\n        \"from their average level over a period will likely return. This strategy exploits \"\n        \"this tendency by selling stocks that are far from their mean and buying those that \"\n        \"are close, based on their recent price levels.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n\n        if closes.height < self._window or len(closes.columns) <= 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in closes.columns]\n        mean_close = (\n            closes.select(pl.col(symbols).mean().alias(\"mean\"))\n            .with_columns(\n                (pl.col(symbols) - pl.col(\"mean\")).abs().rank(method=\"dense\", descending=False).alias(\"deviation_rank\")\n            )\n            .select(\"deviation_rank\")\n            .to_series()\n        )\n\n        sorted_mean_close = mean_close.to_list()\n\n        weights: dict[str, float] = {}\n        for symbol in symbols:\n            rank = sorted_mean_close.index(symbol)\n            if rank < self._window // 4 or rank > 3 * self._window // 4:\n                continue\n            weight = (1.0 / len(symbols)) * ((self._window - rank) / self._window)\n            weights[symbol] = weight\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3993,
+    "output_tokens": 1352
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy, `Reversion20d`, generally aligns with its rationale of mean reversion but has several issues and potential improvements:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states that the strategy exploits \"this tendency by selling overbought stocks and buying oversold ones.\" However, the code calculates a rank based on the absolute deviation from the mean divided by 2, which is not directly indicative of overbought or oversold conditions. Instead, it ranks stocks based on their distance from the mean.\n\n2. **Potential Failures**:\n   - The logic in generating weights is flawed: `weight = (1.0 / len(symbols)) * ((self._window - rank) / self._window)` does not effectively implement a mean reversion strategy. Instead, it assigns equal weights adjusted by the rank, which could lead to all symbols having similar weights regardless of their ranks.\n   - The condition `if rank < self._window // 4 or rank > 3 * self._window // 4:` is unnecessary and potentially misleading.\n\n3. **Fragile Parameters**:\n   - The window size (`20`) might be too small for meaningful statistical analysis, especially if the data does not cover a sufficient period.\n   - The `mean_close` calculation uses an arithmetic mean which might not accurately reflect the distribution of prices over the period.\n\n4. **Potential Stops**:\n   - If `view.closes()` returns fewer than 20 observations, the code will return an empty weights dictionary without providing any error or warning.\n   - The function `_latest_visible(view)` assumes that the view contains a column named \"session_date\", which might not always be the case.\n\n5. **Sound Parts**:\n   - The overall structure of using `MarketView` and `Strategy` classes is sound, and the use of Polars for data manipulation is appropriate.\n   - The calculation of ranks based on deviations from the mean could theoretically work if adjusted properly to reflect overbought/oversold conditions.\n\nTo improve this strategy, consider revising the weight assignment logic and ensuring that the window size is appropriate for the dataset."
+  ],
+  "seconds": 34.91619879999962,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 544
+}

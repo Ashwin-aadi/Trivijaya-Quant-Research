@@ -1,0 +1,27 @@
+{
+  "index": 46,
+  "paradigm": "G4_planning",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalityEffect(Strategy):\n    rationale = (\n        \"The 'January Effect' in the Indian market suggests that stocks often outperform \"\n        \"in January due to liquidity constraints and tax considerations. This strategy aims \"\n        \"to capitalize on this seasonal trend by going long on a diversified portfolio of \"\n        \"equities from early January until mid-February.\"\n    )\n\n    def __init__(self, start_date: date = date(2020, 1, 1), end_date: date = date(2024, 2, 15)) -> None:\n        self._start_date = start_date\n        self._end_date = end_date\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        if stamp < self._start_date or stamp > self._end_date:\n            return Signal(information_available_at=stamp, weights={})\n\n        history = view.history(lookback=365)\n        symbols = [s for s in view.symbols if s in history.columns]\n\n        if len(symbols) < 30:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=365).select(symbols)\n\n        # Compute historical returns\n        returns = (closes[\"2024-01\"] / closes[symbols[0]].shift(365) - 1.0).to_series()\n        ranked_stocks = returns.argsort().rank(method=\"dense\", descending=True).to_list()\n\n        top_n_stocks = [symbols[i] for i in ranked_stocks[:30]]\n        weight = 1.0 / len(top_n_stocks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_n_stocks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalityEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2525,
+    "output_tokens": 953
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To leverage seasonality in the Indian equity market, we can focus on monthly patterns such as the \"January Effect,\" where stocks often outperform in January. The economic mechanism is believed to be driven by liquidity constraints and tax considerations for investors, leading to increased buying activity at the start of the year. This effect might persist due to behavioral biases among investors.\n\nThe trading rule would involve going long on a diversified portfolio of equities in early January and holding until mid-February, when the market typically experiences a selling-off period. Post-holiday sentiments and improved macroeconomic data often support stock prices during this window. This strategy aims to capitalize on the seasonal trend by aligning trades with periods of higher returns while minimizing exposure during the expected correction.",
+    "For this systematic equity strategy focusing on the January Effect in the Indian market, there isn't a direct computation of signals from daily open, high, low, close, and volume data. Instead, the signal is derived from macroeconomic observations and historical price behavior:\n\n1. **Lookback Period**: The lookback period would span at least one year to capture the historical performance around January.\n2. **Signal Computation**: On each day in early January (e.g., from 1st to 15th), the strategy evaluates past returns of a diversified portfolio of equities over the previous year, focusing on how stocks performed leading into and during January.\n3. **Ranking**: Stocks are ranked based on their historical outperformance in January compared to other months. Those with higher past January returns are prioritized for inclusion in the long position.\n\nThis ranking does not directly involve daily OHLCV data but uses historical performance as a proxy signal to inform the portfolio selection process during the January period.",
+    "For this strategy, a diversified portfolio of approximately 30-50 stocks is recommended to hold in early January. These stocks are selected based on their historical outperformance during January. Each stock can be weighted equally or according to its past performance ranking. Position sizing should aim for an equal allocation, with each position representing about 2% to 3% of the total portfolio value to limit individual stock risk. Risk management includes setting stop-loss orders at around -5% to -10% below the entry price to control potential losses, ensuring that the overall portfolio risk remains within acceptable limits."
+  ],
+  "seconds": 29.110413299997163,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 48
+}

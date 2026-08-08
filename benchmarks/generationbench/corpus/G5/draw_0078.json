@@ -1,0 +1,26 @@
+{
+  "index": 78,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Identifying stocks that outperform the broader market can provide excess returns. \"\n        \"This strategy selects the top N performing stocks based on their cumulative return against the market index.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        market_index = view.symbols[0]\n        index_closes = [float(v) for v in view.closes()[market_index].drop_nulls().to_list()]\n        if len(index_closes) < self._window or not all(isinstance(x, (int, float)) for x in index_closes):\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_returns: dict[str, float] = {}\n        for symbol in view.symbols[1:]:\n            if symbol not in history.columns:\n                continue\n            symbol_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(symbol_closes) < self._window or not all(isinstance(x, (int, float)) for x in symbol_closes):\n                continue\n\n            cumulative_return = (symbol_closes[-1] / index_closes[0]) - 1.0\n            symbol_returns[symbol] = cumulative_return\n\n        sorted_symbols = sorted(symbol_returns.items(), key=lambda x: x[1], reverse=True)\n        picks = [s for s, _ in sorted_symbols[: self._top_n]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4076,
+    "output_tokens": 1461
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy, `RelativeStrength`, generally aligns with its rationale of identifying stocks outperforming a market index over a specified window. However, there are several issues and potential improvements:\n\n1. **Rationale vs. Implementation Mismatch**: The rationale states that the strategy should select \"top N performing stocks based on their cumulative return against the market index.\" The implementation correctly calculates cumulative returns but does not explicitly ensure that these calculations are relative to a benchmark (market index). This could be improved by directly comparing each stock's performance to the market index.\n\n2. **Fragility of Parameters**:\n   - `window`: The choice of 20 is arbitrary and may need tuning based on historical data. This parameter influences the lookback period for returns calculation.\n   - `top_n`: Setting it to 5 might be too static, as different markets or time periods could benefit from a different number.\n\n3. **Potential Failure Scenarios**:\n   - Line 16: If `history.height < self._window`, the function immediately returns an empty signal, which may not always be ideal depending on the context.\n   - Lines 20-25: These lines handle missing data by continuing only if there are enough non-null closes. However, if there's a gap in market index data for the entire period, it might fail.\n\n4. **Code Fragilities**:\n   - Line 17 uses `history.columns` which may include non-trading symbols or duplicates.\n   - The function does not handle cases where all selected stocks perform poorly relative to the market index.\n   - It assumes that `view.closes()` returns a valid structure with numeric values.\n\n5. **Additional Considerations**:\n   - Incorporate a check for the existence of the market index in the view (line 20).\n   - Ensure robust error handling, especially around division by zero or invalid data types.\n   - Validate input data integrity before processing.\n\nOverall, while the strategy conceptually aligns with its rationale, it could benefit from more rigorous validation and parameter tuning to ensure robust performance across different market conditions."
+  ],
+  "seconds": 37.20054849999997,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 159
+}

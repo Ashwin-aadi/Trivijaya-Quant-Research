@@ -1,0 +1,23 @@
+{
+  "index": 623,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"By combining volume anomalies with recent price momentum, we aim to identify \"\n        \"potentially overbought or oversold stocks that could reverse in the near future.\"\n    )\n\n    def __init__(self, window1: int = 20, window2: int = 5) -> None:\n        self._window1 = window1\n        self._window2 = window2\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window1 + self._window2)\n\n        if history.is_empty() or history.height < self._window1 + self._window2:\n            return Signal(information_available_at=stamp, weights={})\n\n        volumes = [float(v) for v in history[\"volume\"].to_list()]\n        closes = view.closes(lookback=self._window2)\n        close_values = {symbol: float(close) for symbol, close in closes.to_dict().items()}\n\n        momentum_symbols = []\n        for symbol in view.symbols:\n            if symbol not in close_values or len(volumes) < self._window1 + self._window2:\n                continue\n            recent_closes = [close_values[symbol]]\n            if len(recent_closes) < self._window2:\n                continue\n            if (recent_closes[-1] - recent_closes[0]) / recent_closes[0] > 0.05:\n                momentum_symbols.append(symbol)\n\n        volume_symbols = []\n        for symbol in view.symbols:\n            if len(volumes) < self._window1 + self._window2 or volumes[-1] == 0:\n                continue\n            if (\n                max(volumes[self._window1 :]) / volumes[-1]\n                > (max(volumes[:self._window1]) / volumes[-1])\n                * 1.5\n            ):\n                volume_symbols.append(symbol)\n\n        potential_symbols = set(momentum_symbols).intersection(set(volume_symbols))\n        if not potential_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(potential_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in potential_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 580
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.67888920000405,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 634
+}

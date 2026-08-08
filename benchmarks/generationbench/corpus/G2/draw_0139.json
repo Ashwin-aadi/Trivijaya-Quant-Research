@@ -1,0 +1,23 @@
+{
+  "index": 139,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression occurs when the high-low range of a stock's price narrows over \"\n        \"a period. This can indicate that extreme prices are being bid away or sold at a more \"\n        \"efficient rate, suggesting an upcoming breakout in either direction. By identifying \"\n        \"such stocks, we aim to benefit from the subsequent price action.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or len(history[symbol].unique()) < 2:\n                continue\n            high_low_range = (\n                (history[f\"{symbol}_high\"] - history[f\"{symbol}_low\"])\n                .sort(descending=True)\n                .head(1)[0]\n            )\n            recent_high_low_ratio = (\n                history[f\"{symbol}_close\"].max() / history[f\"{symbol}_close\"].min()\n            )\n\n            if high_low_range < 0.5 * (history[f\"{symbol}_high\"] - history[f\"{symbol}_low\"]).mean():\n                picks.append(symbol)\n\n        picks = picks[:10]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 459
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.695319999998901,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 143
+}

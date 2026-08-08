@@ -1,0 +1,27 @@
+{
+  "index": 165,
+  "paradigm": "G4_planning",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"The systematic equity trading strategy focuses on low-volatility tilting, exploiting the empirical observation that low-volatility stocks tend to outperform high-volatility stocks over time. By systematically selecting stocks with lower historical volatility and maintaining exposure to the broader market, this approach aims to capture persistent risk-adjusted returns while minimizing exposure to extreme market fluctuations.\"\n    )\n\n    def __init__(self, lookback_window: int = 12 * 5, top_quintile_size: int = 20) -> None:\n        self._lookback_window = lookback_window\n        self._top_quintile_size = top_quintile_size\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"returns\")\n            )\n            .sort(\"session_date\", descending=False)\n            .drop_nulls(subset=[\"symbol\"])\n        )\n\n        # Compute trailing 12-month volatility\n        volatilities = (\n            history.groupby(\"symbol\").agg(\n                (pl.col(\"returns\") ** 2.0).mean().alias(\"variance\"),\n                ((pl.col(\"returns\") - pl.col(\"returns\").mean()).pow(2)).sum().alias(\"total_variance\")\n            )\n            .with_columns(\n                (pl.col(\"total_variance\") / self._lookback_window).alias(\"volatility\")\n            )\n        )\n\n        # Rank by volatility\n        ranked = volatilities.sort(by=\"volatility\", descending=False)\n\n        if ranked.height < self._top_quintile_size:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_stocks = [symbol for symbol in ranked.slice(0, self._top_quintile_size)[\"symbol\"].to_list()]\n        weight_per_stock = 1.0 / len(top_stocks)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                s: weight_per_stock\n                for s in top_stocks\n            }\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2481,
+    "output_tokens": 1018
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy for the Indian market focuses on low-volatility tilting, exploiting the empirical observation that low-volatility stocks tend to outperform high-volatility stocks over time. This phenomenon is supported by various academic studies, such as those by Fama and French, which suggest that low-volatility stocks exhibit better risk-adjusted returns due to lower downside risk.\n\nThe strategy involves constructing a portfolio that systematically selects stocks with lower historical volatility while maintaining exposure to the broader market. The rule could be defined as follows: at the beginning of each month, rank all stocks in the Indian market by their trailing 12-month volatility and allocate capital proportionally to the lowest-volatility quintile, rebalancing monthly.\n\nThis approach aims to capture the persistent risk-reward relationship between low-volatility and high returns while minimizing exposure to extreme market fluctuations.",
+    "The signal for this systematic equity strategy is based on the trailing 12-month volatility of stocks. Daily open, high, low, close, and volume data are used to compute historical price returns, which in turn are used to calculate volatility over a 12-month lookback period. On a given day, all Indian market stocks are ranked by their calculated 12-month trailing volatility. The lowest-volatility quintile of stocks is then selected as candidates for the portfolio, and capital allocation is made proportionally among these stocks at the beginning of each month. This ranking and selection process ensure that the strategy systematically tilts towards low-volatility stocks to exploit their empirically observed risk-adjusted performance.",
+    "The strategy holds positions in the lowest-volatility quintile of Indian market stocks, typically around 20-25 names. Positions are weighted proportionally to each stock's weight in this quintile. The portfolio is rebalanced monthly to maintain low-volatility exposure. Risk limits include setting a maximum loss threshold, such as limiting drawdowns to no more than 10% over any single month to protect against extreme market events while capturing the risk-reward benefits of low-volatility stocks."
+  ],
+  "seconds": 30.322239699999045,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 168
+}

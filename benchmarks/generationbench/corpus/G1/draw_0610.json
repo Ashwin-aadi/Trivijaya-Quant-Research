@@ -1,0 +1,23 @@
+{
+  "index": 610,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Historical data suggests that certain stocks exhibit higher returns during specific times \"\n        \"of the year due to seasonal effects or calendar anomalies. By identifying such patterns, we can \"\n        \"anticipate favorable market conditions and allocate capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 20, seasons: list[str] = [\"Q1\", \"Q2\"]) -> None:\n        self._window = window\n        self._seasons = seasons\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or len(closes.columns) != 101:\n            return Signal(information_available_at=stamp, weights={})\n\n        season_map = {date(2024, month, day).timetuple().tm_yday: season\n                      for season in self._seasons\n                      for month in range(3, 7) if (month == 3 and day >= 16) or (month != 3 and day <= 30)}\n        season_close_prices = {symbol: [] for symbol in view.symbols}\n\n        for i in range(self._window):\n            session_date = stamp - date.timedelta(days=i)\n            session_closes = view.closes(session_date=session_date)\n\n            if len(session_closes.columns) != 101:\n                continue\n\n            for symbol in view.symbols:\n                close_price = float(session_closes[symbol].to_list()[0])\n                season_close_prices[symbol].append(close_price)\n\n        seasonal_returns: dict[str, float] = {}\n        for symbol, closes in season_close_prices.items():\n            if len(closes) < self._window:\n                continue\n            for i in range(len(closes)):\n                current_close = closes[i]\n                next_close = closes[(i + 1) % len(closes)]\n                return_ = (next_close - current_close) / current_close\n                season = season_map.get(i, \"Other\")\n                if season not in seasonal_returns:\n                    seasonal_returns[season] = []\n                seasonal_returns[season].append(return_)\n\n        top_season = max(seasonal_returns.keys(), key=lambda s: sum(seasonal_returns[s]))\n        picks = [symbol for symbol in view.symbols\n                 if any(closes[-1] >= max(closes) - 0.05 for closes in season_close_prices.values())]\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 664
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 18.200450800010003,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 623
+}

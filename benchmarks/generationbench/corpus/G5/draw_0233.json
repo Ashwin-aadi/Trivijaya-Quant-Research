@@ -1,0 +1,26 @@
+{
+  "index": 233,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakouts that continue to new highs after an initial breakout indicate strong \"\n        \"momentum and potential for further gains. This strategy identifies such breakouts.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < (self._window + 1) * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = []\n        for symbol in view.symbols:\n            history = view.history(symbol=symbol).sort(\"session_date\")\n            session_dates = [d.to_pydatetime().date() for d in history[\"session_date\"].to_list()]\n            close_prices = history[\"adj_close\"].to_list()\n            if len(close_prices) < self._window + 1:\n                continue\n\n            breakout_day = max(range(self._window), key=lambda i: close_prices[i])\n            if (breakout_day == self._window - 1 or\n                    close_prices[breakout_day] >= max(close_prices[:breakout_day])):\n                next_day_price = close_prices[breakout_day + 1]\n                if next_day_price > max(close_prices[breakout_day:]):\n                    breakout_symbols.append(symbol)\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3926,
+    "output_tokens": 1290
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy generally aligns well with its rationale but has some potential issues and areas for improvement:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states that breakouts continuing to new highs indicate strong momentum, but the code only checks if there is a breakout on the last day of the lookback period (`breakout_day == self._window - 1`). This does not fully capture the continuous continuation aspect. Specifically, line `18` could be improved by ensuring the price continues to rise after the initial breakout.\n\n2. **Potential Failures**:\n   - Line `35`: The check for `if (breakout_day == self._window - 1 or close_prices[breakout_day] >= max(close_prices[:breakout_day])):` is overly restrictive and might miss valid breakouts where prices rise slightly after the initial day. A more robust approach would be to ensure that prices continue to rise in subsequent days.\n\n3. **Fragile Parameters**:\n   - The parameter `window` (line `7`) could be too short for some markets, potentially missing significant breakouts. It might be beneficial to allow dynamic adjustment or validation of this window size based on historical data.\n   - The code assumes that the history is sorted and complete (line `31`). If there are missing dates or incomplete data, this could lead to incorrect conclusions.\n\n4. **Potential Issues for Running**:\n   - Line `25`: Ensure `view.history(symbol=symbol).sort(\"session_date\")` always returns a Polars DataFrame with session date information.\n   - Line `26`: Ensure that the history contains at least one full window of data, or handle cases where it does not.\n\nOverall, the strategy is sound in its core logic but could benefit from more detailed checks and parameter tuning to ensure robustness."
+  ],
+  "seconds": 33.74042279999958,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 472
+}

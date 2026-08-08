@@ -1,0 +1,23 @@
+{
+  "index": 548,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves can indicate strong trends. A significant increase \"\n        \"in volume on a price move suggests that the market is willing to put capital behind \"\n        \"that direction, potentially leading to continuation of the trend.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_change_signal = (history[\"volume\"] / history[\"volume\"].shift(1) - 1.0).alias(\"vol_chg\")\n        price_move_signal = (history[\"adj_close\"] / history[\"adj_close\"].shift(1) - 1.0).alias(\"price_move\")\n        \n        combined_signal = (\n            history.with_columns(volume_change_signal, price_move_signal)\n                   .filter((pl.col(\"vol_chg\") > 0.25) & (pl.col(\"price_move\") > 0.01))\n                   .sort(\"session_date\", descending=True)\n                   .group_by(\"symbol\")\n                   .agg(pl.count().alias(\"count\"))\n                   .filter(pl.col(\"count\") >= self._window / 2)\n        )\n\n        if combined_signal.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [row[\"symbol\"] for row in combined_signal.to_dicts()]\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 465
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.944543300000078,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 557
+}

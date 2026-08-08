@@ -1,0 +1,23 @@
+{
+  "index": 674,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySFTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to capture trends by adjusting the size of \"\n        \"positions based on recent volatility. High volatility periods suggest that a strong \"\n        \"trend is likely, while low volatility indicates a period of consolidation or range \"\n        \"bound trading. By scaling positions according to historical volatility, the strategy \"\n        \"can potentially benefit from trending markets without being overly exposed during \"\n        \"periods of mean reversion.\"\n    )\n\n    def __init__(self, window: int = 20, scale_factor: float = 1.5) -> None:\n        self._window = window\n        self._scale_factor = scale_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        price_changes = (\n            (history[\"adj_close\"].to_list()[1:] / history[\"adj_close\"].to_list()[:-1] - 1.0).alias(\"daily_return\")\n        )\n        history = history.with_columns(price_changes)\n\n        # Compute rolling mean and standard deviation of returns for volatility scaling\n        mean_returns = pl.DataFrame(history.sort(\"session_date\").tail(self._window)[\"daily_return\"]).with_columns(\n            (pl.col(\"daily_return\").mean().over([0]).alias(\"mean_return\"))\n        )\n        std_dev_returns = (\n            history.select(pl.col(\"daily_return\")).rolling_window(2, 1).std().sort(\"session_date\").tail(self._window)\n        ).with_columns((pl.col(\"daily_return_std\").shift(-1)).fill_null(0.0).alias(\"std_dev_return\"))\n\n        combined = mean_returns.join(std_dev_returns, on=\"session_date\")\n        recent_close = view.latest_close()\n        \n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in combined.columns or symbol not in recent_close.keys():\n                continue\n            daily_return = recent_close[symbol] - history[history[\"symbol\"] == symbol][\"adj_close\"].item() / 100.0\n            std_dev = float(combined[combined[\"symbol\"] == symbol][\"std_dev_return\"])\n            mean_return = float(combined[combined[\"symbol\"] == symbol][\"mean_return\"])\n\n            # Scale position based on volatility\n            scaled_factor = self._scale_factor * (daily_return - mean_return) / std_dev\n            if scaled_factor > 0:\n                signals[symbol] = min(scaled_factor, 1.0)\n\n        return Signal(information_available_at=stamp, weights={s: w for s, w in signals.items() if w > 0})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilitySFTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 689
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 16.416537800003425,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 685
+}

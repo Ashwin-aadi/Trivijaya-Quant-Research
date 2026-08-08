@@ -1,0 +1,26 @@
+{
+  "index": 8,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong buying or selling pressure. \"\n        \"By identifying such moves, we can capitalize on the continuation of trends.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 0.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            symbol_history = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            open_values = [float(v) for v in symbol_history[\"open\"].to_list()]\n            close_values = [float(v) for v in symbol_history[\"close\"].to_list()]\n            volume_values = [float(v) for v in symbol_history[\"volume\"].to_list()]\n\n            if len(open_values) < self._window:\n                continue\n\n            direction = 1.0 if close_values[-1] > open_values[0] else -1.0\n            avg_volume = sum(volume_values) / self._window\n\n            # Volume confirmation check\n            max_volume = max(volume_values)\n            volume_confirm = max_volume >= self._threshold * avg_volume\n\n            if direction == 1 and volume_confirm:\n                signals[symbol] = direction\n            elif direction == -1 and volume_confirm:\n                signals[symbol] = direction\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_directions = sum(signals.values())\n        weight_per_symbol = 1.0 / len(signals) * abs(total_directions)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight_per_symbol if direction > 0 else -weight_per_symbol\n                for symbol, direction in signals.items()\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4091,
+    "output_tokens": 1460
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears well-structured with a clear rationale for identifying volume-confirmed directional moves to capitalize on trends. However, there are several potential issues:\n\n1. **Potential Logic Flaws:**\n   - Line 24: The `direction` calculation uses the first open value and the last close value. If the market opens higher than it closes (or vice versa), this could lead to incorrect direction assignments.\n   - Lines 30-35: The volume confirmation check assumes that at least one daily volume in the window is above a threshold multiple of average volume, which might not always align with strong trend continuation.\n\n2. **Fragile Parameters:**\n   - Line 19 (`threshold`): Setting an absolute volume threshold might be too strict or too lenient depending on market conditions and symbols.\n   - Line 14 (`window`): The choice of window length is crucial; a shorter window may capture noise, while a longer one might miss short-term trends.\n\n3. **Potential Issues with Running:**\n   - Lines 27-39: Converting `open`, `close`, and `volume` columns to lists of floats assumes these are numeric types. This could fail if any of these values are non-numeric.\n   - Line 41: The assumption that the direction is solely based on the last close value compared to the first open value might miss significant intraday patterns.\n\n4. **Assumptions and Robustness:**\n   - The rationale suggests strong buying or selling pressure, but the implementation only checks for price movement with volume confirmation.\n   - The `Signal` class handling (Lines 51-60) could be more robust; currently, it returns an empty weights dictionary if no signals are found.\n\nOverall, while the strategy aims to identify strong directional moves confirmed by volume, its implementation has some potential pitfalls and assumptions that need careful consideration."
+  ],
+  "seconds": 37.287399299999834,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 18
+}

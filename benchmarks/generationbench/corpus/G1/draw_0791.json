@@ -1,0 +1,23 @@
+{
+  "index": 791,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeBreakoutAndVolatility(Strategy):\n    rationale = (\n        \"This strategy combines volume breakout with historical volatility to identify \"\n        \"high-activity stocks that are likely experiencing a significant price movement.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        high_volume_symbols = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            volume_history = [float(v) for v in history[f\"{symbol}.volume\"].to_list()]\n            adj_close_history = [float(v) for v in history[f\"{symbol}.adj_close\"].to_list()]\n\n            if len(volume_history) < self._window or len(adj_close_history) < self._window:\n                continue\n\n            volume_mean = pl.DataFrame({\"v\": volume_history}).select(\n                (pl.col(\"v\").mean()).alias(\"volume_mean\")\n            ).height\n            adj_close_mean = pl.DataFrame({\"c\": adj_close_history}).select(\n                (pl.col(\"c\").mean()).alias(\"adj_close_mean\")\n            ).height\n\n            if volume_mean == 0 or adj_close_mean == 0:\n                continue\n\n            daily_returns = [\n                ((adj_close_history[i + 1] - adj_close_history[i]) / adj_close_history[i])\n                for i in range(len(adj_close_history) - 1)\n            ]\n            volatility = (sum([abs(ret) for ret in daily_returns]) / len(daily_returns)) * 100\n\n            if volume_history[-1] > volume_mean and volatility > 3:\n                high_volume_symbols.append(symbol)\n\n        high_volume_symbols = high_volume_symbols[: self._top_n]\n        if not high_volume_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(high_volume_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in high_volume_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeBreakoutAndVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 582
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.567001399991568,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 806
+}

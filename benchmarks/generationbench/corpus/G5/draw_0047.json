@@ -1,0 +1,26 @@
+{
+  "index": 47,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines 20-day mean reversion with a recent volatility factor to identify \"\n        \"stocks that are both likely to revert and exhibit high recent volatility. The combination \"\n        \"aims to capture opportunities in volatile markets.\"\n    )\n\n    def __init__(self, window_mean_reversion: int = 20, top_n: int = 5) -> None:\n        self._window_mean_reversion = window_mean_reversion\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window_mean_reversion)\n\n        if history.height < self._window_mean_reversion:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_reversion_scores = {}\n        volatility_scores = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.symbol.to_list():\n                continue\n\n            closes = [float(v) for v in history.filter(pl.col(\"symbol\") == symbol)[\"adj_close\"].to_list()]\n            if len(closes) < self._window_mean_reversion:\n                continue\n\n            mean_reversion = (closes[-1] - sum(closes) / len(closes)) / abs(sum(closes) / len(closes))\n            mean_reversion_scores[symbol] = mean_reversion\n\n            volatility = pl.col(\"adj_close\").std().alias(\"v\")\n            volatility_scores[symbol] = float(volatility)\n\n        sorted_mean_reversion = sorted(mean_reversion_scores.items(), key=lambda x: abs(x[1]), reverse=True)\n        sorted_volatility = sorted(volatility_scores.items(), key=lambda x: abs(x[1]), reverse=True)\n\n        selected_symbols = set()\n        for symbol, mean_reversion in sorted_mean_reversion:\n            if len(selected_symbols) >= self._top_n:\n                break\n            if volatility_scores[symbol] < 0.5:\n                continue\n            selected_symbols.add(symbol)\n\n        weight = 1.0 / max(1, len(selected_symbols))\n        return Signal(information_available_at=stamp, weights={s: weight for s in selected_symbols})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4199,
+    "output_tokens": 1537
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy code generally aligns well with its rationale but has a few areas for improvement and potential issues:\n\n1. **Rationale vs Code Discrepancies**:\n   - The rationale mentions combining \"20-day mean reversion\" with a \"recent volatility factor,\" yet the code does not explicitly mention 20 days or recent volatility (line 34-37). Instead, it calculates mean reversion and volatility over an unspecified period.\n\n2. **Fragile Parameters**:\n   - The `window_mean_reversion` parameter is hard-coded in the calculation of mean reversion but used as a variable in the overall strategy logic. This inconsistency could lead to confusion (line 15).\n   - The `top_n` parameter limits the number of selected symbols, but it doesn't ensure that volatility scores are above a threshold, which contradicts the rationale's emphasis on \"high recent volatility\" (lines 46-49).\n\n3. **Potential Failures**:\n   - If `history.height < self._window_mean_reversion` is true and no data is available for some symbols, those symbols will be skipped without generating any signals (line 29).\n   - The strategy assumes that volatility scores are always positive or at least not zero, but this isn't checked explicitly. Negative or zero volatility could cause issues.\n\n4. **Stops It from Running**:\n   - The `view.history()` call might return an empty DataFrame if there's no historical data available for the symbols (line 32). This would lead to incorrect or missing signals.\n   - The `pl.col(\"adj_close\").mean().alias(\"m\")` and `pl.col(\"adj_close\").std().alias(\"v\")` lines assume that the \"adj_close\" column exists and contains valid data, which could fail if the DataFrame is corrupted.\n\nOverall, while the strategy's core logic aligns with its rationale, there are inconsistencies in parameter usage and potential issues around edge cases that need to be addressed."
+  ],
+  "seconds": 38.79460419999941,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 97
+}

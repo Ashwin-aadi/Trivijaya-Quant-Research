@@ -1,0 +1,23 @@
+{
+  "index": 734,
+  "paradigm": "G1_plain",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySFTrendFollow(Strategy):\n    rationale = (\n        \"Volatility-scaled trend-following strategies aim to capture trends while \"\n        \"adjusting the position size based on recent volatility. High volatility can \"\n        \"indicate that a new trend is forming or that price action is becoming more \"\n        \"jittery, leading to larger positions in trending markets.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility_scaled_positions: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            # Calculate daily returns\n            daily_returns = (pl.Series(values).shift_and_fill(1, 0) / pl.Series(values) - 1.0).to_list()[1:]\n\n            # Calculate rolling volatility\n            rolling_volatility = (pl.Series(daily_returns).rolling_std(window_length=self._window)).to_list()\n\n            # Trend direction: positive or negative\n            trend_direction = \"bullish\" if daily_returns[-1] > 0 else \"bearish\"\n\n            # Position size based on recent volatility\n            position_size = self._threshold * rolling_volatility[-1]\n\n            volatility_scaled_positions[symbol] = {\n                \"trend\": trend_direction,\n                \"volatility\": rolling_volatility[-1],\n                \"position_size\": position_size\n            }\n\n        if not volatility_scaled_positions:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Determine the net position based on trends and volatility\n        bullish_symbols = {k: v[\"position_size\"] for k, v in volatility_scaled_positions.items() if v[\"trend\"] == \"bullish\"}\n        bearish_symbols = {k: -v[\"position_size\"] for k, v in volatility_scaled_positions.items() if v[\"trend\"] == \"bearish\"}\n\n        net_position = sum(bullish_symbols.values()) + sum(bearish_symbols.values())\n        weight_per_symbol = 1.0 / len(volatility_scaled_positions) if net_position != 0 else 0\n\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                s: (volatility_scaled_positions[s][\"position_size\"] if volatility_scaled_positions[s][\"trend\"] == \"bullish\" else -volatility_scaled_positions[s][\"position_size\"]) * weight_per_symbol\n                for s in view.symbols\n            }\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilitySFTrendFollow",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 714
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 19.437542800005758,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 748
+}

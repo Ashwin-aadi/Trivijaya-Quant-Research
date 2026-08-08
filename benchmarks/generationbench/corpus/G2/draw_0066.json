@@ -1,0 +1,23 @@
+{
+  "index": 66,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"The relative strength (RS) strategy selects stocks that have outperformed the market \"\n        \"over a recent period. Stocks with higher relative strength are expected to continue \"\n        \"outperforming due to strong fundamentals or investor sentiment.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n\n        # Calculate relative strength\n        symbol_strengths: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns or symbol not in history[\"symbol\"]:\n                continue\n\n            close_values = [float(v) for v in closes[symbol].to_list()]\n            if len(close_values) < self._window:\n                continue\n\n            market_close_values = [\n                float(close) for _, close in history.filter(pl.col(\"symbol\") == symbol).rows()\n            ]\n            if len(market_close_values) < self._window:\n                continue\n\n            # Calculate returns\n            stock_returns = [close / prev_close - 1.0 for close, prev_close in zip(close_values[1:], close_values[:-1])]\n            market_returns = [\n                close / prev_close - 1.0 for close, prev_close in zip(market_close_values[1:], market_close_values[:-1])\n            ]\n\n            # Calculate relative strength\n            rel_strength = sum(stock_return > market_return for stock_return, market_return in zip(stock_returns, market_returns))\n            symbol_strengths[symbol] = rel_strength / self._window\n\n        # Sort symbols by their relative strength and select top N\n        sorted_symbols = [\n            (symbol, strength) for symbol, strength in symbol_strengths.items() if strength >= self._threshold\n        ]\n        sorted_symbols.sort(key=lambda x: x[1], reverse=True)\n\n        picks = [symbol for symbol, _ in sorted_symbols[:5]]  # Take top 5\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 635
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.215711600001669,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 69
+}

@@ -1,0 +1,26 @@
+{
+  "index": 285,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Equities with lower historical volatility tend to outperform those with higher \"\n        \"volatility over the long term. By tilting towards low-volatility stocks, we aim to \"\n        \"reduce overall portfolio risk while potentially increasing returns.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        if len(symbols) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatilities: list[float] = []\n        for symbol in symbols:\n            close_prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(close_prices) < 2:\n                continue\n            returns = [(close_prices[i] - close_prices[i-1]) / max(1e-6, close_prices[i-1])\n                       for i in range(1, len(close_prices))]\n            volatility = (sum([r**2 for r in returns]) / len(returns)) ** 0.5\n            volatilities.append(volatility)\n\n        ranked_symbols = [s[0] for s in sorted(zip(symbols, volatilities), key=lambda x: x[1])]\n        top_n_symbols = ranked_symbols[:5]\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3883,
+    "output_tokens": 1278
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to tilt towards low-volatility equities by selecting the top 5 least volatile stocks based on historical volatility over a specified lookback window. Here are some critiques:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale suggests that \"lower historical volatility\" tends to outperform, but the code calculates and ranks by standard deviation (volatility), which might not directly translate to performance outcomes.\n\n2. **Potential Failure Conditions**:\n   - Line 38: If `history` is empty or contains fewer symbols than the window size (`self._window`), the function returns an empty weights dictionary, but it doesn't handle these cases gracefully.\n   - Line 40-41: Filtering symbols from history might miss necessary data if a symbol has insufficient observations.\n\n3. **Fragile Parameters**:\n   - The choice of `top_n_symbols = 5` is hardcoded and could be inappropriate for different market conditions or asset classes.\n\n4. **Potential Issues**:\n   - Line 26: `_latest_visible` function assumes that history will always have a session date, but this might not be the case if data is sparse.\n   - Line 31-35: The volatility calculation and ranking could be more robust by handling edge cases like NaN or zero values in `close_prices`.\n\nOverall, while the strategy's core logic follows the stated rationale, specific implementation details need refinement to ensure robustness and accuracy. Improving error handling and parameter flexibility would enhance its reliability."
+  ],
+  "seconds": 33.46614160000172,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 578
+}

@@ -1,0 +1,27 @@
+{
+  "index": 192,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum strategies exploit the fact that stocks with positive \"\n        \"returns over a recent period are likely to continue outperforming in the near future.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"close\") / pl.col(\"open\").shift(self._window) - 1.0).alias(\"momentum\")\n            )\n            .sort(\"momentum\", descending=True)\n            .group_by(\"symbol\")\n            .agg(pl.col(\"momentum\").mean().alias(\"average_momentum\"))\n        )\n\n        top_symbols = momentum_scores.sort(\"average_momentum\", descending=True).select(\n            pl.col(\"symbol\").head(self._top_n)\n        ).to_dict(as_series=False)[\"symbol\"]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).to_dict(as_series=False)[\"session_date\"]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 5072,
+    "output_tokens": 1688
+  },
+  "calls": 4,
+  "candidates_evaluated": 3,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This systematic equity trading strategy appears to be well-structured and aligns closely with its stated rationale. However, there are a few areas for improvement and potential issues:\n\n1. **Rationale vs. Code**:\n   - The rationale mentions \"outperforming in the near future,\" but the code focuses on historical momentum scores without explicitly considering future performance.\n\n2. **Potential Failures**:\n   - Line 30: If there are no symbols or if `momentum_scores` is empty, it returns an empty weights dictionary. However, a more robust approach would be to handle this edge case by returning a neutral portfolio or a default strategy.\n   - Line 48: The function `_latest_visible` assumes that the maximum date in the history is always valid and can be cast as `date`. While this might not fail in practice, it's better to explicitly check for an empty DataFrame before making assertions.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window`) is hardcoded at 20. This parameter should ideally be configurable or optimized based on backtesting results.\n   - The number of top symbols selected (5) is also hard-coded, which might not always be optimal for different market conditions.\n\n4. **Potential Issues**:\n   - Line 19: If `view.history()` returns an empty DataFrame before the lookback period, it will cause issues in the momentum calculation.\n   - The strategy does not account for transaction costs or slippage, which can significantly impact performance in a real trading environment.\n\nIn summary, while the core logic of selecting top-performing symbols based on historical momentum is sound, improvements could be made to handle edge cases more robustly and to make key parameters configurable."
+  ],
+  "seconds": 44.02778209999997,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 390
+}

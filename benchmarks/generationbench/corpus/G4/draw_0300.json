@@ -1,0 +1,27 @@
+{
+  "index": 300,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum20d(Strategy):\n    rationale = (\n        \"This strategy exploits the tendency for stocks with strong past performance to \"\n        \"continue outperforming in the near future. By ranking stocks based on their \"\n        \"recent returns and selecting top performers, we aim to capture ongoing momentum.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n        )\n\n        # Rank symbols by average return\n        ranked = (\n            history.sort(\"avg_return\", descending=True)\n            .select([\"symbol\", \"avg_return\"])\n            .head(self._top_n)\n        )\n\n        # Convert to weights dictionary\n        picks = [row[\"symbol\"] for row in ranked.rows()]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2394,
+    "output_tokens": 814
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy based on cross-sectional momentum in the Indian market, we will exploit the tendency for stocks with past strong performance to continue outperforming in the near future. This phenomenon is often driven by investor sentiment, market efficiency dynamics, and corporate-specific factors such as earnings reports or management changes.\n\nThe persistence of this effect might stem from investors' behavioral biases and market adjustments lagging behind fundamental changes. To exploit this, we can create a rule-based system that ranks stocks based on their recent performance (e.g., top 20% by return in the last month) and invests in a portfolio of these high-momentum stocks, rebalancing monthly to capture ongoing momentum.\n\nThis approach aims to benefit from the collective overreaction or underreaction of investors to information, thereby generating positive returns.",
+    "The signal for this systematic equity strategy is based on cross-sectional momentum. Daily open, high, low, close prices, and volume are used to compute the return of each stock over a specific lookback period, typically 30 days. On a given day, stocks are ranked by their return in the last month (30 trading days). The top 20% of stocks with the highest returns are selected as candidates for inclusion in the portfolio. This ranking and selection process are performed daily to capture ongoing momentum effects, ensuring that the portfolio is rebalanced monthly to maintain exposure to high-momentum stocks.",
+    "The strategy holds positions in the top 20% of momentum-ranked stocks, which typically amounts to around 20-40 names depending on market conditions. Each stock is weighted equally within the portfolio, ensuring a balanced exposure. To manage risk, position size is limited such that no single stock can contribute more than 5% to the overall portfolio value. Additionally, the strategy aims to limit maximum drawdown to 10% over any one-month period to safeguard against significant losses."
+  ],
+  "seconds": 26.334258999995654,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 305
+}

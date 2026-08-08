@@ -1,0 +1,23 @@
+{
+  "index": 746,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySCTF(Strategy):\n    rationale = (\n        \"Trend following strategies exploit long-term trends by buying assets that have been \"\n        \"on an upward trend and selling those on a downward trend. However, the effectiveness \"\n        \"of these strategies can be enhanced by scaling trades based on volatility to reduce \"\n        \"risk during volatile periods.\"\n    )\n\n    def __init__(self, window: int = 30, vol_window: int = 20) -> None:\n        self._window = window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._vol_window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"].to_list()\n        symbols = [s for s in view.symbols if s in closes]\n\n        volatilities: dict[str, float] = {\n            symbol: _calculate_volatility(closes[history.get_column(symbol).to_list()[-self._vol_window :]])\n            for symbol in symbols\n        }\n\n        trends: dict[str, int] = {\n            symbol: _trend_direction(closes[history.get_column(symbol).to_list()[1 : self._window + 1]]) for symbol in symbols\n        }\n\n        signal_weights: dict[str, float] = {}\n\n        for symbol in symbols:\n            if abs(trends[symbol]) == 1 and volatilities[symbol] > 0.5 * max(volatilities.values()):\n                weight = 1.0 / len(symbols)\n                signal_weights[symbol] = weight if trends[symbol] == 1 else -weight\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in signal_weights.items() if w != 0}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_volatility(closes: list[float]) -> float:\n    returns = [c / closes[i - 1] - 1.0 for i, c in enumerate(closes) if i > 0]\n    std_dev = (sum(returns) ** 2 / len(returns)) ** 0.5\n    return std_dev\n\n\ndef _trend_direction(closes: list[float]) -> int:\n    changes = [c2 - c1 for c1, c2 in zip(closes[:-1], closes[1:])]\n\n    if all(change > 0 for change in changes):\n        return 1\n    elif all(change < 0 for change in changes):\n        return -1\n    else:\n        return 0",
+  "class_name": "VolatilitySCTF",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 658
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.705391499999678,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 758
+}

@@ -1,0 +1,23 @@
+{
+  "index": 766,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Certain stocks in the Indian market may exhibit stronger performance during specific \"\n        \"calendar periods. This strategy identifies such periods and allocates capital to \"\n        \"performing symbols based on historical seasonality.\"\n    )\n\n    def __init__(self, window: int = 365, lookback: int = 2) -> None:\n        self._window = window\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._lookback - 1)\n        if history.height < self._window + self._lookback - 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            mean_close = sum(closes[-self._window:]) / self._window\n            last_period_close = closes[-1]\n            score = (last_period_close - mean_close) / mean_close\n            seasonal_scores[symbol] = score\n\n        sorted_symbols = [\n            s for _, s in sorted(seasonal_scores.items(), key=lambda item: item[1], reverse=True)\n        ]\n        picks = sorted_symbols[: self._lookback]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 462
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.206781900007627,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 781
+}

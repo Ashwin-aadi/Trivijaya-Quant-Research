@@ -1,0 +1,23 @@
+{
+  "index": 43,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression occurs when the price movement between high and low \"\n        \"is reduced significantly over a period. This suggests that market sentiment is \"\n        \"becoming less volatile, potentially leading to an accumulation phase where prices \"\n        \"could move in a specific direction. We can identify such periods by comparing daily \"\n        \"ranges with their historical average.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        closes = view.closes(lookback=self._window)\n\n        # Calculate the daily range for each symbol\n        ranges = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"high\") - pl.col(\"low\")).alias(\"range\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"range\").mean().alias(\"avg_range\"))\n        )\n\n        # Calculate the compression factor for each symbol\n        compressed_ranges = (\n            history.with_columns(\n                (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(1)).abs().alias(\"price_diff\"),\n                ((pl.col(\"high\") - pl.col(\"low\")) / ranges[\"avg_range\"]).alias(\"compression\")\n            )\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"price_diff\") > 0).sum().alias(\"trading_days\"),\n                (pl.col(\"compression\") < 1).mean().alias(\"compression_factor\")\n            )\n        )\n\n        # Identify symbols with significant compression\n        picks = compressed_ranges.select(pl.col(\"symbol\")).filter(\n            (pl.col(\"trading_days\") >= self._window) & \n            (pl.col(\"compression_factor\").mean() < 0.5)\n        ).to_series().to_list()\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 592
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.375819200002297,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 46
+}

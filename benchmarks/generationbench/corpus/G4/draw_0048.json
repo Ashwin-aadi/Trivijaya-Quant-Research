@@ -1,0 +1,27 @@
+{
+  "index": 48,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy identifies stocks that have outperformed their peers over a recent \"\n        \"period and invests in them. It relies on the persistence of stock performance, \"\n        \"where high past returns often continue into the future due to factors like firm-specific \"\n        \"events or market sentiment effects.\"\n    )\n\n    def __init__(self, window: int = 250) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"daily_return\")\n            )\n            .sort(\"session_date\", descending=False)\n            .drop_nulls()\n        )\n\n        # Calculate cumulative returns over the lookback period\n        history = (\n            history.with_columns(\n                (pl.col(\"daily_return\").sum()).alias(\"cumulative_return\")\n            )\n            .sort(\"symbol\", \"session_date\", descending=True)\n            .group_by(\"symbol\")\n            .agg(pl.col(\"cumulative_return\").last().alias(\"cumulative_return\"))\n        )\n\n        # Rank stocks by cumulative return\n        ranking = history.sort(\"cumulative_return\", descending=True).to_numpy()\n\n        top_n = 20\n        bottom_n = 15\n\n        long_symbols = [ranking[i][0] for i in range(top_n)]\n        short_symbols = [ranking[i + (top_n + bottom_n)][0] for i in range(bottom_n)]\n\n        if not long_symbols or not short_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_long = 1.0 / len(long_symbols)\n        weight_short = -1.0 / len(short_symbols)\n\n        weights = {s: weight_long for s in long_symbols}\n        for s in short_symbols:\n            if s not in weights:\n                weights[s] = weight_short\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2377,
+    "output_tokens": 959
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The cross-sectional momentum strategy for the Indian equity market involves identifying and investing in stocks that have outperformed over a recent period compared to their peers. The economic mechanism relies on the persistence of stock performance, where high past returns often continue into the future due to factors like firm-specific events or market sentiment effects. This persistence is believed to arise from investor behavior, such as slow price adjustments and herding.\n\nThe rule would select stocks based on a ranking of recent relative strength scores, choosing the top performers for long positions and underperformers for short positions. Weights could be adjusted based on the magnitude of momentum to capitalize on stronger trends. Regular rebalancing ensures that the portfolio adapts to new information and changing market conditions.",
+    "The signal for this cross-sectional momentum strategy involves calculating the relative strength of stocks over a specific lookback period. Daily open, high, low, close, and volume data are used to compute returns or price changes for each stock. Specifically, the daily return (or cumulative return over the lookback period) is calculated for each stock compared to an appropriate benchmark or its peers. \n\nCandidates are then ranked based on their recent relative strength scores, typically using a rolling window of 6 months to 1 year. The top performers in terms of returns are selected for long positions, while underperformers are chosen for short positions. This ranking is done at the end of each trading day to determine the portfolio composition for the next period.",
+    "This cross-sectional momentum strategy recommends holding positions in a selected number of top performers and underperformers, typically around 20-30 names each for long and short positions. Positions are dynamically weighted based on recent relative strength scores, with more weight given to stronger trends. To manage risk, the total portfolio loss is capped at approximately 5% to ensure capital preservation while capturing momentum effects. Regular rebalancing ensures adaptability to market changes."
+  ],
+  "seconds": 29.49963860000571,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 50
+}

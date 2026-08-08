@@ -1,0 +1,27 @@
+{
+  "index": 27,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the liquidity anomaly in Indian equity markets by \"\n        \"screening for stocks based on their trading activity and equally weighting \"\n        \"the selected assets. The economic reasoning behind this is that less liquid \"\n        \"stocks often misprice, offering higher returns due to lower demand from \"\n        \"trading constraints.\"\n    )\n\n    def __init__(self, window: int = 30, threshold: float = 0.1) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        turnover_ratio = (history[\"volume\"] * 2) / (\n            (history[\"high\"] - history[\"low\"]) * view.symbols.count()\n        )\n        liquidity_scores = turnover_ratio.to_list()\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        filtered_symbols = [\n            symbol\n            for symbol, score in zip(symbols, liquidity_scores)\n            if score <= self._threshold\n        ]\n\n        if not filtered_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(filtered_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in filtered_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2303,
+    "output_tokens": 786
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to capitalize on the persistent anomaly in Indian equity markets where smaller, less liquid stocks often outperform their more liquid counterparts over the long term. The economic mechanism involves the mispricing caused by trading constraints, leading to lower demand for illiquid stocks and higher prices for those that are easier to trade.\n\nTo exploit this, we will create a liquidity-screened equal-weighting portfolio. First, screen stocks based on liquidity metrics such as turnover ratio or bid-ask spread. Then, equally weight the selected assets within the screened pool to ensure no single stock dominates the portfolio's performance. This approach aims to capture the premium associated with increased liquidity while maintaining diversification benefits through equal weighting.",
+    "The signal for this strategy involves computing liquidity metrics such as turnover ratio or bid-ask spread using daily open, high, low, close, and volume data. The lookback period should cover at least one month to capture sufficient trading activity. On a given day, candidates are ranked based on these liquidity metrics in ascending order. Lower values of the turnover ratio or higher volume levels indicate greater liquidity. Stocks with better liquidity metrics are selected for inclusion in the portfolio, ensuring equal weighting among the chosen assets to balance between capturing liquidity premiums and maintaining diversification.",
+    "This strategy holds a portfolio of approximately 30-50 equally-weighted stocks to balance between capturing liquidity premiums and maintaining diversification. Each stock within the portfolio is assigned an equal weight of about 2%-4% to limit concentration risk. Position sizing is adjusted based on the number of qualified stocks meeting liquidity criteria, ensuring no single name dominates. Risk limits are set to cap potential daily losses at 1-2% of the portfolio value, safeguarding against excessive drawdowns while capturing the liquidity anomaly in Indian equity markets."
+  ],
+  "seconds": 25.425869600003352,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 28
+}

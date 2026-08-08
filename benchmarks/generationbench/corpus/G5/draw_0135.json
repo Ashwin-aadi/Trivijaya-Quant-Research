@@ -1,0 +1,26 @@
+{
+  "index": 135,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity screening can help identify stocks that are more likely to be traded \"\n        \"without significant price impact. Equal weighting among these liquid stocks can \"\n        \"lead to a balanced portfolio.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        assert self._window > 0 and self._window < 100, \"Window must be between 1 and 99\"\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_screened = (\n            history.groupby(\"symbol\")\n                   .agg([\n                       (pl.col(\"volume\").sum() / pl.col(\"adj_close\").mean()).alias(\"liquidity_score\"),\n                       (pl.col(\"close\") - pl.col(\"open\")).abs().sum().alias(\"price_range_sum\"),\n                   ])\n        ).sort(by=\"liquidity_score\", descending=True)\n\n        if liquidity_screened.height < 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row[\"symbol\"] for row in liquidity_screened.to_dicts()[:20]]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].cast(pl.Date).max()\n    assert isinstance(newest, date), \"Session date must be of Date type\"\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3839,
+    "output_tokens": 1236
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears well-structured and aligns with its stated rationale of identifying liquid stocks for equal weighting. However, there are a few areas where improvements or clarifications could be made:\n\n1. **Rationale vs. Implementation**:\n   - The rationale emphasizes liquidity screening to reduce price impact during trading. However, the code primarily focuses on volume and price range metrics without explicitly incorporating trade size or other liquidity indicators.\n     - Line 26: `pl.col(\"volume\").sum() / pl.col(\"adj_close\").mean()` uses mean adjusted close, which might not be a direct measure of liquidity.\n\n2. **Potential Failure Cases**:\n   - If the dataset is insufficient (e.g., very few historical data points), the strategy may return an empty signal, leading to no trades or rebalancing.\n     - Line 53: `if liquidity_screened.height < 1:` This check should handle cases where no valid symbols are found due to insufficient data.\n\n3. **Fragility of Parameters**:\n   - The parameter `window` is hardcoded at line 4 but not validated, which could lead to unexpected behavior if set too low or high.\n     - Consider adding a validation for the window size in the constructor: `assert self._window > 0 and self._window < some_max_window_size`.\n\n4. **Code Fragility**:\n   - The function `_latest_visible` assumes that the history DataFrame contains a column \"session_date\" and that it is of date type.\n     - Ensure robust handling of potential data types or missing columns: `newest = visible.get_column(\"session_date\").cast(pl.Date).max()`.\n\n5. **Running Issues**:\n   - The strategy relies on external dependencies like `polars` for DataFrame operations, which must be correctly installed and imported.\n     - Ensure that all required libraries are available when running the code: `import polars as pl`.\n\nOverall, while the strategy is conceptually sound, these points can enhance its robustness and ensure it meets the stated goals."
+  ],
+  "seconds": 33.062968099999125,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 274
+}

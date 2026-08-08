@@ -1,0 +1,26 @@
+{
+  "index": 193,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion occurs when asset prices eventually return to the mean after \"\n        \"deviating from it. This strategy identifies stocks that have significantly deviated \"\n        \"from their recent average and bets on a reversal towards the mean.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_prices: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            prices = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(prices) < self._window:\n                continue\n            mean_price = sum(prices) / self._window\n            mean_prices[symbol] = mean_price\n\n        picks: list[str] = []\n        for symbol, price in view.closes(lookback=self._window).iter_rows(named=True):\n            if float(price[0]) <= 0.6 * min(mean_prices.values()):\n                picks.append(symbol)\n\n        weight = 1.0 / len(picks) if picks else 0.0\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3999,
+    "output_tokens": 1330
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also some notable issues:\n\n### Strengths:\n1. **Rationale Alignment**: The rationale aligns well with the implementation, as both emphasize mean reversion based on recent price deviation from a moving average.\n\n2. **Parameterization**: The `window` parameter allows flexibility in defining the lookback period for calculating the mean price.\n\n3. **Backtest Interface**: Adherence to the `Strategy` class and use of `MarketView` and `Signal` interfaces ensures compatibility with a broader backtesting framework.\n\n### Issues:\n1. **Mean Calculation**:\n   - Line 20: The mean calculation uses a simple average, which might not be robust for highly volatile assets.\n   \n2. **Price Filtering**:\n   - Line 36: The filter `if float(price[0]) <= 0.5 * min(mean_prices.values()):` might exclude too many stocks, potentially reducing the effective strategy size.\n\n3. **Picking Mechanism**:\n   - Lines 41-42: Limiting picks to only the top 10 (`picks = picks[:10]`) could be too restrictive if more than 10 symbols meet the criteria.\n   \n4. **Fragility of Parameters**:\n   - The `window` parameter (Line 8) needs careful tuning. A shorter window might lead to false positives, while a longer window might miss short-term mean reversion opportunities.\n\n5. **Potential Bugs and Fragilities**:\n   - Line 39: The check for missing symbols could be more robust.\n   - Line 46: Using `assert` for type-checking is generally discouraged in production code; consider using proper type hints or exception handling.\n\n6. **Edge Cases**:\n   - Lines 20-21: If the history has fewer than the required number of observations, the strategy might return an empty weights dictionary without warning.\n   - Line 45: Handling cases where `picks` is empty could be improved to avoid returning an empty weights dictionary.\n\n7. **Performance**:\n   - The current implementation might not scale well for large datasets due to nested loops and repeated calculations.\n\nOverall, the strategy aligns with its rationale but has several areas that need refinement for robustness and efficiency."
+  ],
+  "seconds": 34.53207629999997,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 392
+}

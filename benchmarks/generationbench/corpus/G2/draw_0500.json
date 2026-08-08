@@ -1,0 +1,23 @@
+{
+  "index": 500,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves suggest that a strong market sentiment is driving \"\n        \"the price in one direction. By identifying these moves early, we can profit from the \"\n        \"continuation of the trend.\"\n    )\n\n    def __init__(self, window: int = 50, threshold: float = 1.2) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select([\"symbol\", \"session_date\", pl.col(\"close\").alias(\"price\")])\n        volume = history.select([\"symbol\", \"session_date\", pl.col(\"volume\").alias(\"vol\")])\n\n        price_changes = (\n            closes\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"price\").shift(-1) - pl.col(\"price\")).abs().alias(\"price_change\"),\n                pl.col(\"price\").last().alias(\"latest_close\"),\n            )\n            .sort(\"session_date\", descending=True)\n            .select([\"symbol\", \"price_change\", \"latest_close\"])\n        )\n\n        volume_changes = (\n            volume\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"vol\").shift(-1) - pl.col(\"vol\")).abs().alias(\"volume_change\"),\n                pl.col(\"vol\").last().alias(\"latest_vol\"),\n            )\n            .sort(\"session_date\", descending=True)\n            .select([\"symbol\", \"volume_change\", \"latest_vol\"])\n        )\n\n        combined = (\n            price_changes.join(volume_changes, on=\"symbol\")\n            .with_columns(\n                (pl.col(\"price_change\") / pl.col(\"latest_close\")).alias(\"price_ratio\"),\n                (pl.col(\"volume_change\") / pl.col(\"latest_vol\")).alias(\"vol_ratio\"),\n            )\n            .filter((pl.col(\"price_ratio\") > 0) & (pl.col(\"vol_ratio\") > self._threshold))\n        )\n\n        if combined.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        selected_symbols = [str(row[\"symbol\"]) for row in combined.to_dicts()]\n        weight_per_symbol = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight_per_symbol\n                for symbol in selected_symbols\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 632
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.324471799998719,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 508
+}

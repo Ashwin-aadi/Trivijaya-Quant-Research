@@ -1,0 +1,26 @@
+{
+  "index": 198,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"A stock with a higher relative strength compared to the broad market \"\n        \"tends to outperform over the long run. This strategy identifies stocks \"\n        \"that have performed better than their peers in the recent past.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the mean of NIFTY 100 index\n        broad_market_mean = (\n            history.select(pl.col(\"NIFTY_100\").mean().alias(\"broad_market\"))\n        )\n\n        # Compute relative strength for each stock in the universe\n        individual_strengths = (\n            history.select([pl.col(symbol).mean().alias(symbol)\n                            for symbol in view.symbols])\n            .with_column(broad_market_mean[\"broad_market\"])\n        )\n\n        relative_strengths = (individual_strengths[view.symbols] / broad_market_mean[\"broad_market\"] - 1.0).to_dicts()\n\n        # Sort symbols by their latest relative strength\n        top_n_strongest: list[str] = sorted(\n            view.symbols,\n            key=lambda symbol: relative_strengths[symbol][-1],\n            reverse=True\n        )[:5]\n\n        if not top_n_strongest:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_strongest)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_n_strongest}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3996,
+    "output_tokens": 1380
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy aims to identify stocks with higher relative strength compared to the NIFTY 100 index. The rationale states that such stocks tend to outperform over the long run by performing better than their peers in the recent past. However, there are several issues with the implementation:\n\n1. **Rationale vs Code Discrepancy**:\n   - Line `relative_strengths = (individual_strengths[view.symbols] / broad_market - 1.0).to_dicts()` computes the relative strength as a percentage change from the mean of the broad market, which may not directly translate to outperforming peers in recent past performance.\n\n2. **Potential Failure Cases**:\n   - Line `top_n_strongest: list[str] = sorted(view.symbols, key=lambda symbol: relative_strengths[symbol][-1], reverse=True)[:5]` might fail if the `relative_strengths` dictionary is not properly structured or if some symbols do not have enough data points.\n\n3. **Fragile Parameters**:\n   - The parameter `window: int = 20` is hardcoded and may need tuning for optimal performance. A fixed window length might not be suitable for all market conditions.\n   - The selection of the top 5 strongest stocks (`[:5]`) could be problematic if there are fewer than 5 symbols with sufficient data or meaningful relative strength.\n\n4. **Potential Issues**:\n   - Line `if history.is_empty() or len(history.columns) < 1 + len(view.symbols):` might raise an error if the condition is not met, as it does not handle such cases gracefully.\n   - The use of `.alias()` in `broad_market = history[\"NIFTY_100\"].mean().alias(\"broad_market\")` could fail if \"NIFTY_100\" is not a valid column name.\n\n5. **Assumptions**:\n   - Line `assert isinstance(newest, date)` might fail if the data type of `newest` is not explicitly checked or converted to `date`.\n\nIn summary, while the strategy aims to identify outperforming stocks based on relative strength, several implementation details and assumptions need addressing to ensure robustness and reliability."
+  ],
+  "seconds": 35.62856930000089,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 402
+}

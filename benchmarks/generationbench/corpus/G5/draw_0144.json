@@ -1,0 +1,26 @@
+{
+  "index": 144,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum identifies stocks that have outperformed the market \"\n        \"recently and allocates capital to them, leveraging the idea that past winners are likely\"\n        \"to continue performing well.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate returns\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"r\")\n            )\n            .group_by(\"symbol\")\n            .agg((pl.col(\"r\").mean().alias(\"avg_return\")))\n            .sort(by=\"avg_return\", descending=True)\n        )\n\n        if history.height < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = [row[\"symbol\"] for row in history.to_dicts()[: self._top_n]]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3850,
+    "output_tokens": 1208
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its stated rationale but has several potential issues and areas for improvement:\n\n1. **Rationale vs. Code Disagreement:**\n   - The rationale mentions \"past winners are likely to continue performing well,\" but the code does not explicitly handle any momentum or trend continuation signals.\n   - Line 23 calculates a simple mean return, which doesn't directly leverage the idea of past performance.\n\n2. **Potential Failure Scenarios:**\n   - If `history` is empty (line 18), the strategy returns an empty weights dictionary without any indication to use market indices or alternatives.\n   - If the `top_n` symbols are not available in the history, it may return an invalid signal (line 29).\n\n3. **Fragile Parameters:**\n   - The `window` parameter is hardcoded as 20, which might be too long for some markets and too short for others.\n   - The `_top_n` parameter is fixed at 5, which could be adjusted based on market conditions.\n\n4. **Potential Issues for Execution:**\n   - Line 16: `if history.height < self._window * len(view.symbols): return Signal(...)`, this check might raise a warning if the data does not meet the minimum requirement.\n   - Lines 20-31: The calculation of average returns and top selections could fail if there are missing values or non-numeric entries.\n\n5. **Positive Aspects:**\n   - The strategy correctly identifies symbols with higher average returns, which is a core momentum-based approach.\n   - Using `polars` for data manipulation provides efficiency.\n\nIn summary, while the strategy conceptually aligns with its rationale, it requires careful handling of edge cases and parameter flexibility to ensure robustness."
+  ],
+  "seconds": 32.343163300000015,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 292
+}

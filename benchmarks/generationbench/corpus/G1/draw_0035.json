@@ -1,0 +1,23 @@
+{
+  "index": 35,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"Combining short-term and long-term momentum signals can help in identifying \"\n        \"stocks that are trending in a consistent direction over both periods.\"\n    )\n\n    def __init__(self, short_window: int = 10, long_window: int = 50) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes_long = view.closes(lookback=self._long_window)\n        closes_short = view.closes(lookback=self._short_window)\n\n        if (closes_long.height < self._long_window or\n                closes_short.height < self._short_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        short_moments = _calculate_momentum(closes_short)\n        long_moments = _calculate_momentum(closes_long)\n\n        combined_scores = pl.DataFrame({\n            \"symbol\": short_moments[\"symbol\"],\n            \"score\": (short_moments[\"momentum\"] * 0.6) + (long_moments[\"momentum\"] * 0.4)\n        })\n\n        top_symbols = combined_scores.sort(\"score\", descending=True)[\"symbol\"].to_list()[:5]\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_momentum(closes: pl.DataFrame) -> pl.DataFrame:\n    symbols = closes.columns[1:]\n    moments = []\n    for symbol in symbols:\n        prices = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n        last_price = prices[-1]\n        if len(prices) < 2 or not last_price:\n            continue\n        momentum = (last_price - prices[0]) / max(prices)\n        moments.append({\"symbol\": symbol, \"momentum\": momentum})\n    return pl.DataFrame(moments)",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 551
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.351206100007403,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 38
+}

@@ -1,0 +1,23 @@
+{
+  "index": 695,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"The strategy aims to identify stocks that exhibit both strong momentum and low volatility. \"\n        \"Strong momentum suggests a bullish trend, while low volatility indicates reduced risk of price fluctuation.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, volatility_window: int = 10) -> None:\n        self._momentum_window = momentum_window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._momentum_window, self._volatility_window))\n        if history.height < max(self._momentum_window, self._volatility_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            close_values = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(close_values) < self._momentum_window:\n                continue\n            momentum_score = (close_values[-1] - min(close_values)) / max(close_values)\n            momentum_scores[symbol] = momentum_score\n\n        volatility_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            close_values = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(close_values) < self._volatility_window:\n                continue\n            volatility_score = pl.Series(close_values).std()\n            volatility_scores[symbol] = volatility_score\n\n        final_scores: dict[str, float] = {}\n        for symbol in momentum_scores.keys():\n            if symbol not in volatility_scores:\n                continue\n            final_score = (momentum_scores[symbol] + 1) * (1 - volatility_scores[symbol])\n            final_scores[symbol] = final_score\n\n        sorted_symbols = sorted(final_scores.items(), key=lambda x: x[1], reverse=True)\n        picks = [symbol for symbol, _ in sorted_symbols[:5]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 607
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.672784399997909,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 706
+}

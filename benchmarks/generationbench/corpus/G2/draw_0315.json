@@ -1,0 +1,23 @@
+{
+  "index": 315,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqualWeighing(Strategy):\n    rationale = (\n        \"Highly liquid stocks are expected to be more efficiently priced and less volatile. \"\n        \"By equal-weighting the most liquid stocks, we aim to capture this efficiency without \"\n        \"overweighting risk-prone, less liquid securities.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate volume-weighted average price for each symbol\n        vwaps = (\n            history.select([\"symbol\", \"session_date\", \"adj_close\", \"volume\"])\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\") * pl.col(\"volume\").sum() / pl.col(\"volume\")).alias(\"vwap\"),\n            )\n        )\n\n        # Calculate total volume for all symbols\n        total_volume = history.select([\"session_date\", \"volume\"]).group_by(\"session_date\").sum()\n\n        # Compute liquidity score as the ratio of VWAP to average daily trading volume\n        vwaps_with_scores = (\n            vwaps.join(total_volume, on=\"session_date\")\n            .with_columns(\n                (pl.col(\"vwap\") / pl.col(\"volume\")).alias(\"liquidity_score\"),\n            )\n        )\n\n        # Filter out symbols with insufficient history or low liquidity scores\n        valid_symbols = [\n            symbol for symbol in view.symbols if symbol in vwaps_with_scores[\"symbol\"].to_list()\n        ]\n        if not valid_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Equal-weight these symbols\n        weight_per_symbol = 1.0 / len(valid_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight_per_symbol for symbol in valid_symbols\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqualWeighing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 525
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.933780499995919,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 323
+}

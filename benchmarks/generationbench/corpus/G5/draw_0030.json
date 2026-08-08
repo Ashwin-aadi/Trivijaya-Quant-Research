@@ -1,0 +1,26 @@
+{
+  "index": 30,
+  "paradigm": "G5_reflection",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks with the highest relative strength against the market index \"\n        \"can lead to outperformance. Stocks that consistently outperform the benchmark \"\n        \"are likely to continue this trend in the near future.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        market_index = \"NIFTY100\"  # Assuming NIFTY100 as the benchmark\n        closes = view.closes(lookback=self._window)\n\n        relative_strength_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol == market_index or symbol not in history.columns:\n                continue\n\n            close_values = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(close_values) < self._window:\n                continue\n            market_close_values = [\n                float(v) for v in history[market_index].drop_nulls().to_list()\n            ]\n            if len(market_close_values) < self._window:\n                continue\n\n            daily_returns_symbol = [(close / prev_close - 1.0) for close, prev_close in zip(close_values[1:], close_values[:-1])]\n            daily_returns_market = [(close / prev_close - 1.0) for close, prev_close in zip(market_close_values[1:], market_close_values[:-1])]\n\n            avg_return_symbol = sum(daily_returns_symbol) / len(daily_returns_symbol)\n            avg_return_market = sum(daily_returns_market) / len(daily_returns_market)\n\n            relative_strength_score = (avg_return_symbol - avg_return_market) / abs(avg_return_market)\n            relative_strength_scores[symbol] = relative_strength_score\n\n        if not relative_strength_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_stocks = sorted(relative_strength_scores.items(), key=lambda x: x[1], reverse=True)[:5]\n        weight = 1.0 / len(top_stocks)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol, _ in top_stocks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4267,
+    "output_tokens": 1618
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale but has several issues and potential improvements:\n\n1. **Rationale vs Code Discrepancies**:\n   - The rationale suggests selecting stocks based on relative strength against the market index to outperform. However, the code does not explicitly compare each stock's performance relative to the market index; instead, it calculates daily returns for both the stock and the market, then computes a simple average return difference.\n\n2. **Potential Failures**:\n   - Line 34: The `closes` variable is assumed to be a DataFrame with closing prices, but if `view.closes()` does not provide this format, the code will fail.\n   - Lines 41-50: If any stock or market index has missing data (e.g., null values in close prices), the loop may break or yield incorrect results.\n\n3. **Fragile Parameters**:\n   - Line 8: The `window` parameter is hardcoded to 20 without a default value, making it less flexible.\n   - Line 51: The strategy only selects the top 5 stocks based on relative strength scores, which may not always be optimal given different market conditions or data availability.\n\n4. **Stops It from Running**:\n   - Line 37-39: If `history` does not contain enough rows for all symbols and the market index, the code will fail due to the `continue` statements.\n   - Line 60: The assumption that the top stocks should each hold an equal weight (1/len(top_stocks)) might be suboptimal. It could be better to use a more sophisticated weighting scheme.\n\nIn summary, while the strategy is conceptually sound for relative strength analysis, it lacks robustness in handling missing data and parameter flexibility. Improvements can be made by adding error handling, defaulting parameters, and refining the selection logic."
+  ],
+  "seconds": 40.55282410000018,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 63
+}

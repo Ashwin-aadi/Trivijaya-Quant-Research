@@ -1,0 +1,27 @@
+{
+  "index": 204,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy exploits cross-sectional momentum by identifying stocks with strong \"\n        \"past performance and overweighting them in the portfolio. It aims to capture upward \"\n        \"momentum of outperforming stocks while mitigating risk from underperformers through \"\n        \"regular rebalancing.\"\n    )\n\n    def __init__(self, window: int = 180, top_n_percent: float = 0.3) -> None:\n        self._window = window\n        self._top_n_percent = top_n_percent\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        cumulative_returns = (\n            closes.select(pl.col(\"adj_close\").rolling_sum().over(\"symbol\"))\n            .group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"cumulative_return\"))\n            .sort(\"cumulative_return\", descending=True)\n        )\n\n        top_n = int(len(view.symbols) * self._top_n_percent)\n        picks: list[str] = cumulative_returns.head(top_n)[\"symbol\"].to_list()\n        weights = {s: 1.0 / top_n for s in picks}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2409,
+    "output_tokens": 818
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan focuses on exploiting the cross-sectional momentum strategy in India's equity market. The core idea is to identify stocks with strong past performance and overweight them in our portfolio, while underweighting those with poor performance. This is based on the economic mechanism where stock prices tend to continue their recent trends due to investor behavior and market sentiment. Momentum persists because positive or negative returns are often followed by similar returns over short time horizons.\n\nThe rule would involve selecting the top N% of stocks ranked by past returns for long positions, and the bottom N% for short positions. This approach aims to capture the upward momentum of outperforming stocks and mitigate the risk from underperformers. Regularly rebalancing the portfolio ensures that stock-specific factors do not dominate and allows for adjustments in response to changing market conditions.",
+    "The signal for this systematic equity strategy is calculated based on cumulative returns over a specific lookback period. Daily open, high, low, close, and volume data are used to compute the cumulative return for each stock over the past 6 months (180 days). On a given day, stocks are ranked from highest to lowest based on their cumulative returns over this period. The top N% of stocks with the highest cumulative returns are selected for long positions, while the bottom N% with the lowest cumulative returns are selected for short positions. Regular rebalancing ensures that the portfolio adapts to changing market conditions and minimizes stock-specific risks.",
+    "This strategy typically holds a diversified portfolio of approximately 20-40 names, with positions sized to ensure that no single stock exceeds 3-5% of the total portfolio value. This limits concentration risk while maintaining exposure to momentum effects. The portfolio is designed to have an average daily drawdown limit of around 1%, with monthly and yearly loss bounds set at 2% and 5%, respectively, to manage overall risk and protect against severe market downturns. Regular rebalancing ensures adaptability and reduces stock-specific impacts."
+  ],
+  "seconds": 26.255088300000352,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 207
+}

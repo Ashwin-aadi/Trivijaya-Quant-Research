@@ -1,0 +1,26 @@
+{
+  "index": 98,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to capture trends by scaling trades based \"\n        \"on historical volatility. High volatility periods are expected to be more profitable.\"\n    )\n\n    def __init__(self, window: int = 20, vol_window: int = 10) -> None:\n        self._window = window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(sym) for sym in view.symbols]\n        mean_returns = (\n            (history[\"close\"] / history[\"close\"].shift(1) - 1.0).mean().to_list()\n        )\n\n        if len(mean_returns) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_return = sum(mean_returns) / len(mean_returns)\n        volatility = (\n            history.select([pl.col(\"symbol\"), pl.col(\"close\")])\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\").std().over(pl.col(\"session_date\")) / self._vol_window).alias(\"volatility\")\n            )\n            .select(pl.col(\"volatility\"))\n        )\n\n        if volatility.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility = float(volatility[\"volatility\"].mean())\n        weight = (mean_return / volatility) if volatility > 0 else 1.0\n\n        selected_symbols = symbols\n        return Signal(\n            information_available_at=stamp,\n            weights={sym: weight for sym in selected_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3996,
+    "output_tokens": 1355
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy appears to have a few issues and areas for improvement:\n\n1. **Rationale vs. Code**:\n   - The rationale states \"High volatility periods are expected to be more profitable,\" but the code calculates volatility as the dense rank of adjusted close prices divided by `vol_window`, which is not a standard measure of volatility (e.g., using log returns and applying a rolling standard deviation). This discrepancy could lead to misinterpretation of the strategy's performance.\n\n2. **Potential Failures**:\n   - Line 31: If `history.height < self._window`, it immediately returns an empty weights dictionary, which might not be ideal if there are insufficient data points but some are available.\n   - Lines 40-43: The check for `if history.height < 2 * self._window` seems redundant and could be simplified or removed. It's unclear why a second condition is necessary.\n\n3. **Fragile Parameters**:\n   - The parameters `window` (20) and `vol_window` (10) are hardcoded, making the strategy less adaptable to different market conditions.\n   - There is no validation on whether `symbols` or `mean_returns` contain valid data, which could lead to runtime errors.\n\n4. **Code Issues**:\n   - Line 37: The use of `.rank()` without a specified order might yield unexpected results if the dataset contains duplicate values.\n   - Lines 52-56: The condition `if not selected_symbols:` is unnecessary given that `symbols` should always be non-empty.\n\n5. **General Issues**:\n   - The strategy lacks robustness checks, such as ensuring `mean_returns` and `volatility` are calculated correctly.\n   - There is no error handling for potential issues in data retrieval or processing.\n\nIn summary, the strategy has some sound elements but requires more rigorous validation of its core logic and parameters."
+  ],
+  "seconds": 35.08143629999995,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 200
+}

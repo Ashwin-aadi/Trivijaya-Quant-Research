@@ -1,0 +1,23 @@
+{
+  "index": 302,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilitySCTF(Strategy):\n    rationale = (\n        \"Volatility-scaled trend-following strategies attempt to capture the momentum of \"\n        \"trending markets while adjusting position sizes based on recent volatility. During\"\n        \" periods of high volatility, smaller positions are taken to limit risk; during low\"\n        \" volatility, larger positions can be taken.\"\n    )\n\n    def __init__(self, window: int = 60, volatility_window: int = 30, threshold: float = 1.5) -> None:\n        self._window = window\n        self._volatility_window = volatility_window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        close_series = [float(v) for v in history[\"adj_close\"].to_list()]\n        returns = [(close_series[i] - close_series[i-1]) / close_series[i-1] for i in range(1, len(close_series))]\n\n        # Calculate volatility over the last `volatility_window` days\n        vol_history = view.history(lookback=self._volatility_window)\n        if vol_history.height < self._volatility_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        close_values = [float(v) for v in vol_history[\"adj_close\"].drop_nulls().to_list()]\n        daily_returns = [(close_values[i] - close_values[i-1]) / close_values[i-1] for i in range(1, len(close_values))]\n        volatility = max([abs(r) for r in daily_returns])\n\n        # Determine the number of symbols to trade based on volatility\n        if volatility < self._threshold:\n            n_symbols = 5\n        else:\n            n_symbols = 2\n\n        # Select symbols with positive returns\n        symbol_returns = [returns[i-1] for i, s in enumerate(history[\"symbol\"].to_list()) if s in view.symbols]\n        top_symbols = sorted(zip(view.symbols, symbol_returns), key=lambda x: x[1], reverse=True)[:n_symbols]\n\n        weights = {s: 1.0 / n_symbols for s, _ in top_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilitySCTF",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 611
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.731458400005067,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 309
+}

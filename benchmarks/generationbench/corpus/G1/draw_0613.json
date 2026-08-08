@@ -1,0 +1,23 @@
+{
+  "index": 613,
+  "paradigm": "G1_plain",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that prices which have deviated significantly from their mean \"\n        \"will revert to it. A short-horizon approach can identify recent overbought or oversold \"\n        \"conditions and exploit them.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 2)\n        if history.is_empty() or history.height < self._window + 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window + 1)\n        if any(col not in closes.columns for col in history[\"symbol\"].to_list()):\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_returns: dict[str, float] = {}\n        for symbol in history[\"symbol\"].to_list():\n            hist = history.filter(pl.col(\"symbol\") == symbol).sort(\"session_date\")\n            recent_close = view.latest_close()[symbol]\n            mean_close = (\n                hist.select(pl.col(\"adj_close\").mean())\n                .collect()\n                .get(0)\n                .to_series()\n                .to_list()[0]\n            )\n            z_score = (recent_close - mean_close) / history[\"adj_close\"].std().item()\n\n            if z_score <= -1:\n                symbol_returns[symbol] = 0.5\n            elif z_score >= 1:\n                symbol_returns[symbol] = -0.5\n\n        non_empty_symbols = {s: w for s, w in symbol_returns.items() if w != 0}\n        if not non_empty_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight_sum = sum(non_empty_symbols.values())\n        adjusted_weights = {s: w / weight_sum for s, w in non_empty_symbols.items()}\n        return Signal(\n            information_available_at=stamp,\n            weights=adjusted_weights,\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1248,
+    "output_tokens": 543
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.496711800005869,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 626
+}

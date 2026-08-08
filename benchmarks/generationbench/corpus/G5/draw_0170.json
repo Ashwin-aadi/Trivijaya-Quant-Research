@@ -1,0 +1,26 @@
+{
+  "index": 170,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend following aims to capture trends while adjusting positions based on recent volatility. \"\n        \"High volatilities may reduce exposure or reverse signals to limit risk, whereas low volatilities allow for more aggressive entry.\"\n    )\n\n    def __init__(self, window: int = 20, volatility_window: int = 10) -> None:\n        self._window = window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = [float(v) for v in history[\"adj_close\"].to_list()]\n        volatilities: list[float] = []\n        for i in range(len(closes) - self._volatility_window):\n            returns = [(closes[i + j] / closes[i + j - 1]) - 1.0 for j in range(1, self._volatility_window + 1)]\n            volatilities.append(max(returns))\n\n        symbol_volatility_map: dict[str, float] = {}\n        for i, symbol in enumerate(view.symbols):\n            if symbol not in closes:\n                continue\n            volatility = max([closes[i + j] / closes[i + j - 1] - 1.0 for j in range(1, self._volatility_window + 1)])\n            symbol_volatility_map[symbol] = volatility\n\n        top_symbols = sorted(symbol_volatility_map.keys(), key=lambda x: symbol_volatility_map[x], reverse=False)[:5]\n\n        weights: dict[str, float] = {}\n        if top_symbols:\n            weight = 1.0 / len(top_symbols)\n            for symbol in top_symbols:\n                if symbol not in closes:\n                    continue\n                weights[symbol] = weight\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4005,
+    "output_tokens": 1414
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided systematic equity trading strategy generally aligns with its stated rationale of volatility-scaled trend following. However, there are several areas for improvement or potential issues:\n\n1. **Rationale vs. Code Disagreement**: The rationale mentions adjusting positions based on recent volatility to limit risk during high volatility periods and allowing more aggressive entry during low volatility periods. However, the code does not explicitly implement this logic. Specifically:\n   - Line 24: `volatilities.append(max(returns))` calculates maximum returns instead of standard deviation or a statistical measure of volatility.\n\n2. **Potential Failures**:\n   - Line 18: If `view.history()` is empty, the code will return an empty weights dictionary without generating any signals.\n   - Line 36: The method `_latest_visible(view)` assumes that there are visible sessions (i.e., non-empty history). If no data exists, it returns a fixed date (`1900-01-01`), which might not be useful.\n\n3. **Fragile Parameters**:\n   - Line 6: The parameters `window` and `volatility_window` are hardcoded in the class definition. These values should ideally be configurable through an input mechanism or a configuration file.\n   - Line 25: Using maximum returns to calculate volatility is not standard practice, as it doesn't capture the variability of returns.\n\n4. **Stopping Conditions**:\n   - Line 19: If `history.height < self._window + 1`, the method will return an empty weights dictionary without any signals.\n   - Line 35: The code assumes that `top_symbols` will always contain at least five symbols, which might not be true if there are fewer than five unique symbols in the dataset.\n\nOverall, while the strategy's concept is sound, the implementation needs adjustments to ensure it aligns with the stated rationale and handles potential edge cases more robustly."
+  ],
+  "seconds": 36.3325832999999,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 345
+}

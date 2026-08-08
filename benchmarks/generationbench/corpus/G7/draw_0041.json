@@ -1,0 +1,47 @@
+{
+  "index": 41,
+  "paradigm": "G7_mcts",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Identifying a breakout from a 7-day high can indicate strong upward momentum. \"\n        \"This strategy looks for continuation of the breakout by tracking daily highs and \"\n        \"generating signals based on significant percentage increases in price.\"\n    )\n\n    def __init__(self, window: int = 7, threshold: float = 1.05) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            highs = [float(v) for v in history[symbol].sort(\"session_date\").select(\"high\").to_list()[0]]\n            if len(highs) < self._window + 1:\n                continue\n            breakout_high = max(highs[:-1])\n            current_high = highs[-1]\n            if current_high / breakout_high >= self._threshold:\n                breakout_symbols.append(symbol)\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in breakout_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20910,
+    "output_tokens": 6843
+  },
+  "calls": 24,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be based on the daily closing price, measuring the percentage change from a 5-day lookback period to identify breakout continuation opportunities in the Indian market.",
+    "The signal will be based on the daily high price, measuring the percentage change from a 7-day lookback period to identify breakout continuation opportunities in the Indian market. This approach focuses on potential upward momentum by tracking the highest price reached over the past week.",
+    "The portfolio will hold a maximum of three stocks with equal weights of 33.33% each when a position is opened, adhering strictly to the breakout continuation strategy based on daily highs over a 7-day lookback period.",
+    "The portfolio will hold a maximum of three stocks, each weighted at 33.33%, when a position is opened. This equal weighting ensures balanced exposure and adherence to the breakout continuation strategy focused on daily high prices over a 7-day lookback period.",
+    "The risk rule is set to limit the loss on any single position to no more than a 5% decline from the entry price, and the total portfolio loss should not exceed 10% before exiting all positions to prevent further losses. This ensures that each individual investment has a tight stop-loss while maintaining overall portfolio protection.",
+    "For risk management, I propose setting a stop-loss at 5% below the entry price for each position. This limit ensures that if a stock breaks below its recent high by more than 5%, the position will be closed to prevent further losses, aligning with the breakout continuation strategy's focus on upward momentum.",
+    "For the portfolio rule, we will hold a maximum of three names in the portfolio, with weights of 40%, 35%, and 25% respectively, ensuring diversification while maintaining flexibility for breakout continuation strategies.",
+    "The risk rule is set to limit the loss on any single position to no more than a 5% decline from the entry price, and the total portfolio loss should not exceed 10% before exiting all positions. This ensures that each individual investment has a tight stop-loss while maintaining overall portfolio protection.",
+    "For the portfolio rule, we will hold a maximum of three names in the portfolio, with weights of 40%, 35%, and 25% respectively. This approach ensures adequate diversification to mitigate risks while providing enough flexibility to capitalize on potential breakout continuation opportunities in the Indian market.",
+    "For risk management, I propose setting a take-profit target at 10% above the entry price for each position. This limit ensures that if a stock reaches a significant upward move beyond its recent high by more than 10%, the position will be closed to lock in profits, reinforcing the strategy's focus on capturing breakout continuation opportunities.",
+    "For the risk rule, we will set a stop-loss of 5% on individual positions to limit potential losses, ensuring that no single position can drop more than 5% before exiting the trade. This bound also applies cumulatively to the portfolio, preventing total losses from exceeding 10% across all holdings. If any position hits its stop-loss, it will be immediately exited, stopping further trading on that name until the next signal is generated."
+  ],
+  "seconds": 246.41251619998366,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 515
+}

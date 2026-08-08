@@ -1,0 +1,23 @@
+{
+  "index": 41,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakouts often continue in direction of initial move. This strategy \"\n        \"identifies symbols that have recently broken out and then holds them for a period to \"\n        \"capitalize on potential continuation.\"\n    )\n\n    def __init__(self, breakout_window: int = 20, holding_period: int = 10) -> None:\n        self._breakout_window = breakout_window\n        self._holding_period = holding_period\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._breakout_window + self._holding_period)\n\n        if history.is_empty() or history.height < self._breakout_window + self._holding_period:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            low_window_min = min(adj_closes[-self._breakout_window:])\n            high_window_max = max(adj_closes[-self._breakout_window:])\n            latest_close = adj_closes[-1]\n\n            if latest_close > high_window_max or latest_close < low_window_min:\n                breakout_symbols.append(symbol)\n\n        weights = {s: 0.5 for s in breakout_symbols[:4]} if breakout_symbols else {}\n        return Signal(\n            information_available_at=stamp, weights={**weights}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 429
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.156932800004142,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 44
+}

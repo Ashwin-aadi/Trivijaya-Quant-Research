@@ -1,0 +1,23 @@
+{
+  "index": 757,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that prices will eventually move back towards an average \"\n        \"level. In a short-term mean reversion strategy, we expect recent extreme movements to be \"\n        \"followed by corrective moves in the opposite direction.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window)\n        symbols = view.symbols\n        signals: dict[str, float] = {}\n\n        for symbol in symbols:\n            if symbol not in closes.columns:\n                continue\n\n            # Calculate the mean of close prices over the window\n            mean_close = history.select(\n                pl.col(\"adj_close\").mean().alias(f\"{symbol}_mean\")\n            )[f\"{symbol}_mean\"].item()\n\n            # Compute the deviations from the mean for each session\n            dev_scores = [\n                float((close - mean_close) / mean_close)\n                for close in closes[symbol].drop_nulls().to_list()\n            ]\n\n            # Identify sessions where prices are far from the mean (potential reversion candidates)\n            if any(abs(dev_score) > 1.0 for dev_score in dev_scores):\n                signals[symbol] = -1.0 / len(symbols)\n\n        return Signal(\n            information_available_at=stamp, weights={s: w for s, w in signals.items()}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max())[0].item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 461
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.685510099996463,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 769
+}

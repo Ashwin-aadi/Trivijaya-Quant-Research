@@ -1,0 +1,23 @@
+{
+  "index": 378,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with a higher relative strength compared to the broader market \"\n        \"are more likely to outperform. This strategy selects the top-performing stocks \"\n        \"based on their performance against the NIFTY 100 index.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_close = view.closes().select(\n            pl.col(view.as_of).alias(\"NIFTY_CLOSE\")\n        ).collect()\n\n        symbols = [s for s in view.symbols if s in history.columns]\n        history = history[symbols]\n\n        # Calculate daily returns\n        history = history.with_columns(\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n        )\n        nifty_close = nifty_close.with_columns(\n            (pl.col(\"NIFTY_CLOSE\") / pl.col(\"NIFTY_CLOSE\").shift(1) - 1.0).alias(\"nifty_return\")\n        )\n\n        # Align the dataframes\n        history, nifty_close = align_data(history, nifty_close)\n\n        # Calculate relative strength\n        rel_strength = (history[\"return\"] / nifty_close[\"nifty_return\"]).to_list()\n\n        top_n_symbols = sorted(zip(symbols, rel_strength), key=lambda x: x[1], reverse=True)[:5]\n\n        if not top_n_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s, _ in top_n_symbols}\n        )\n\n\ndef align_data(history: pl.DataFrame, nifty_close: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:\n    history = history.join(nifty_close, on=\"session_date\", how=\"inner\")\n    return history, nifty_close\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 570
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.864686800006893,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 384
+}

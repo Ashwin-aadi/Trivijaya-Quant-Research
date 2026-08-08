@@ -1,0 +1,23 @@
+{
+  "index": 538,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffectStrategy(Strategy):\n    rationale = (\n        \"Some stocks exhibit stronger performance during specific months or seasons of the year. \"\n        \"This strategy aims to identify such seasonal effects and allocate capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 60, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_factors: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            monthly_closes = [\n                sum(values[i : i + 20]) / 20.0 for i in range(0, len(values), 20)\n            ]\n            max_monthly_close = max(monthly_closes)\n\n            seasonal_factors[symbol] = (\n                values[-1] / max_monthly_close if max_monthly_close != 0 else 0\n            )\n\n        top_symbols = sorted(\n            seasonal_factors.items(), key=lambda item: -item[1]\n        )[: self._top_n]\n\n        weights = {s: 1.0 / len(top_symbols) for s, _ in top_symbols}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffectStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 459
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.857928900004481,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 546
+}

@@ -1,0 +1,23 @@
+{
+  "index": 227,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentumAndVolume(Strategy):\n    rationale = (\n        \"Combining momentum and volume signals can capture both trend strength and market \"\n        \"participation. Strong trends are often accompanied by high trading volumes, and this \"\n        \"composite signal aims to identify such instances for potential gains.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, volume_window: int = 10) -> None:\n        self._momentum_window = momentum_window\n        self._volume_window = volume_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._momentum_window)\n        if closes.height < self._momentum_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols_with_high_momentum_and_volume: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            momentum_score = (values[-1] - values[0]) / sum(values)\n            volume_history = view.history(lookback=self._volume_window)\n            volume_values = [\n                float(v)\n                for _, row in volume_history.filter(pl.col(\"symbol\") == symbol).iter_rows()\n                if \"volume\" in row\n            ]\n            volume_score = sum(volume_values) / len(volume_values)\n\n            if momentum_score > 0.1 and volume_score > 50000:\n                symbols_with_high_momentum_and_volume.append(symbol)\n\n        if not symbols_with_high_momentum_and_volume:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols_with_high_momentum_and_volume)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                s: weight for s in symbols_with_high_momentum_and_volume\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentumAndVolume",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 509
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.64557970000169,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 233
+}

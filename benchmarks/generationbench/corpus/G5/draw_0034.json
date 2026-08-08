@@ -1,0 +1,26 @@
+{
+  "index": 34,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Seasonal effects in equity markets can arise due to various factors such as \"\n        \"weather patterns, holiday calendars, or specific economic activities. This strategy \"\n        \"exploits historical trends by buying stocks that perform well during certain months.\"\n    )\n\n    def __init__(self, window: int = 20, seasonal_months: tuple[int, ...] = (12,)) -> None:\n        self._window = window\n        self._seasonal_months = seasonal_months\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality_factors: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            # Calculate seasonality factor based on recent performance during seasonal months\n            month_factors = [\n                1.0 if m == view.as_of.month else 0.0 for m in range(1, 13)\n            ]\n            seasonality_factor = max(\n                (values[i] - min(values)) / (max(values) - min(values))\n                * month_factors[i]\n                for i in range(self._window)\n            )\n            seasonality_factors[symbol] = seasonality_factor\n\n        top_symbols = sorted(seasonality_factors, key=seasonality_factors.get, reverse=True)[:5]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4023,
+    "output_tokens": 1380
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to exploit seasonal effects in equity markets by identifying stocks with strong performance during certain months. The implementation has several issues:\n\n1. **Rationale vs. Code Disagreement**:\n   - Line 23: `if date(2023, m, 1).replace(day=15) <= view.as_of`: This line uses a fixed year (2023), which is incorrect as the strategy should use dynamic dates based on `view.as_of`. This hardcoded value makes the logic inconsistent with the rationale.\n\n2. **Potential Failure**:\n   - Line 47: The calculation of `seasonality_factor` might lead to division by zero if all values in `values` are equal, causing a runtime error.\n   - Line 51: The strategy selects only the top 5 symbols regardless of their actual seasonality factors. This could miss out on stronger signals for fewer stocks.\n\n3. **Fragile Parameters**:\n   - The `window` parameter (Line 9) should be dynamically determined based on historical data availability.\n   - The `seasonal_months` tuple (Line 8) is hardcoded to December only, limiting the strategy's flexibility and effectiveness.\n\n4. **Potential Issues That Could Stop It from Running**:\n   - Line 13: If there are missing or null values in `closes`, the code might encounter errors when attempting operations on them.\n   - Line 56: The use of `assert isinstance(newest, date)` is risky and could lead to unhandled exceptions if `newest` is not a date.\n\nOverall, while the strategy conceptually targets seasonal effects, several parts need refinement for robustness and effectiveness."
+  ],
+  "seconds": 35.746516000000156,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 71
+}

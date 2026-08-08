@@ -1,0 +1,23 @@
+{
+  "index": 443,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two weakly related characteristics: the recent strength of \"\n        \"a stock's price and its volume trend. A combination of these signals aims to identify \"\n        \"stocks with both a strong price performance and consistent volume.\"\n    )\n\n    def __init__(self, window_price: int = 20, threshold_price: float = 1.05) -> None:\n        self._window_price = window_price\n        self._threshold_price = threshold_price\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window_price)\n        if closes.height < self._window_price:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window_price:\n                continue\n\n            # Calculate price strength ratio\n            close_last = float(values[-1])\n            close_mean = sum(values) / len(values)\n            price_strength_ratio = close_last / close_mean\n\n            # Check for high volume trend\n            history = view.history(lookback=self._window_price).filter(\n                (pl.col(\"symbol\") == symbol)\n            )\n            volumes = [float(v) for v in history[\"volume\"].to_list()]\n            if len(volumes) < self._window_price:\n                continue\n\n            # Check for increasing volume trend\n            last_volume = float(volumes[-1])\n            mean_volume = sum(volumes) / len(volumes)\n            is_volume_increasing = last_volume > (mean_volume * 1.05)\n\n            if price_strength_ratio >= self._threshold_price and is_volume_increasing:\n                picks.append(symbol)\n\n        picks = list(set(picks))[:5]  # Remove duplicates and limit to top 5\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 578
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.776303999999072,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 449
+}

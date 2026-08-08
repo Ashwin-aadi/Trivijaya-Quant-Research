@@ -1,0 +1,23 @@
+{
+  "index": 502,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalityBasedStrategy(Strategy):\n    rationale = (\n        \"Seasonal effects can provide significant predictive power in equity markets. \"\n        \"This strategy exploits the historical performance patterns observed during specific times of the year.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality_df = (\n            history\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"close\").mean().alias(\"avg_close\")),\n                (pl.col(\"close\").shift(1).mean().alias(\"lagged_avg_close\"))\n            )\n        )\n\n        seasonal_signals: list[str] = []\n        for symbol in view.symbols:\n            if f\"{symbol}_avg_close\" not in seasonality_df.columns or f\"{symbol}_lagged_avg_close\" not in seasonality_df.columns:\n                continue\n            avg_close = float(seasonality_df[f\"{symbol}_avg_close\"].item())\n            lagged_avg_close = float(seasonality_df[f\"{symbol}_lagged_avg_close\"].item())\n            if (avg_close - lagged_avg_close) / lagged_avg_close > 0.1:\n                seasonal_signals.append(symbol)\n\n        weights: dict[str, float] = {s: 1.0 / len(seasonal_signals) for s in seasonal_signals} if seasonal_signals else {}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalityBasedStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 449
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.484730500000296,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 509
+}

@@ -1,0 +1,26 @@
+{
+  "index": 214,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Stocks often exhibit seasonal patterns driven by economic activities or investor \"\n        \"behavior. This strategy identifies and exploits these trends by buying stocks that \"\n        \"have historically performed well during specific months.\"\n    )\n\n    def __init__(self, window: int = 20, lookback_months: int = 12) -> None:\n        self._window = window\n        self._lookback_months = lookback_months\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_months)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality_trends = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_close_history = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(adj_close_history) < self._lookback_months * 20:\n                continue\n\n            monthly_returns = [\n                (adj_close_history[i + 20] - adj_close_history[i]) / adj_close_history[i]\n                for i in range(0, len(adj_close_history), 20)\n            ]\n            avg_return = sum(monthly_returns) / max(len(monthly_returns), 1)\n            seasonality_trends[symbol] = avg_return\n\n        top_symbols = sorted(seasonality_trends.items(), key=lambda x: x[1], reverse=True)[:5]\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in [t[0] for t in top_symbols]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4043,
+    "output_tokens": 1401
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy shows a good attempt at leveraging historical seasonality patterns for stock selection. However, there are several issues and areas of improvement:\n\n1. **Rationale vs. Code Discrepancies**:\n   - The rationale mentions \"buying stocks that have historically performed well during specific months,\" but the code currently does not explicitly include any mechanism to buy these stocks. Instead, it calculates average returns for each stock over a lookback period and selects the top 5 based on those averages.\n   - **Line**: `rationale` section.\n\n2. **Potential Failures**:\n   - The strategy assumes that historical data is available for all symbols in the view (`if symbol not in history.columns:`). If new or delisted stocks are present, this check will fail and no signal will be generated.\n   - **Line**: `for symbol in view.symbols:`.\n   - The code does not handle the case where the lookback period has insufficient data. This could lead to incorrect signals if the dataset is too short.\n   - **Line**: `if len(adj_close_history) < self._lookback_months * 20:`.\n\n3. **Fragile Parameters**:\n   - The window size and lookback months are hardcoded. While this can be adjusted, it is not dynamic based on market conditions or data availability.\n   - **Lines**: `self._window` and `self._lookback_months`.\n\n4. **Potential Issues in Code Execution**:\n   - The method `_latest_visible` assumes that the history DataFrame contains a column named \"session_date\". If this is missing, it will cause an assertion error.\n   - **Line**: `newest = visible[\"session_date\"].max()`.\n\n5. **Improvement Suggestions**:\n   - Add buy/sell logic to the generated signal based on the selected stocks.\n   - Implement dynamic parameter adjustment or use machine learning to optimize parameters.\n   - Handle edge cases more gracefully, such as missing data or insufficient historical records.\n\nOverall, while the strategy has a solid concept, it needs enhancements in terms of functionality and robustness."
+  ],
+  "seconds": 35.993257500000254,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 434
+}

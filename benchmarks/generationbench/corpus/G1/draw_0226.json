@@ -1,0 +1,23 @@
+{
+  "index": 226,
+  "paradigm": "G1_plain",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Certain market movements are influenced by seasonal patterns. By identifying \"\n        \"and exploiting these patterns, we can construct a strategy that performs better \"\n        \"during specific times of the year.\"\n    )\n\n    def __init__(self, lookback_years: int = 5) -> None:\n        self._lookback_years = lookback_years\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._lookback_years * 252)  # Assuming 252 trading days per year\n        if closes.height < self._lookback_years * 252:\n            return Signal(information_available_at=stamp, weights={})\n\n        latest_year = stamp.year\n        seasonality_scores: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            history = view.history(lookback=self._lookback_years)\n            yearly_closes = history.select(\n                pl.col(\"symbol\") == symbol,\n                pl.col(\"session_date\").dt.year().alias(\"year\"),\n                pl.col(\"adj_close\").alias(\"close\"),\n            ).group_by(\"year\").agg(pl.col(\"close\").mean().alias(\"avg_close\"))\n\n            recent_avg = yearly_closes.filter(pl.col(\"year\") == latest_year).select(\n                \"avg_close\"\n            ).first().get(\"avg_close\", None)\n\n            if recent_avg is not None:\n                scores = (\n                    history.select(\n                        pl.col(\"symbol\") == symbol,\n                        pl.col(\"session_date\").dt.year().alias(\"year\"),\n                        (pl.col(\"adj_close\") / pl.col(\"avg_close\")) - 1.0\n                    ).group_by(\"year\")\n                    .agg(pl.col(\"adj_close\") / pl.col(\"avg_close\"))\n                    .sort(\"year\", descending=True)\n                    .select(\n                        \"year\",\n                        (pl.col(\"adj_close\") / pl.col(\"avg_close\")).alias(\"score\"),\n                    )\n                )\n\n                scores = (\n                    scores.filter(pl.col(\"year\").is_in(list(range(latest_year - self._lookback_years, latest_year + 1))))\n                ).to_pandas()\n\n                if not scores.empty:\n                    recent_score = scores[scores[\"year\"] == latest_year][\"score\"].iloc[0]\n                    historical_max = max(scores[\"score\"])\n                    seasonality_scores[symbol] = (recent_score - historical_max) / historical_max\n\n        ranked_symbols = sorted(seasonality_scores, key=seasonality_scores.get, reverse=True)[:5]\n\n        if not ranked_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(ranked_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in ranked_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 693
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.492427899996983,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 230
+}

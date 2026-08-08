@@ -1,0 +1,23 @@
+{
+  "index": 162,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Stocks with higher relative strength to the NIFTY 100 index tend to outperform \"\n        \"over medium-term horizons. This is based on the assumption that strong companies \"\n        \"can sustain their performance better than weak ones.\"\n    )\n\n    def __init__(self, lookback: int = 60) -> None:\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_100_history = history.select(\n            pl.col(\"symbol\").is_in(view.symbols).alias(\"isin_nifty_100\")\n        ).filter(pl.col(\"isin_nifty_100\"))\n\n        if nifty_100_history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_100_adj_close = nifty_100_history.select(\n            pl.col(\"symbol\").alias(\"NIFTY_100\"), \"adj_close\"\n        )\n\n        # Calculate the ratio of each stock's close to NIFTY 100 close\n        relative_strength = (\n            history.join(nifty_100_adj_close, on=\"session_date\", how=\"inner\")\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"NIFTY_100\")).alias(\"relative_strength\")\n            )\n            .select(\n                \"symbol\",\n                pl.col(\"relative_strength\").rank(method=\"dense\", descending=True).alias(\n                    \"strength_rank\"\n                ),\n            )\n        )\n\n        if relative_strength.height < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Select the top N stocks based on their relative strength\n        top_stocks = (\n            relative_strength.sort(\"strength_rank\").select([\"symbol\"])\n            .to_series()\n            .to_list()[:5]\n        )\n\n        if not top_stocks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_stocks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_stocks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 599
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.409780900001351,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 167
+}

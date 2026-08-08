@@ -1,0 +1,23 @@
+{
+  "index": 518,
+  "paradigm": "G2_cot",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityScaledTrendFollowing(Strategy):\n    rationale = (\n        \"Volatility-scaled trend-following strategies seek to profit from trends while \"\n        \"limiting risk by scaling position size based on historical volatility. High volatility \"\n        \"indicates a more uncertain market environment where trends are less likely, so smaller \"\n        \"positions should be taken. Conversely, low volatility suggests that trends are more \"\n        \"likely and larger positions can be taken.\"\n    )\n\n    def __init__(self, window: int = 20, max_position_size: float = 1.0) -> None:\n        self._window = window\n        self._max_position_size = max_position_size\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns and volatility\n        daily_returns = (history[\"adj_close\"] / history[\"adj_close\"].shift(1) - 1.0).alias(\"r\")\n        vol = daily_returns.abs().mean().item()\n\n        # Determine the weight based on volatility\n        if vol == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbol = history.sort(\"r\", descending=True)[\"symbol\"].first().item()\n        weight = self._max_position_size / (1 + vol)\n\n        return Signal(\n            information_available_at=stamp,\n            weights={top_symbol: weight}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityScaledTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 423
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.002148200001102,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 527
+}

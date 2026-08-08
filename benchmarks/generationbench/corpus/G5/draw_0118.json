@@ -1,0 +1,26 @@
+{
+  "index": 118,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain stocks in the Indian market exhibit strong seasonality, with prices \"\n        \"tending to rise or fall around specific times of the year. By identifying these \"\n        \"patterns, we can generate profitable trades based on historical price movements.\"\n    )\n\n    def __init__(self, window: int = 365, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            symbol_data = history.select(pl.col(\"symbol\").eq(symbol)).to_dict(False)\n            closes = [float(v) for v in symbol_data[0][\"adj_close\"]]\n            max_close = max(closes)\n            min_close = min(closes)\n            seasonality[symbol] = (max_close - min_close) / self._window\n\n        sorted_symbols = sorted(seasonality.items(), key=lambda x: x[1], reverse=True)\n        picks = [symbol for symbol, _ in sorted_symbols[: self._top_n]]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3955,
+    "output_tokens": 1304
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears mostly sound but has some areas for improvement and potential issues:\n\n1. **Rationale vs. Implementation**:\n   - The rationale mentions that certain stocks exhibit strong seasonality around specific times of the year. However, the code computes a simple average close price over the entire window period, which does not directly capture seasonal trends (line 27). Instead, it calculates the maximum deviation from the average closing price for each symbol.\n\n2. **Potential Fails**:\n   - If the historical data does not contain enough variation within the `self._window` period, the strategy might incorrectly identify symbols as having strong seasonality.\n   - The computation of `seasonality[symbol] = max([(c - avg_close) for c in closes], default=0)` assumes that a higher deviation from the average is more significant. However, this approach may not capture meaningful seasonal patterns if the data does not show consistent trends.\n\n3. **Fragile Parameters**:\n   - The `window` parameter (line 6) should be set to a period that captures relevant market seasons, but an arbitrary value of 365 days might miss shorter-term seasonalities.\n   - The `top_n` parameter (line 7) determines how many top symbols are selected. If the number is too small, important trends might be missed; if it's too large, noise could dominate.\n\n4. **Potential Issues**:\n   - Line 18: `_latest_visible(view)` may return an incorrect date if `visible.history()` is empty or does not have a valid maximum session date.\n   - Lines 30-35: The logic for computing `seasonality` might need more sophisticated analysis to identify true seasonal patterns. A simple deviation calculation might miss important cyclical behaviors.\n\nOverall, the strategy has a good conceptual basis but requires more robust methods to accurately capture and utilize seasonal trends in stock prices."
+  ],
+  "seconds": 33.9600932000003,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 240
+}

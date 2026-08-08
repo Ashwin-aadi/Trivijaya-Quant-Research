@@ -1,0 +1,23 @@
+{
+  "index": 395,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy seeks to capture returns by identifying stocks that show both strong \"\n        \"volume and positive momentum. High volume suggests liquidity and possibly higher \"\n        \"trading activity, while positive momentum indicates recent price appreciation.\"\n    )\n\n    def __init__(self, momentum_window: int = 10, volume_threshold: float = 1e6) -> None:\n        self._momentum_window = momentum_window\n        self._volume_threshold = volume_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._momentum_window + 1)\n\n        if history.is_empty() or history.height < self._momentum_window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum: dict[str, float] = {}\n        volume: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            closes = [float(v) for v in history.select(\"adj_close\", pl.col(\"symbol\") == symbol)[\"adj_close\"].to_list()]\n            if len(closes) < self._momentum_window + 1:\n                continue\n\n            # Calculate momentum\n            latest_close = float(history.filter(pl.col(\"symbol\") == symbol).select(pl.last(\"adj_close\")).item())\n            momentum_change = (latest_close - closes[0]) / max(1, abs(closes[0] - closes[-1]))\n            momentum[symbol] = momentum_change\n\n            # Calculate volume\n            volumes = [float(v) for v in history.select(\"volume\", pl.col(\"symbol\") == symbol)[\"volume\"].to_list()]\n            recent_volume = sum(volumes[-self._momentum_window:])\n            volume[symbol] = recent_volume / self._momentum_window if recent_volume > 0 else 0\n\n        # Filter by volume\n        filtered_symbols = [s for s in momentum.keys() if volume[s] >= self._volume_threshold]\n\n        # If no symbols meet the criteria, return an empty Signal\n        if not filtered_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(filtered_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in filtered_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 585
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.217286699997203,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 403
+}

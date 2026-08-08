@@ -1,0 +1,47 @@
+{
+  "index": 13,
+  "paradigm": "G7_mcts",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"Mean reversion strategies capitalize on the tendency of stock prices to revert to their mean. \"\n        \"By identifying stocks that have deviated significantly from their 5-day simple moving average, \"\n        \"we can opportunistically enter trades in hopes of capturing the mean-reverting behavior.\"\n    )\n\n    def __init__(self, window: int = 5, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            ma = sum(values[-self._window:]) / self._window\n            deviation = abs(values[-1] - ma)\n            if deviation >= 0.5:  # Threshold for identifying mean reversion opportunity\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19448,
+    "output_tokens": 6335
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the daily closing price, measuring the deviation from a 5-day simple moving average. This lookback period balances responsiveness with stability in capturing mean reversion tendencies in the short horizon.",
+    "The signal will be the daily high price, measuring the deviation from a 3-day simple moving average. This choice increases sensitivity to intraday price movements while maintaining a focus on short-term reversion dynamics.",
+    "The portfolio will consist of 5 equally weighted stocks when a position is opened, balancing simplicity with diversification to manage risk effectively.",
+    "The portfolio will consist of the top 5 high-impact stocks based on the daily price deviation from the 3-day simple moving average, with weights of 20%, 15%, 12%, 10%, and 6% respectively.",
+    "The portfolio will consist of 5 equally weighted stocks when a position is opened, balancing simplicity with diversification to manage risk effectively. This ensures that no single stock dominates the portfolio, thereby managing risk while keeping the strategy straightforward and implementable.",
+    "The risk rule will be that no single stock position can lose more than 5% of the portfolio value in a day, and the entire portfolio cannot experience a loss greater than 3% on any given trading day. This limit ensures that individual stock volatility is managed while keeping overall portfolio risk contained.",
+    "The loss on a position will be capped at -3% to ensure that no single stock trade significantly impacts the overall portfolio. This limit balances risk management with the strategy's responsiveness to mean reversion signals.",
+    "The portfolio will consist of the top 5 high-impact stocks based on the daily price deviation from the 3-day simple moving average, with weights of 20%, 15%, 12%, 10%, and 6% respectively. This approach ensures a concentrated yet balanced exposure to the most relevant assets showing short-term mean reversion dynamics.",
+    "The risk rule will be that no single stock position can lose more than 5% of the portfolio value in a day, and the entire portfolio cannot experience a loss greater than 3% on any given trading day. This limit ensures that individual stock volatility is managed while keeping overall portfolio risk contained.",
+    "For this systematic equity strategy, set the stop-loss rule at 5% per position and a total portfolio loss limit of 10%. Exceeding these bounds will halt trading for the day to manage risk effectively.",
+    "For this systematic equity strategy, set the stop-loss rule at 5% per position and a total portfolio loss limit of 10%. Exceeding these bounds will halt trading for the day to manage risk effectively.",
+    "The loss on a position will be capped at -3%, ensuring that no single stock trade significantly impacts the overall portfolio, thus balancing risk management with the strategy's responsiveness to mean reversion signals."
+  ],
+  "seconds": 243.78438609995646,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 171
+}

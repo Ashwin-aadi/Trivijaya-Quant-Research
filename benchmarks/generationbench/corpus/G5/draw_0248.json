@@ -1,0 +1,26 @@
+{
+  "index": 248,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMoves(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are indicative of strong buying or selling pressure. \"\n        \"We aim to identify stocks that show a significant price move accompanied by increased volume.\"\n    )\n\n    def __init__(self, window: int = 30, threshold_price_change: float = 0.1, min_volume_change_factor: float = 2.0) -> None:\n        self._window = window\n        self._threshold_price_change = threshold_price_change\n        self._min_volume_change_factor = min_volume_change_factor\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n\n            # Calculate price change and volume change\n            price_change = float(history.filter(pl.col(\"symbol\") == symbol).select((pl.col(\"adj_close\").last() / pl.col(\"adj_close\").first()) - 1.0).item())\n            volume_change_factor = history.filter(pl.col(\"symbol\") == symbol).select(pl.col(\"volume\").sum()).item() / self._window\n\n            # Filter for significant moves with increased volume\n            if abs(price_change) >= self._threshold_price_change and volume_change_factor > self._min_volume_change_factor:\n                signals.append(symbol)\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(signals)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in signals}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMoves",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3895,
+    "output_tokens": 1316
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy, `VolumeConfirmedMoves`, generally aligns well with its stated rationale of identifying significant price moves accompanied by increased volume. However, there are a few critical points to consider:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale mentions \"significant price move,\" but the code calculates only a relative change (`price_change = float(history.select(pl.col(\"adj_close\").last() / pl.col(\"adj_close\").first() - 1.0).item())`). This might not capture the magnitude of the move as intended.\n\n2. **Potential Failure**:\n   - The price and volume thresholds are hardcoded with `abs(price_change) > 0.05` and `volume_change > history.height * 2`. These values may be too arbitrary. For instance, a daily price change of 5% might not always indicate strong buying or selling pressure.\n\n3. **Fragile Parameters**:\n   - The window size is hardcoded at `self._window = 20`, which could be problematic if the market conditions or data characteristics change. A more flexible approach would involve dynamically adjusting the lookback period based on historical volatility.\n   - The volume threshold (`history.height * 2`) might not always reflect increased buying pressure, as it does not account for baseline trading activity.\n\n4. **Code Fragility and Robustness**:\n   - The `_latest_visible` function could fail if `view.history()` returns an empty DataFrame, which is correctly handled by returning a default date.\n   - Ensure that the data types returned from Polars are correct and handle potential exceptions gracefully.\n\n5. **Potential Issues for Running**:\n   - The strategy assumes that all symbols in the `MarketView` have sufficient historical data to meet the lookback period requirement.\n   - The code uses `pl.col(\"session_date\").max()` without checking if the column exists, which could lead to a runtime error.\n\nIn summary, while the core logic is sound, there are areas for improvement in parameter flexibility, robustness, and handling edge cases."
+  ],
+  "seconds": 34.06455040000037,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 503
+}

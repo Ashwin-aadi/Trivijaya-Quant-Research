@@ -1,0 +1,26 @@
+{
+  "index": 52,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionTrailing(Strategy):\n    rationale = (\n        \"Reversion to the mean suggests that prices which deviate significantly from their \"\n        \"historical average should revert. This strategy identifies stocks where the price has \"\n        \"dropped below a trailing moving average and allocates capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 50, threshold: float = 1.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 30)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the trailing moving average\n        mean_close = (\n            history\n            .group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\").mean().alias(\"trailing_mean\")))\n        )\n        latest_closes = view.closes()\n        \n        combined = (\n            latest_closes.join(mean_close, on=\"symbol\", how=\"left\")\n                         .with_columns(\n                             (pl.col(\"adj_close\") / pl.col(\"trailing_mean\").cast(pl.Float64) - 1.0).alias(\"reversion_ratio\"),\n                             (pl.col(\"close\") > self._threshold * pl.col(\"trailing_mean\")).alias(\"below_threshold\"),\n                         )\n        )\n\n        # Filter for symbols below the threshold and sort by reversion ratio\n        filtered = combined.filter(\n            (combined[\"below_threshold\"]) & (\n                combined[\"reversion_ratio\"] >= -0.1  # Adjust this threshold as necessary\n            )\n        ).sort(\"reversion_ratio\", descending=True).head(5)\n\n        symbols = [s for s in filtered[\"symbol\"].to_list() if s is not None]\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionTrailing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3963,
+    "output_tokens": 1420
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to identify stocks that have deviated significantly from their historical mean and allocate capital accordingly. While the rationale provides a clear theoretical basis, there are several potential issues with both the rationale and the code:\n\n1. **Rationale vs Code Mismatch**:\n   - The rationale mentions reversion to the mean based on trailing moving averages, but the code does not use a moving average explicitly. Instead, it calculates the simple mean of the close prices over the specified lookback period.\n   - Line 24: `mean_close = history.group_by(\"symbol\").agg((pl.col(\"adj_close\").mean().alias(\"trailing_mean\")))`\n     - This uses the mean directly rather than a moving average.\n\n2. **Potential Failure**:\n   - The strategy assumes that stocks with lower reversion ratios (deviation from the trailing mean) will revert to their mean price.\n   - Line 39: `reversion_ratio = pl.col(\"close\") / pl.col(\"trailing_mean\") - 1.0`\n     - This calculation can lead to issues if the trailing mean is close to zero or negative, causing division by zero errors.\n\n3. **Fragile Parameters**:\n   - The window size and threshold are hardcoded and could be unstable without proper tuning.\n   - Line 4: `self._window = window` and line 5: `self._threshold = threshold`\n     - These parameters should ideally come with robust defaults or mechanisms for dynamic adjustment based on market conditions.\n\n4. **Potential Issues**:\n   - The strategy relies on historical data, which might not always be available.\n   - Line 13: `if history.is_empty(): return Signal(information_available_at=stamp, weights={})`\n     - If no historical data is available, the function immediately returns without any signal.\n\n5. **Code Soundness**:\n   - The overall logic of identifying stocks based on reversion ratios and allocating capital seems sound.\n   - However, it would benefit from additional error handling, such as checking for division by zero in line 39.\n\nIn summary, while the core idea is sound, the implementation could be improved to handle edge cases more gracefully and ensure parameter robustness."
+  ],
+  "seconds": 36.23098879999998,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 107
+}

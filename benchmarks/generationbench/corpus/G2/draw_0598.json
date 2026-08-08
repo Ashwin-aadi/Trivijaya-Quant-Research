@@ -1,0 +1,23 @@
+{
+  "index": 598,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalityEffect(Strategy):\n    rationale = (\n        \"Certain sectors or industries exhibit seasonality in their performance. For instance,\"\n        \"consumer discretionary stocks may experience higher returns during festive seasons.\"\n        \"Identifying such patterns can lead to profitable trading opportunities.\"\n    )\n\n    def __init__(self, window: int = 30, threshold: float = 1.2) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            last_close = values[-1]\n            mean_close = sum(values[-self._threshold :]) / min(\n                self._threshold, len(values)\n            )\n            if last_close > mean_close * 1.05:  # Increase the threshold\n                seasonal_symbols.append(symbol)\n\n        seasonal_symbols = seasonal_symbols[:20]  # Limit to top 20 symbols\n        if not seasonal_symbols:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(seasonal_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in seasonal_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalityEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 447
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.412323099997593,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 607
+}

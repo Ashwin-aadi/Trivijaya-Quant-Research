@@ -1,0 +1,23 @@
+{
+  "index": 491,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MomentumAndVolatility(Strategy):\n    rationale = (\n        \"Combining momentum and low volatility strategies can lead to higher risk-adjusted returns. \"\n        \"Momentum investors buy stocks that have recently performed well, while low volatility strategy \"\n        \"investors prefer stocks with lower price movements. The combination can capture both trends and stabilize portfolio risk.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, vol_window: int = 20) -> None:\n        self._momentum_window = momentum_window\n        self._vol_window = vol_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._momentum_window, self._vol_window))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"].to_list()\n        volatilities: dict[str, float] = {}\n        momentum_scores: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            values = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            if len(values) < self._vol_window + 1:\n                continue\n\n            # Calculate momentum score as the percentage change over the window period\n            last_close = float(values[-1])\n            first_close = float(values[0])\n            momentum_score = (last_close - first_close) / first_close\n            momentum_scores[symbol] = momentum_score\n\n            # Calculate volatility using standard deviation of returns\n            returns = [(values[i+1] - values[i]) / values[i] for i in range(len(values)-1)]\n            volatilities[symbol] = pl.Series(returns).std()\n\n        sorted_momentum = sorted(momentum_scores.items(), key=lambda x: abs(x[1]), reverse=True)\n        sorted_volatility = sorted(volatilities.items(), key=lambda x: x[1])\n\n        selected_symbols = [symbol for symbol, _ in sorted_momentum[:5]] + \\\n                           [symbol for symbol, _ in sorted_volatility][:3]\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in selected_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MomentumAndVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 606
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.778917499999807,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 499
+}

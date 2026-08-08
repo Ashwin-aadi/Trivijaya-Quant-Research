@@ -1,0 +1,26 @@
+{
+  "index": 273,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility stocks tend to outperform high-volatility stocks over the long term. \"\n        \"By tilting towards low volatility, we aim to capture this effect.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty() or history.height < self._window * 2:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the volatility for each stock\n        volatility = (\n            history.group_by(\"symbol\")\n            .agg((pl.col(\"adj_close\").std().alias(\"volatility\")))\n            .sort(by=\"volatility\", descending=False)\n        )\n\n        if volatility.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Select the top N low-volatility stocks\n        picks = [row[\"symbol\"] for row in volatility.head(self._window)]\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3790,
+    "output_tokens": 1156
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to tilt towards low-volatility stocks based on historical volatility over a 20-day window. Here are some criticisms:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale states that \"low-volatility stocks tend to outperform high-volatility stocks over the long term.\" However, the code only considers the most recent `self._window` period for calculating volatility and selecting top low-volatility stocks. This might not fully capture the intended long-term strategy.\n\n2. **Potential Failure**:\n   - If there are very few or no historical records available (e.g., in a new stock), the code immediately returns an empty weights dictionary without providing any signal, which could lead to missed trading opportunities.\n   - The `history.is_empty()` check is at the beginning and might not be sufficient. A more robust approach would consider whether enough data points exist for meaningful volatility calculation.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window = 20`) might be too short or long depending on market conditions. This value should ideally be optimized based on historical performance.\n   - The choice of `1.0 / len(picks)` as the weight for each selected stock can lead to imbalanced weights if the number of picked stocks is very small.\n\n4. **Execution Issues**:\n   - The code assumes that all necessary methods (`group_by`, `agg`, etc.) are available in `polars`. Ensure these methods are correctly implemented and accessible.\n   - The `_latest_visible` function relies on the presence of a \"session_date\" column in the history data, which might not always be the case.\n\n5. **Signal Generation**:\n   - If there is only one stock with low volatility (i.e., `picks` has length 1), the weight assignment logic can lead to an unbalanced portfolio if more stocks are expected to be included.\n\nOverall, while the strategy concept is sound, the implementation needs refinement in handling edge cases and ensuring robustness."
+  ],
+  "seconds": 31.109469700000773,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 554
+}

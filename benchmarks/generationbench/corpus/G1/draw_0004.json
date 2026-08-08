@@ -1,0 +1,23 @@
+{
+  "index": 4,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Price reversion occurs when a stock returns to its mean price level after deviating \"\n        \"significantly. This strategy identifies stocks that have moved away from their 20-day\"\n        \" average and are likely to revert.\"\n    )\n\n    def __init__(self, window: int = 20, std_dev_multiplier: float = 1.5) -> None:\n        self._window = window\n        self._std_dev_multiplier = std_dev_multiplier\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + 1)\n\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        means = (\n            history.group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"mean\"))\n            .with_column(\n                (pl.col(\"adj_close\") - pl.col(\"mean\")).abs()\n                .rank(method=\"dense\", descending=True)\n                .alias(\"reversion_rank\")\n            )\n        )\n\n        if means.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        filtered_history = history.join(means.select([\"symbol\", \"reversion_rank\"]), on=\"symbol\")\n\n        std_devs = (\n            filtered_history.groupby(\"symbol\")\n            .agg(\n                pl.col(\"adj_close\").std().alias(\"std_dev\"),\n                (pl.col(\"adj_close\") - pl.col(\"mean\")).abs()\n                / pl.col(\"std_dev\")\n                .rank(method=\"dense\", descending=True)\n                .alias(\"z_score\")\n            )\n        )\n\n        if std_devs.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_z_scores = filtered_history.join(std_devs.select([\"symbol\", \"z_score\"]), on=\"symbol\")\n\n        top_symbols = (\n            recent_z_scores\n            .with_columns(\n                (pl.col(\"z_score\") > self._std_dev_multiplier).alias(\"outlier\")\n            )\n            .filter(pl.col(\"outlier\"))\n            .select(\"symbol\")\n            .to_series()\n            .to_list()[:5]\n        )\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 620
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.796192599998903,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 5
+}

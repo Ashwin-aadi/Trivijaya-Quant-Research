@@ -1,0 +1,26 @@
+{
+  "index": 250,
+  "paradigm": "G5_reflection",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalEffect(Strategy):\n    rationale = (\n        \"Certain stocks exhibit seasonal behavior due to industry-specific factors or calendar effects. \"\n        \"By identifying these patterns, we can capitalize on predictable price movements.\"\n    )\n\n    def __init__(self, window: int = 60, threshold: float = 0.15) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_data = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            adj_closes = [float(v) for v in history[symbol].drop_nulls().to_list()]\n            returns = [(adj_closes[i] - adj_closes[i-1]) / adj_closes[i-1] for i in range(1, len(adj_closes))]\n            seasonal_effect = sum(returns[-3:]) > self._threshold\n            symbol_data[symbol] = (seasonal_effect, adj_closes[-1])\n\n        picks: list[str] = [symbol for symbol, data in symbol_data.items() if data[0]]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalEffect",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3857,
+    "output_tokens": 1211
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several potential issues and areas for improvement:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale states the strategy identifies \"predictable price movements due to industry-specific factors or calendar effects.\" However, the code only considers a simple threshold-based seasonal effect check without considering any specific industry factors or external calendar events (line 20-23).\n\n2. **Rule Failure Scenarios**:\n   - If the `lookback` window is too large and there are insufficient historical data points for some symbols, the strategy might fail (lines 17-18).\n   - The threshold (`threshold: float = 0.1`) may be overly simplistic; it should ideally be more context-specific or dynamically adjusted based on market conditions.\n\n3. **Fragility of Parameters**:\n   - The `window` parameter is hard-coded and could benefit from dynamic adjustment based on the volatility or seasonality of the market (line 6).\n   - The `threshold` value is fixed at 0.1, which might not be optimal for all markets or time periods.\n\n4. **Potential Issues**:\n   - The `_latest_visible` function assumes that the history data includes a \"session_date\" column (line 35). If this assumption fails, it will return an incorrect date.\n   - The `adj_closes` calculation (lines 21-22) does not account for missing or null values in the historical data.\n\nOverall, while the basic structure is sound, it lacks robustness and flexibility. Improvements could include dynamic parameter adjustments, handling of missing data more gracefully, and incorporating industry-specific calendar effects into the rationale to better align with the stated purpose."
+  ],
+  "seconds": 32.06642850000026,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 507
+}

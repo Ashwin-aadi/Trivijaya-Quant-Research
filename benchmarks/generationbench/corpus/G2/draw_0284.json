@@ -1,0 +1,23 @@
+{
+  "index": 284,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Large volume moves can indicate significant changes in market sentiment or the entry of \"\n        \"large traders. A directional move accompanied by high volume is more likely to be a true signal \"\n        \"of underlying strength or weakness than a small move.\"\n    )\n\n    def __init__(self, window: int = 20, threshold_volume_ratio: float = 1.5) -> None:\n        self._window = window\n        self._threshold_volume_ratio = threshold_volume_ratio\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the percentage change in close\n        history = history.with_columns(\n            (pl.col(\"close\") / pl.col(\"close\").shift(self._window) - 1.0).alias(\"price_change\")\n        )\n\n        # Filter out symbols without enough data\n        history = history.drop_nulls().select([\"symbol\", \"session_date\", \"price_change\", \"volume\"])\n\n        # Identify top volume moves\n        high_volume_moves = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"price_change\").mean()).alias(\"avg_price_change\"),\n                (pl.col(\"volume\") / pl.col(\"volume\").shift(self._window)).mean().alias(\"volatility_ratio\"),\n            )\n            .filter(pl.col(\"volatility_ratio\") > self._threshold_volume_ratio)\n        )\n\n        if high_volume_moves.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Pick top symbols based on average price change\n        picks = (\n            high_volume_moves.sort(\"avg_price_change\", descending=True)\n            .select([\"symbol\"])\n            .head(self._window)\n            .to_series()\n            .to_list()\n        )\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 553
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.517067900000256,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 291
+}

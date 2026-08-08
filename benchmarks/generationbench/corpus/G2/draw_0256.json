@@ -1,0 +1,23 @@
+{
+  "index": 256,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionTrailing(Strategy):\n    rationale = (\n        \"Price reversion occurs when prices return to a previous level after deviating from it. \"\n        \"A trailing reference price could be the 20-day moving average of closing prices. \"\n        \"When current prices deviate significantly from this trailing average, they are likely \"\n        \"to revert back towards it, providing an opportunity for profitable trades.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        closes = view.closes(lookback=self._window)\n\n        # Calculate the 20-day moving average of closing prices for each symbol\n        ma = (\n            history.select(pl.col(\"adj_close\").rolling_mean(self._window))\n            .with_columns(\n                pl.col(\"session_date\").alias(\"date\"),\n                [pl.lit(s) for s in symbols].alias(\"symbol\"),\n            )\n            .unnest(\"adj_close\")\n            .pivot(index=\"date\", columns=\"symbol\", values=\"mean_adj_close\")\n        )\n\n        # Calculate the deviation of current close from the trailing moving average\n        dev = closes.join(ma, on=\"session_date\", how=\"left\").with_columns(\n            (pl.col(\"adj_close\") - pl.col(f\"close_{self._window}\")).alias(\"deviation\")\n        )\n\n        if dev.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Identify symbols with high deviation\n        top_devs = dev.sort(\"deviation\", descending=True).select(\n            [pl.col(s) for s in symbols]\n        ).rows()[-5:]\n\n        picks: list[str] = [symbol for symbol, _ in top_devs]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionTrailing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 574
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.988996299995051,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 262
+}

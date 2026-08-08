@@ -1,0 +1,47 @@
+{
+  "index": 59,
+  "paradigm": "G7_mcts",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VWAPDeviationStrategy(Strategy):\n    rationale = (\n        \"The volume-weighted average price (VWAP) deviation from the closing price \"\n        \"provides insight into market sentiment and liquidity. This composite metric can \"\n        \"indicate overbought or oversold conditions when combined with recent price action.\"\n    )\n\n    def __init__(self, window: int = 30, top_n: int = 50) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or closes.width < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        weights: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            close_series = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            volume_series = [float(v) for v in view.history().filter(pl.col(\"symbol\") == symbol)[\"volume\"].to_list()]\n\n            if len(close_series) < self._window or len(volume_series) < self._window:\n                continue\n\n            total_volume = sum(volume_series)\n            vwap = sum(price * vol for price, vol in zip(close_series, volume_series)) / total_volume\n            deviation = (vwap - close_series[-1]) / abs(close_series[-1])\n\n            if len(weights) < self._top_n:\n                weights[symbol] = 2.0 / self._top_n\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VWAPDeviationStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19176,
+    "output_tokens": 7096
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the volume weighted average price (VWAP) deviation from the closing price, measured over a 30-day lookback period. This composite characteristic combines liquidity (volume) with price action (closing price).",
+    "The signal will be the momentum of the 5-day moving average crossover between the highest high and lowest low, measured over a 20-day lookback period. This composite characteristic blends price range behavior with recent trends.",
+    "The portfolio will hold a maximum of 50 names, each equally weighted at 2%. This ensures diversification while keeping management feasible.",
+    "The portfolio will hold 5 equally weighted positions when active, ensuring a balanced exposure to the selected stocks while simplifying management.",
+    "The portfolio will hold a maximum of 50 names, each equally weighted at 2%. This ensures diversification while keeping management feasible.",
+    "The portfolio will hold 5 equally weighted positions when active, ensuring balanced exposure and simplified management.",
+    "The risk rule is set to limit the loss on any single position to no more than 3% of the portfolio value, and the total portfolio loss shall not exceed 5%. Trading will be halted if either bound is breached.",
+    "For the risk rule, I will set an individual position loss limit of -5% and a portfolio-wide loss limit of -10%. If either limit is hit, trading will be halted for the day to prevent further losses.",
+    "The risk rule is set to limit the loss on any single position to no more than 1.5% of the portfolio value, ensuring that each stock's impact on the overall portfolio is carefully managed, while the total portfolio loss shall not exceed 7%, with trading halted if either bound is breached.",
+    "The risk rule for each position will be set to a maximum drawdown of -5%, capping potential losses while keeping the strategy manageable. This bound ensures that no single position can significantly impact the overall portfolio, maintaining stability and control.",
+    "For the risk rule, I will set an individual position loss limit of -3% and a portfolio-wide loss limit of -8%. Triggering these limits will halt trading for the day to manage risks effectively.",
+    "The maximum loss per position will be limited to a 5% deviation from the entry price, while the total portfolio loss will be capped at 10%. Trading will cease if either of these risk bounds is breached."
+  ],
+  "seconds": 365.71573149994947,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 736
+}

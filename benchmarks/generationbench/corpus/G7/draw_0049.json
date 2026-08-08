@@ -1,0 +1,47 @@
+{
+  "index": 49,
+  "paradigm": "G7_mcts",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion5d(Strategy):\n    rationale = (\n        \"Mean reversion occurs when an asset's price moves towards its historical average. \"\n        \"This strategy aims to capture this phenomenon by identifying stocks that have \"\n        \"deviated significantly from their mean over the past 5 days and then going long on them.\"\n    )\n\n    def __init__(self, window: int = 5, top_n: int = 30) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * 2 + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            closes.group_by(\"symbol\").agg(\n                (pl.col(\"adj_close\") - pl.col(\"adj_close\").shift(self._window)).mean().alias(\"deviation\")\n            )\n        )[\"deviation\"].to_list()[0]\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window * 2 + 1:\n                continue\n            deviation = (values[-1] - values[self._window]) / values[self._window]\n            if abs(deviation) > mean_close:\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion5d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19538,
+    "output_tokens": 6335
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I will measure the mean reversion signal using the daily closing price over a 5-day lookback period. This approach captures recent price movements while maintaining computational efficiency.",
+    "I will measure the mean reversion signal using the daily low price over a 3-day lookback period. This focuses on intraday support levels and reacts more sensitively to short-term market dynamics.",
+    "For this strategy, I will hold a portfolio of 30 equities, each weighted equally at 3.33%, when a position is opened or closed. This equal weighting ensures simplicity and reduces the impact of any single stock on the overall portfolio.",
+    "I will hold a portfolio of 5 equities with equal weights (20% each) when a position is opened or closed, ensuring balanced exposure and responsiveness to short-term price movements.",
+    "For this strategy, I will hold a portfolio of 30 equities, each weighted equally at 3.33%. This approach simplifies the portfolio management process and mitigates the risk associated with individual stocks, ensuring a balanced exposure across the selected equities.",
+    "To bound the risk, I will set an individual position loss limit of -5% on each equity position before exiting that position. Additionally, if the total portfolio loss exceeds -10%, I will stop trading for the day to avoid significant losses.",
+    "Holding a portfolio of 5 equities with equal weights (20% each) ensures balanced exposure and responsiveness to short-term price movements. This approach aligns with the focus on intraday support levels and quick market reactions central to your mean reversion strategy.",
+    "To limit risk, I will set a stop-loss rule of -3% for each individual position. This means if any of the 5 equities in the portfolio drops by more than 3% from its entry price, the position will be exited to prevent further losses. This ensures that no single position can lose more than 3%, protecting against excessive short-term volatility while allowing the strategy to remain active and responsive to mean reversion opportunities.",
+    "For the risk rule, I will set an individual position loss limit of -5% from the entry price, and a portfolio-wide loss limit of -10%. Exceeding these bounds will stop trading for that session to prevent excessive drawdown.",
+    "To limit risk effectively, I propose setting a portfolio-wide stop-loss at -5% of the total portfolio value. This rule will trigger if any of the five positions collectively cause the overall portfolio value to drop by more than 5%. This approach ensures that while individual positions can react quickly to short-term volatility, the broader strategy remains protected against significant drawdowns during adverse market conditions.",
+    "For this systematic equity strategy, I will set a stop-loss rule at -5% for each position to limit potential losses on individual stocks. Additionally, the entire portfolio will have a maximum drawdown threshold of -10% before trading is paused to prevent further losses during market downturns.",
+    "For this systematic equity strategy, I will set a stop-loss rule at -5% for each position to limit potential losses on individual stocks. This ensures that if any stock in the portfolio drops by 5%, it will be sold to mitigate further loss, while still allowing some flexibility during short-term price fluctuations."
+  ],
+  "seconds": 225.08559279999463,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 612
+}

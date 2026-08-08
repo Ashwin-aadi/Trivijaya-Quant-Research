@@ -1,0 +1,26 @@
+{
+  "index": 173,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ContinuationBreakout(Strategy):\n    rationale = (\n        \"Continuation of a breakout suggests that the initial momentum is strong enough to \"\n        \"continue past the previous resistance or support level. This strategy aims to identify \"\n        \"such continuations for potential profit by considering both price levels and volume.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols = set()\n        for symbol in view.symbols:\n            open_prices = [float(v) for v in history[symbol][\"open\"].drop_nulls().to_list()]\n            close_prices = [float(v) for v in history[symbol][\"close\"].drop_nulls().to_list()]\n            if len(open_prices) < self._window or len(close_prices) < self._window:\n                raise ValueError(f\"Insufficient data for symbol {symbol} to form a breakout condition.\")\n            breakout_high = max(close_prices)\n            last_close = close_prices[-1]\n            relative_volume = float(history[symbol][\"volume\"].sum())\n            if last_close > breakout_high * 1.02 and relative_volume > 1_000_000:  # Arbitrary conditions for robustness\n                breakout_symbols.add(symbol)\n\n        picks = list(breakout_symbols)[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ContinuationBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3910,
+    "output_tokens": 1323
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy implementation aligns well with its rationale in identifying continuation breakouts. However, there are a few areas for improvement:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale mentions \"initial momentum\" but the code focuses only on price levels (breakout and last close). This discrepancy could mislead users about what exactly is being identified as a continuation.\n\n2. **Potential Failures**:\n   - Line 18: If `open_prices` or `close_prices` are not sufficient for the specified window size, an error should be raised rather than continuing.\n   - Line 30: The condition `last_close > breakout_high * 1.02` is a bit arbitrary and could lead to false positives. A more robust condition might involve using relative strength or volume indicators.\n\n3. **Fragile Parameters**:\n   - The parameters `window` (line 8) and `top_n` (line 9) are hardcoded in the strategy\u2019s initialization but not validated. For example, setting a very high window size could lead to too few data points for analysis.\n   - The value `1.02` in Line 30 is arbitrary and should be parameterized or derived from historical data.\n\n4. **Potential Stops**:\n   - Line 27: If no breakout symbols are found, the strategy returns an empty weights dictionary without any information on why it did not find any.\n   - The function `_latest_visible` (line 39) assumes `session_date` is always of type `date`, which could fail if dates are stored as strings or in a different format.\n\nOverall, while the strategy addresses its stated rationale effectively, adding more robustness and validation to parameters and conditions would make it more reliable."
+  ],
+  "seconds": 34.46316400000069,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 351
+}

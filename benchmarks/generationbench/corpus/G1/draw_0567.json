@@ -1,0 +1,23 @@
+{
+  "index": 567,
+  "paradigm": "G1_plain",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity-screened equal weighting aims to distribute capital more efficiently by \"\n        \"considering the liquidity of assets. Highly liquid stocks are favored, ensuring that \"\n        \"trades can be executed without significantly impacting the stock price.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores = (\n            history.group_by(\"symbol\")\n            .agg(\n                pl.col(\"volume\").mean().alias(\"avg_volume\"),\n                (pl.col(\"adj_close\") - pl.col(\"open\")).abs()\n                / pl.col(\"open\")\n                .shift(1)\n                .is_not_null()  # Remove NaNs for first day\n                .cast(pl.Float64)  # Ensure the division is float\n                .alias(\"volatility\"),\n            )\n            .select([\"symbol\", \"avg_volume\", \"volatility\"])\n        )\n\n        if liquidity_scores.height < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        sorted_symbols = (\n            liquidity_scores.sort(\n                [\"avg_volume\", \"volatility\"], descending=[True, True]\n            )\n            .select(\"symbol\")\n            .to_series()\n            .to_list()[: self._window]\n        )\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 490
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.958693900000071,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 577
+}

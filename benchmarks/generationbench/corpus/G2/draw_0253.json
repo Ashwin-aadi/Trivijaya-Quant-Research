@@ -1,0 +1,23 @@
+{
+  "index": 253,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion20d(Strategy):\n    rationale = (\n        \"Mean reversion strategies exploit the tendency of asset prices to revert to their mean \"\n        \"values over time. In a short horizon, extreme movements in price may indicate a high \"\n        \"probability that the price will move back towards its historical average.\"\n    )\n\n    def __init__(self, window: int = 20, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_returns = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            mean_return = sum(values[-self._window :]) / self._window - 1.0\n            latest_return = (values[-1] / values[-2] - 1.0) * 100.0\n            reversion_signal = abs(latest_return - mean_return)\n            if reversion_signal > self._threshold:\n                symbol_returns[symbol] = reversion_signal\n\n        symbols_to_trade = [k for k, v in symbol_returns.items() if v >= self._threshold]\n        if not symbols_to_trade:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols_to_trade)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols_to_trade},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 487
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.234378199995263,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 259
+}

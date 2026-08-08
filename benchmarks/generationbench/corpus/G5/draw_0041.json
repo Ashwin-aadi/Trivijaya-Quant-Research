@@ -1,0 +1,26 @@
+{
+  "index": 41,
+  "paradigm": "G5_reflection",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakouts that continue to advance beyond a defined threshold suggest strong momentum \"\n        \"and potential for further gains. This strategy identifies such breakouts and allocates \"\n        \"capital accordingly.\"\n    )\n\n    def __init__(self, window: int = 20, continuation_multiplier: float = 1.05) -> None:\n        self._window = window\n        self._continuation_multiplier = continuation_multiplier\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window + 1:\n                continue\n\n            breakout_level = max(values[-self._window:])\n            continuation = values[-1] > breakout_level * self._continuation_multiplier\n            if continuation:\n                breakout_symbols.append(symbol)\n\n        if not breakout_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(breakout_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in breakout_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3795,
+    "output_tokens": 1174
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is well-structured and generally aligns with its stated rationale of identifying breakouts that continue to advance beyond the breakout level. However, there are a few potential issues and considerations:\n\n1. **Rationale vs Code Discrepancy**:\n   - The rationale suggests strong momentum should drive further gains, but the code simply looks for a 5% continuation above the breakout level (line 20). This is more of a technical filter rather than an indicator of strong momentum.\n\n2. **Potential Failures**:\n   - Line 23: The check `if closes.height < self._window + 1:` might be overly strict, as it could exclude symbols with recent data but not enough historical data.\n   - Line 27: Using a fixed multiplier (1.05) to determine continuation might be too rigid and could miss true breakout continuations.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window`) is hardcoded as 20. This value should be based on thorough backtesting and analysis of the specific market or asset class.\n   - The multiplier (1.05) for continuation detection could benefit from a more adaptive approach, such as using rolling volatility to dynamically adjust this threshold.\n\n4. **Code Issues**:\n   - Line 26: The condition `if len(values) < self._window + 1:` should be part of the outer loop over symbols.\n   - Line 17: `_latest_visible(view)` returns a default date if no data is available, which might not provide useful information for strategy execution.\n\nOverall, while the core logic and rationale align well, some adjustments could improve robustness and effectiveness. Specifically, incorporating adaptive thresholds or more comprehensive backtesting would strengthen the strategy."
+  ],
+  "seconds": 31.3589151999995,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 85
+}

@@ -1,0 +1,23 @@
+{
+  "index": 287,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentum(Strategy):\n    rationale = (\n        \"Dual momentum exploits the tendency for strong performers to remain strong and \"\n        \"weak performers to continue weakening over time. By combining two momentum signals, \"\n        \"we can identify stocks that are both historically strong and currently performing well.\"\n    )\n\n    def __init__(self, window1: int = 30, window2: int = 60) -> None:\n        self._window1 = window1\n        self._window2 = window2\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._window1, self._window2))\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes(lookback=self._window2)\n        top_gainers = _top_performers(closes, window=self._window2)\n        bottom_losers = _bottom_performers(closes, window=self._window2)\n\n        momentum1 = history.select(\n            pl.col(\"symbol\").is_in(top_gainers),\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window1) - 1.0).alias(\"r\"),\n        ).group_by(\"symbol\").agg(pl.col(\"r\").mean().alias(\"m1\"))\n\n        momentum2 = history.select(\n            pl.col(\"symbol\").is_in(bottom_losers),\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window1) - 1.0).alias(\"r\"),\n        ).group_by(\"symbol\").agg(pl.col(\"r\").mean().alias(\"m2\"))\n\n        combined = (\n            momentum1.join(\n                momentum2,\n                on=\"symbol\",\n                how=\"inner\",\n            )\n            .with_columns(\n                (pl.col(\"m1\") + pl.col(\"m2\")).alias(\"combined_momentum\")\n            )\n            .sort(\"combined_momentum\", descending=True)\n            .head(self._window2 // 5)  # Select top 20% of combined momentum\n        )\n\n        picks = [row[\"symbol\"] for row in combined.rows()]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _top_performers(closes: pl.DataFrame, window: int) -> list[str]:\n    top_gainers = closes.select(\n        pl.col(\"symbol\"),\n        (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(window) - 1.0).alias(\"return\")\n    ).group_by(\"symbol\").agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n\n    return [row[\"symbol\"] for row in top_gainers.sort(\"avg_return\", descending=True).head(window // 5).rows()]\n\n\ndef _bottom_performers(closes: pl.DataFrame, window: int) -> list[str]:\n    bottom_losers = closes.select(\n        pl.col(\"symbol\"),\n        (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(window) - 1.0).alias(\"return\")\n    ).group_by(\"symbol\").agg(pl.col(\"return\").mean().alias(\"avg_return\"))\n\n    return [row[\"symbol\"] for row in bottom_losers.sort(\"avg_return\", descending=False).head(window // 5).rows()]",
+  "class_name": "DualMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 839
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 19.328422300000966,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 294
+}

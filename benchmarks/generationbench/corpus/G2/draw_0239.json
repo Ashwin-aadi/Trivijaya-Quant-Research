@@ -1,0 +1,23 @@
+{
+  "index": 239,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy identifies stocks where both technical momentum and fundamental strength \"\n        \"are present. Technical momentum is measured by a recent closing price above the 20-day\"\n        \" moving average, while fundamental strength is gauged by high positive earnings per share\"\n        \"(EPS) growth over the past year.\"\n    )\n\n    def __init__(self, window: int = 20, eps_growth_window: int = 12) -> None:\n        self._window = window\n        self.eps_growth_window = eps_growth_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self.eps_growth_window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select([pl.col(\"symbol\"), pl.col(\"close\")])\n        ma20 = (closes.groupby(\"symbol\").agg(\n            (pl.col(\"close\").shift(-self._window).mean()).alias(\"ma20\")\n        )).with_columns((pl.col(\"close\") > pl.col(\"ma20\")).cast(pl.Int8).sum().alias(\"above_ma_count\"))\n\n        eps_growth = view.history(lookback=self.eps_growth_window)\n        eps_growth_df = eps_growth.select([pl.col(\"symbol\"), (pl.col(\"close\").last() / pl.col(\"close\").first()) - 1.0].alias(\"eps_growth\"))\n        \n        combined_scores = closes.join(ma20, on=\"symbol\", how=\"inner\") \\\n                                .join(eps_growth_df, on=\"symbol\", how=\"inner\")\n\n        if combined_scores.height < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = combined_scores.select(\n            [pl.col(\"symbol\"), (pl.col(\"above_ma_count\") == self._window).cast(pl.Int8), pl.col(\"eps_growth\")]\n        ).filter((pl.col(\"above_ma_count\") == self._window) & (pl.col(\"eps_growth\") > 0.2))\n\n        if top_symbols.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        picks = top_symbols[\"symbol\"].to_list()\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 612
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.82723260000057,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 245
+}

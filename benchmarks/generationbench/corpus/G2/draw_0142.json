@@ -1,0 +1,23 @@
+{
+  "index": 142,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Certain months of the year may historically have seen stronger performance in the \"\n        \"Indian equity market due to seasonal effects such as harvest cycles, government policies, \"\n        \"or holidays that affect consumer behavior and corporate earnings.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Filter the symbols to only those that have enough data\n        valid_symbols = [symbol for symbol in view.symbols if symbol in closes.columns]\n        if not valid_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the mean close price for each month across all symbols\n        monthly_closes = (\n            closes[valid_symbols].select(\"session_date\", *valid_symbols)\n            .with_columns(pl.col(valid_symbols).mean().suffix(\"_mean\"))\n            .rename({\"_mean\": \"monthly_mean\"})\n            .group_by(pl.col(\"session_date\").dt.month())\n            .agg([pl.col(\"monthly_mean\").alias(f\"mean_{month}\") for month in range(1, 13)])\n        )\n\n        # Find the months with highest and lowest mean close prices\n        monthly_means = (\n            monthly_closes.select(*[f\"mean_{month}\" for month in range(1, 13)])\n            .select(pl.all().max(), pl.all().min())\n        )\n        highest_mean = float(monthly_means[\"mean_1\"].max())\n        lowest_mean = float(monthly_means[\"mean_12\"].min())\n\n        # Identify symbols that have closed above the mean in their strongest month\n        strong_symbols: list[str] = []\n        for symbol in valid_symbols:\n            monthly_close = closes.select(pl.col(symbol).mean_by(\"session_date\").map_dict(lambda x: x[0]).alias(\"monthly_close\"))\n            if float(monthly_close[1]) > highest_mean or float(monthly_close[-1]) < lowest_mean:\n                strong_symbols.append(symbol)\n\n        # If no symbols are identified, return an empty Signal\n        if not strong_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(strong_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in strong_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 639
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.304198500001803,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 146
+}

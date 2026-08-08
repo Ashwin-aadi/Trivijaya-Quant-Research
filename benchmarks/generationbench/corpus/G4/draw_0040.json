@@ -1,0 +1,27 @@
+{
+  "index": 40,
+  "paradigm": "G4_planning",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion50d(Strategy):\n    rationale = (\n        \"This strategy exploits mean reversion in stock prices relative to their historical levels. \"\n        \"Stocks often return to their long-term average price levels due to market inefficiencies or mean reversion tendencies. \"\n        \"By identifying stocks trading below a trailing reference level (e.g., a 50-day moving average) as potential buys, \"\n        \"and selling those above this level, the strategy aims to capitalize on temporary deviations from fair value.\"\n    )\n\n    def __init__(self, window: int = 50, top_n: int = 10) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        sma_col_name = f\"sma_{self._window}\"\n        history = (\n            history.with_columns(\n                (pl.col(\"adj_close\").rolling_mean(self._window)).alias(sma_col_name)\n            )\n            .sort(\"session_date\", descending=False)\n            .with_columns(\n                ((pl.col(\"adj_close\") - pl.col(sma_col_name)).abs()).alias(\"deviation\")\n            )\n        )\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            history_symbol = history[symbol]\n            sma_symbol = history[sma_col_name][symbol]\n\n            latest_close = float(view.latest_close()[symbol])\n            latest_sma = float(sma_symbol[-1])\n            latest_deviation = abs(latest_close - latest_sma)\n\n            if latest_deviation >= max(history_symbol[symbol].to_list()[-self._window :]):\n                picks.append(symbol)\n\n        picks = sorted(picks, key=lambda s: (latest_close - sma_symbol[s][-1]), reverse=True)[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        \n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion50d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2424,
+    "output_tokens": 989
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy aims to exploit mean reversion in stock prices relative to their historical levels. The economic mechanism involves observing that stocks often return to their long-term average price levels over time due to market inefficiencies or mean reversion tendencies. This phenomenon can persist because investor behavior and market sentiment sometimes overshoot, leading to temporary deviations from fair value.\n\nThe rule would identify stocks trading below their trailing reference level (e.g., a moving average of historical prices) as potential buys, while selling stocks trading above this level. Entries could be made when the price crosses below the reference line, with exits triggered by an upward crossing back above it. This approach seeks to capitalize on the tendency for stock prices to revert to their mean levels over time, benefiting from the convergence of current prices toward historical norms.",
+    "The strategy identifies potential buy and sell signals based on a moving average of historical stock prices. For each stock, compute its simple moving average (SMA) over a specified lookback period (e.g., 50 or 200 trading days). On any given day, identify stocks with their current price below the SMA as candidates for purchase, and those above the SMA as candidates for sale. Rank these candidates by the magnitude of the difference between the stock's closing price and its SMA to prioritize entries. Buy signals are triggered when a stock's price crosses below its SMA, while sell signals occur on an upward cross above the SMA. This ranking helps in prioritizing trades based on the extent of deviation from the mean price level.",
+    "This strategy can hold a portfolio of up to 50-100 names, depending on market conditions and liquidity considerations. Each name is initially weighted equally within the portfolio to ensure diversification. Position sizes are adjusted based on risk limits, with the overall portfolio risk capped at 2% per day to manage volatility and prevent significant losses. This ensures that no single stock can dominate the portfolio's performance, maintaining a balanced approach to risk management."
+  ],
+  "seconds": 29.970587600000727,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 41
+}

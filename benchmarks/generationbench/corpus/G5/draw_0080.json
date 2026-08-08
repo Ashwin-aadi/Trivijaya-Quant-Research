@@ -1,0 +1,26 @@
+{
+  "index": 80,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves suggest strong momentum in a security. \"\n        \"By identifying such moves, we can capitalize on the likely continuation of trends.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            high_low_diff = [float(v) - float(h) for h, v in zip(history[symbol][\"low\"].to_list(), history[symbol][\"high\"].to_list())]\n            volume_change = [\n                (float(v1) / float(v2)) - 1.0 if float(v2) != 0 else 0.0\n                for v1, v2 in zip(history[symbol][\"volume\"].shift(-1).to_list(), history[symbol][\"volume\"].to_list())\n            ]\n            up_days = [diff > 0 and change >= 0.05 for diff, change in zip(high_low_diff, volume_change)]\n            \n            if any(up_days):\n                picks.append(symbol)\n\n        picks = picks[:2]  # Limit to top 2 symbols\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3925,
+    "output_tokens": 1310
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several issues that could impact its effectiveness and robustness:\n\n1. **Rationale vs. Code Discrepancy**:\n   - The rationale states the goal is to identify strong momentum through volume-confirmed directional moves. However, the code focuses on identifying symbols with significant high-low differences combined with increased trading volumes in recent days (lines 26-34). This might not fully capture the intended rationale of confirming a move with volume.\n   \n2. **Potential Failures**:\n   - Line 31: `high_low_diff = (history[symbol][\"high\"] - history[symbol][\"low\"]).to_list()`: This assumes that historical data for \"high\" and \"low\" prices are available and correctly structured.\n   - Line 35: `volume_change = (history[symbol][\"volume\"].shift(-1).to_list() / history[symbol][\"volume\"].to_list())`: Using a negative shift (`-1`) might lead to division by zero or undefined behavior if the current volume is zero.\n   \n3. **Parameter Fragility**:\n   - The `window` parameter (line 6) only controls the lookback period for historical data. Without specifying how far back to go, it's fragile and could miss important trends.\n   - The limit of top 2 symbols (line 45) is hardcoded, which might not always be optimal depending on market conditions.\n\n4. **Potential Issues**:\n   - Line 17: `if history.is_empty()`: This assumes that an empty DataFrame means no data available, but it could also indicate other issues.\n   - Line 29: The logic for strong upward days (high-low difference > 0 and volume increase by more than 5%) might be overly simplistic. A day with a small high-low spread and significant volume increase might not be as meaningful.\n\nOverall, while the strategy attempts to capture momentum through volume, it could benefit from a clearer alignment between its rationale and implementation, especially in handling edge cases and parameter flexibility."
+  ],
+  "seconds": 34.2487601999992,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 163
+}

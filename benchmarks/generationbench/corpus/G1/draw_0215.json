@@ -1,0 +1,23 @@
+{
+  "index": 215,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines the recent strength of a stock with its volatility to \"\n        \"identify potentially profitable opportunities. Strong stocks with higher volatility \"\n        \"may offer more immediate gains.\"\n    )\n\n    def __init__(self, window: int = 20, threshold_volatility: float = 0.1) -> None:\n        self._window = window\n        self._threshold_volatility = threshold_volatility\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        returns = (\n            (closes[\"adj_close\"] / closes[\"adj_close\"].shift(1) - 1.0)\n            .drop_nulls()\n            .to_list()\n        )\n        if len(returns) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate volatility\n        volatility = (\n            pl.DataFrame({\"return\": returns})\n            .with_columns((pl.col(\"return\").abs().mean()).alias(\"volatility\"))\n            .select(\"volatility\")\n            .to_series()\n            .to_list()[0]\n        )\n\n        if volatility < self._threshold_volatility:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Identify strong symbols\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            if max(values) - min(values) > (max(values) + min(values)) * 0.15:\n                picks.append(symbol)\n\n        # Select top symbols based on the combination of strength and volatility\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 548
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.174503700007335,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 219
+}

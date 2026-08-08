@@ -1,0 +1,23 @@
+{
+  "index": 704,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves can indicate strong buying or selling pressure. \"\n        \"By combining price action with volume, we can identify potential trend reversals or continuation.\"\n    )\n\n    def __init__(self, window: int = 20, confirm_window: int = 5) -> None:\n        self._window = window\n        self._confirm_window = confirm_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._confirm_window)\n        if history.height < self._window + self._confirm_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n\n            open_price = [float(v) for v in history[symbol][\"open\"].to_list()]\n            close_price = [float(v) for v in history[symbol][\"close\"].to_list()]\n            volume = [int(v) for v in history[symbol][\"volume\"].to_list()]\n\n            if len(open_price) < self._window + self._confirm_window:\n                continue\n\n            last_open = open_price[-1]\n            last_close = close_price[-1]\n\n            # Calculate directional move\n            direction = 1.0 if last_close > last_open else -1.0\n\n            # Confirm with volume on the next window\n            confirm_volume = sum(volume[-self._confirm_window:])\n            total_volume = sum(volume)\n\n            if (direction == 1 and confirm_volume / total_volume > 0.5) or \\\n                    (direction == -1 and confirm_volume / total_volume < 0.3):\n                signals[symbol] = direction\n\n        # Normalize weights\n        weight_sum = sum(signals.values())\n        normalized_weights = {symbol: value / weight_sum for symbol, value in signals.items()}\n        \n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n        \n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in normalized_weights.items()},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 559
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.153746399999363,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 718
+}

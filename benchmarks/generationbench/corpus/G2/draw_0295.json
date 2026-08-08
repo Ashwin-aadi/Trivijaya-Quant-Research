@@ -1,0 +1,23 @@
+{
+  "index": 295,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression occurs when the high-low range of a security's price \"\n        \"contracts over a period. This is often indicative of consolidation before \"\n        \"a breakout or trend reversal. Securities with compressed ranges may be more \"\n        \"likely to experience significant price movements in either direction.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols_with_range_compression = []\n\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            symbol_history = history[symbol]\n            high_prices = [float(v) for v in symbol_history[\"high\"].to_list()]\n            low_prices = [float(v) for v in symbol_history[\"low\"].to_list()]\n\n            # Compute the daily range (high - low)\n            ranges = [(h - l) for h, l in zip(high_prices, low_prices)]\n\n            if len(ranges) < self._window:\n                continue\n\n            # Find the maximum and minimum range over the window\n            max_range = max(ranges)\n            min_range = min(ranges)\n\n            # Compute the standard deviation of daily ranges\n            std_dev = pl.Series(ranges).std()\n\n            # Identify symbols with a significant decrease in their price range\n            if max_range > 2 * std_dev and min_range < 0.5 * max_range:\n                symbols_with_range_compression.append(symbol)\n\n        weight = 1.0 / len(symbols_with_range_compression)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbols_with_range_compression},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 500
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.442452399998729,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 302
+}

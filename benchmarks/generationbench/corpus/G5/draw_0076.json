@@ -1,0 +1,26 @@
+{
+  "index": 76,
+  "paradigm": "G5_reflection",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass PriceReversion(Strategy):\n    rationale = (\n        \"Price reversion strategies look for securities that have moved away from their \"\n        \"historical price levels and predict a return to those levels. This strategy uses a \"\n        \"trailing reference point to identify such opportunities.\"\n    )\n\n    def __init__(self, window: int = 60, threshold: float = 1.5) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes()\n        if closes.height == 0:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol = list(closes.columns)[-1]\n        if symbol not in history.symbol.to_list():\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_close = float(closes[symbol].to_list()[-1])\n        historical_prices = (\n            history.filter(pl.col(\"symbol\") == symbol)\n                   .select(pl.col(\"adj_close\"))\n                   .to_pandas()\n                   .iloc[:, 0]\n        )\n\n        if len(historical_prices) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_price = historical_prices.mean()\n        std_dev = historical_prices.std()\n\n        z_score = (recent_close - mean_price) / std_dev\n        if abs(z_score) > self._threshold:\n            return Signal(\n                information_available_at=stamp,\n                weights={symbol: 1.0},\n            )\n\n        return Signal(information_available_at=stamp, weights={})\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "PriceReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3943,
+    "output_tokens": 1296
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its stated rationale of identifying price reversion opportunities, but there are several areas for improvement and potential issues:\n\n1. **Rationale vs. Code Discrepancies**:\n   - The rationale mentions a \"trailing reference point,\" which is not explicitly implemented in the code (lines 13-25). The current implementation uses historical data to calculate mean price and standard deviation, but it does not clearly establish a trailing reference.\n\n2. **Potential Failure Scenarios**:\n   - Line 46: If `closes` dataframe is empty, the function returns an empty weights dictionary without generating a signal.\n   - Line 57: The check for historical prices length being less than the window size could be more robust to avoid unnecessary computations.\n\n3. **Fragile Parameters**:\n   - The parameters (`window` and `threshold`) are hardcoded with default values of 60 and 1.5, respectively (lines 7-8). These values might not be optimal for all datasets or market conditions.\n   - Line 29: If the `symbol` is not present in the history data, it returns an empty weights dictionary without generating a signal.\n\n4. **Potential Issues**:\n   - Lines 50 and 61: There are redundant checks to ensure `closes` and historical prices have sufficient data points.\n   - Line 37: The function assumes that `symbol` will always be present in the `history` DataFrame, which might not be true.\n\nOverall, while the core idea of price reversion is sound, the implementation could benefit from more detailed checks, clearer documentation of assumptions, and parameter flexibility. Additionally, adding logging or error handling would improve robustness."
+  ],
+  "seconds": 34.098261600000114,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 155
+}

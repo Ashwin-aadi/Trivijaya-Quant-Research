@@ -1,0 +1,23 @@
+{
+  "index": 184,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionTrailing(Strategy):\n    rationale = (\n        \"Price reversion strategies seek to profit from the tendency of prices to return to a \"\n        \"previous level after moving away. In this case, we use a trailing reference price (e.g.,\"\n        \"50-day simple moving average) and buy stocks that have fallen significantly below their\"\n        \"trailing mean.\"\n    )\n\n    def __init__(self, window: int = 50, threshold: float = 1.2) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = view.closes()\n        symbols = closes.columns[1:]  # Skip session_date column\n        trailing_means: dict[str, float] = {}\n        for symbol in symbols:\n            values = [float(v) for v in history[symbol].to_list()]\n            mean = sum(values) / len(values)\n            trailing_means[symbol] = mean\n\n        signals: list[tuple[str, float]] = []\n        for symbol in symbols:\n            latest_close = view.latest_close()[symbol]\n            if latest_close < trailing_means[symbol] * (1.0 - self._threshold):\n                weight = 1.0 / len(symbols)\n                signals.append((symbol, weight))\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n        return Signal(\n            information_available_at=stamp,\n            weights=dict(signals),\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionTrailing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 454
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.566597400000319,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 190
+}

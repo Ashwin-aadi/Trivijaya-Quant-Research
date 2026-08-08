@@ -1,0 +1,26 @@
+{
+  "index": 237,
+  "paradigm": "G5_reflection",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility tilting is a strategy that aims to reduce overall portfolio risk by \"\n        \"favoring assets with lower historical volatility. The rationale behind this approach \"\n        \"is that low-volatility stocks tend to have more stable returns, providing better risk-adjusted performance.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility_dict: dict[str, float] = {}\n        for symbol in view.symbols:\n            close_price_series = (\n                history.select(pl.col(\"session_date\"), pl.col(symbol).alias(f\"{symbol}_close\"))\n                .with_columns(\n                    (pl.col(f\"{symbol}_close\") / pl.col(f\"{symbol}_close\").shift(1) - 1.0)\n                    .alias(\"return\")\n                )\n                .select(pl.col(\"return\"))\n            )\n            if close_price_series.height < self._window:\n                continue\n            volatility = (\n                (close_price_series[\"return\"].abs().mean() * pl.sqrt(pl.lit(252))).to_list()[0]\n            )  # Annualized volatility over the window period\n            volatility_dict[symbol] = volatility\n\n        if not volatility_dict:\n            return Signal(information_available_at=stamp, weights={})\n\n        sorted_symbols = [\n            symbol for symbol, _ in sorted(volatility_dict.items(), key=lambda item: item[1])\n        ]\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4082,
+    "output_tokens": 1431
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy aims to favor assets with lower historical volatility, reducing overall portfolio risk. The provided code generally aligns well with this rationale but has a few issues and potential fragilities:\n\n1. **Rationale vs. Code Discrepancy**: \n   - Line 24: `volatility = (close_price_series[\"return\"].abs().mean() * pl.lit(252)).to_list()[0]` This line calculates annualized volatility by averaging the absolute returns over the window period and then multiplying by the square root of trading days (252). However, this should be `volatility = (close_price_series[\"return\"].abs().mean() * pl.sqrt(pl.lit(252))).to_list()[0]`.\n\n2. **Potential Failure Scenarios**:\n   - Line 13: If `history.height < self._window * len(view.symbols)`, the function returns an empty weights dictionary, which might not be ideal as it could lead to no trades being made.\n   - Line 56: The function `_latest_visible` assumes that `visible[\"session_date\"].max()` will always return a date. However, if there is a data issue or missing dates in the history, this can raise an assertion error.\n\n3. **Fragile Parameters**:\n   - The choice of window length (20) might not be optimal for all market conditions. A more dynamic approach could improve performance.\n   - The calculation of volatility assumes continuous trading days, which may not always hold true in real-world data.\n\n4. **Running Issues**:\n   - Line 17: `history` should ideally have a column named \"session_date\" to avoid errors if it doesn\u2019t exist or is misnamed.\n   - Ensure that the `MarketView` and `Signal` classes are properly defined elsewhere, as they are used without definition here.\n\nOverall, the strategy logic aligns with the rationale of favoring low-volatility assets. However, addressing the noted issues would enhance its robustness and reliability."
+  ],
+  "seconds": 36.67880049999985,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 480
+}

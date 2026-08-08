@@ -1,0 +1,23 @@
+{
+  "index": 23,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignal(Strategy):\n    rationale = (\n        \"Combining simple moving average crossovers and relative strength provides a more \"\n        \"robust entry signal by leveraging both trend and momentum indicators.\"\n    )\n\n    def __init__(self, short_window: int = 50, long_window: int = 200) -> None:\n        self._short_window = short_window\n        self._long_window = long_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=max(self._short_window, self._long_window))\n        if closes.height < max(self._short_window, self._long_window):\n            return Signal(information_available_at=stamp, weights={})\n\n        signals: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            short_sma = closes[symbol].mean().item()\n            long_sma = (\n                closes[symbol]\n                .sort(\"session_date\")\n                .tail(self._long_window)\n                .mean()\n                .item()\n            )\n            rsi = _calculate_rsi(closes=symbol, lookback=self._short_window)\n\n            if short_sma > long_sma and rsi < 30:\n                signals[symbol] = 1.0\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: w for s, w in signals.items() if w},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_rsi(closes: str, lookback: int) -> float:\n    delta = view.closes().select(\n        pl.col(closes).shift(-1) - pl.col(closes).shift(0)\n    ).drop_nulls()\n    up = (delta[delta.ge(0)].mean() * 100).item()\n    down = (-delta[delta.le(0)].mean() * 100).item()\n    return float(up / (up + down) if up + down > 0 else 0)",
+  "class_name": "CompositeSignal",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 529
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.087650799992844,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 25
+}

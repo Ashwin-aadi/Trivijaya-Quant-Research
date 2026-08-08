@@ -1,0 +1,23 @@
+{
+  "index": 592,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass PriceLevelReversion(Strategy):\n    rationale = (\n        \"Price reversion is a common market phenomenon where prices tend to move back towards \"\n        \"the mean after extreme deviations. This strategy aims to capture such movements by buying \"\n        \"undervalued stocks and selling overvalued ones based on their recent price levels.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = closes.mean().to_dict(True)[\"adj_close\"]\n        z_scores = (\n            closes.with_columns(\n                (pl.col(\"adj_close\") - pl.lit(mean_close)) / pl.col(\"adj_close\").std().alias(\"z_score\")\n            )\n        ).select(\"symbol\", \"session_date\", \"z_score\")\n\n        signals: list[tuple[str, float]] = []\n        for symbol in view.symbols:\n            if symbol not in z_scores.columns:\n                continue\n            latest_z_score = z_scores.filter(pl.col(\"session_date\") == stamp).get(\"z_score\").to_list()[0]\n            if abs(latest_z_score) > 1.5:  # Threshold for reversion signal\n                signals.append((symbol, -latest_z_score / 2))  # Adjust weights based on z-score\n\n        if not signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_weight = sum(abs(weight) for _, weight in signals)\n        adjusted_weights = {s: w / total_weight for s, w in signals}\n        cash_allocation = 1.0 - sum(adjusted_weights.values())\n        adjusted_weights[\"CASH\"] = cash_allocation\n\n        return Signal(information_available_at=stamp, weights=adjusted_weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "PriceLevelReversion",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 511
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.268622899995535,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 604
+}

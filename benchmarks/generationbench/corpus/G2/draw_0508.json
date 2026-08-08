@@ -1,0 +1,23 @@
+{
+  "index": 508,
+  "paradigm": "G2_cot",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass ReversionStrategy(Strategy):\n    rationale = (\n        \"Price reversion strategies exploit mean-reverting behavior in financial time series. \"\n        \"When a stock's price has deviated significantly from its historical average, \"\n        \"it often tends to revert back towards that mean over time. This can be harnessed for \"\n        \"trading profits by going long on stocks that have fallen below their trailing average \"\n        \"and shorting those that have risen above it.\"\n    )\n\n    def __init__(self, window: int = 50) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window or not view.symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_prices = (\n            closes\n            .group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"mean_price\"))\n        )\n\n        latest_closes = pl.DataFrame(\n            {\n                \"symbol\": [s for s in view.symbols if s in closes.columns],\n                \"latest_close\": [float(view.latest_close()[s]) for s in view.symbols]\n            }\n        )\n\n        merged_data = mean_prices.join(latest_closes, on=\"symbol\")\n        reversion_scores = (\n            (merged_data[\"latest_close\"] - merged_data[\"mean_price\"])\n            .to_list()\n        )\n        symbols = [s for s in merged_data[\"symbol\"].to_list()]\n        \n        long_symbols = [\n            symbol\n            for score, symbol in zip(reversion_scores, symbols)\n            if score < 0\n        ]\n        short_symbols = [\n            symbol\n            for score, symbol in zip(reversion_scores, symbols)\n            if score > 0\n        ]\n\n        long_weight = 1.0 / len(long_symbols) if long_symbols else 0\n        short_weight = -1.0 / len(short_symbols) if short_symbols else 0\n\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                **({symbol: long_weight for symbol in long_symbols}),\n                **({symbol: short_weight for symbol in short_symbols})\n            }\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "ReversionStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 572
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.944519299999229,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 517
+}

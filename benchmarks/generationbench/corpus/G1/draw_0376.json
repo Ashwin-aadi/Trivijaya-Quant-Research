@@ -1,0 +1,23 @@
+{
+  "index": 376,
+  "paradigm": "G1_plain",
+  "theme": "price-level reversion against a trailing reference",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Reversion20d(Strategy):\n    rationale = (\n        \"Price reversion occurs when a stock returns to its mean after deviating significantly. \"\n        \"By identifying stocks that have moved far from their 20-day average and are now close to it, \"\n        \"we can capture potential mean-reverting behavior.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        avg_close = (history[\"adj_close\"] / history[\"adj_close\"].shift(self._window)).mean().item()\n        std_dev = (history[\"adj_close\"] - avg_close).std().item()\n\n        reversion_cands: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or symbol not in view.closes(lookback=self._window):\n                continue\n            recent_closes = [float(v) for v in history[symbol].to_list()[-self._window:]]\n            mean_close = sum(recent_closes) / self._window\n            z_score = (recent_closes[-1] - mean_close) / std_dev\n\n            if abs(z_score) > 2:\n                reversion_cands.append(symbol)\n\n        weights = {s: 0.5 for s in reversion_cands}\n        return Signal(\n            information_available_at=stamp, weights=weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().item()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Reversion20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 449
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.127831999998307,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 382
+}

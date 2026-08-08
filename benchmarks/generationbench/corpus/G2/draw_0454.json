@@ -1,0 +1,23 @@
+{
+  "index": 454,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality in equity markets can arise from a variety of factors, including \"\n        \"government policies, weather patterns, and cultural events. By identifying stocks that \"\n        \"tend to perform better during specific times of the year, we can capture these seasonal \"\n        \"patterns for potential profit.\"\n    )\n\n    def __init__(self, window: int = 365) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_signals = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            history = view.history().filter(pl.col(\"session_date\") <= stamp).select(\n                \"symbol\", \"session_date\", pl.col(\"adj_close\")\n            ).collect()\n            if history.is_empty():\n                continue\n\n            monthly_closes = history.groupby(pl.col(\"session_date\").dt.month()).agg(\n                pl.col(\"adj_close\").mean().alias(\"avg_monthly_close\")\n            )\n            current_month_avg = (\n                monthly_closes.filter(pl.col(\"session_date\") == stamp.month)\n                .select(\"avg_monthly_close\")\n                .to_list()[0][0]\n            )\n\n            if not isinstance(current_month_avg, float):\n                continue\n\n            rank = closes.filter(\n                pl.col(symbol).is_not_null()\n            ).sort(\n                (pl.col(symbol) / pl.col(symbol).shift(1)).alias(\"return\"),\n                descending=True\n            ).with_column((pl.col(symbol) / pl.col(symbol).shift(1) - 1.0).alias(\"return\")).select(\n                pl.col(\"session_date\").dt.month().alias(\"month\"), \"return\"\n            ).groupby(pl.col(\"month\")).agg(\n                pl.col(\"return\").mean().alias(\"monthly_return\")\n            ).collect()\n\n            monthly_ranks = rank.sort(\"monthly_return\", descending=True)\n            seasonal_signals[symbol] = 1.0 / (len(rank) + 1 - monthly_ranks.filter(\n                pl.col(\"session_date\").dt.month() == stamp.month\n            ).select(pl.col(\"month\")).to_list()[0][0])\n\n        if not seasonal_signals:\n            return Signal(information_available_at=stamp, weights={})\n\n        total_weight = sum(seasonal_signals.values())\n        adjusted_weights = {s: w / total_weight for s, w in seasonal_signals.items()}\n        return Signal(\n            information_available_at=stamp, weights=adjusted_weights\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 666
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.82561480000004,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 462
+}

@@ -1,0 +1,26 @@
+{
+  "index": 87,
+  "paradigm": "G5_reflection",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy screens for highly liquid stocks by selecting those with a daily \"\n        \"trading volume above the market median. The selected assets are then equal-weighted.\"\n    )\n\n    def __init__(self, window: int = 20, liquidity_threshold_percentile: float = 75) -> None:\n        self._window = window\n        self._liquidity_threshold_percentile = liquidity_threshold_percentile\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_col = \"volume\"\n        median_volume = float(history[volume_col].quantile(self._liquidity_threshold_percentile / 100))\n        liquidity_screened_history = (\n            history.filter(pl.col(volume_col) > median_volume)\n                   .group_by([\"symbol\"])\n                   .agg((pl.col(volume_col).mean().alias(\"avg_volume\")))\n        )\n        \n        if liquidity_screened_history.height < 5:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [row[0] for row in liquidity_screened_history.to_dicts()]\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3833,
+    "output_tokens": 1193
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is mostly sound but has a few issues and potential improvements:\n\n1. **Rationale vs Code Discrepancy**:\n   - The rationale states the strategy screens for highly liquid stocks based on average daily trading volume. However, in the code, it computes the ratio of each stock's volume to the mean volume (`vol_ratio`). This might not directly indicate liquidity since a high `vol_ratio` could simply reflect an outlier rather than consistent liquidity.\n\n2. **Potential Failure Cases**:\n   - The code filters for symbols where `avg_vol_ratio >= 1.0`. This threshold is arbitrary and might exclude many stocks that are actually highly liquid. A more nuanced approach, such as setting a percentile threshold (e.g., top 50% by volume), could be more robust.\n   - If the filter condition in `_latest_visible` fails (`history.height < 5`), it returns an empty weights dictionary. This might be insufficient; consider logging or raising an error instead.\n\n3. **Fragile Parameters**:\n   - The `window` parameter is hard-coded as `20`. While this value seems reasonable, it could vary based on market conditions and should ideally be configurable.\n   - The filter condition in the main method (`history.height < 5`) might fail if there are too few symbols meeting the liquidity criteria. This can make the strategy unreliable.\n\n4. **Stops It from Running**:\n   - If `view.history()` returns an empty DataFrame, `_latest_visible` will return a date that is likely invalid (1900-01-01), which might cause issues downstream.\n   - Ensure that `pl` and other dependencies are correctly imported at the top of the script.\n\nOverall, while the strategy's core idea is sound, it could benefit from more rigorous parameterization, better handling of edge cases, and a clearer rationale alignment with the code implementation."
+  ],
+  "seconds": 31.82924450000064,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 177
+}

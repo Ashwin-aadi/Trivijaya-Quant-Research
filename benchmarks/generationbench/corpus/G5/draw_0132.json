@@ -1,0 +1,26 @@
+{
+  "index": 132,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for stocks that have outperformed \"\n        \"in the recent past to continue to outperform. This strategy aims to invest in the top \"\n        \"performers based on their historical returns.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history\n            .with_columns(\n                (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"returns\")\n            )\n            .sort(\"session_date\", descending=False)\n        )\n\n        # Compute rolling mean and standard deviation for returns\n        grouped = (\n            history\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"returns\").mean().alias(\"mean_return\")),\n                (pl.col(\"returns\").std().alias(\"std_return\")),\n            )\n        )\n\n        if grouped.height < len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate excess returns and rank by mean return\n        history = (\n            history\n            .join(grouped, on=\"symbol\")\n            .with_columns(\n                (pl.col(\"returns\") - pl.col(\"mean_return\")).alias(\"excess_returns\"),\n                (pl.col(\"excess_returns\").rank(method=\"ordinal\", descending=True)).alias(\"rank\")\n            )\n        )\n\n        # Get top N performers\n        top_symbols = history.select(pl.col(\"symbol\"), \"rank\").filter(\n            (pl.col(\"session_date\") == view.as_of) & (pl.col(\"rank\") <= self._top_n)\n        )[\"symbol\"].to_list()\n\n        if not top_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4200,
+    "output_tokens": 1548
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy appears mostly sound but has some areas for improvement and potential issues:\n\n1. **Rationale vs Code Discrepancy**:\n   - The rationale mentions \"historical returns\" to identify top performers, yet the code uses a 20-day rolling mean of daily returns (`mean_return`), not historical returns in their entirety.\n\n2. **Potential Failures**:\n   - Line 37: `if history.height < self._window * len(view.symbols):`. This check may be overly strict and could fail if the market has few symbols or a short lookback period.\n   - Line 48: The strategy assumes that all symbols have enough data. If some symbols lack sufficient historical returns, it might lead to incorrect `mean_return` and `std_return`.\n\n3. **Fragile Parameters**:\n   - The window size (`20`) and the top N selection (`5`) are hardcoded. These values should be configurable or dynamically adjusted based on market conditions.\n   - Line 64: Filtering by `rank <= self._top_n` could miss important symbols if the number of top performers is less than expected.\n\n4. **Potential Issues**:\n   - Line 72: The check for `information_available_at=stamp, weights={}` in case no symbols are selected might not be necessary; the empty signal could naturally propagate.\n   - Line 36: The strategy assumes that `session_date` is always present and correctly formatted. If this assumption fails, it could break the logic.\n\nOverall, while the core idea of using momentum to select top performers is sound, the implementation has some room for improvement in handling edge cases and parameter flexibility."
+  ],
+  "seconds": 39.223873800001456,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 268
+}

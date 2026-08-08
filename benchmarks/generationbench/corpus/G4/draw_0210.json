@@ -1,0 +1,28 @@
+{
+  "index": 210,
+  "paradigm": "G4_planning",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrengthStrategy(Strategy):\n    rationale = (\n        \"This strategy exploits the phenomenon where stocks with strong relative performance \"\n        \"against the broad universe often continue to outperform. By focusing on top N stocks \"\n        \"based on their relative returns over a lookback period, we aim to capture residual \"\n        \"performance and reduce market-wide risks.\"\n    )\n\n    def __init__(self, window: int = 90, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        index_symbols = view.symbols\n        stock_history = history[index_symbols]\n        index_data = stock_history.filter(pl.col(\"symbol\").is_in(index_symbols))\n\n        returns: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in index_data.columns:\n                continue\n            prices = [float(v) for v in index_data[symbol].drop_nulls().to_list()]\n            if len(prices) < self._window:\n                continue\n\n            cumulative_return = (prices[-1] - prices[0]) / prices[0]\n            returns[symbol] = cumulative_return\n\n        ranked_symbols = sorted(returns.keys(), key=lambda x: returns[x], reverse=True)[: self._top_n]\n        weight = 1.0 / len(ranked_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in ranked_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrengthStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4410,
+    "output_tokens": 1489
+  },
+  "calls": 5,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "syntax_error",
+    "evaluated"
+  ],
+  "trace": [
+    "To develop a systematic equity trading strategy focusing on relative strength against the broad universe in the Indian market, we will exploit the phenomenon where stocks with strong relative performance often continue to outperform. This persistence can be attributed to factors such as positive earnings revisions, momentum effects, and market sentiment. The core of our strategy is to identify and invest in stocks that have a higher relative return compared to the broader index.\n\nThe rule would involve:\n\n1. Selecting a representative broad universe index for India.\n2. Monthly ranking all Indian stocks based on their relative returns against this index.\n3. Allocating capital to the top N (e.g., 20) highest-ranking stocks, while rebalancing every quarter.\n\nThis approach aims to capture the residual performance of outperforming stocks and potentially reduce market-wide risks by focusing on relative strength.",
+    "The signal for this systematic equity strategy can be defined as follows:\n\n1. **Data Source**: Daily open, high, low, close, and volume data for Indian stocks.\n\n2. **Lookback Period**: 3 months (90 days) to capture recent performance trends.\n\n3. **Calculation**:\n   - Compute the cumulative return of each stock relative to the broad universe index over the last 3 months.\n   - Adjust for any dividends or splits during this period if necessary.\n\n4. **Ranking**:\n   - Rank all Indian stocks based on their relative returns against the chosen index.\n   - The higher the relative return, the higher the rank.\n\n5. **Selection**:\n   - Select the top N (e.g., 20) highest-ranking stocks for investment at the end of each month.\n   - Rebalance the portfolio every quarter by recalculating ranks and selecting the new top N stocks.\n\nThis ranking and selection process ensures that the strategy focuses on identifying and investing in stocks with strong relative performance, leveraging momentum effects to potentially outperform the broader market.",
+    "The strategy holds a portfolio of top 20 stocks based on their relative strength against the broad Indian market index. Each stock is weighted equally within the top 20 to simplify management while ensuring diversification. Position sizing limits the investment in each stock to no more than 5% of the total portfolio value, reducing individual stock risk exposure. The strategy aims to limit maximum potential loss through periodic rebalancing and focusing on relative strength, which helps in managing market-wide risks. Overall, this approach balances concentration risk with the potential for higher returns from outperforming stocks."
+  ],
+  "seconds": 42.3527441000042,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 214
+}

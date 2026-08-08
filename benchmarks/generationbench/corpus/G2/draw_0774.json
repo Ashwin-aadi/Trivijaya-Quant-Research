@@ -1,0 +1,23 @@
+{
+  "index": 774,
+  "paradigm": "G2_cot",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Assets that have outperformed the broader market over a defined period are \"\n        \"more likely to continue their strong performance due to momentum effects.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        nifty_closes = history.select(\n            pl.col(\"symbol\").filter(pl.col(\"symbol\").is_in(view.symbols)),\n            \"adj_close\",\n        )\n        average_nifty_close = (\n            nifty_closes.group_by(\"symbol\")\n            .agg(pl.col(\"adj_close\").mean().alias(\"avg\"))\n            .with_column(pl.col(\"avg\") / pl.col(\"avg\").max() * 100.0)\n            .sort(\"avg\", descending=True)\n        )\n\n        if average_nifty_close.height < view.symbols.length:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_n_symbols = [row[\"symbol\"] for row in average_nifty_close.head(self._window)]\n        weight = 1.0 / len(top_n_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights=dict(zip(top_n_symbols, [weight] * len(top_n_symbols))),\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 410
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 10.630721699999413,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 786
+}

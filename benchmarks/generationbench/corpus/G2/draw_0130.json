@@ -1,0 +1,23 @@
+{
+  "index": 130,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Historical data may show that certain stocks in the NIFTY 100 exhibit seasonality \"\n        \"effects where their performance varies significantly during specific times of the year. \"\n        \"For instance, some sectors might perform better in particular months due to seasonal trends.\"\n    )\n\n    def __init__(self, window: int = 365, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonality_factors: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            # Calculate the mean return over different seasons and store them.\n            seasonality_factors[symbol] = _calculate_seasonal_return(values, stamp)\n\n        sorted_symbols = [k for k, v in sorted(seasonality_factors.items(), key=lambda item: -item[1])]\n        picks = sorted_symbols[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_seasonal_return(values: list[float], stamp: date) -> float:\n    # Determine the season for each session and compute returns.\n    seasons = [\"Q1\", \"Q2\", \"Q3\", \"Q4\"]\n    quarter_start_dates = [date(stamp.year, 1, 1), date(stamp.year, 4, 1),\n                           date(stamp.year, 7, 1), date(stamp.year, 10, 1)]\n\n    returns_by_season: dict[str, float] = {}\n    for i in range(len(values)):\n        session_date = values[i - len(values)].name\n        quarter_index = next(i for i, d in enumerate(quarter_start_dates) if session_date >= d)\n        season = seasons[quarter_index]\n\n        # Calculate the return for this season.\n        if season not in returns_by_season:\n            returns_by_season[season] = (values[i] - values[0]) / values[0]\n        else:\n            returns_by_season[season] += (values[i] - values[0]) / values[0]\n\n    # Calculate the average return for each season.\n    for k, v in returns_by_season.items():\n        returns_by_season[k] = v / len(values)\n\n    # Identify the season with the highest return.\n    best_season = max(returns_by_season, key=returns_by_season.get)\n    return returns_by_season[best_season]",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 750
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 17.600215200000093,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 134
+}

@@ -1,0 +1,26 @@
+{
+  "index": 260,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate strong market sentiment and can lead to \"\n        \"sustained price movements. This strategy identifies such moves by combining direction with\"\n        \"volume data.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_confirmed_moves = []\n\n        for symbol in view.symbols:\n            row = history.filter(pl.col(\"symbol\") == symbol)\n            if row.is_empty():\n                continue\n\n            closes = row[\"adj_close\"].to_list()\n            volumes = row[\"volume\"].to_list()\n\n            # Calculate the percentage change in close price and volume\n            close_changes = [0.0] + [(c / p - 1.0) for c, p in zip(closes[1:], closes[:-1])]\n            volume_changes = [0.0] + [(v / v_prev - 1.0) for v, v_prev in zip(volumes[1:], volumes[:-1])]\n\n            # Find days where both close and volume changes are significant\n            significant_moves = [\n                (close_changes[i] > 0.02) & (abs(volume_changes[i]) > 0.5)\n                for i in range(len(close_changes))\n            ]\n\n            if any(significant_moves):\n                volume_confirmed_moves.append(symbol)\n\n        if not volume_confirmed_moves:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(volume_confirmed_moves)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in volume_confirmed_moves}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().to_pydatetime().date()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4052,
+    "output_tokens": 1458
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several strengths but also contains potential issues:\n\n### Strengths:\n1. **Rationale and Code Alignment**: The rationale explains that volume-confirmed directional moves indicate strong market sentiment. This aligns with the code's logic of identifying significant price changes accompanied by large volume movements.\n\n2. **Parameterization**: Using a window size (`window`) for historical data is a good practice, allowing flexibility in how long-term trends are identified.\n\n### Issues and Critiques:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale mentions \"sustained price movements,\" but the code focuses on identifying significant price changes with large volume swings within a single window (`20` days). This is more about capturing short-term moves rather than sustained trends.\n\n2. **Potential Failures and Fragility**:\n   - **Insufficient Data**: Line 19 checks if `history` is empty or has insufficient data, which prevents the strategy from running on datasets that lack recent history.\n   - **Thresholds for Significant Moves**: Lines 35-40 use hard-coded thresholds (`> 0.02` for price change and `abs() > 0.5` for volume change). These might not be universally applicable across different markets or time periods. For instance, these values could be too high for highly volatile stocks.\n   - **Handling Missing Data**: If `row.empty` is `True`, the symbol is skipped without further action (line 32). This could lead to incomplete analysis if there are gaps in data.\n\n3. **Code Fragility**:\n   - The use of `pandas` within a `polars`-based strategy can be problematic, as it might introduce performance issues or conflicts.\n   - The check for the latest visible date (`_latest_visible`) is necessary but could fail if there are no records in `view.history()`.\n\n4. **Potential Running Issues**:\n   - If the input data has missing symbols or sessions, the strategy may produce incorrect results or errors due to unhandled cases.\n\n### Conclusion\nWhile the strategy aims to capture volume-confirmed directional moves, it has limitations in its implementation, particularly with hardcoded thresholds and handling of edge cases. Adjusting these parameters for different market conditions and ensuring robust error handling would improve its reliability."
+  ],
+  "seconds": 37.08723269999973,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 528
+}

@@ -1,0 +1,26 @@
+{
+  "index": 74,
+  "paradigm": "G5_reflection",
+  "theme": "volatility-scaled trend following",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolatilityTrendFollowing(Strategy):\n    rationale = (\n        \"This strategy follows trends based on volatility. It identifies symbols with high \"\n        \"volatility over a short term and buys them, expecting continuation of the trend.\"\n    )\n\n    def __init__(self, window: int = 10, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or len(history[\"session_date\"].unique()) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        recent_closes = history.select(\n            pl.col(\"symbol\"),\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\"),\n        )\n\n        symbol_volatility = (\n            recent_closes.groupby(\"symbol\")\n                        .agg(pl.col(\"return\").std().alias(\"volatility\"))\n                        .sort(by=\"volatility\", descending=True)\n                        .select(\"symbol\")\n                        .to_series()\n                        .to_list()[: self._top_n]\n        )\n\n        if not symbol_volatility:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbol_volatility)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in symbol_volatility},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max().cast(pl.Date)\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolatilityTrendFollowing",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3766,
+    "output_tokens": 1150
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy largely aligns with its rationale but has a few areas for improvement:\n\n1. **Rationale vs Code:**\n   - The rationale states that the strategy identifies symbols with high volatility over a short term to buy them, expecting trend continuation. However, the code only selects the top 5 most volatile symbols and buys them equally, without explicitly considering trends or continuation.\n\n2. **Potential Failure Scenarios:**\n   - If all symbols have low volatility, the strategy returns an empty `weights` dictionary (Line 36), which could cause issues in a trading environment.\n   - The `history` may not always contain enough unique dates to meet the `_window` requirement (Lines 21-24), leading to incorrect or no signals.\n\n3. **Fragile Parameters:**\n   - The window size is hardcoded as 10 (Line 6). A more dynamic approach could better handle varying market conditions.\n   - The selection of top 5 symbols might not always be optimal; a different number or a more sophisticated method to filter symbols could improve performance.\n\n4. **Run-Time Issues:**\n   - `polars` is used for data manipulation, but the strategy assumes that the input `MarketView` object is correctly formatted (Line 28). If it's not, the code will fail.\n   - The `_latest_visible` function assumes that `view.history()` returns a DataFrame with \"session_date\" and might raise an assertion error if this assumption fails.\n\nOverall, while the strategy conceptually makes sense, improvements can be made to better handle edge cases and ensure robustness."
+  ],
+  "seconds": 30.94131870000001,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 151
+}

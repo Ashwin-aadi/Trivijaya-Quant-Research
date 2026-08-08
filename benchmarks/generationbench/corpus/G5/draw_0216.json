@@ -1,0 +1,26 @@
+{
+  "index": 216,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum exploits the tendency for recent winners (in terms of returns) \"\n        \"to continue outperforming in the near future. This strategy allocates capital to top \"\n        \"performers over a lookback period.\"\n    )\n\n    def __init__(self, window: int = 20, num_top_performers: int | None = None) -> None:\n        self._window = window\n        self._num_top_performers = num_top_performers or len(self.view.symbols)\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select(pl.col(\"adj_close\"))\n        returns = (\n            (closes.shift(-1) / closes - 1.0).select(pl.all().alias(\"r\"))\n        )\n\n        top_returns: pl.DataFrame | None = None\n        if not returns.is_empty():\n            top_returns = (\n                returns.sort(\"r\", descending=True)\n                .group_by(\"symbol\")\n                .agg(pl.col(\"r\").mean().alias(\"mean_return\"))\n            )\n\n        top_performers: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in top_returns.columns and not top_returns.is_empty():\n                continue\n            mean_return = float(top_returns.filter(pl.col(\"symbol\") == symbol)[\"mean_return\"].item())\n            if mean_return >= returns[\"r\"].quantile(0.9):\n                top_performers.append(symbol)\n\n        top_performers = top_performers[: self._num_top_performers]\n        if not top_performers:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(top_performers)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_performers},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3975,
+    "output_tokens": 1352
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns with its rationale but has some potential issues and fragilities:\n\n1. **Rationale vs Code**: The rationale mentions exploiting recent winners based on returns over a lookback period, while the code uses daily returns to identify top performers. This discrepancy is not explicitly acknowledged in the code (line 20-35).\n\n2. **Potential Failures**:\n   - Line 29: The `returns` DataFrame might be empty if there are no historical data points for the lookback period, leading to an error.\n   - Line 41: If a symbol is missing in `top_returns`, it will raise an error when trying to access its mean return (line 38).\n\n3. **Fragile Parameters**:\n   - The parameter `window` determines the lookback period for historical data, but the code does not check if this window aligns with available data.\n   - Line 16: The `num_top_performers` parameter is hardcoded and static; it would be better to dynamically determine the number of top performers based on the dataset size.\n\n4. **Running Issues**:\n   - The `returns` calculation (line 23) might fail if there are missing values in the `adj_close` column.\n   - Line 26: The `.rename()` method is applied directly, which could be misleading since it renames a single column.\n\nOverall, while the strategy conceptually aligns with the rationale, some improvements can enhance its robustness and accuracy."
+  ],
+  "seconds": 34.91836449999937,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 438
+}

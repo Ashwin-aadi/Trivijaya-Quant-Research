@@ -1,0 +1,23 @@
+{
+  "index": 505,
+  "paradigm": "G2_cot",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion occurs when financial assets return to their historical mean price. \"\n        \"In the short term, stocks that have been unusually high or low relative to their history \"\n        \"tend to revert towards the mean. This strategy aims to profit from such deviations.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_reversion_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            daily_returns = (\n                (history.select(pl.col(\"adj_close\").shift(-1) / pl.col(\"adj_close\") - 1.0))\n                .collect()\n                .with_column(\n                    pl.when(pl.col(\"session_date\") == stamp)\n                    .then(pl.col(\"r\"))\n                    .otherwise(None)\n                    .alias(\"score\")\n                )\n                .filter(pl.col(\"score\").is_not_null())\n            )\n            if daily_returns.height < 1:\n                continue\n            score = (\n                (daily_returns.select(pl.col(\"score\")).mean().to_list()[0] * -1.0) + 1.0\n            )  # Normalize to [0, 1]\n            mean_reversion_scores[symbol] = score\n\n        if not mean_reversion_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = sorted(mean_reversion_scores.keys(), key=lambda x: mean_reversion_scores[x], reverse=True)[:5]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1346,
+    "output_tokens": 522
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.896245199997793,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 513
+}

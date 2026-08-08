@@ -1,0 +1,23 @@
+{
+  "index": 776,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeBreakout(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves suggest that institutional traders are active in \"\n        \"these stocks. Such moves can lead to sustained price trends and potentially \"\n        \"profitable opportunities.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            hist = history[symbol].sort(\"session_date\").to_pandas()\n            open_prices = hist[\"open\"].tolist()\n            close_prices = hist[\"close\"].tolist()\n            volumes = hist[\"volume\"].tolist()\n\n            # Calculate daily returns\n            rets = [(close / open) - 1 for open, close in zip(open_prices, close_prices)]\n            if any(r < 0 for r in rets[-2:]):\n                continue\n\n            # Check for volume confirmation\n            last_volume = volumes[-1]\n            max_volume = max(volumes)\n            if last_volume >= 1.5 * max_volume:\n                picks.append(symbol)\n\n        picks = picks[: self._top_n]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 466
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.856717499991646,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 788
+}

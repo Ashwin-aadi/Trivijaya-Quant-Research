@@ -1,0 +1,23 @@
+{
+  "index": 30,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks with the highest relative strength against the broader market \"\n        \"can provide excess returns. This strategy leverages the idea that high performers \"\n        \"relative to the index tend to continue their upward trend.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the relative strength for each symbol\n        rel_strengths = {}\n        nse_index_close = float(closes.select(pl.col(\"NIFTY_50\").max().alias(\"index_close\"))[0][\"index_close\"])\n        \n        for symbol in view.symbols:\n            if \"NIFTY_50\" != symbol and symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n            \n            # Calculate the relative strength ratio\n            last_price = values[-1]\n            average_price = sum(values[-self._window:]) / self._window\n            rel_strength = (last_price - average_price) / average_price * nse_index_close / last_price\n            rel_strengths[symbol] = rel_strength\n\n        # Sort symbols by relative strength in descending order\n        sorted_symbols = sorted(rel_strengths, key=rel_strengths.get, reverse=True)\n        \n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={(symbol): weight for symbol in sorted_symbols[:5]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 504
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.457035599989467,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 33
+}

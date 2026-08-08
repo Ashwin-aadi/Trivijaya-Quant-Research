@@ -1,0 +1,47 @@
+{
+  "index": 10,
+  "paradigm": "G7_mcts",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalVolumeBreakout(Strategy):\n    rationale = (\n        \"Seasonal effects can significantly influence trading volumes in short-term \"\n        \"markets. By analyzing the volume data over a 3-month lookback period, we can \"\n        \"identify periods of high activity and potentially capitalize on them.\"\n    )\n\n    def __init__(self, window: int = 90, max_positions: int = 20) -> None:\n        self._window = window\n        self._max_positions = max_positions\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_changes = (\n            history.select(\n                pl.col(\"symbol\"),\n                (pl.col(\"volume\") / pl.col(\"volume\").shift(self._window) - 1.0).alias(\"volume_change\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.col(\"volume_change\").mean().alias(\"avg_volume_change\"))\n        )\n\n        if volume_changes.height < self._max_positions:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = (\n            volume_changes.sort(\"avg_volume_change\", descending=True)\n            .select(pl.col(\"symbol\"))\n            .to_series()\n            .to_list()[:self._max_positions]\n        )\n\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalVolumeBreakout",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 20616,
+    "output_tokens": 6531
+  },
+  "calls": 24,
+  "candidates_evaluated": 13,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "I propose measuring the seasonal effect by analyzing the closing prices over a 5-year lookback period. This will capture long-term trends while using daily closes for their reliability in reflecting market sentiment.",
+    "I propose measuring the seasonal effect by analyzing the volume data over a 3-month lookback period. This approach focuses on short-term trading patterns, which can be highly sensitive to seasonal influences and market events within each quarter.",
+    "For the portfolio rule, I propose holding a fixed number of 10 stock names in each position. These stocks will be weighted equally, with each holding a 10% weight in the portfolio to ensure diversification while simplifying management.",
+    "For the portfolio rule, I propose holding a fixed number of 10 stock names in each position, with each stock weighted equally at 10%. This approach ensures diversification and simplifies management by maintaining consistent weights across all positions.",
+    "For the portfolio rule, I propose holding a maximum of 20 names in each position, with weights distributed equally among them to ensure diversification while maintaining sensitivity to seasonal effects.",
+    "For the portfolio rule, I propose holding a maximum of 20 names in each position, with weights distributed equally among them to ensure diversification while maintaining sensitivity to seasonal effects. This approach balances the need for diversified exposure with the responsiveness to short-term market dynamics influenced by seasonality.",
+    "For the risk rule, I propose setting a maximum loss bound of -5% on any individual position and -10% on the overall portfolio to manage potential losses while maintaining exposure to seasonal effects. This will stop trading if these limits are breached, ensuring risk is controlled.",
+    "For the risk rule, I propose setting a maximum loss bound of -3% on any individual position and -8% on the overall portfolio. This threshold balances risk management with sensitivity to short-term seasonal effects, preventing significant drawdowns while allowing the strategy to capture opportunities. Trading will be halted if these limits are exceeded.",
+    "For the risk rule, I propose setting a loss bound of -5% on each individual position and -10% on the overall portfolio. This limit will stop trading if either threshold is breached, ensuring manageable risk exposure while maintaining flexibility in strategy execution.",
+    "For the risk rule, I propose setting a stop-loss threshold of -5% for each individual position to limit potential losses from short-term market fluctuations. Additionally, the portfolio-wide loss should not exceed -10% before trading is halted to protect against severe downturns. These bounds ensure that the strategy remains responsive to seasonal effects while managing risk effectively.",
+    "For the risk rule, I propose setting a stop-loss trigger at -3% for each individual stock position and a -7% threshold for the entire portfolio. This setup balances risk management with the potential for capturing minor market fluctuations without overly restrictive trading constraints."
+  ],
+  "seconds": 290.5350855999859,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 134
+}

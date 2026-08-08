@@ -1,0 +1,27 @@
+{
+  "index": 156,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"This strategy exploits cross-sectional momentum by identifying stocks that have \"\n        \"outperformed in recent periods and expecting them to continue outperforming. It is \"\n        \"based on the assumption that past performance is indicative of future returns due to \"\n        \"investor sentiment and market efficiency dynamics.\"\n    )\n\n    def __init__(self, lookback_days: int = 90, top_n: int = 25) -> None:\n        self._lookback_days = lookback_days\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_days)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Compute log returns\n        history = (\n            history\n            .with_column(\n                (pl.col(\"close\").shift(-self._lookback_days) / pl.col(\"close\") - 1.0).alias(\"log_return\")\n            )\n            .sort(\"session_date\", descending=False)\n            .drop_nulls()\n        )\n\n        # Calculate cumulative log returns over the lookback period\n        history = (\n            history\n            .group_by(\"symbol\")\n            .agg(\n                (pl.col(\"log_return\").sum().alias(\"cumulative_return\"))\n            )\n        )\n\n        # Sort by cumulative return and select top N stocks\n        ranked_symbols = history.sort(\"cumulative_return\", descending=True)[\"symbol\"].to_list()[: self._top_n]\n\n        if not ranked_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(ranked_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in ranked_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2608,
+    "output_tokens": 1003
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The cross-sectional momentum strategy for the Indian equity market involves identifying stocks that have performed well in recent periods and expecting them to continue outperforming. The economic mechanism is based on the assumption that past performance is indicative of future returns, driven by investor sentiment and market efficiency dynamics. This persistence might be due to the slow adjustment of investor expectations and the inertia in company fundamentals.\n\nThe rule would exploit this by ranking stocks within the market based on their recent return performance over a specified lookback period (e.g., 3-6 months). The top performers would be selected for investment, while underperformers could be excluded or shorted. Rebalancing periodically ensures that the portfolio adapts to new information and maintains momentum exposure.",
+    "The signal for this cross-sectional momentum strategy involves computing the return of each stock over a specific lookback period (e.g., 3-6 months) using daily open, high, low, close prices. Specifically, the daily return is calculated as the log difference between the closing price on day \\( t \\) and the closing price on day \\( t-1 \\). For example, for a 3-month lookback:\n\n\\[ \\text{Return}_t = \\ln\\left(\\frac{\\text{Close}_{t}}{\\text{Close}_{t-90}}\\right) \\]\n\nWhere:\n- \\(\\text{Return}_t\\) is the return of the stock over the last 3 months.\n- \\(\\text{Close}_{t}\\) and \\(\\text{Close}_{t-90}\\) are the closing prices on day \\( t \\) and 90 days ago, respectively.\n\nOn a given day, stocks are ranked based on these computed returns. The top performers (e.g., top 25% of the market by return) are selected for investment, while underperformers can be excluded or shorted. Rebalancing is performed periodically to adjust the portfolio and maintain momentum exposure.",
+    "This strategy typically holds a top decile or 25% of the market by recent return, which might translate to approximately 25-60 stocks depending on the market size. Position sizing can be equal-weighted among selected stocks, giving each an equal chance. Risk limits could involve setting maximum loss bounds per trade or portfolio, such as no single stock position exceeding 1% of the total portfolio value, and overall portfolio volatility targeted to be within a specific range (e.g., 5-10%). This ensures diversification while managing risk effectively."
+  ],
+  "seconds": 30.25784200000635,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 159
+}

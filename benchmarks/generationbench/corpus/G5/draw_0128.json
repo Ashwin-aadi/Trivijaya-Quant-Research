@@ -1,0 +1,26 @@
+{
+  "index": 128,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are more likely to be sustained trends. By \"\n        \"identifying such moves, we can potentially capitalize on the continuation of these \"\n        \"trends.\"\n    )\n\n    def __init__(self, window: int = 10, min_volume_ratio: float = 1.5) -> None:\n        self._window = window\n        self._min_volume_ratio = min_volume_ratio\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n\n        if history.height < self._window + 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or \"volume\" not in history.columns:\n                continue\n\n            prices = [float(v) for v in history[symbol].to_list()]\n            volumes = [float(v) for v in history[\"volume\"].to_list()]\n\n            direction = 1\n            prev_price = None\n            for i in range(1, len(prices)):\n                if prev_price is not None and prices[i] > prices[i - 1]:\n                    current_direction = 1\n                elif prev_price is not None and prices[i] < prices[i - 1]:\n                    current_direction = -1\n                else:\n                    continue\n\n                if direction == current_direction and volumes[i] / volumes[i - 1] >= self._min_volume_ratio:\n                    picks.append(symbol)\n                    break\n\n            prev_price = prices[-2]\n\n        weight = 1.0 / len(picks) if picks else 0.0\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3941,
+    "output_tokens": 1331
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy has several potential issues and areas for improvement:\n\n1. **Rationale vs Code Disagreement**:\n   - The rationale states \"Volume-confirmed directional moves are more likely to be sustained trends,\" but the code does not strictly adhere to this principle. Specifically, line 23 checks if the current price move is confirmed by volume increase in just the next bar (`i` and `i-1`), which may not capture longer-term trends.\n\n2. **Potential Failure Scenarios**:\n   - The logic only considers a single-directional move (either up or down) for each symbol, failing to account for complex market behavior that might involve both bullish and bearish volume surges.\n   - Line 23 assumes the direction is either an increase or decrease in price but does not handle sideways markets or oscillations.\n\n3. **Fragile Parameters**:\n   - The `window` parameter (line 7) could be problematic if set to a value that isn't appropriate for the data. A fixed window of 10 might miss shorter-term trends or be too sensitive in noisy data.\n   - The strategy relies on historical data, which can be sparse or incomplete depending on the source, leading to potential `KeyError` exceptions (line 26 and beyond).\n\n4. **Possible Errors**:\n   - Line 38 attempts to convert column values directly to lists without checking for non-numeric types, risking runtime errors.\n   - The strategy does not handle cases where no symbols meet the criteria, potentially returning an empty `weights` dictionary.\n\n5. **Assumptions and Limitations**:\n   - The current implementation assumes that volume increases confirm price movements but does not account for other factors like volatility or market sentiment which could influence sustained trends.\n   \nOverall, while the strategy aims to identify volume-confirmed moves, it may need more sophisticated handling of trend direction and a broader range of parameters to ensure robustness."
+  ],
+  "seconds": 35.04984200000035,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 260
+}

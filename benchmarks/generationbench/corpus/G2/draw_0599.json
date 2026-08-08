@@ -1,0 +1,23 @@
+{
+  "index": 599,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MomentumAndVolatility(Strategy):\n    rationale = (\n        \"Stocks with high momentum tend to continue their recent trends. However, high volatility \"\n        \"can indicate a lack of direction or increased risk. By combining these two characteristics, \"\n        \"we can identify stocks that are trending strongly but have not yet experienced excessive \"\n        \"volatility.\"\n    )\n\n    def __init__(self, momentum_window: int = 20, volatility_window: int = 10) -> None:\n        self._momentum_window = momentum_window\n        self._volatility_window = volatility_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._momentum_window)\n        if closes.height < self._momentum_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        history = view.history(lookback=max(self._momentum_window, self._volatility_window))\n        volatility = _calculate_volatility(history)\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns or symbol not in volatility.columns:\n                continue\n            momentum = float(closes[symbol].drop_nulls().to_list()[-1]) - float(\n                closes[symbol].drop_nulls().to_list()[0]\n            )\n            vol = float(volatility[symbol].drop_nulls().to_list()[-1])\n            if vol < 2.0 and momentum > 0:\n                picks.append(symbol)\n\n        picks = picks[:5]  # Select top 5 symbols\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_volatility(history: pl.DataFrame) -> pl.DataFrame:\n    symbols = history.columns[2:]  # Skip the first two columns (symbol and session_date)\n    volatility = (\n        history.select(symbols)\n        .with_columns(\n            [(pl.col(symbol).std().alias(symbol)) for symbol in symbols]\n        )\n        .sort(\"session_date\", descending=True)\n        .head(self._volatility_window)\n    )\n    return volatility",
+  "class_name": "MomentumAndVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 579
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.069429299997864,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 608
+}

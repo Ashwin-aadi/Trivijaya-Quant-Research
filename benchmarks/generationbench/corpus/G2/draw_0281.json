@@ -1,0 +1,23 @@
+{
+  "index": 281,
+  "paradigm": "G2_cot",
+  "theme": "breakout continuation",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass BreakoutContinuation(Strategy):\n    rationale = (\n        \"Breakout continuation strategies exploit the idea that after a stock breaks out of its \"\n        \"recent range and experiences an initial sharp move, it may continue in that direction. \"\n        \"This is based on the notion that breakout events often indicate underlying strength or \"\n        \"weakness in the stock, which can persist.\"\n    )\n\n    def __init__(self, window: int = 20, breakout_window: int = 5) -> None:\n        self._window = window\n        self._breakout_window = breakout_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window + self._breakout_window - 1)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        breakout_history = history.sort(\"session_date\").tail(self._breakout_window)\n        continuation_history = history.tail(self._window)\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in breakout_history.columns or symbol not in continuation_history.columns:\n                continue\n\n            breakout_close = float(breakout_history[symbol][\"adj_close\"].to_list()[-1])\n            breakout_high = max(float(high) for high in breakout_history[symbol][\"high\"].to_list())\n            breakout_low = min(float(low) for low in breakout_history[symbol][\"low\"].to_list())\n\n            continuation_close = float(continuation_history[symbol][\"adj_close\"].to_list()[0])\n            if (breakout_high >= breakout_close and continuation_close > breakout_high) or \\\n               (breakout_low <= breakout_close and continuation_close < breakout_low):\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "BreakoutContinuation",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1341,
+    "output_tokens": 524
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.972739899996668,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 288
+}

@@ -1,0 +1,27 @@
+{
+  "index": 267,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy focuses on identifying and investing in a portfolio of highly liquid \"\n        \"stocks with equal weighting. High liquidity can indicate market confidence and lower \"\n        \"transaction costs, while equally weighting stocks mitigates concentration risk.\"\n    )\n\n    def __init__(self, window: int = 30) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        hist = view.history(lookback=self._window)\n        if hist.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily turnover ratio\n        hist = (\n            hist\n            .with_column((pl.col(\"volume\") / (pl.col(\"adj_close\") * pl.col(\"volume\").sum() / pl.col(\"volume\").count())).alias(\"turnover_ratio\"))\n            .sort(\"session_date\", descending=True)\n            .head(self._window)\n        )\n\n        # Rank stocks by turnover ratio\n        ranked = hist.group_by(\"symbol\").agg(pl.col(\"turnover_ratio\").mean().alias(\"avg_turnover_ratio\")).sort(\"avg_turnover_ratio\", descending=True)\n\n        if ranked.height < 30:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = [row[\"symbol\"] for row in ranked.to_dicts()[:30]]\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in picks},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2493,
+    "output_tokens": 883
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan involves developing a systematic equity trading strategy focused on liquidity-screened equal weighting in the Indian market. The core idea is to identify and invest in a portfolio of stocks with high liquidity but equally weighted, thereby reducing concentration risk. This approach exploits the economic mechanism where less-liquid stocks often underperform due to limited price discovery mechanisms and higher transaction costs. Given that high liquidity can be an indicator of market confidence and lower trading frictions, this strategy aims to capture excess returns from well-known companies while maintaining a balanced portfolio structure.\n\nThe rule would screen for highly liquid stocks and then equally weight them in the portfolio, ensuring no single stock dominates. This equal weighting helps in mitigating the biases associated with capitalization-weighted indices, which can be skewed by large-cap stocks. The strategy's persistence could be attributed to ongoing market inefficiencies related to liquidity and consistent demand from institutional investors for diversified portfolios.",
+    "The signal for this systematic equity strategy involves ranking stocks based on their liquidity metrics. Specifically, the key liquidity measure used is the daily turnover ratio (volume traded divided by market capitalization). This metric is computed from daily open, high, low, close, and volume data over a 30-day lookback period. On any given day, candidates are ranked in descending order of their turnover ratios. High turnover ratios indicate higher liquidity, making these stocks more suitable for inclusion in the equally weighted portfolio. Stocks with the highest turnover ratios are selected to form the final portfolio, ensuring that no single stock dominates and reducing concentration risk.",
+    "This systematic equity strategy will hold a portfolio of up to 30 highly liquid stocks selected based on their daily turnover ratios over a 30-day lookback period. Each stock in the portfolio is equally weighted, ensuring no single stock dominates (i.e., each holding receives a weight of approximately 3.33%). The strategy aims to limit position risk by maintaining an equally weighted approach, thereby reducing concentration and volatility. Loss bounds are not explicitly defined but should be monitored through backtesting and risk management practices to ensure the portfolio's overall performance aligns with expectations, typically aiming for annualized losses within a range of -10% to -20%, depending on market conditions and strategy performance objectives."
+  ],
+  "seconds": 27.791793899996264,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 272
+}

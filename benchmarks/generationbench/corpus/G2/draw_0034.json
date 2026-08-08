@@ -1,0 +1,23 @@
+{
+  "index": 34,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrade(Strategy):\n    rationale = (\n        \"Stock markets often exhibit predictable seasonal patterns. For instance, some stocks may \"\n        \"perform better at the beginning of the year due to end-of-year profit-taking or after the \"\n        \"annual earnings reports in January. Identifying and trading these seasonal effects can lead \"\n        \"to consistent returns.\"\n    )\n\n    def __init__(self, lookback_years: int = 5) -> None:\n        self._lookback_years = lookback_years\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_years * 252)  # Approximate trading days in a year\n        if history.is_empty() or history.height < self._lookback_years * 252:\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history.select([\"symbol\", \"session_date\", \"adj_close\"])\n        seasonal_effects: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in closes.column_names:\n                continue\n            symbol_data = closes.filter(pl.col(\"symbol\") == symbol)\n            if symbol_data.height < self._lookback_years * 252:\n                continue\n\n            yearly_returns: list[float] = []\n            for i in range(self._lookback_years):\n                start_date = stamp - date(1, 1, 1) + date(i + 1, 1, 1)\n                end_date = start_date + date(1, 1, 1) - date(0, 1, 1)\n\n                yearly_data = symbol_data.filter(\n                    (pl.col(\"session_date\") >= start_date) & (pl.col(\"session_date\") < end_date)\n                )\n                if not yearly_data.height:\n                    continue\n\n                open_price = float(yearly_data[\"adj_close\"][0])\n                close_price = float(yearly_data[\"adj_close\"][-1])\n                yearly_returns.append((close_price - open_price) / open_price)\n\n            avg_return = sum(yearly_returns) / len(yearly_returns)\n            seasonal_effects[symbol] = avg_return\n\n        sorted_symbols = [symbol for symbol, _ in sorted(seasonal_effects.items(), key=lambda item: item[1], reverse=True)]\n        \n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in sorted_symbols[:5]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrade",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 645
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.383485300000757,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 37
+}

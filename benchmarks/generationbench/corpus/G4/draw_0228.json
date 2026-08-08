@@ -1,0 +1,27 @@
+{
+  "index": 228,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MomentumStrategy(Strategy):\n    rationale = (\n        \"This strategy exploits cross-sectional momentum by identifying stocks with strong past performance \"\n        \"and allocating capital disproportionately towards these stocks. The assumption is that past winners are more likely to continue outperforming due to positive market sentiment and fundamental improvements.\"\n    )\n\n    def __init__(self, lookback_period: int = 120, top_n: int = 30) -> None:\n        self._lookback_period = lookback_period\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_period)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [symbol for symbol in view.symbols if symbol in history.columns]\n        if len(symbols) < self._top_n:\n            return Signal(information_available_at=stamp, weights={})\n\n        prices = history.select(pl.col(\"session_date\"), pl.col(symbols).arr.to_list())\n        opens = history[\"open\"][symbols].transpose().to_numpy()\n        closes = history[\"close\"][symbols].transpose().to_numpy()\n\n        cumulative_returns = (closes / opens - 1.0) * 100\n        vwap = _volume_weighted_average_price(history, symbols)\n\n        scores = cumulative_returns.sum(axis=0)\n        ranked_symbols = [symbol for symbol, score in sorted(zip(symbols, scores), key=lambda x: -x[1])[: self._top_n]]\n\n        weight = 1.0 / len(ranked_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in ranked_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _volume_weighted_average_price(history: pl.DataFrame, symbols: list[str]) -> dict[str, float]:\n    volumes = history[\"volume\"][symbols].transpose().to_numpy()\n    prices = history[\"close\"][symbols].transpose().to_numpy()\n\n    vwaps = (prices * volumes).sum(axis=0) / volumes.sum(axis=0)\n    return {symbol: vwap for symbol, vwap in zip(symbols, vwaps)}",
+  "class_name": "MomentumStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2476,
+    "output_tokens": 986
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The systematic equity trading strategy for the Indian market will exploit cross-sectional momentum, focusing on the tendency of stocks with strong past performance to continue outperforming in the near future. This phenomenon is rooted in investors' behavior and market inefficiencies, where positive price trends are often self-reinforcing due to liquidity and trend-following strategies.\n\nThe rule would identify top performers over a recent period (e.g., 6-12 months) and allocate capital disproportionately towards these stocks while selling or shorting underperformers. This approach leverages the persistence of momentum effects, assuming that past winners are likely to remain strong due to positive market sentiment and fundamental improvements.\n\nBy constructing a portfolio based on this rule, the strategy aims to capitalize on the inertia of stock prices and outperform the broader market, provided that the underlying economic conditions do not drastically change.",
+    "The signal for this systematic equity strategy can be defined as follows:\n\n1. **Lookback Period**: 6-12 months.\n2. **Daily Computation**:\n   - Calculate the cumulative return over the lookback period for each stock using daily open, high, low, close prices.\n   - Compute the volume-weighted average price (VWAP) over the same period to account for liquidity and trading activity.\n3. **Ranking**: \n   - Rank all stocks based on their cumulative returns, with higher returns indicating better performance.\n   - Allocate capital disproportionately towards the top-ranked stocks, assuming they are more likely to continue outperforming due to momentum effects.\n\nThis ranking process helps in identifying strong performers over recent periods and forms the basis for portfolio allocation.",
+    "The strategy will hold a portfolio of top 20-30 performing stocks ranked by their cumulative returns over a 6-12 month lookback period. Positions are weighted based on the rank, with higher ranks receiving larger allocations to leverage momentum effects. Position sizes are constrained such that no single stock exceeds 5% of the total portfolio value to manage risk. Loss limits are set at 3% of the portfolio value per trading day to protect against significant drawdowns."
+  ],
+  "seconds": 29.94827290000103,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 232
+}

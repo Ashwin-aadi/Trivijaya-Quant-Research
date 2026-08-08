@@ -1,0 +1,23 @@
+{
+  "index": 83,
+  "paradigm": "G1_plain",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass DualMomentumAndVolatility(Strategy):\n    rationale = (\n        \"This strategy combines momentum and volatility to identify stocks with strong\"\n        \" recent performance but low future expected volatility. The idea is that such\"\n        \" stocks may continue their upward trend.\"\n    )\n\n    def __init__(self, window1: int = 20, window2: int = 60) -> None:\n        self._window1 = window1\n        self._window2 = window2\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=max(self._window1, self._window2))\n        if history.height < max(self._window1, self._window2):\n            return Signal(information_available_at=stamp, weights={})\n\n        momentum_scores: dict[str, float] = {}\n        volatility_scores: dict[str, float] = {}\n\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n\n            close_prices = [float(v) for v in history.select(pl.col(symbol)).drop_nulls().to_list()[0]]\n            momentum_score = (close_prices[-1] - close_prices[0]) / sum(close_prices)\n\n            volatility_score = pl.DataFrame(\n                {\"close\": close_prices}\n            ).with_columns((pl.col(\"close\").rolling_std(window=self._window2) / 2).alias(\"volatility\")).select(\n                pl.col(\"volatility\")\n            ).row(0)[0]\n\n            momentum_scores[symbol] = momentum_score\n            volatility_scores[symbol] = volatility_score\n\n        sorted_symbols = [\n            s for _, s in sorted(momentum_scores.items(), key=lambda item: (item[1], -volatility_scores[item[0]]), reverse=True)\n        ]\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols[:5]},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "DualMomentumAndVolatility",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1249,
+    "output_tokens": 535
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.13129299999855,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 87
+}

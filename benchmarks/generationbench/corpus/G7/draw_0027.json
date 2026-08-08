@@ -1,0 +1,47 @@
+{
+  "index": 27,
+  "paradigm": "G7_mcts",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqual(Strategy):\n    rationale = (\n        \"Liquidity-weighted equal weighting assigns weights to stocks based on their liquidity \"\n        \"measured by volume. This approach aims to balance risk and reward by considering the \"\n        \"ease of trading for each stock.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity = (\n            history\n            .group_by(\"symbol\")\n            .agg(pl.col(\"volume\").sum().alias(\"total_volume\"))\n            .sort(\"total_volume\", descending=True)\n            .head(self._window)[\"symbol\"]\n            .to_list()\n        )\n\n        if len(liquidity) < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(liquidity)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in liquidity},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityWeightedEqual",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 19453,
+    "output_tokens": 5948
+  },
+  "calls": 24,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will be the daily closing price, measured over a 20-day lookback period. This approach ensures that the strategy considers recent market activity while maintaining simplicity.",
+    "The signal will be the daily volume, measured over a 5-day lookback period. This choice focuses on liquidity, ensuring that highly liquid stocks are given more weight, and it reduces noise compared to using price alone.",
+    "The portfolio will hold 25 names, each equally weighted with a weight of 4% (i.e., 100/25 = 4%). This equal weighting ensures that no single stock dominates the portfolio, promoting diversification while simplifying management and execution.",
+    "Propose a genuinely different approach:\n\nThe portfolio will hold 30 names, with weights allocated based on liquidity. The top 10 most liquid stocks will each have a weight of 5%, while the remaining 20 less liquid stocks will share the remaining 40% equally, ensuring both diversification and an emphasis on tradability.",
+    "The portfolio will hold 20 equally weighted names after adjustments, ensuring a balanced exposure while leveraging the liquidity advantage of each selected stock.",
+    "The portfolio will hold 20 equally weighted names after adjustments, ensuring a balanced exposure while leveraging the liquidity advantage of each selected stock.",
+    "To manage risk, each stock position will have a loss limit of -3%, which is the maximum allowable loss before a stop-loss order triggers and closes the position to prevent further losses. This rule ensures that no single stock can significantly impact the portfolio's performance negatively. Additionally, if the overall portfolio value drops by more than 5% from its peak value during any trading session, the strategy will halt all new trades to assess market conditions and avoid exacerbating potential losses.",
+    "For risk management, I propose setting an individual position loss bound of -3% to prevent excessive losses on any single stock, while capping the overall portfolio loss at -8% to limit potential drawdowns and protect capital. These bounds will trigger stop-loss orders to exit positions automatically if reached, ensuring that no single trade or market downturn can significantly harm the strategy's performance.",
+    "For the risk rule, I propose setting an individual stock position limit of 5% of the portfolio value to prevent any single stock from significantly impacting the overall portfolio performance, thus managing exposure risk effectively.",
+    "To manage risk effectively, each stock position will have a loss limit of -3%, triggering a stop-loss order to close the position if the loss exceeds this threshold. This ensures that no single stock can significantly impact the portfolio's performance negatively. Additionally, if the overall portfolio value drops by more than 5% from its peak value during any trading session, the strategy will halt all new trades to assess market conditions and prevent exacerbating potential losses.",
+    "For the risk rule, I propose setting an individual stock position limit of 5% of the portfolio value. This limits the impact of any single stock on the overall portfolio, ensuring that no position becomes too large and potentially destabilizing.",
+    "For the risk rule, I propose setting an individual position loss limit of -5% to prevent significant losses on any single stock. Additionally, the portfolio-wide loss limit will be set at -10%, which would trigger a stop-loss mechanism, halting further trading to protect against severe market downturns."
+  ],
+  "seconds": 198.81978180003352,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 342
+}

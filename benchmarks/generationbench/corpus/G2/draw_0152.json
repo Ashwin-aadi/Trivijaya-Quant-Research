@@ -1,0 +1,23 @@
+{
+  "index": 152,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves indicate that a significant number of traders \"\n        \"are committing to a particular direction. This can lead to sustained price movement and \"\n        \"potential profit opportunities.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        high_volatility_symbols: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history.columns or len(history[symbol].to_list()) < self._window:\n                continue\n\n            # Calculate daily returns\n            returns = [float(v2 / v1 - 1) for v1, v2 in zip(history[symbol][:-1], history[symbol][1:])]\n\n            # Calculate the volume on each day\n            volumes = history[\"volume\"].to_list()\n\n            # Check if the return is positive and the volume increased or negative and the volume decreased\n            directional_moves = [(r > 0) == (v2 > v1) for r, v1, v2 in zip(returns[:-1], volumes[:-1], volumes[1:])]\n\n            if sum(directional_moves) >= 0.7 * len(directional_moves):\n                high_volatility_symbols.append(symbol)\n\n        if not high_volatility_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(high_volatility_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in high_volatility_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 478
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.00501290000102,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 157
+}

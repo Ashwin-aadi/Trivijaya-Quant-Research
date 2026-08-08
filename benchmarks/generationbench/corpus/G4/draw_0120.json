@@ -1,0 +1,27 @@
+{
+  "index": 120,
+  "paradigm": "G4_planning",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass Momentum3m(Strategy):\n    rationale = (\n        \"This strategy capitalizes on the phenomenon that stocks with strong recent \"\n        \"performance are likely to continue outperforming. By ranking Indian-listed \"\n        \"companies based on their cumulative returns over a 3-month period and selecting \"\n        \"the top-performing stocks, we aim to benefit from momentum persistence.\"\n    )\n\n    def __init__(self, window: int = 90, top_n: int = 20) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate daily returns\n        history = (\n            history.with_columns(\n                (pl.col(\"close\") / pl.col(\"adj_close\").shift(1) - 1.0).alias(\"return\")\n            )\n            .group_by(\"symbol\")\n            .agg(pl.sum(\"return\").alias(\"cumulative_return\"))\n        )\n\n        # Filter out symbols with no return data\n        history = history.filter(~pl.col(\"cumulative_return\").is_nan())\n\n        # Rank symbols by cumulative return\n        ranks = (\n            history.sort(\"cumulative_return\", descending=True)\n            .group_by(\"symbol\")\n            .agg(pl.col(\"cumulative_return\").rank(method=\"dense\", descending=True).alias(\"rank\"))\n        )\n\n        top_symbols = ranks.filter(pl.col(\"rank\") <= self._top_n)[\"symbol\"].to_list()\n\n        # Equal weighting for selected symbols\n        weights = {s: 1.0 / len(top_symbols) for s in top_symbols}\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weights[s] if s in weights else 0.0 for s in view.symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "Momentum3m",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2407,
+    "output_tokens": 921
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The cross-sectional momentum strategy in the Indian market aims to capitalize on the phenomenon where stocks that have performed well in the recent past are likely to continue performing well. This is based on the economic mechanism that investor sentiment and price trends can persist over time due to psychological biases, such as herding behavior and momentum investors' preference for continuing profitable trades.\n\nTo exploit this persistence, a rule-based approach could be designed to identify stocks showing positive historical returns over shorter periods (e.g., 3-6 months). The strategy would involve ranking all Indian listed companies based on their recent performance and selecting the top-performing stocks for investment. This momentum factor is believed to persist due to market inefficiencies that allow mispriced assets to correct slowly, as well as investor inertia in re-evaluating stock prices.",
+    "The signal for this cross-sectional momentum strategy involves computing the return of each stock over a recent lookback period (e.g., 3-6 months) using daily open, high, low, close prices. The volume data can be used to filter out stocks with unusually low liquidity but is not directly involved in calculating the returns. On a given day, all Indian-listed companies are ranked based on their cumulative return over the specified lookback period. Stocks at the top of this ranking are selected for investment as they exhibit strong recent performance and are considered likely to continue outperforming due to momentum persistence.",
+    "The strategy involves holding a portfolio of top-ranked stocks based on recent performance. Typically, the top 10-20 performing stocks are selected for investment to balance between diversification and momentum capture. These positions can be equally weighted or weighted according to their rank, with higher-ranked stocks receiving slightly more weight. Position sizing is constrained such that no single stock represents more than 5% of the total portfolio value to limit concentration risk. Additionally, a stop-loss mechanism is implemented to cap potential losses at around 3-5% per position to manage drawdowns effectively. Overall, this approach aims to leverage momentum while maintaining risk control."
+  ],
+  "seconds": 28.446447200003604,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 123
+}

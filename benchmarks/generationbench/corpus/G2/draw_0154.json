@@ -1,0 +1,23 @@
+{
+  "index": 154,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalTrend(Strategy):\n    rationale = (\n        \"Seasonality in stock markets can arise due to recurring events such as festivals, \"\n        \"earnings seasons, or regulatory changes. By identifying stocks that show strong \"\n        \"historical performance during specific months of the year, we can exploit these trends.\"\n    )\n\n    def __init__(self, lookback_years: int = 3, threshold: float = 0.15) -> None:\n        self._lookback_years = lookback_years\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_years * 252)\n        if history.height < 252 * self._lookback_years:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate the average monthly returns for each stock\n        avg_returns: dict[str, float] = {}\n        symbols = view.symbols\n        for symbol in symbols:\n            monthly_returns = history.select(\n                pl.col(\"session_date\").dt.month().alias(\"month\"),\n                pl.col(symbol).alias(\"adj_close\")\n            ).group_by(\"month\").agg((pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(1) - 1.0).mean().alias(\"avg_return\"))\n\n            if not monthly_returns.is_empty():\n                avg_return = float(monthly_returns.select(pl.col(\"avg_return\")).item())\n                if avg_return > self._threshold:\n                    avg_returns[symbol] = avg_return\n\n        # Select the top performing symbols\n        top_symbols = sorted(avg_returns.keys(), key=lambda x: avg_returns[x], reverse=True)[:5]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalTrend",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 496
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.38199490000261,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 159
+}

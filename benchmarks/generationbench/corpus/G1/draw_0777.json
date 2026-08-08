@@ -1,0 +1,23 @@
+{
+  "index": 777,
+  "paradigm": "G1_plain",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilting(Strategy):\n    rationale = (\n        \"Low-volatility tilting is a strategy that aims to capture higher returns by \"\n        \"allocating more capital to assets with lower historical volatility. This approach \"\n        \"is based on the empirical observation that low-volatility stocks tend to outperform.\"\n    )\n\n    def __init__(self, lookback: int = 60) -> None:\n        self._lookback = lookback\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback)\n        if history.height < self._lookback or history.width == 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        volatility_by_symbol = (\n            history.group_by(\"symbol\")\n            .agg(\n                (pl.col(\"adj_close\").std().alias(\"volatility\")),\n                pl.col(\"session_date\").max().alias(\"last_session\"),\n            )\n            .sort(\"volatility\")\n            .select([\"symbol\", \"volatility\", \"last_session\"])\n        )\n\n        if volatility_by_symbol.height < 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        low_vol_symbols = [row[\"symbol\"] for row in volatility_by_symbol.to_dicts()]\n        num_symbols = min(len(low_vol_symbols), 5)\n        weights = {s: 1.0 / num_symbols for s in low_vol_symbols}\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weights[s] for s in view.symbols if s in weights},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LowVolatilityTilting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 436
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.351066100003663,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 792
+}

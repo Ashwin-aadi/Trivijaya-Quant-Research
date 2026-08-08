@@ -1,0 +1,23 @@
+{
+  "index": 572,
+  "paradigm": "G1_plain",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are indicative of strong market sentiment. \"\n        \"This strategy identifies symbols that have made a significant upward move with high volume.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"].to_list():\n                continue\n            data = (\n                history.filter(pl.col(\"symbol\") == symbol)\n                          .sort(\"session_date\")\n                          .with_columns(\n                              (pl.col(\"close\") - pl.col(\"open\")).alias(\"move\"),\n                              (pl.col(\"volume\") / pl.col(\"volume\").shift(1) - 1.0).alias(\"vol_change\")\n                          )\n            )\n\n            latest_close = data.select(pl.col(\"adj_close\").last().alias(\"latest\"))\n            if not latest_close.height:\n                continue\n\n            recent_moves = [float(v) for v in data[\"move\"].to_list()]\n            recent_vols = [float(v) for v in data[\"vol_change\"].to_list()]\n\n            max_move_index = recent_moves.index(max(recent_moves))\n            vol_increase = recent_vols[max_move_index] > 0.1\n\n            if len(recent_moves) >= self._window and max_move_index == (len(recent_moves) - 1) and vol_increase:\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1246,
+    "output_tokens": 520
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 15.512412099997164,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 582
+}

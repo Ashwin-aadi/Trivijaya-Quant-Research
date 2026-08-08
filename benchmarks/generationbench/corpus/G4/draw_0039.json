@@ -1,0 +1,27 @@
+{
+  "index": 39,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy screens for stocks with higher liquidity to ensure marketability \"\n        \"without significant price impact. Equally weighting the selected stocks aims to \"\n        \"reduce bias towards larger-cap stocks and leverage potential mispricings in smaller, \"\n        \"less liquid stocks.\"\n    )\n\n    def __init__(self, window: int = 30, threshold: float = 50.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty() or history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_scores: dict[str, float] = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            daily_data = (\n                history.select([\"session_date\", \"high\", \"low\", \"volume\"])\n                .with_columns(\n                    (pl.col(\"volume\") / ((pl.col(\"high\") - pl.col(\"low\")) + 1e-6)).alias(\"liquidity_score\")\n                )\n                .sort(\"session_date\", descending=False)\n                .select(\"liquidity_score\")\n            )\n\n            if daily_data.height < self._window:\n                continue\n            liquidity_scores[symbol] = float(daily_data[\"liquidity_score\"].mean().item())\n\n        selected_symbols: list[str] = [k for k, v in liquidity_scores.items() if v >= self._threshold]\n        weight = 1.0 / len(selected_symbols) if selected_symbols else 0\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in selected_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2415,
+    "output_tokens": 906
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The plan involves constructing a portfolio by first screening for stocks with higher liquidity to ensure marketability without significant price impact. The screened stocks are then equally weighted within the portfolio, aiming to reduce bias towards larger-cap stocks. This strategy exploits the economic mechanism that smaller cap and less liquid stocks often exhibit more pronounced mispricings due to lower trading volumes and fewer market participants. Such mispricings might persist because of limited information flow and higher transaction costs for these stocks. The rule would involve: 1) identifying a liquidity threshold, 2) selecting stocks above this threshold, and 3) equally weighting the chosen stocks in the portfolio. This approach aims to balance exposure across various market capitalizations while leveraging potential price inefficiencies.",
+    "The signal for this strategy is based on liquidity metrics. Each stock's liquidity score is calculated using daily open, high, low, close, and volume data over the last 30 days. Specifically, we compute the average daily trading volume (V) and the average daily range (R = High - Low). The liquidity score (L) for each stock is then derived from these metrics, such as \\( L = \\frac{V}{R} \\). On any given day, stocks are ranked based on their liquidity scores. Only those above a predefined threshold are selected for equal weighting in the portfolio. This process ensures that only sufficiently liquid stocks are considered, mitigating potential market impact and price distortions.",
+    "This strategy involves holding a diversified portfolio of approximately 30-50 equally-weighted stocks, ensuring broad market exposure while mitigating bias towards larger-cap stocks. Each selected stock is given an equal weight in the portfolio to balance risk across different market capitalizations. Position sizing and risk limits are carefully managed: the total portfolio risk is capped at a predetermined level, typically 2%-3% per stock to limit individual stock risk. Additionally, a stop-loss mechanism may be implemented to automatically reduce positions or exit the strategy if losses exceed 5-10% of the portfolio value, ensuring that potential drawdowns are contained."
+  ],
+  "seconds": 28.354030199996487,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 40
+}

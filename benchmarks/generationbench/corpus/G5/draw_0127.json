@@ -1,0 +1,26 @@
+{
+  "index": 127,
+  "paradigm": "G5_reflection",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression indicates a period of low volatility and may suggest that \"\n        \"the market is consolidating before a potential breakout. Investing in symbols with \"\n        \"compressed ranges can help capture any subsequent price movements.\"\n    )\n\n    def __init__(self, window: int = 20, top_n: int = 5) -> None:\n        self._window = window\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression_scores = {}\n        for symbol in view.symbols:\n            hist = history.filter(pl.col(\"symbol\") == symbol)\n            highs = [float(v) for v in hist[\"high\"].to_list()]\n            lows = [float(v) for v in hist[\"low\"].to_list()]\n            if len(highs) < self._window or len(lows) < self._window:\n                continue\n            high_min = min(highs)\n            low_max = max(lows)\n            range_compression_score = (high_min - low_max) / ((max(highs) - min(lows)) + 1e-8)\n            range_compression_scores[symbol] = range_compression_score\n\n        sorted_symbols = [\n            s for _, s in sorted(range_compression_scores.items(), key=lambda item: item[1], reverse=True)\n        ][: self._top_n]\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible.select(pl.col(\"session_date\").max()).collect().row(0)[0]\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4061,
+    "output_tokens": 1443
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is generally well-structured but contains some issues and potential fragilities:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale suggests investing in symbols with \"compressed ranges\" to capture subsequent price movements. However, the code computes a range compression score as `(high_min - low_max) / (max(highs) - min(lows))`. This formula could lead to issues because `range_compression_score` might not accurately reflect the concept of range compression. For instance, if the market is highly volatile but within tight bounds, this ratio might still yield a high score.\n\n2. **Potential Failure Scenarios**:\n   - Line 31: If any symbol has less than the specified window length of data (`if history.height < self._window`), the function returns an empty `weights` dictionary without further handling or logging, which could lead to silent failures.\n   - Line 47: The score calculation uses `max(highs) - min(lows)` in the denominator. If all high prices are the same as low prices (`highs == lows`), this would result in a division by zero error.\n\n3. **Fragile Parameters**:\n   - The window length is hardcoded to 20 (line 8). While this might be suitable for certain markets, it may not generalize well across different asset classes or market conditions.\n   - The top 5 symbols are selected based on the highest range compression scores (`[:5]`), which could miss important signals if there are fewer than 5 relevant symbols with high scores.\n\n4. **Potential Stops**:\n   - Line 18: If `view.history()` returns an empty DataFrame, `_latest_visible` might return a fixed date `date(1900, 1, 1)`, which could be problematic if this date is used in subsequent logic.\n   - Lines 32-47: The logic for selecting and weighting symbols assumes that the top 5 symbols with the highest range compression scores are meaningful. If fewer than five symbols meet the criteria, the code still returns a valid `Signal`.\n\nOverall, while the strategy has clear intentions, it could benefit from more robust handling of edge cases, error checking, and possibly dynamic parameter tuning based on backtesting results."
+  ],
+  "seconds": 38.4791237999998,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 258
+}

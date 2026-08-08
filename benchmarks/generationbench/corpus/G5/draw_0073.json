@@ -1,0 +1,26 @@
+{
+  "index": 73,
+  "paradigm": "G5_reflection",
+  "theme": "short-horizon mean reversion",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass MeanReversion10d(Strategy):\n    rationale = (\n        \"Mean reversion suggests that security prices and trading volumes that drift far from \"\n        \"their historical average will eventually return. By identifying stocks that have deviated \"\n        \"significantly from their 10-day mean, we can capitalize on the tendency for these prices to revert.\"\n    )\n\n    def __init__(self, window: int = 10, threshold: float = 2.0) -> None:\n        self._window = window\n        self._threshold = threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        mean_close = (\n            history.groupby(\"symbol\")\n            .agg((pl.col(\"adj_close\").mean()).alias(\"mean\"))\n            .with_columns(\n                (pl.col(\"mean\") - pl.col(\"close\").shift(1).fill_none(0)).abs()\n                .alias(\"diff\")\n            )\n            .filter(pl.col(\"diff\") > self._threshold)\n        )\n\n        if mean_close.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbol_mean_map: dict[str, float] = (\n            mean_close.select([\"symbol\", \"mean\"])\n            .with_columns(\n                (pl.col(\"mean\") - pl.col(\"close\").shift(1).fill_none(0))\n                / pl.col(\"adj_close\")\n                .std()\n                .over(\"symbol\")\n                .alias(\"z_score\")\n            )\n            .filter(pl.col(\"z_score\").abs() > 2)\n            .to_dict(as_series=False)  # type: ignore\n        )\n\n        if not symbol_mean_map:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbol_mean_map)\n        return Signal(\n            information_available_at=stamp,\n            weights={\n                symbol: weight for symbol in symbol_mean_map.keys()\n            },\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "MeanReversion10d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3894,
+    "output_tokens": 1357
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy is a basic implementation of mean reversion based on historical prices. Here are some critiques:\n\n1. **Rationale vs. Code Discrepancy**: The rationale suggests using significant deviations from the 10-day mean to identify stocks for trading, while the code uses an absolute difference greater than 2 as a threshold (`pl.col(\"diff\").abs() > 2`). This threshold is arbitrary and does not necessarily capture \"significant\" deviations.\n\n2. **Potential Failure**: The strategy relies on historical data, but it lacks any dynamic adjustment to changing market conditions. For instance, if the market changes rapidly or exhibits different volatility patterns, this static approach might fail to adapt effectively.\n\n3. **Fragile Parameters**:\n   - `window`: The window size is hardcoded at 10 days in the example, which may not be optimal for all markets or time periods. This parameter should ideally be configurable and possibly optimized.\n   - The threshold of 2 might be too high or low depending on market conditions.\n\n4. **Potential Issues**:\n   - Line 32: `mean_close.select([\"symbol\", \"mean\"])` assumes that the `symbol` column exists, which may not always be true if data is missing or inconsistent.\n   - Line 35: The use of `.shift(1)` without ensuring that there is a previous close price might lead to errors when the first day's data does not have a prior close.\n\n5. **Running Issues**:\n   - Line 28: `symbol_mean_map` will be empty if no symbols deviate significantly, leading to an empty weights dictionary and potentially stopping the strategy from generating any signals.\n   - The method `_latest_visible` assumes that there is always some historical data (line 46), which might not hold in cases where initial data is sparse or missing.\n\nOverall, while the concept of mean reversion is sound, the implementation has several weaknesses that could lead to unreliable results and potential errors."
+  ],
+  "seconds": 35.36203740000019,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 149
+}

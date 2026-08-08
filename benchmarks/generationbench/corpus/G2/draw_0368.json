@@ -1,0 +1,23 @@
+{
+  "index": 368,
+  "paradigm": "G2_cot",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are often indicative of strong market sentiment and \"\n        \"can lead to sustained price action. By identifying stocks that have a significant volume \"\n        \"on their recent directionally-moving days, we can potentially profit from the continuation \"\n        \"of such trends.\"\n    )\n\n    def __init__(self, window: int = 10) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        grouped = (\n            history.group_by(\"symbol\")\n            .agg(\n                pl.col(\"volume\").max().alias(\"max_volume\"),\n                (pl.col(\"close\") - pl.col(\"open\")).abs().mean().alias(\"avg_abs_move\"),\n                pl.col(\"volume\").sum().alias(\"total_volume\"),\n                pl.col(\"adj_close\").shift(-1).diff().filter(pl.col(\"adj_close\") != 0).count()\n                .alias(\"directional_days\")\n            )\n        )\n\n        # Filter to keep only the most active symbols\n        grouped = grouped.filter(\n            (pl.col(\"max_volume\") > pl.col(\"total_volume\").quantile(0.75))\n            & (pl.col(\"avg_abs_move\") > 1)\n        )\n\n        if grouped.height < 3:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Find symbols with at least 2 directional days\n        directional_symbols = (\n            grouped.filter(pl.col(\"directional_days\") >= 2)\n            .select(\n                pl.col(\"symbol\"),\n                (pl.col(\"total_volume\") / self._window).alias(\"avg_daily_vol\")\n            )\n        )\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in directional_symbols[\"symbol\"].to_list():\n                continue\n            avg_daily_vol = float(directional_symbols.filter(pl.col(\"symbol\") == symbol)[\"avg_daily_vol\"])\n            picks.append(symbol)\n\n        weights = {s: 1.0 / len(picks) for s in picks}\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 581
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.075127000003704,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 376
+}

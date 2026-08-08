@@ -1,0 +1,23 @@
+{
+  "index": 31,
+  "paradigm": "G2_cot",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression(Strategy):\n    rationale = (\n        \"Range compression occurs when a stock's price fluctuates less within a given \"\n        \"time frame. This suggests that the market may be digesting information or reducing \"\n        \"uncertainty, potentially setting up for a breakout in either direction.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression_scores = {}\n        for symbol in view.symbols:\n            if symbol not in history[\"symbol\"]:\n                continue\n            daily_range = (\n                (history.select(pl.col(\"high\") - pl.col(\"low\")) / history.select(pl.col(\"close\").shift(1)))\n                .with_columns(\n                    ((pl.col(\"high\") - pl.col(\"low\")).mean() / pl.col(\"adj_close\").std()).alias(\"range_ratio\"),\n                )\n                .sort(\"session_date\", descending=False)\n            )\n\n            if daily_range.height < self._window:\n                continue\n\n            recent_daily_range = daily_range.select(pl.col(\"range_ratio\").tail(self._window))\n            mean_recent_range = float(recent_daily_range[\"range_ratio\"].mean())\n            current_range_ratio = float(daily_range.filter(pl.col(\"session_date\") == history[\"session_date\"].max())[\"range_ratio\"])\n            range_compression_score = (current_range_ratio - mean_recent_range) / mean_recent_range\n\n            if not pl.all(range_compression_score.is_nan()):\n                range_compression_scores[symbol] = range_compression_score\n\n        if not range_compression_scores:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbol = max(range_compression_scores, key=range_compression_scores.get)\n        weight = 1.0\n        return Signal(\n            information_available_at=stamp,\n            weights={top_symbol: weight},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1343,
+    "output_tokens": 533
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 13.237740699994902,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 34
+}

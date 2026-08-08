@@ -1,0 +1,23 @@
+{
+  "index": 93,
+  "paradigm": "G2_cot",
+  "theme": "low-volatility tilting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LowVolatilityTilt(Strategy):\n    rationale = (\n        \"Low-volatility stocks are less prone to sudden price movements and may offer more stable returns. \"\n        \"By tilting the portfolio towards low-volatility stocks, we can reduce overall risk and potentially improve return consistency.\"\n    )\n\n    def __init__(self, lookback_window: int = 60) -> None:\n        self._lookback_window = lookback_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._lookback_window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = [str(symbol) for symbol in view.symbols]\n        volatilities = _calculate_volatility(symbols, history)\n\n        sorted_symbols = [\n            s for _, s in sorted(volatilities.items(), key=lambda item: item[1])\n        ][:5]\n\n        if not sorted_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(sorted_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in sorted_symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _calculate_volatility(symbols: list[str], history: pl.DataFrame) -> dict[str, float]:\n    volatilities = {}\n    for symbol in symbols:\n        close_prices = [float(v) for v in history.select(pl.col(symbol))[\"close\"].to_list()]\n        if len(close_prices) < 2:\n            continue\n        log_returns = [\n            (np.log(prices[i + 1] / prices[i]) * 100)\n            for i, _ in enumerate(prices[:-1])\n        ]\n        volatility = np.std(log_returns) * np.sqrt(252)\n        volatilities[symbol] = volatility\n    return volatilities",
+  "class_name": "LowVolatilityTilt",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1345,
+    "output_tokens": 500
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.559571199999482,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 97
+}

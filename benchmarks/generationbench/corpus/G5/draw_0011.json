@@ -1,0 +1,26 @@
+{
+  "index": 11,
+  "paradigm": "G5_reflection",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeSignalStrategy(Strategy):\n    rationale = (\n        \"This strategy combines two characteristics: the momentum of a stock and its \"\n        \"volume anomaly. Momentum captures recent price movement, while volume anomaly \"\n        \"helps identify potential significant trading activity.\"\n    )\n\n    def __init__(self, momentum_window: int = 10, volume_threshold: float = 2.0) -> None:\n        self._momentum_window = momentum_window\n        self._volume_threshold = volume_threshold\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=2 * self._momentum_window + 10)\n        if history.height < 2 * self._momentum_window + 10:\n            return Signal(information_available_at=stamp, weights={})\n\n        symbols = view.symbols\n        picks: list[str] = []\n\n        for symbol in symbols:\n            if symbol not in history.columns:\n                continue\n\n            close_data = [float(v) for v in history[symbol].to_list()]\n            momentum_score = (sum(close_data[-self._momentum_window:]) - sum(\n                close_data[:-self._momentum_window])) / self._momentum_window\n\n            volume_history = view.history(lookback=self._momentum_window)\n            if symbol not in volume_history.columns:\n                continue\n            volumes = [float(v) for v in volume_history[symbol].to_list()]\n            recent_volume_mean = sum([v > 0 for v in volumes[-self._momentum_window:]])\n\n            if momentum_score > 0 and recent_volume_mean >= self._volume_threshold:\n                picks.append(symbol)\n\n        picks = picks[:5]\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeSignalStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4097,
+    "output_tokens": 1423
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This strategy combines momentum with volume anomaly to generate trading signals. Here are some critiques:\n\n1. **Rationale vs. Code Discrepancies:**\n   - The rationale mentions \"volume anomaly\" helps identify significant trading activity, but the code uses a boolean condition (`recent_volume_mean / self._momentum_window >= self._volume_threshold`) instead of comparing it to a threshold.\n   - Specifically, in lines 26-31, `recent_volume_mean` is calculated as the number of days with volume above the mean. It should probably be compared to a specific threshold rather than the ratio.\n\n2. **Potential Failures:**\n   - In line 37, `momentum_score` is calculated incorrectly. It subtracts two sums instead of dividing their difference by `self._momentum_window`, which doesn't make sense in terms of momentum.\n   - The code assumes that `volume_history` will always contain the same symbols as `history`. If this assumption fails, the program may crash due to unhandled exceptions.\n\n3. **Fragile Parameters:**\n   - The parameters `momentum_window` and `volume_threshold` are hardcoded in a few places (e.g., lines 26-27). Changing these without updating all references could lead to bugs.\n   - The volume check (`recent_volume_mean / self._momentum_window >= self._volume_threshold`) might be too strict or lenient depending on market conditions.\n\n4. **Possible Issues:**\n   - Line 19: `history.height` should be `history.height()`, as `height()` is a method in Polars.\n   - The code does not handle cases where the symbol's data is missing in both histories, leading to skipped symbols which might cause issues if many are missed.\n\nIn summary, while the intent of combining momentum and volume anomalies for signal generation is sound, specific implementation details need refinement."
+  ],
+  "seconds": 36.40419159999965,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 24
+}

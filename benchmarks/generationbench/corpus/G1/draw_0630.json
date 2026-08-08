@@ -1,0 +1,23 @@
+{
+  "index": 630,
+  "paradigm": "G1_plain",
+  "theme": "relative strength against the broad universe",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RelativeStrength(Strategy):\n    rationale = (\n        \"Selecting stocks with the highest relative strength against the broad market \"\n        \"tends to outperform in the long run. This is based on the idea that strong \"\n        \"sectors or themes may continue to perform well.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        market_close = float(view.latest_close()[\"NIFTY 100\"].max())\n        closes = pl.DataFrame(history).select(pl.col(\"symbol\").alias(\"Symbol\"), \"close\")\n\n        symbol_strengths = (\n            closes\n            .group_by(\"Symbol\")\n            .agg(\n                (pl.col(\"close\") / pl.col(\"close\").shift(self._window - 1) - 1.0)\n                .mean()\n                .alias(\"strength\"),\n                (pl.col(\"close\") / market_close).mean().alias(\"market_strength\"),\n            )\n        ).sort(\"strength\", descending=True)\n\n        if symbol_strengths.height < view.symbols.count():\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [str(row.Symbol) for row in symbol_strengths.to_dicts()][:10]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RelativeStrength",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1247,
+    "output_tokens": 442
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.890834200006793,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 643
+}

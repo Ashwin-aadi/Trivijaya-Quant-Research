@@ -1,0 +1,26 @@
+{
+  "index": 240,
+  "paradigm": "G5_reflection",
+  "theme": "cross-sectional momentum",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CrossSectionalMomentum(Strategy):\n    rationale = (\n        \"Cross-sectional momentum involves buying the top performers and selling the \"\n        \"underperformers from the previous period. This strategy captures trends in relative performance.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate returns\n        returns = history.select(\n            pl.col(\"symbol\"),\n            (pl.col(\"adj_close\") / pl.col(\"adj_close\").shift(self._window) - 1.0).alias(\"return\")\n        )\n\n        # Filter out symbols with no data for the full window\n        returns = returns.filter(pl.col(\"return\").is_not_null())\n        symbols_with_full_data = set(returns[\"symbol\"].to_list())\n\n        top_symbols: list[str] = []\n        bottom_symbols: list[str] = []\n\n        for symbol in view.symbols:\n            if symbol not in symbols_with_full_data or symbol not in returns.columns:\n                continue\n\n            return_val = float(returns.filter(pl.col(\"symbol\") == symbol)[\"return\"][0])\n            if return_val > 0.0:\n                top_symbols.append(symbol)\n            else:\n                bottom_symbols.append(symbol)\n\n        # Select top and bottom performers\n        top_n = min(self._window, len(top_symbols))\n        bottom_n = min(self._window, len(bottom_symbols))\n\n        top_weights = {s: 1.0 / top_n for s in top_symbols[:top_n]}\n        bottom_weights = {s: -1.0 / bottom_n for s in bottom_symbols[:bottom_n]}\n\n        final_weights = {**top_weights, **bottom_weights}\n        return Signal(information_available_at=stamp, weights=final_weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CrossSectionalMomentum",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 4060,
+    "output_tokens": 1436
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The provided strategy generally aligns well with its rationale but has some potential issues and areas for improvement:\n\n1. **Rationale vs. Code Disagreement**:\n   - The rationale states \"buying the top performers and selling the underperformers from the previous period,\" which is accurately reflected in the code.\n   - However, there's no explicit mention of handling missing data or symbols that are not present in the full window of returns. This could lead to issues if some symbols have fewer than `self._window` days of historical data.\n\n2. **Potential Failures**:\n   - Line 29: If any symbol has missing return values, it will be filtered out and not included in top or bottom selections, potentially leading to incomplete weights.\n   - Line 37-41: The code assumes that `top_symbols` and `bottom_symbols` are non-empty. This might fail if the market view is too volatile, causing all symbols to have negative returns.\n\n3. **Fragile Parameters**:\n   - The parameter `window` is fixed at initialization but could be made more flexible.\n   - The strategy assumes that `top_n` and `bottom_n` are always equal to `self._window`, which might not be optimal in practice. Adjusting these values based on the specific market conditions or portfolio size could improve performance.\n\n4. **Potential Issues**:\n   - Line 27: Using `is_not_null()` might miss symbols with zero returns, leading to incomplete weights.\n   - The strategy does not handle cases where all symbols have negative returns (all bottom performers), which could lead to a `final_weights` dictionary with only negative values.\n\n5. **Running Issues**:\n   - Ensure that the `MarketView`, `Signal`, and related classes are properly defined elsewhere in your codebase.\n   - The use of `polars` for data manipulation is fine, but ensure it aligns with your environment setup (e.g., dependencies installed).\n\nOverall, the strategy is sound conceptually but could benefit from additional handling of edge cases and more flexible parameter tuning."
+  ],
+  "seconds": 36.68031189999965,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 486
+}

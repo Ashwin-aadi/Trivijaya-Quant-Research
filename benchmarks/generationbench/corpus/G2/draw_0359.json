@@ -1,0 +1,23 @@
+{
+  "index": 359,
+  "paradigm": "G2_cot",
+  "theme": "a composite of two weakly related characteristics",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass CompositeStrategy(Strategy):\n    rationale = (\n        \"This strategy seeks to combine trend-following and value metrics. The idea is that \"\n        \"companies with high return on assets (ROA) tend to have positive trends in their stock prices, \"\n        \"which can be identified through recent price movements. By combining these two factors, we aim \"\n        \"to capture both the strength of the current trend and the underlying value.\"\n    )\n\n    def __init__(self, roa_window: int = 30, trend_window: int = 20) -> None:\n        self._roa_window = roa_window\n        self._trend_window = trend_window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._trend_window)\n        if closes.height < self._trend_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        roa = view.closes(lookback=self._roa_window)\n        if roa.height < self._roa_window:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Calculate ROA\n        roa_values = {symbol: float(roa[symbol].drop_nulls().to_list()[-1]) for symbol in view.symbols}\n        \n        # Calculate trend strength\n        trends = {}\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._trend_window:\n                continue\n            last_close = values[-1]\n            mean_last_n_days = sum(values[-self._trend_window:]) / self._trend_window\n            trend_strength = (last_close - mean_last_n_days) / mean_last_n_days * 100.0\n            trends[symbol] = trend_strength\n\n        # Filter symbols based on both criteria\n        valid_symbols = [symbol for symbol in view.symbols if symbol in roa_values and symbol in trends]\n        if not valid_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        # Assign equal weight to all selected stocks\n        weight = 1.0 / len(valid_symbols)\n        return Signal(\n            information_available_at=stamp, \n            weights={s: weight for s in valid_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "CompositeStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1347,
+    "output_tokens": 605
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 14.597844399999303,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 367
+}

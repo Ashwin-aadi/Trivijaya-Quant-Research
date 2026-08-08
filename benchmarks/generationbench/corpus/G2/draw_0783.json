@@ -1,0 +1,23 @@
+{
+  "index": 783,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityScreenedEqualWeighting(Strategy):\n    rationale = (\n        \"High liquidity stocks are typically more efficient and less prone to price manipulation. \"\n        \"By equal-weighting the most liquid stocks in the market, we aim to benefit from \"\n        \"reduced transaction costs and potentially higher returns.\"\n    )\n\n    def __init__(self, min_volume: int = 1000000) -> None:\n        self._min_volume = min_volume\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=None)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        volume_series = history.filter(pl.col(\"symbol\").is_in(view.symbols)) \\\n                               .group_by(\"symbol\") \\\n                               .agg((pl.col(\"volume\").sum()).alias(\"total_volume\")) \\\n                               .sort(\"total_volume\", descending=True)\n\n        filtered_symbols = [row[\"symbol\"] for row in volume_series.iter_rows() if row[\"total_volume\"] >= self._min_volume]\n        weights = {s: 1.0 / len(filtered_symbols) for s in filtered_symbols}\n\n        return Signal(information_available_at=stamp, weights=weights)\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityScreenedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 362
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 9.741035500002909,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 795
+}

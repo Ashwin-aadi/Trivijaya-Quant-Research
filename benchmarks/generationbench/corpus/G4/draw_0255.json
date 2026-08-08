@@ -1,0 +1,27 @@
+{
+  "index": 255,
+  "paradigm": "G4_planning",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityEqualWeighting(Strategy):\n    rationale = (\n        \"This strategy exploits the liquidity premium by equally weighting stocks that meet \"\n        \"certain liquidity criteria. Higher trading volumes and fewer price impacts lead to better\"\n        \" information dissemination and outperformance in the Indian equity market.\"\n    )\n\n    def __init__(self, turnover_threshold: float = 0.01, top_n: int = 50) -> None:\n        self._turnover_threshold = turnover_threshold\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=1)\n\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        data = history.to_pandas()\n        symbols = data[\"symbol\"].tolist()\n\n        def daily_turnover(open_price: float, high_price: float, low_price: float,\n                           close_price: float, volume: int, market_cap: float) -> float:\n            trading_volume = (high_price + low_price + open_price + close_price) / 4 * volume\n            return trading_volume / market_cap\n\n        turnover_ratios = [\n            daily_turnover(\n                data.loc[data[\"symbol\"] == symbol, \"open\"].iloc[0],\n                data.loc[data[\"symbol\"] == symbol, \"high\"].iloc[0],\n                data.loc[data[\"symbol\"] == symbol, \"low\"].iloc[0],\n                data.loc[data[\"symbol\"] == symbol, \"close\"].iloc[0],\n                data.loc[data[\"symbol\"] == symbol, \"volume\"].iloc[0],\n                view.latest_close()[symbol] * 1000  # Assume market cap is in lakhs\n            )\n            for symbol in symbols\n        ]\n\n        filtered_symbols = [s for s, ratio in zip(symbols, turnover_ratios) if ratio >= self._turnover_threshold]\n        selected_symbols = filtered_symbols[:self._top_n]\n\n        if not selected_symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(selected_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={symbol: weight for symbol in selected_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "LiquidityEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 2339,
+    "output_tokens": 959
+  },
+  "calls": 4,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [
+    "The strategy focuses on exploiting the liquidity premium by equally weighting stocks that meet certain liquidity criteria in the Indian equity market. The idea is to identify securities with higher trading volumes and fewer price impacts when traded, which tend to outperform due to efficient information dissemination. This phenomenon persists because liquid assets are often more closely priced to their intrinsic values. The rule would screen for stocks with high daily turnover relative to their market cap, ensuring they remain liquid. These selected stocks would then be equally weighted in the portfolio, mitigating the impact of stock-specific risks and benefiting from enhanced liquidity.",
+    "The signal for this strategy is based on daily liquidity metrics. Specifically, the strategy computes the daily turnover ratio (Turnover) for each stock as:\n\n\\[ \\text{Turnover} = \\frac{\\text{Daily Volume}}{\\text{Market Capitalization}} \\]\n\nThis calculation uses the daily open, high, low, close, and volume data points to estimate the daily trading volume. The lookback period is one day.\n\nOn a given day, stocks are ranked based on their turnover ratio in descending order. Higher values indicate higher liquidity. Only stocks with turnover ratios above a certain threshold (e.g., 1%) are selected for inclusion in the portfolio. These selected stocks are then equally weighted to form the final portfolio, ensuring that no single stock dominates and that the strategy benefits from diversified liquid assets.",
+    "This strategy holds a portfolio of stocks with high liquidity, specifically those above a turnover threshold of 1%. The portfolio is equally weighted, meaning each selected stock receives an equal allocation. Typically, such portfolios might hold between 50 to 100 names to balance diversification and manage complexity. Position sizing ensures that no single stock can significantly impact the overall portfolio performance. Risk limits are set to mitigate potential losses, often aiming for a maximum drawdown of around 5-10% over any given period to protect against extreme market events."
+  ],
+  "seconds": 29.100800300002447,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 260
+}

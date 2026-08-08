@@ -1,0 +1,46 @@
+{
+  "index": 43,
+  "paradigm": "G7_mcts",
+  "theme": "dispersion or range compression",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass RangeCompression20d(Strategy):\n    rationale = (\n        \"Range compression measures the volatility of daily prices. High dispersion in \"\n        \"trading ranges suggests that the market is consolidating or preparing for a breakout, \"\n        \"providing opportunities for traders to enter positions.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        range_compression = (\n            history.select([\n                pl.col(\"symbol\"),\n                (pl.col(\"high\") - pl.col(\"low\")).alias(\"range\")\n            ])\n            .group_by(\"symbol\")\n            .agg(pl.col(\"range\").mean().alias(\"avg_range\"))\n            .sort(\"avg_range\", descending=True)\n            .select([\"symbol\", \"avg_range\"])\n        )\n\n        if range_compression.height < 1:\n            return Signal(information_available_at=stamp, weights={})\n\n        top_symbols = [row[\"symbol\"] for row in range_compression.to_dicts()[:5]]\n        weight = 1.0 / len(top_symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights={s: weight for s in top_symbols}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "RangeCompression20d",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 18920,
+    "output_tokens": 5684
+  },
+  "calls": 23,
+  "candidates_evaluated": 12,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "The signal will measure the range (high - low) of daily prices over a 20-day lookback period. This choice captures market dispersion by focusing on price volatility.",
+    "The signal will measure the average daily range (high - low) over a 5-day lookback period, capturing recent market volatility while reducing sensitivity to historical noise.",
+    "The portfolio will hold 5 names with equal weights when a position is opened or closed. This balanced approach ensures diversification while simplifying the management of the portfolio.",
+    "The portfolio will hold 5 names with equal weights when a position is opened or closed, ensuring diversification and simplifying management.",
+    "For this systematic equity strategy, each position will hold up to 5 names, equally weighted, to balance between diversification and responsiveness to market conditions.",
+    "For this strategy, set the risk rule to limit daily position loss to no more than 2% of the portfolio value and total portfolio loss to no more than 5% over any 30-day period. Exceeding these bounds will stop trading for the next 10 days.",
+    "For this systematic equity strategy, each position will hold up to 5 names, equally weighted, to balance between diversification and responsiveness to market conditions. This approach ensures that no single stock dominates the portfolio, reducing risk while maintaining the ability to quickly adjust to changing market dynamics.",
+    "To manage risk, set the position loss limit to 3% of the portfolio value, which will stop trading that particular position if this threshold is breached. This rule ensures responsiveness to market changes while limiting potential losses. Portfolio-wide, a 5% drawdown triggers an overall strategy review but does not halt trading, allowing for dynamic adjustments within risk parameters.",
+    "To manage risk, set the portfolio-wide loss limit to 5% of its value, which will trigger a stop-trading mechanism if this threshold is breached. This ensures that the entire strategy can adjust dynamically without constant micro-management, while still protecting against significant drawdowns.",
+    "The risk rule will be that each position's loss is capped at a 5% drawdown from the entry price, and the portfolio-wide loss is capped at 3%. Trading will cease if either bound is breached.",
+    "The risk rule will cap each position\u2019s loss at a 5% drawdown from the entry price, and the portfolio-wide loss at 3%, with trading halted if either limit is exceeded."
+  ],
+  "seconds": 195.72312540002167,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 539
+}

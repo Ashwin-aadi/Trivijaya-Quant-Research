@@ -1,0 +1,23 @@
+{
+  "index": 579,
+  "paradigm": "G2_cot",
+  "theme": "liquidity-screened equal weighting",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass LiquidityWeightedEqualWeighting(Strategy):\n    rationale = (\n        \"Assets with higher liquidity are typically more attractive for investors due to their \"\n        \"lower transaction costs and reduced price impact. By equal-weighting assets based on their \"\n        \"liquidity measures, we aim to capture the benefits of liquidity while diversifying across \"\n        \"the market.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window:\n            return Signal(information_available_at=stamp, weights={})\n\n        liquidity_weights = _compute_liquidity_weights(closes)\n\n        total_weight = sum(liquidity_weights.values())\n        normalized_weights = {s: w / total_weight for s, w in liquidity_weights.items()}\n\n        return Signal(\n            information_available_at=stamp,\n            weights={s: normalized_weights[s] for s in view.symbols},\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest\n\n\ndef _compute_liquidity_weights(closes: pl.DataFrame) -> dict[str, float]:\n    liquidity_weights: dict[str, float] = {}\n    for symbol in closes.columns[1:]:\n        volume = _calculate_volume(closes[symbol])\n        if volume > 0:\n            liquidity_weights[symbol] = volume\n\n    return liquidity_weights\n\n\ndef _calculate_volume(close_prices: pl.Series) -> float:\n    daily_volumes = close_prices.to_list()[1:]  # Drop the first element which is NaN\n    total_volume = sum([v for v in daily_volumes if not v.is_nan()])\n    return total_volume / len(daily_volumes)",
+  "class_name": "LiquidityWeightedEqualWeighting",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 464
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 11.759512600008748,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 588
+}

@@ -1,0 +1,26 @@
+{
+  "index": 152,
+  "paradigm": "G5_reflection",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are indicative of strong market sentiment and \"\n        \"are often followed by continuation of the trend. This strategy identifies such moves\"\n        \" based on both price change and volume.\"\n    )\n\n    def __init__(self, window: int = 20) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._window)\n        if history.is_empty():\n            return Signal(information_available_at=stamp, weights={})\n\n        closes = history[\"adj_close\"]\n        volume = history[\"volume\"]\n\n        price_changes = (closes / closes.shift(1) - 1.0).to_series().abs()\n        ranked_price_changes = price_changes.rank(descending=True, method=\"dense\")\n        top_price_changes = ranked_price_changes < self._window\n\n        high_volume = volume > volume.quantile(0.75)\n        combined_filter = (top_price_changes & high_volume)\n\n        symbols = history.select(\"symbol\")[combined_filter].to_series().to_list()\n        if not symbols:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(symbols)\n        return Signal(\n            information_available_at=stamp,\n            weights=dict(zip(symbols, [weight] * len(symbols))),\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 3841,
+    "output_tokens": 1201
+  },
+  "calls": 3,
+  "candidates_evaluated": 2,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "This systematic equity trading strategy appears well-structured, but several issues and potential improvements can be highlighted:\n\n1. **Rationale vs Code Discrepancy**:\n   - The rationale states that the strategy identifies \"both price change and volume,\" yet the code only uses `changes = (closes / closes.shift(1) - 1.0).to_series().abs()`. It should include both a price change and volume filter, as mentioned in the rationale.\n\n2. **Potential Failures**:\n   - The strategy might fail if there are no recent trades to analyze (`history.is_empty()`), which is handled but could be improved by logging or raising an error.\n   - The `top_changes & high_volume` condition may not always capture true volume-confirmed moves, as the high-volume filter only checks the 75th percentile.\n\n3. **Fragile Parameters**:\n   - The window size (`self._window`) is hardcoded and static. This might need tuning for different market conditions.\n   - The quantile threshold (0.75) for volume is also fixed, which may not be optimal for all markets or time periods.\n\n4. **Code Robustness**:\n   - `_latest_visible` assumes `visible[\"session_date\"].max()` always returns a date type, which might fail if the column data types are inconsistent.\n   - The strategy does not handle cases where no symbols pass the combined filter, though it gracefully exits with an empty weights dictionary.\n\n5. **Specific Issues**:\n   - Line 14: The rationale mentions both price and volume but the code only checks for `changes`.\n   - Lines 26-30: The high-volume condition might be too stringent or too lenient depending on market conditions.\n   - Line 39: Handling of an empty symbols list is somewhat adequate but could be more informative with logging.\n\nOverall, while the strategy conceptually aligns well with the rationale, it has some specific weaknesses that need addressing for robust performance."
+  ],
+  "seconds": 31.878953899999033,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 308
+}

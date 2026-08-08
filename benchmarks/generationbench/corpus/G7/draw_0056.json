@@ -1,0 +1,49 @@
+{
+  "index": 56,
+  "paradigm": "G7_mcts",
+  "theme": "volume-confirmed directional moves",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass VolumeConfirmedMove(Strategy):\n    rationale = (\n        \"Volume-confirmed directional moves are identified by observing a significant change in \"\n        \"closing prices over a short period. High volume on the day of the move confirms its strength.\"\n    )\n\n    def __init__(self, window: int = 5) -> None:\n        self._window = window\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        closes = view.closes(lookback=self._window)\n        if closes.height < self._window * len(view.symbols):\n            return Signal(information_available_at=stamp, weights={})\n\n        picks: list[str] = []\n        for symbol in view.symbols:\n            if symbol not in closes.columns:\n                continue\n            values = [float(v) for v in closes[symbol].drop_nulls().to_list()]\n            if len(values) < self._window:\n                continue\n\n            # Calculate the price change over the window and the volume on the last day\n            price_change = (values[-1] - values[0]) / abs(values[0])\n            volume = view.history(symbol=symbol, lookback=1)[\"volume\"].sum()\n            if volume > 0:\n                if price_change >= 0.05:  # Buy signal\n                    picks.append(symbol)\n                elif price_change <= -0.05:  # Sell signal\n                    picks.append(symbol)\n\n        weight = 1.0 / len(picks) if picks else 0.0\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "VolumeConfirmedMove",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 22592,
+    "output_tokens": 8456
+  },
+  "calls": 26,
+  "candidates_evaluated": 14,
+  "attempt_outcomes": [
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated",
+    "syntax_error",
+    "evaluated",
+    "evaluated",
+    "evaluated"
+  ],
+  "trace": [
+    "For the signal in this systematic equity strategy for the Indian market, measure the daily closing price with a lookback period of 5 days. This will capture volume-confirmed directional moves by identifying trends based on recent closing prices.",
+    "Propose instead: Measure the daily trading volume with a lookback period of 10 days to identify significant volume surges that confirm strong directional moves in the market. This approach focuses on liquidity and market sentiment, providing insights into sustained price movements backed by substantial trading activity.",
+    "For this systematic equity strategy, we will hold a portfolio of 5 names each time a position is opened or closed, with equal weighting of 20% to each name in the portfolio.",
+    "For the portfolio rule, each position will hold up to five equities, with weights of 20%, 15%, 15%, 15%, and 45% respectively, ensuring a balance between concentration risk and diversification.",
+    "For this systematic equity strategy, we will hold a portfolio of 5 names each time a position is opened or closed, with equal weighting of 20% to each name in the portfolio. This ensures balanced exposure and simplifies risk management.",
+    "For the portfolio rule, each position will hold up to five equities, with weights of 20%, 15%, 15%, 15%, and 45% respectively, ensuring a balance between concentration risk and diversification.",
+    "For this systematic equity strategy in the Indian market, we will set a stop-loss at 5% per position to bound individual risk exposure. Additionally, we will implement a portfolio-wide risk management rule that triggers a trading halt if the total loss exceeds 10% of the portfolio value, ensuring overall risk is controlled.",
+    "For the risk rule, set the maximum loss bound for a single equity position to 5% of the portfolio value to manage concentration risk, and limit the total portfolio loss to 10% over any 30-day period to control overall volatility and protect capital.",
+    "For this systematic equity strategy, set a stop-loss rule of 5% per position to limit potential losses and prevent the strategy from trading when market conditions deteriorate significantly, ensuring risk is managed effectively.",
+    "For the risk rule, set a stop-loss threshold of 5% for individual positions to limit potential losses, and implement a portfolio-wide stop-loss at 10% to halt trading if overall portfolio losses exceed this bound, ensuring risk is managed while allowing for strategic flexibility.",
+    "For this systematic equity strategy in the Indian market, we will set a stop-loss at 5% per position to bound individual risk exposure. Additionally, we will implement a portfolio-wide risk management rule that triggers a trading halt if the total loss exceeds 10% of the portfolio value, ensuring overall risk is controlled.",
+    "For the risk rule, set the maximum loss bound for a single equity position to 5% of the portfolio value to manage concentration risk, and limit the total portfolio loss to 10% over any 30-day period to control overall volatility and protect capital."
+  ],
+  "seconds": 251.87166800000705,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 700
+}

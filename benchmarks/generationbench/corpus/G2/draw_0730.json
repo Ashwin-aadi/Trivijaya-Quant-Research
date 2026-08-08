@@ -1,0 +1,23 @@
+{
+  "index": 730,
+  "paradigm": "G2_cot",
+  "theme": "seasonality or calendar effects",
+  "source": "from __future__ import annotations\n\nfrom datetime import date\n\nimport polars as pl\nfrom src.backtest.strategy import MarketView, Signal, Strategy\n\n\nclass SeasonalityStrategy(Strategy):\n    rationale = (\n        \"Seasonal effects can be exploited by investing in stocks that historically perform \"\n        \"well during certain times of the year. For instance, tourism and retail sectors may \"\n        \"see higher returns during holiday seasons.\"\n    )\n\n    def __init__(self, season: int = 12, top_n: int = 5) -> None:\n        self._season = season\n        self._top_n = top_n\n\n    def generate(self, view: MarketView) -> Signal:\n        stamp = _latest_visible(view)\n        history = view.history(lookback=self._season * 365)\n\n        if history.height < self._season * 365:\n            return Signal(information_available_at=stamp, weights={})\n\n        seasonal_returns = {}\n        for symbol in view.symbols:\n            if symbol not in history.columns:\n                continue\n            close_prices = [float(v) for v in history[symbol].to_list()]\n            if len(close_prices) < self._season * 365:\n                continue\n\n            # Calculate returns and adjust for seasonal lag\n            adjusted_close_prices = [close_prices[i] / close_prices[i - 365] for i in range(365, len(close_prices))]\n            season_returns = sum([adjusted_close_prices[i] - 1.0 for i in range(self._season)]) / self._season\n\n            seasonal_returns[symbol] = season_returns\n\n        # Select top N symbols with highest returns\n        sorted_symbols = sorted(seasonal_returns.items(), key=lambda x: x[1], reverse=True)\n        picks = [symbol for symbol, _ in sorted_symbols[:self._top_n]]\n\n        if not picks:\n            return Signal(information_available_at=stamp, weights={})\n\n        weight = 1.0 / len(picks)\n        return Signal(\n            information_available_at=stamp, weights={s: weight for s in picks}\n        )\n\n\ndef _latest_visible(view: MarketView) -> date:\n    visible = view.history()\n    if visible.is_empty():\n        return date(1900, 1, 1)\n    newest = visible[\"session_date\"].max()\n    assert isinstance(newest, date)\n    return newest",
+  "class_name": "SeasonalityStrategy",
+  "outcome": "evaluated",
+  "usage": {
+    "prompt_tokens": 1344,
+    "output_tokens": 507
+  },
+  "calls": 1,
+  "candidates_evaluated": 1,
+  "attempt_outcomes": [
+    "evaluated"
+  ],
+  "trace": [],
+  "seconds": 12.650681500002975,
+  "model_tag": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_digest": "f307433c7bda8595d52432b3bcb4f723663bfe706112a41f84e4beacfbde9934",
+  "base_seed": 42,
+  "trials_after": 742
+}
