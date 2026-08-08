@@ -19,6 +19,7 @@
 \input{programme_style}
 \input{programme_numbers}
 \input{regimestress_numbers}
+\input{standard_factor_numbers}
 
 \begin{document}
 
@@ -160,7 +161,8 @@ contains approximately one pandemic crash, one full rate cycle and one structura
 resolution increases it.}
 \end{finding}
 
-Simulating 1{,}232 sessions does not give you 1{,}232 independent tests of whether a strategy
+Simulating \rsCrrSessions{} sessions does not give you \rsCrrSessions{} independent tests of
+whether a strategy
 survives a liquidity drought. It gives you one liquidity drought, sampled finely. A strategy that
 made money over that window might be robust, or might be well-suited to the particular ordering of
 events that occurred. Those two possibilities look identical in a single backtest, and
@@ -239,24 +241,17 @@ positive controls. \textbf{Every exclusion rule below was fixed before a single 
 run}, which is the only way an exclusion rule can be honest: applied afterwards, it is
 indistinguishable from dropping the inconvenient cases.
 
-\begin{table}[h]\centering\small
-\caption{From audit survivors to the measured population. Each exclusion is non-random and each
-is reported as a limitation in \S\ref{sec:threats}.}
-\label{tab:population}
-\begin{tabular}{lrl}
-\toprule
-\thead{Stage} & \thead{Count} & \thead{Reason} \\
-\midrule
-Retained survivors from paper 1 & \rsNRetainedSurvivors{} & --- \\
-Calibrated for stress & \rsNCalibrated{} & --- \\
-\quad less nondeterministic & $-\rsNNondeterministic{}$ & different answer on a rerun \\
-\quad less runtime failures & $-\rsNRuntimeFailures{}$ & did not complete \\
-Stressed & \rsNStressed{} & --- \\
-\quad less knife-edge & $-\rsNKnifeEdge{}$ & Sharpe moves under a $10^{-15}$ perturbation \\
-\textbf{Primary population} & \textbf{\rsNPrimary{}} & --- \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{figure}[h]\centering
+\includegraphics[width=\linewidth]{figures/fig_population_funnel.png}
+\caption{From paper 1's audit survivors to the population this paper measures. The rise at the
+second step is the standard academic factors joining as positive controls. Each rust bar is an
+exclusion, each exclusion is non-random, and each is reported as a limitation in
+\S\ref{sec:threats}. \textbf{Every rule that produced a rust bar was fixed before a single stress
+path was run}, which is the only way an exclusion rule can be honest: applied afterwards, it is
+indistinguishable from dropping the inconvenient cases.}
+\label{fig:population}
+\end{figure}
+
 
 \subsection{Causal regime labelling}
 \label{sec:regimes}
@@ -461,20 +456,15 @@ change to its inputs --- a relative perturbation on the order of $10^{-15}$, whi
 interpretation survives. \rsKnifeEdgeExcluded{} of \rsNStressed{} qualify, including
 \rsKnifeEdgeFactors{} standard academic factor. The rule was applied without exemption.
 
-\begin{table}[h]\centering\small
-\caption{Median characteristics of the knife-edge exclusions against the retained population.}
-\label{tab:knifeedge}
-\begin{tabular}{@{}lrr@{}}
-\toprule
-\thead{Median characteristic} & \thead{Excluded} & \thead{Retained} \\
-\midrule
-Count & \rsKnifeEdgeExcluded{} & \rsKnifeEdgeRetained{} \\
-Turnover per session & \rsKnifeEdgeTurnoverExcluded{} & \rsKnifeEdgeTurnoverRetained{} \\
-Holding period (sessions) & \rsKnifeEdgeHoldingExcluded{} & \rsKnifeEdgeHoldingRetained{} \\
-Effective holdings & \rsKnifeEdgeHoldingsExcluded{} & \rsKnifeEdgeHoldingsRetained{} \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{figure}[h]\centering
+\includegraphics[width=\linewidth]{figures/fig_knife_edge.png}
+\caption{How the knife-edge exclusions differ from the strategies that were retained, on four
+characteristics with four different units. \textbf{The filter did not remove a random slice --- it
+removed the fast end of the corpus}, and the paper's honesty depends on saying so, because the
+retained population is therefore slower-trading than the one that entered.}
+\label{fig:knifeedge}
+\end{figure}
+
 
 \begin{selfreport}[title={The exclusion is not random, and that is a limitation of every result
   downstream}]
@@ -522,29 +512,25 @@ suite}. If that worked it would be genuinely useful, since the stress suite cost
 
 \subsection{It does not work}
 
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_predictor_gap.png}
+\caption{Five model families on identical folds, $n=\rsPredictorRows{}$. Training against
+out-of-sample $R^2$ on the primary target. Zero is what predicting the training mean scores.}
+\label{fig:predictorgap}
+\end{figure}
+
+\takeaway{Every model fits its training folds far better than it generalises, and the gap is
+\emph{widest} for the model with the most capacity. That is the signature of variance rather than
+bias --- which is why we added no capacity, and why a larger corpus rather than a larger model is
+the correct next experiment.}
+
 \rsPredictorRows{} strategies, \rsPredictorFeatures{} features, five model families on identical
 folds.
 
-\begin{table}[h]\centering\small
-\caption{Out-of-sample $R^2$ on the primary target (across-path fragility, raw scale), five models
-on identical folds, $n=\rsPredictorRows{}$. Training $R^2$ is shown beside it, because the gap is
-the diagnosis.}
-\label{tab:predictors}
-\begin{tabular}{lrrr}
-\toprule
-\thead{Model} & \thead{Out-of-sample $R^2$} & \thead{Training $R^2$} & \thead{Gap} \\
-\midrule
-Ridge & \rsPathsRawRidgeRsquared{} & \rsPathsRawRidgeTrainRsquared{} & \rsPathsRawRidgeGap{} \\
-Lasso & \rsPathsRawLassoRsquared{} & \rsPathsRawLassoTrainRsquared{} & \rsPathsRawLassoGap{} \\
-Elastic net & \rsPathsRawElasticNetRsquared{} & \rsPathsRawElasticNetTrainRsquared{} &
-  \rsPathsRawElasticNetGap{} \\
-Random forest & \rsPathsRawForestRsquared{} & \rsPathsRawForestTrainRsquared{} &
-  \rsPathsRawForestGap{} \\
-Gradient boosting & \textbf{\rsPathsRawBoostingRsquared{}} &
-  \rsPathsRawBoostingTrainRsquared{} & \rsPathsRawBoostingGap{} \\
-\bottomrule
-\end{tabular}
-\end{table}
+Figure~\ref{fig:predictorgap} carries all ten figures. The gap between the paired bars is the
+diagnosis, and it is why we report the null as a property of the sample rather than of the model
+family.
+
 
 \takeaway{The best out-of-sample $R^2$ is \rsPathsRawBestRsquared{}, from
 \rsPathsRawBestRsquaredModel{} \citep{breiman2001}. Predicting the training mean would score zero.
@@ -673,7 +659,7 @@ model.
 \includegraphics[width=\linewidth]{figures/fig_fragility_by_origin.png}
 \caption{Median fragility across labelled regimes --- one definition, one axis. The upper block
 varies \emph{who} wrote the strategy; the lower block varies \emph{how} the same model was
-prompted. Sample sizes are printed because they range from 12 to 125.}
+prompted. Sample sizes are printed on every bar because they vary by an order of magnitude.}
 \label{fig:origin}
 \end{figure}
 
@@ -682,37 +668,17 @@ generation method either. It is closer to a property of the market than of the a
 
 \subsection{Fragility is generator-independent}
 
-\begin{table}[t]\centering\small
-\caption{RegimeStress measurements by generator. Fragility across regimes is the charter's primary
-definition. Each frontier arm is \rsGvGptN{} strategies; the local corpus is
-\rsGvLocalRegimeN{} for fragility and \rsNStressed{} for the calibration counts.}
-\label{tab:generators}
-\begin{tabular}{lrrrr}
-\toprule
-\thead{Quantity} & \thead{Local 7B} & \thead{GPT} & \thead{Claude} & \thead{Gemini} \\
-\midrule
-Fragility across regimes, median & \rsGvLocalRegimeMedian{} & \rsGvGptRegimeMedian{}
-  & \rsGvClaudeRegimeMedian{} & \rsGvGeminiRegimeMedian{} \\
-\quad range & --- & \rsGvGptRegimeMin{}--\rsGvGptRegimeMax{}
-  & \rsGvClaudeRegimeMin{}--\rsGvClaudeRegimeMax{}
-  & \rsGvGeminiRegimeMin{}--\rsGvGeminiRegimeMax{} \\
-Fragility across paths, median & --- & \rsGvGptFragMedian{}
-  & \rsGvClaudeFragMedian{} & \rsGvGeminiFragMedian{} \\
-\quad range & --- & \rsGvGptFragMin{}--\rsGvGptFragMax{}
-  & \rsGvClaudeFragMin{}--\rsGvClaudeFragMax{}
-  & \rsGvGeminiFragMin{}--\rsGvGeminiFragMax{} \\
-Mean regime Sharpe near zero & \rsNNearZeroMean{} & \rsGvGptNearZero{}
-  & \rsGvClaudeNearZero{} & \rsGvGeminiNearZero{} \\
-Knife-edge strategies & \rsNKnifeEdge{} of \rsNStressed{} & \rsGvGptKnifeEdge{} of \rsGvGptN{}
-  & \rsGvClaudeKnifeEdge{} of \rsGvClaudeN{} & \rsGvGeminiKnifeEdge{} of \rsGvGeminiN{} \\
-Nondeterministic strategies & \rsNExcludedNondeterministic{} of \rsNStressed{}
-  & \textbf{\rsGvGptNondeterministic{}} & \textbf{\rsGvClaudeNondeterministic{}}
-  & \textbf{\rsGvGeminiNondeterministic{}} \\
-Exact duplicate clusters & \rsDuplicateClusters{} & \rsGvGptDupClusters{}
-  & \rsGvClaudeDupClusters{} & \rsGvGeminiDupClusters{} \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_generator_fragility_range.png}
+\caption{Every RegimeStress measurement, by generator. \emph{Upper:} fragility across labelled
+regimes --- the charter's primary definition --- with the full range each median summarises, on a
+log axis. \textbf{The spread inside any one arm is far wider than the gap between arms.}
+\emph{Lower:} the three pathologies and the duplicate structure, as rates so that a
+\rsGvGptN{}-strategy arm and the \rsNStressed{}-strategy local corpus sit on one scale.
+\texttt{Cl} is Claude and \texttt{Gem} is Gemini.}
+\label{fig:generators}
+\end{figure}
+
 
 \begin{finding}
 \tagindep\ \ \textbf{Fragility is a property of the market, not of the author.} The primary measure
@@ -767,51 +733,159 @@ the other two.
 
 \textbf{The redundancy finding of \S\ref{sec:corrections} holds at the frontier.} Paper 1 reports
 the sharper version of this: strategies from two \emph{different vendors} whose realised return
-series are identical to within $8.7\times10^{-19}$.
+series are identical to floating-point precision.
 
 \subsection{Does the generation \emph{method} change fragility?}
 
 The same benchmark, applied to \pgmParadigmArms{} generation methods on the local model, all using
 the across-regime definition.
 
-\begin{table}[h]\centering\small
-\caption{Median fragility across regimes by generation method. Same definition as
-Table~\ref{tab:generators}'s first row. Sample sizes vary by an order of magnitude and the small
-arms must not be read as firmly as the large ones.}
-\label{tab:methods}
-\begin{tabular}{lrr}
-\toprule
-\thead{Generation method} & \thead{Median fragility} & \thead{$n$} \\
-\midrule
-plain prompting & \pgmPlainFrag{} & \pgmPlainFragN{} \\
-chain-of-thought & \pgmCotFrag{} & \pgmCotFragN{} \\
-planning & \pgmPlanFrag{} & \pgmPlanFragN{} \\
-reflection & \pgmReflectFrag{} & \pgmReflectFragN{} \\
-graph-of-thoughts & \pgmGraphFrag{} & \pgmGraphFragN{} \\
-tree search & \pgmMctsFrag{} & \pgmMctsFragN{} \\
-\bottomrule
-\end{tabular}
-\end{table}
+The lower block of Figure~\ref{fig:origin} carries the six arms on the same axis and the same
+definition as the upper block, so the two questions --- does the generator matter, does the method
+matter --- can be read against one another without rescaling.
+
 
 \takeaway{Reflection is the outlier at \pgmReflectFrag{} on \pgmReflectFragN{} strategies --- the
-only method above 1.0, meaning its strategies' performance varies by more than its own average
+only method whose median exceeds one, meaning its strategies' performance varies by more than its
+own average
 size. Every other method sits in a band from \pgmGraphFrag{} to \pgmCotFrag{}. We report the
 reflection figure without an explanation for it.}
 
 \begin{scopebox}
-\textbf{These are not comparable to the tier-1 across-path figures} in
-Table~\ref{tab:generators}'s third row, and the two must never be tabled together.
-\S\ref{sec:definitions} measured the agreement between the two definitions at
+\textbf{These are not comparable to the tier-1 across-path figures}, which on the same frontier
+arms are \rsGvGptFragMedian{} for GPT (range \rsGvGptFragMin{}--\rsGvGptFragMax{}),
+\rsGvClaudeFragMedian{} for Claude (\rsGvClaudeFragMin{}--\rsGvClaudeFragMax{}) and
+\rsGvGeminiFragMedian{} for Gemini (\rsGvGeminiFragMin{}--\rsGvGeminiFragMax{}). The two
+definitions must never be plotted on one axis. \S\ref{sec:definitions} measured their agreement at
 \rsDefinitionAgreement{} ($n=\rsTierAgreementN{}$), which is too low for one to stand in for the
-other. All rows in Table~\ref{tab:methods} are across-regime figures, matching the first row of
-Table~\ref{tab:generators} and nothing else in this paper.
+other. Every arm in both blocks of Figure~\ref{fig:origin} is an across-regime figure, matching the
+upper panel of Figure~\ref{fig:generators} and nothing else in this paper.
 
-\textbf{Nor is the local reference in the two tables the same population.}
-Table~\ref{tab:generators} uses paper 1's pooled audit corpus ($n=\rsGvLocalRegimeN{}$);
-Table~\ref{tab:methods}'s plain-prompting row is a separate \pgmPlainDraws{}-draw arm generated for
-the methodology experiment ($n=\pgmPlainFragN{}$). They are two samples from the same generator
-under the same prompt, and their medians differ.
+\textbf{Nor is the local reference in the two blocks the same population.}
+Figure~\ref{fig:generators} uses paper 1's pooled audit corpus ($n=\rsGvLocalRegimeN{}$);
+the plain-prompting arm in Figure~\ref{fig:origin}'s lower block is a separate
+\pgmPlainDraws{}-draw arm generated for the methodology experiment ($n=\pgmPlainFragN{}$). They are
+two samples from the same generator under the same prompt, and their medians differ.
 \end{scopebox}
+
+% =====================================================================================
+\section{The standard-factor control, and a reversal}
+\label{sec:factors}
+
+\begin{finding}
+\tagexpl\ \ \textbf{The published factors are \emph{more} fragile than the machine-written corpus}
+--- median \sfMedFrag{} across regimes against \rsGvLocalRegimeMedian{}
+($n=\sfN{}$ against $n=\rsGvLocalRegimeN{}$). The metric runs backwards from the direction anyone
+would predict, and the reason is \S\ref{sec:uniformlybad}.
+\end{finding}
+
+\S\ref{sec:generators} varied the generator. This section varies something else: the population
+includes \sfN{} standard factor strategies --- momentum, low volatility, short-term and long-term
+reversal, relative strength, an equal-weight market reference, and two deliberate controls. They
+are published, long-standing, and were never drawn from any search of ours.
+
+\begin{figure}[h]\centering
+\includegraphics[width=\linewidth]{figures/fig_factors_vs_corpus.png}
+\caption{The standard-factor arm beside the machine-written corpus on five frozen tests, each
+panel on its own scale because the five quantities share no unit. Sample sizes differ by an order
+of magnitude --- \sfN{} against \rsNStressed{} --- and the two reversals, costs and fragility
+running opposite ways, are the reason this is drawn rather than tabulated.}
+\label{fig:factorsvscorpus}
+\end{figure}
+
+
+\paragraph{Why fragility runs backwards, and why that is the metric's fault rather than the
+corpus's.} A published factor takes real positions and its performance genuinely differs between a
+crisis and a calm stretch --- which is what fragility is supposed to measure. Much of the machine
+corpus is near-flat or uniformly mediocre, and a strategy that does approximately nothing does
+approximately the same nothing in every regime. It therefore scores as admirably stable.
+\S\ref{sec:uniformlybad} showed \rsUniformlyBadCount{} of \rsNPrimary{} machine strategies losing
+money in \emph{every} regime, one of them ranking \rsUniformlyBadRank{} of \rsNPrimary{} for
+robustness.
+
+\begin{finding}
+\textbf{The standard-factor arm converts that from an argument into a measurement.} A population
+known in advance to contain real strategies scores \emph{worse} on our fragility metric than a
+population known to be mostly inert. \textbf{Any use of fragility as a standalone ranking would
+have preferred the inert one.} The metric is not wrong; it answers a question about consistency and
+we must stop reading it as a question about quality.
+\end{finding}
+
+\paragraph{Nondeterminism is the one clean separation.} \sfNondet{} of \sfN{} standard factors are
+nondeterministic, against \rsNExcludedNondeterministic{} of \rsNStressed{} machine-written
+strategies and \rsGvGptNondeterministic{} of \rsGvTotal{} frontier ones. Combined with
+\S\ref{sec:generators}, the picture is consistent: nondeterminism is a habit of one small model,
+absent from published code and absent from frontier output.
+
+\begin{scopebox}
+\textbf{Eleven strategies.} Every rate here has a denominator of eleven, so one strategy moves it
+by nine points. The arm is a control, not a sample. \textbf{It is also not a ``human versus AI''
+comparison}: the contrast is \emph{published and long-standing} against \emph{machine-written}, and
+these fixtures were hand-written for a different purpose by an author who knew the evaluation.
+The deflation column and this assembly appear in no pre-registration and are exploratory.
+\end{scopebox}
+
+% =====================================================================================
+\section{Design flaws, mistakes, and things that did not work}
+\label{sec:flaws}
+
+\begin{table}[h]\centering\small
+\caption{Defects in our own apparatus and results that failed, with what each cost.}
+\label{tab:flaws}
+\begin{tabular}{p{0.28\linewidth}p{0.42\linewidth}p{0.22\linewidth}}
+\toprule
+\thead{Defect or null} & \thead{What it cost} & \thead{Where} \\
+\midrule
+Duplicate leakage &
+\rsDuplicateClusters{} clusters of identical return series split across training and test folds
+were worth \rsLeakageDelta{} of $R^2$ --- the whole of our original positive result. &
+\S\ref{sec:corrections} \\
+\midrule
+A duplicated feature column &
+One characteristic appeared twice under different names, inflating its apparent importance. &
+\S\ref{sec:corrections} \\
+\midrule
+Fragility scores consistency, not quality &
+A strategy losing money in every regime ranks \rsUniformlyBadRank{} of \rsNPrimary{} for
+robustness. Now measured against a control arm that scores \emph{worse} than the inert corpus. &
+\S\ref{sec:uniformlybad}, \S\ref{sec:factors} \\
+\midrule
+Both exclusions are non-random &
+Knife-edge removes the fast end of the corpus (turnover \rsKnifeEdgeTurnoverExcluded{} against
+\rsKnifeEdgeTurnoverRetained{}); nondeterminism removes a
+subset that may differ systematically. Every result is conditioned on a restricted population. &
+\S\ref{sec:properties} \\
+\midrule
+The narrative layer is unvalidated &
+It described a money-losing strategy as most reliable in a regime where it loses money. We do not
+recommend relying on it. & \S\ref{sec:narratives} \\
+\midrule
+Regime labels drift &
+\rsRegimeTerminalDisagreement\% disagree with the terminal fit. The honest cost of refusing
+hindsight, and it means the partition itself is uncertain. & \S\ref{sec:regimes} \\
+\midrule
+Synthetic histories are an assumption &
+Every across-path number inherits it. \rsMomentsFailedConditional{} moment failures of
+\rsNMoments{} is the strongest evidence we can offer and is not the same as being right. &
+\S\ref{sec:threats} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Results that failed}
+
+\begin{itemize}
+\item \textbf{Fragility cannot be predicted from strategy characteristics.} $R^2 =
+  \rsPathsRawBestRsquared{}$ at $n=\rsPredictorRows{}$, and \rsGvPredPooledRsq{} on frontier
+  strategies as held-out data. This was the benchmark's first task.
+\item \textbf{The cheap stress tier cannot replace the expensive one} for the quantity of interest:
+  \rsTierAgreementFragility{} on fragility against \rsTierAgreementMeanSharpe{} on performance.
+\item \textbf{Our first predictor result was better and wrong}, by \rsLeakageDelta{} of $R^2$.
+\item \textbf{Fragility does not separate generators} --- which we report as a success for the
+  benchmark and a null for anyone hoping to rank models by it.
+\item \textbf{Our own metric prefers strategies that do nothing}, demonstrated in
+  \S\ref{sec:factors} on a control population.
+\end{itemize}
 
 % =====================================================================================
 \section{Threats to validity}
@@ -936,7 +1010,7 @@ absorb?} Run \rupee 10 crore through a strategy that works at \rupee 10 lakh and
 moves prices against you until the edge is gone. Nobody has published those numbers openly for
 Indian markets.
 
-That is paper 3, \textbf{FlowState} --- which also reports, as a principal finding, precisely why
+That is the third paper, \textbf{FlowState} --- which also reports, as a principal finding, why
 daily data cannot answer the version of that question everyone asks first.
 
 % =====================================================================================

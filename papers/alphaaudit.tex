@@ -22,6 +22,7 @@
 \input{programme_style}
 \input{programme_numbers}
 \input{alphaaudit_numbers}
+\input{standard_factor_numbers}
 
 % Numbers local to this paper that predate the macro pipeline are stated inline and flagged in
 % Limitations. Where a quantity exists as a macro, the macro is used.
@@ -538,24 +539,16 @@ One local model (\texttt{qwen2.5:7b-instruct-q4\_K\_M}, temperature 0.8), one pr
 \aaLocalDraws{} draws in two batches pooled only after asserting identical model tag, prompt
 digest, seed rule and window.
 
-\begin{table}[t]\centering\small
-\caption{The funnel. $n=\aaLocalDraws{}$ draws, one model, one prompt.}
-\label{tab:funnel}
-\begin{tabular}{lrr}
-\toprule
-\thead{Stage} & \thead{Count} & \thead{Share} \\
-\midrule
-Draws requested & 1{,}550 & --- \\
-Returned parseable, interface-conforming code & \textbf{1{,}550} & \textbf{100.0\% of draws} \\
-Executed to completion against real data & \textbf{631} & \pgmLocalExec\% of corpus \\
-\quad --- of those, flat: ran 1{,}232 sessions, never traded & 406 & 64.3\% of executed \\
-\quad --- of those, rankable: executed \emph{and} traded & \textbf{\aaLocalRankable{}} &
-  \textbf{\aaLocalRankablePct\% of corpus} \\
-Runtime error & 894 & 57.7\% \\
-Timeout at 180\,s & 25 & 1.6\% \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_local_funnel.png}
+\caption{The funnel. $n=\aaLocalDraws{}$ draws, one model, one prompt. \textbf{Everything the model
+returned was parseable and interface-conforming; almost nothing survived contact with real data.}
+Of the candidates that executed, most ran their full course without ever
+taking a position --- a failure mode that produces no error and would be invisible to any check
+that only asks whether the code ran.}
+\label{fig:localfunnel}
+\end{figure}
+
 
 \takeaway{Read the second row. \emph{Every} draw returned syntactically valid Python defining a
 conforming strategy with a rationale. The model is entirely reliable at producing code that looks
@@ -581,15 +574,16 @@ candidates never reach.}
 Static analysis needs no execution, so it ran over all 1{,}550 sources: \aaLocalStatic{} rejected
 (\aaLocalStaticPct\%), of which 195 carried one class, 26 two, and one three.
 
-\begin{center}\small
-\begin{tabular}{lr@{\hspace{2.5em}}lr}
-\toprule
-\texttt{snooped\_parameter} & 166 & \texttt{boundary\_crossing\_window} & 2 \\
-\texttt{future\_indexing} & 58 & \texttt{survivorship\_selection} & 1 \\
-\texttt{target\_in\_features} & 23 & \texttt{full\_sample\_statistic} & \textbf{0} \\
-\bottomrule
-\end{tabular}
-\end{center}
+\begin{figure}[h]\centering
+\includegraphics[width=\linewidth]{figures/fig_leak_classes.png}
+\caption{\emph{Left:} what the static auditor found across all \aaLocalDraws{} sources, by class.
+One class dominates and one is empty, and the empty one is the finding --- see below.
+\emph{Right:} what became of the \aaLocalStatic{} candidates it rejected. \textbf{Almost every
+flag landed on code that never took a position}, so a leakage-prevalence rate measured over
+generated source is not a deployment-risk rate.}
+\label{fig:leakclasses}
+\end{figure}
+
 
 \begin{selfreport}[title={We do not believe the zero}]
 Full-sample statistics are the most common leak class in hand-written quantitative code, and a
@@ -606,19 +600,8 @@ statement about source, not about realised profit, and the two are correctly ind
 is a leak whether or not the strategy went on to trade. But \emph{where} the flags land is itself
 a measurement.
 
-\begin{center}\small
-\begin{tabular}{lrr}
-\toprule
-\thead{Fate of the \aaLocalStatic{} static-rejected candidates} & \thead{Count} & \thead{Share} \\
-\midrule
-Runtime error --- never ran & 114 & 51.4\% \\
-Evaluated but flat --- ran, never traded & 79 & 35.6\% \\
-Timeout & 1 & 0.5\% \\
-\textbf{Evaluated and traded} & \textbf{\aaLocalStaticRankable{}} &
-  \textbf{\aaLocalStaticRankablePct\%} \\
-\bottomrule
-\end{tabular}
-\end{center}
+The right-hand panel of Figure~\ref{fig:leakclasses} shows where they landed.
+
 
 \noindent \textbf{Only \aaLocalStaticRankable{} leak findings in the entire corpus attach to a
 strategy that took a position.} A worked example makes the mechanism concrete. Candidate 053 is
@@ -673,45 +656,17 @@ direction that would matter.}
 
 \subsection{The front of the funnel: solved}
 
-\begin{table}[t]\centering\small
-\caption{Generator axis. Identical prompt, identical funnel, \textbf{not compute-matched} ---
-these are rate claims only, never efficiency claims.}
-\label{tab:frontier}
-\begin{tabular}{lrrrr}
-\toprule
-\thead{Quantity} & \thead{local 7B} & \thead{GPT} & \thead{Claude} & \thead{Gemini} \\
-\midrule
-Draws & \pgmPlainDraws{} & \aaGvGptN{} & \aaGvClaudeN{} & \aaGvGeminiN{} \\
-Executed on real data & \pgmLocalExec\% & \pgmGPTExec\% & \pgmClaudeExec\% & \pgmGeminiExec\% \\
-Executed \emph{and} traded & \pgmLocalTrade\% & \pgmGPTTrade\% & \pgmClaudeTrade\% &
-  \pgmGeminiTrade\% \\
-\midrule
-Static leak findings & --- & \aaGvGptStatic{} & \aaGvClaudeStatic{} & \aaGvGeminiStatic{} \\
-Semantic rejections & --- & \aaGvGptSemantic{} & \aaGvClaudeSemantic{} & \aaGvGeminiSemantic{} \\
-Statistical rejections & \textbf{all} & \aaGvGptStatistical{} & \aaGvClaudeStatistical{} &
-  \aaGvGeminiStatistical{} \\
-\midrule
-Mean Sharpe, development & --- & \aaGvGptDevSharpe{} & \aaGvClaudeDevSharpe{} &
-  \aaGvGeminiDevSharpe{} \\
-Mean Sharpe, holdout & --- & \aaGvGptHoldSharpe{} & \aaGvClaudeHoldSharpe{} &
-  \aaGvGeminiHoldSharpe{} \\
-Median Sharpe, holdout & \pgmLocalHoldMed{} & \pgmGPTHoldMed{} & \pgmClaudeHoldMed{} &
-  \pgmGeminiHoldMed{} \\
-Best Sharpe, holdout & --- & \aaGvGptHoldBest{} & \aaGvClaudeHoldBest{} & \aaGvGeminiHoldBest{} \\
-\midrule
-Probability of backtest overfitting & --- & \aaGvGptPbo{} & \aaGvClaudePbo{} & \aaGvGeminiPbo{} \\
-Mean Sharpe lost to costs & \aaLocalCostDrop{} & \aaGvGptCostDrop{} & \aaGvClaudeCostDrop{} &
-  \aaGvGeminiCostDrop{} \\
-Sharpe sign reversed by costs & \aaLocalFlips{}/\aaLocalFlipsOf{} & \aaGvGptFlips{}/20 &
-  \aaGvClaudeFlips{}/20 & \aaGvGeminiFlips{}/20 \\
-\midrule
-\textbf{Cleared DSR $\ge \aaGvBar{}$, development} & \textbf{0/631} &
-  \multicolumn{3}{c}{\textbf{\aaGvClearedDev{} of \aaGvTotal{}}} \\
-\textbf{Cleared DSR $\ge \aaGvBar{}$, holdout} & \textbf{0/631} &
-  \multicolumn{3}{c}{\textbf{\aaGvClearedHoldout{} of \aaGvTotal{}}} \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_frontier_axis.png}
+\caption{The generator axis: identical prompt, identical funnel, \textbf{not compute-matched} ---
+these are rate claims only, never efficiency claims. Each quantity gets its own panel because they
+share no unit. \textbf{The top row moves and the bottom row does not.} Draws are \pgmPlainDraws{}
+locally and \aaGvGptN{} on each frontier arm. The statistical layer is not plotted because it
+rejected \emph{every} strategy on \emph{every} arm --- a flat row of four identical bars, and
+\S\ref{sec:factors} is where that gets taken seriously.}
+\label{fig:frontier}
+\end{figure}
+
 
 Every frontier arm executed and traded at 100\%. The execution barrier that consumes 85\% of the
 local corpus is not a property of machine-written strategies; it is a property of a 7B model, and
@@ -798,7 +753,7 @@ idea rather than about twenty independent ones, and any comparison across these 
 \begin{scopebox}
 This is an \textbf{exploratory} finding: it was not pre-registered, it was discovered while
 verifying another number, and it rests on five candidates. It is reported because it materially
-affects how the medians in Table~\ref{tab:frontier} should be read, not because five candidates
+affects how the medians in Figure~\ref{fig:frontier} should be read, not because five candidates
 establish a general property of frontier models.
 \end{scopebox}
 
@@ -828,8 +783,12 @@ for the attempts it wasted.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\linewidth]{figures/fig_compute_matched.png}
-\caption{Each scaffolded method against plain prompting at the same measured token budget. $k$ is
-the number of plain-prompting attempts the scaffolded method's token spend buys.}
+\caption{The methodology axis, all on the same local model. \emph{Top:} each scaffolded method
+against plain prompting at the same measured token budget, where $k$ is the number of
+plain-prompting attempts the scaffolded method's token spend buys. \emph{Middle and bottom:} the
+two panels a yield comparison alone would have missed --- a method that collapses onto one idea and
+repeats it scores well on average and is worth nothing, and a method that raises yield without
+raising out-of-sample performance has produced code rather than research.}
 \label{fig:matched}
 \end{figure}
 
@@ -837,24 +796,6 @@ the number of plain-prompting attempts the scaffolded method's token spend buys.
 scaffolding: graph-of-thoughts spends $k=\pgmGraphK{}$ plain prompts' worth of tokens per
 strategy, and tree search spends $k=\pgmMctsK{}$.}
 
-\begin{table}[t]\centering\small
-\caption{Methodology axis, all on the same local model at matched token budget. Yield is the
-fraction of draws producing a rankable strategy. \emph{Every} arm loses to its control.}
-\label{tab:matched}
-\begin{tabular}{lrrrrrr}
-\toprule
-\thead{Method} & \thead{Draws} & \thead{$k$} & \thead{Control yield} & \thead{Method yield} &
-  \thead{Redundancy} & \thead{Holdout med.} \\
-\midrule
-plain prompting     & \pgmPlainDraws{}   & ---          & ---                & \pgmPlainTrade\%   & \pgmPlainRedund\%   & \pgmPlainHoldMed{} \\
-chain-of-thought    & \pgmCotDraws{}     & \pgmCotK{}     & \pgmCotCtrlYield\%     & \pgmCotTreatYield\%     & \pgmCotRedund\%     & \pgmCotHoldMed{} \\
-planning            & \pgmPlanDraws{}    & \pgmPlanK{}    & \pgmPlanCtrlYield\%    & \pgmPlanTreatYield\%    & \pgmPlanRedund\%    & \pgmPlanHoldMed{} \\
-reflection          & \pgmReflectDraws{} & \pgmReflectK{} & \pgmReflectCtrlYield\% & \pgmReflectTreatYield\% & \pgmReflectRedund\% & \pgmReflectHoldMed{} \\
-graph-of-thoughts   & \pgmGraphDraws{}   & \pgmGraphK{}   & \pgmGraphCtrlYield\%   & \pgmGraphTreatYield\%   & \pgmGraphRedund\%   & \pgmGraphHoldMed{} \\
-tree search         & \pgmMctsDraws{}    & \pgmMctsK{}    & \pgmMctsCtrlYield\%    & \pgmMctsTreatYield\%    & \pgmMctsRedund\%    & \pgmMctsHoldMed{} \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 \begin{figure}[t]\centering
 \includegraphics[width=\linewidth]{figures/fig_funnel.png}
@@ -993,14 +934,150 @@ deflated Sharpe probability above \aaGvBar{}}; the corpus maximum is $4.4\times1
 \aaGvTotal{} frontier candidates clear it at their own trial counts. The best frontier deflated
 probability in any arm is $4.5\times10^{-39}$.
 
+A layer that rejects everything is either correct about a worthless population or non-informative
+under this evaluation regime, and the corpus alone cannot distinguish those. \S\ref{sec:factors}
+puts the question to a population where the answer is known in advance, and settles it.
+
+% =====================================================================================
+\section{The standard-factor control, and what it does to our own auditor}
+\label{sec:factors}
+
+\begin{finding}
+\tagexpl\ \ \textbf{The statistical layer rejects momentum.} Eleven published factor strategies,
+deflated at their own family trial count, produce \textbf{\sfCleared{} clearing the
+\sfBar{} bar} --- the same verdict the layer returns on every machine-written corpus. Its maximum
+is \sfMaxDsr{}. \textbf{The auditor's 100\% rejection rate carries no information about who wrote
+the strategies.}
+\end{finding}
+
+Everything in \S\ref{sec:local}--\S\ref{sec:methods} compares machine-written corpora against one
+another. That cannot tell us whether a verdict is about machine authorship or about the market, so
+the pipeline also carries \sfN{} standard factor strategies --- momentum, low volatility,
+short-term and long-term reversal, relative strength, an equal-weight market reference, and two
+deliberate controls including a random walk. They were hand-written as Phase 1.2 fixtures, the set
+was frozen before any of them was run, and they were never drawn from any search of ours.
+
+\begin{selfreport}[title={They had never been shown to the statistical layer at all}]
+This is a gap we found late and report rather than quietly close. The factors were run through the
+static layer (\sfStatic{} rejected of \sfN{}) and through the cost model, and their determinism and
+knife-edge behaviour were measured for paper 2 --- but the positive-control artefact carries a
+static verdict and nothing else. \textbf{The one population that would make the statistical layer's
+rejection rate interpretable had never been put to it.} The deflation below was run on 2026-08-08,
+appears in no pre-registration, and is \textbf{exploratory throughout}.
+\end{selfreport}
+
+\subsection{Costs are a filter here too}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_factor_costs.png}
+\caption{Eleven standard factors, gross against net of the Indian statutory schedule. Each row is
+one factor; the bar length is what costs take. Rust marks a factor whose Sharpe changes sign.}
+\label{fig:factorcosts}
+\end{figure}
+
+\takeaway{\sfFlipped{} of \sfN{} factors reverse sign under costs, against
+\aaLocalFlipsPct\% of the machine corpus. The median factor gives up \sfMedLost{} of Sharpe. Cost
+survival is not a machine-authorship problem; it is a turnover problem, and it applies to
+published anomalies exactly as it applies to generated ones.}
+
+Momentum \citep{jegadeesh1993} survives at a net Sharpe of \sfBestNet{} --- but equal-weighting
+the same universe returns 0.9615. \textbf{Net of Indian costs, the momentum premium on this
+universe is inside the noise.}
+
+\subsection{Deflation rejects all of them}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_factor_deflation.png}
+\caption{Each factor's significance before and after deflation, at the family's own $N=\sfTrials{}$.
+Log scale: the deflated values span twenty orders of magnitude. A factor that cleared the bar would
+have its rust dot to the right of the dashed line. None does.}
+\label{fig:factordeflation}
+\end{figure}
+
+Undeflated, the best factors look conclusive --- momentum's probabilistic Sharpe ratio against zero
+is 0.981. Deflated at $N=\sfTrials{}$, it is \textbf{0.00048}. The trial count is barely doing any
+work at eleven trials; what sets the bar is the \emph{dispersion} of the comparison family, which
+came out at an annualised trial-Sharpe standard deviation of \sfTrialSd{}.
+
+\begin{finding}
+The arithmetic, stated so a reader can check it: at $N=\sfTrials{}$ with the measured dispersion,
+the luck threshold is \textbf{2.51 annualised}. Momentum's \sfBestNet{} falls \textbf{1.54 short}.
+\textbf{To clear \sfBar{} on this window a strategy needs an annualised Sharpe of 3.36} --- against
+a best observed of \sfBestNet{}, and against a charter that treats any Sharpe above 1.5 before
+costs as an automatic halt-and-investigate condition. \textbf{The auditor's pass bar sits at more
+than twice the level at which our own rules require us to presume the result is a bug.}
+\end{finding}
+
+\subsection{The mechanism: dispersion, not trial count}
+
+\begin{selfreport}[title={A post-hoc diagnostic, labelled as such because its shape is exactly
+  what this lab exists to catch}]
+The following was computed \emph{after} seeing the primary result. It is published because it
+identifies the mechanism, and it is not a result. Removing strategies from a comparison set until
+the number improves is the pathology this programme was built to detect; that we did it knowingly,
+to diagnose rather than to flatter, does not exempt it from being labelled.
+
+\begin{center}
+\includegraphics[width=0.92\linewidth]{figures/fig_dispersion_mechanism.png}
+\end{center}
+
+\textbf{Same strategy, same Sharpe, same trial count, and a verdict that moves by three orders of
+magnitude} --- 0.0005 to 0.786 --- depending only on which other strategies stand beside it. The
+Deflated Sharpe Ratio's verdict is dominated by an input the researcher chooses.
+
+The primary figure remains the pre-specified set of all \sfN{}. We do not adopt any of the reduced
+sets, and no number anywhere else in this paper uses one.
+\end{selfreport}
+
+\subsection{Is the layer broken?}
+
+No, and we checked rather than asserted. The module's 72 tests pass; its expected-maximum-Sharpe
+agrees with a hand computation of \citet{bailey2014} to $10^{-12}$; and the measured dispersion
+reproduces independently, at an annualised trial-Sharpe standard deviation of \sfTrialSd{} across
+these \sfN{} factors and 2.234 across a separate set of 30 clean fixtures measured a year earlier.
+
+\textbf{The implementation is correct and the bar is unreachable.} The Deflated Sharpe Ratio's
+standard error scales as $1/\sqrt{T}$, and $T=1{,}232$ sessions --- five years, the most this
+repository's free data allows --- cannot resolve a 0.97 Sharpe from a 2.51 threshold. The three
+things that would make the layer informative are a longer window, a dispersion measured from a
+genuinely skill-free null rather than from a live family containing genuinely bad strategies, and
+reporting the deflated value as a continuous score rather than through a 0.95 gate.
+
 \begin{scopebox}
-\textbf{We cannot separate ``deflation is the right bar and nothing here is real'' from
-``deflation at this trial count is unclearable by construction on this corpus''.} The statistical
-layer rejects 100\% of every population it has been shown, which means it has never been observed
-to discriminate. A layer that rejects everything is either correct about a worthless corpus or
-non-informative under this evaluation regime, and this experiment cannot tell which. The
-principal investigator's ruling was to leave the question open rather than resolve it by choosing
-the flattering reading. It is the largest open question in the programme.
+\textbf{None of the three is available to us, and we are not permitted to attempt them.}
+\texttt{src/audit/} has been read-only since paper 2's release, and the frozen-apparatus argument
+that licensed the holdout evaluations in \S\ref{sec:frontier} and \S\ref{sec:methods} depends on it
+staying that way. Modifying the auditor now would retroactively invalidate those evaluations. We
+describe the limitation; we do not repair it. A reader wanting a repaired version has the code.
+\end{scopebox}
+
+\subsection{The two arms, side by side}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_factors_vs_corpus.png}
+\caption{The standard-factor arm against the machine-written corpus on five frozen tests. Each
+panel has its own scale; the five quantities share no unit. $n=\sfN{}$ factors against corpora of
+125--1{,}550 depending on the test.}
+\label{fig:factorsvscorpus}
+\end{figure}
+
+\takeaway{Three tests separate the two arms and two do not. Machine-written strategies are
+\emph{more} nondeterministic (\sfNondet{} of \sfN{} factors against 27 of 185) and land more static
+leak flags. Costs and deflation treat both arms the same. \textbf{And fragility runs backwards} ---
+the standard factors are \emph{more} fragile (\sfMedFrag{}) than the machine corpus (0.618),
+because fragility scores consistency and the machine corpus is full of strategies that are
+consistently near-flat. Paper 2 makes that argument in full.}
+
+\begin{scopebox}
+\textbf{These are \sfN{} strategies.} Every rate in Figure~\ref{fig:factorsvscorpus} computed on
+the factor arm has a denominator of eleven, so a single strategy moves it by nine percentage
+points. The arm is a control, not a sample --- it establishes that a verdict is \emph{not} specific
+to machine authorship, and it cannot establish the size of any difference that remains.
+
+\textbf{It is also not a ``human versus AI'' comparison and must not be read as one.} These
+fixtures were hand-written for a different purpose, under no time limit, by an author who knew the
+evaluation. The contrast the arm supports is \emph{published and long-standing} against
+\emph{machine-written}, not \emph{human} against \emph{machine}.
 \end{scopebox}
 
 % =====================================================================================
@@ -1086,8 +1163,9 @@ All 3 leaky fixtures; 0 of 30 honest ones flagged; 4 leak classes observed in th
 $A_{\mathrm{stat}}$ &
 Trial inflation, with a tamper-evident denominator; recovers the known result that a Sharpe of 2.0
 from 200 dispersed trials is below chance &
-Discrimination. It has rejected 100\% of every population shown to it, so it has never been
-observed to separate anything from anything. \\
+\textbf{Everything, at this sample length.} It rejects published factors at their own trial count
+(\S\ref{sec:factors}): \sfCleared{} of \sfN{} clear the bar, which requires an annualised Sharpe of
+3.36 against a best observed of \sfBestNet{}. \\
 \midrule
 $A_{\mathrm{sem}}$ &
 Rationale--implementation mismatch at $\kappa=0.589$ on 50 pre-labelled items; correctly passes a
@@ -1100,7 +1178,84 @@ the right ones is not established, since $\kappa$ was measured on a different po
 
 \takeaway{The layers are not redundant --- the fixture that $A_{\mathrm{static}}$ catches is the
 one $A_{\mathrm{sem}}$ correctly passes --- but neither is their union sufficient, and the
-statistical layer's behaviour is currently indistinguishable from a constant.}
+statistical layer is, on this window, a constant that we can now prove is a constant.}
+
+% =====================================================================================
+\section{Design flaws, mistakes, and things that did not work}
+\label{sec:flaws}
+
+A benchmark that reports only its successes is not measuring anything. Everything below is a defect
+in our own apparatus or a result that failed, found by us, and none of it is elsewhere in the paper
+only as a footnote. They are ordered by how much they cost.
+
+\begin{table}[h]\centering\small
+\caption{Every defect we found in our own pipeline, what it cost, and where it is discussed.}
+\label{tab:flaws}
+\begin{tabular}{p{0.30\linewidth}p{0.40\linewidth}p{0.22\linewidth}}
+\toprule
+\thead{Defect} & \thead{What it cost} & \thead{Where} \\
+\midrule
+Auditor's significance bar is unreachable &
+Requires a 3.36 annualised Sharpe; nothing in the corpus or the factor arm approaches it. The
+layer's verdict is uninformative and we cannot fix it without invalidating two holdout
+evaluations. & \S\ref{sec:factors} \\
+\midrule
+The factor arm was never deflated &
+The one population that made the layer's rejection rate interpretable was omitted for a year.
+Found 2026-08-08. & \S\ref{sec:factors} \\
+\midrule
+Cost pipeline was gross-of-costs &
+The entire first auditor null was computed on it. Rebuilt; holdout re-opened once under prior
+authorisation. Conclusion unchanged. & \S\ref{sec:correction} \\
+\midrule
+Sign error in the ranking &
+Inverted the auditor's confidence order for the whole first analysis. & \S\ref{sec:correction} \\
+\midrule
+Static layer's fixture score is training accuracy &
+Recall was 1 of 3 until structural rules were added, then measured on the same three fixtures that
+motivated them. The 100\% is not a test result. & \S\ref{sec:auditor} \\
+\midrule
+\texttt{full\_sample\_statistic} returns zero &
+Not plausible in 1{,}550 candidates. Our own prompt almost certainly suppresses the class, so the
+instrument is blind and the leak-class distribution describes this prompt. & \S\ref{sec:leakclasses} \\
+\midrule
+Trial ledger is 10 entries short &
+1{,}877 recorded against 1{,}887 drawn. \textbf{Not repaired} --- an append-only ledger that gets
+rewritten is not tamper-evident. Corrected at the point of use. & \S\ref{sec:selfreport-ledger} \\
+\midrule
+Flat candidates excluded, not ranked last &
+A defensible choice that produces a higher abstention curve than the alternative. Stated, not
+hidden. & \S\ref{sec:design} \\
+\midrule
+Survivors defined without the statistical layer &
+The one place we chose the definition that yields a non-empty answer, because the honest one
+yields nothing. & \S\ref{sec:design} \\
+\midrule
+Numbers predating the macro pipeline &
+The cost and leak-class tables are transcribed rather than machine-inserted, so this paper's own
+reproducibility guarantee has a hole in it. & \S\ref{sec:threats} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Results that failed}
+
+\begin{itemize}
+\item \textbf{The auditor does not beat random rejection}, on any of \pgmNullCorpora{} corpora or
+  \pgmNullCombos{} configurations. This was the project's primary hypothesis.
+\item \textbf{No scaffolded generation method beats plain prompting} at matched compute:
+  \pgmScaffoldWins{} of \pgmScaffoldArms{}.
+\item \textbf{Frontier models do not improve out-of-sample performance}, having entirely solved
+  executability.
+\item \textbf{The statistical layer discriminates nothing}, now demonstrated rather than suspected.
+\item \textbf{One configuration beat random in sample} and was the one that provably cannot --- its
+  ranking signal is a monotone function of the quantity it was scored against.
+\end{itemize}
+
+\begin{finding}
+Five of the programme's headline hypotheses failed. We report all five, and the apparatus that
+produced them is released so the failures can be contested rather than taken on trust.
+\end{finding}
 
 % =====================================================================================
 \section{Threats to validity}
