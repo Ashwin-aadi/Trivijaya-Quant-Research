@@ -1,625 +1,585 @@
 % =====================================================================================
-% AlphaAudit — A Benchmark for Auditing AI-Generated Trading Strategies,
-% with a Reference Implementation and Negative Result on Indian Equities
+% AlphaAudit --- Paper 1 of the Trivijaya Quant Research programme.
 %
-% Build:  pdflatex alphaaudit.tex   (twice, for cross-references)
+% Every number in this paper comes from a generated macro file. Nothing is transcribed by
+% hand. If a figure here disagrees with the repository, the macro file is authoritative and
+% this paper is wrong.
 %
-% Every number in this file is transcribed from a committed report under reports/ or a
-% committed artifact under runs/pooled/. Nothing was regenerated for the write-up, and
-% nothing here is rounded in a direction that flatters the result.
+%   papers/programme_numbers.tex   <- scripts/build_programme_numbers.py  (\pgm...)
+%   papers/alphaaudit_numbers.tex  <- scripts/build_alphaaudit_numbers.py (\aa...)
+%   papers/figures/*.png           <- scripts/build_paper_figures.py
+%
+% Compile: pdflatex alphaaudit && pdflatex alphaaudit   (twice, for the table of contents)
 % =====================================================================================
 \documentclass[11pt,a4paper]{article}
 
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage[scaled=0.92]{helvet}          % sans face, for headings only
-\usepackage[margin=1.05in,top=1.15in,bottom=1.1in]{geometry}
-\usepackage{microtype}
-\usepackage{amsmath,amssymb}
-\usepackage{booktabs}
-\usepackage{array}
-\usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage[most]{tcolorbox}
-\usepackage{titlesec}
-\usepackage{enumitem}
-\usepackage[font=small,labelfont={bf,color=navy},labelsep=period]{caption}
-\usepackage{fancyhdr}
-\usepackage{authblk}
-\usepackage{natbib}
-\usepackage[colorlinks=true]{hyperref}   % loaded last, as hyperref requires
+\newcommand{\paperName}{AlphaAudit}
+\newcommand{\paperSubtitle}{Can an AI write a trading strategy that is\\ real, and can anything
+  tell us in advance?}
+\newcommand{\paperNumber}{1}
+\newcommand{\paperShortHead}{Code $\rightarrow$ validity}
 
-% The rupee sign is not in the default T1 encoding. A plain "Rs." is unambiguous, renders
-% identically on every machine, and avoids a font dependency the reader would have to satisfy
-% before they could compile the paper that asks them to check our numbers.
-\providecommand{\rupee}{\textrm{Rs.}\,}
-
-% ---- Palette: white ground, blues, one warm accent for cautions ---------------------
-\definecolor{navy}{HTML}{0E2E5C}    % headings, rules, title
-\definecolor{steel}{HTML}{2C6BA8}   % links, secondary emphasis
-\definecolor{sky}{HTML}{5B93C7}     % light rules, table headers
-\definecolor{mist}{HTML}{F0F5FB}    % finding panels
-\definecolor{ash}{HTML}{F6F7F9}     % neutral panels
-\definecolor{ink}{HTML}{1A1A1A}     % body text
-\definecolor{rust}{HTML}{9C4221}    % the "we got this wrong" panels only
-
-\color{ink}
-\hypersetup{linkcolor=steel, citecolor=steel, urlcolor=steel,
-            pdftitle={AlphaAudit: A Benchmark for Auditing AI-Generated Trading Strategies},
-            pdfauthor={Ashwin Jain}}
-
-% ---- Headings: sans, navy, with a hairline rule under each section ------------------
-\newcommand{\sectionrule}{{\color{sky}\rule{\linewidth}{0.5pt}}\vspace{-0.9em}}
-\titleformat{\section}[block]
-  {\sffamily\large\bfseries\color{navy}}
-  {\colorbox{navy}{\textcolor{white}{\sffamily\bfseries\ \thesection\ }}}{0.7em}{}
-  [\vspace{0.25em}\sectionrule]
-\titleformat{\subsection}[block]
-  {\sffamily\normalsize\bfseries\color{navy}}{\thesubsection}{0.6em}{}
-\titleformat{\paragraph}[runin]
-  {\sffamily\bfseries\color{navy}}{}{0em}{}[\;]
-\titlespacing*{\section}{0pt}{1.6em}{0.8em}
-\titlespacing*{\subsection}{0pt}{1.2em}{0.5em}
-
-% ---- Running head -------------------------------------------------------------------
-\pagestyle{fancy}\fancyhf{}
-\renewcommand{\headrulewidth}{0.4pt}
-\renewcommand{\headrule}{{\color{sky}\hrule height 0.4pt}}
-\fancyhead[L]{\sffamily\scriptsize\color{navy}ALPHAAUDIT}
-\fancyhead[R]{\sffamily\scriptsize\color{navy}A benchmark for auditing AI-generated strategies}
-\fancyfoot[C]{\sffamily\scriptsize\color{navy}\thepage}
-\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}
-  \fancyfoot[C]{\sffamily\scriptsize\color{navy}\thepage}}
-
-% ---- Panels -------------------------------------------------------------------------
-% A finding the reader must not skim past.
-\newtcolorbox{finding}[1][]{
-  enhanced, breakable, colback=mist, colframe=steel, boxrule=0pt,
-  leftrule=2.5pt, arc=1pt, left=9pt, right=9pt, top=7pt, bottom=7pt,
-  coltext=navy, fonttitle=\sffamily\bfseries\small, #1}
-
-% A place where we report our own error. Deliberately a different colour from the findings,
-% so a reader flipping through can see at a glance that the paper contains both.
-\newtcolorbox{selfreport}[1][]{
-  enhanced, breakable, colback=ash, colframe=rust, boxrule=0pt,
-  leftrule=2.5pt, arc=1pt, left=9pt, right=9pt, top=7pt, bottom=7pt,
-  fonttitle=\sffamily\bfseries\small, #1}
-
-% Legacy one-argument form, kept so existing \keyfinding{...} calls still typeset.
-\newcommand{\keyfinding}[1]{\begin{finding}#1\end{finding}}
-
-% ---- Tables: sans headers, no vertical rules ----------------------------------------
-\newcommand{\thead}[1]{{\sffamily\bfseries\color{navy}#1}}
-\renewcommand{\arraystretch}{1.15}
-
-\setlist[itemize]{leftmargin=1.3em, itemsep=0.25em, topsep=0.4em}
-\setlist[enumerate]{leftmargin=1.6em, itemsep=0.35em, topsep=0.4em}
-
-% =====================================================================================
-\title{\vspace{-1.5em}{\color{navy}\sffamily\bfseries\Huge AlphaAudit}\\[0.55em]
-  {\color{navy}\sffamily\large A Benchmark for Auditing AI-Generated Trading Strategies}\\[0.3em]
-  {\color{steel}\sffamily\normalsize with a reference implementation and negative result
-   on Indian equities}\\[0.4em]
-  {\color{sky}\rule{0.34\linewidth}{1.2pt}}}
-
-\author[ ]{\sffamily Ashwin Jain}
-\affil[ ]{\small\rmfamily Department of Computer Science and Engineering\\
-  Motilal Nehru National Institute of Technology Allahabad, Prayagraj, India\\
-  \texttt{ashwinaadi2007@gmail.com}}
-\date{\sffamily\small 1 August 2026}
-
-% Generated figures, covering the generator-validation section only. The rest of this paper
-% predates the macro pipeline and states its figures inline; that gap is stated in Limitations.
+\input{programme_style}
+\input{programme_numbers}
 \input{alphaaudit_numbers}
 
+% Numbers local to this paper that predate the macro pipeline are stated inline and flagged in
+% Limitations. Where a quantity exists as a macro, the macro is used.
+
 \begin{document}
-\maketitle
-\thispagestyle{plain}
 
-\vspace{-1.2em}
-\begin{tcolorbox}[enhanced, colback=white, colframe=navy, boxrule=0.8pt, arc=2pt,
-  left=10pt, right=10pt, top=7pt, bottom=7pt,
-  title={\sffamily\bfseries The paper in eight numbers},
-  colbacktitle=navy, coltitle=white, fonttitle=\sffamily\bfseries\small]
-\small\raggedright\hyphenpenalty=10000\exhyphenpenalty=10000
-\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.105\linewidth}@{\hspace{0.6em}}>{\raggedright\arraybackslash}p{0.325\linewidth}@{\hspace{1.1em}}>{\raggedright\arraybackslash}p{0.105\linewidth}@{\hspace{0.6em}}>{\raggedright\arraybackslash}p{0.315\linewidth}@{}}
-{\sffamily\bfseries\color{navy}\large 1{,}550} & candidates generated by one local 7B model &
-{\sffamily\bfseries\color{navy}\large 15.6\%} & of profitable strategies reverse sign once
-  costs are charged \\[0.45em]
-{\sffamily\bfseries\color{navy}\large 40.7\%} & survive contact with real data &
-{\sffamily\bfseries\color{navy}\large 11} & are bankrupted outright by costs \\[0.45em]
-{\sffamily\bfseries\color{navy}\large 14.5\%} & both execute \emph{and} trade &
-{\sffamily\bfseries\color{navy}\large 0 / 631} & clear deflation at $N=1{,}887$ trials \\[0.45em]
-{\sffamily\bfseries\color{navy}\large 28 / 222} & leak flags land on code that actually trades &
-{\sffamily\bfseries\color{navy}\large 0 / 7} & auditor configurations beat random rejection \\
-\end{tabular}
-\end{tcolorbox}
+% =====================================================================================
+\programmecover{%
+A benchmark for measuring whether machine-generated quantitative research survives
+transaction costs, multiple testing and a never-touched holdout --- and whether an auditor can
+tell which candidates will, before the holdout is opened.}
 
-\vspace{0.4em}
-\begin{center}\small\sffamily\color{navy}
-Code, fixtures, corpus and evaluation protocol:\\
-\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}%
-{\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}
-\end{center}
-
-% -------------------------------------------------------------------------------------
+% =====================================================================================
 \begin{abstract}
 \noindent
 A language model that writes trading strategies is a machine for manufacturing plausible
-backtests, and the two failure modes that make those backtests worthless---lookahead bias
-and multiple testing---are precisely the two a naive evaluation cannot see. \textbf{We release
-AlphaAudit: a benchmark for measuring whether an auditor can tell, in advance and out of
-sample, which machine-generated strategies are worth acting on.} It comprises a
-survivorship-free Indian equity environment, a verified transaction-cost model, leaky and
-clean fixture suites, an audited 1,550-candidate corpus, a frozen one-shot evaluation
-protocol, and the reference implementation reported below.
+backtests. The two defects that make such backtests worthless --- code that secretly reads the
+future, and the near-certainty that something looks brilliant if you try enough things --- are
+precisely the two an ordinary evaluation cannot see. As models become better programmers, the
+backtests become more plausible, not more true, and the problem gets worse rather than better.
 
-\paragraph{Setup.} A local 7B model (\texttt{qwen2.5:7b-instruct-q4\_K\_M}, one fixed prompt,
-temperature 0.8) generated $N=1{,}550$ candidate strategies over a survivorship-free,
-point-in-time universe of the 100 most liquid NSE equities, rebuilt quarterly from exchange
-bhavcopy archives using only prior sessions. Each candidate was executed by a backtester that
-raises rather than warns on a stale signal, and priced by a cost model built for the Indian
-statutory regime---STT, exchange and IPFT charges, SEBI turnover fee, stamp duty, GST, and a
-per-scrip depository charge---applied at the rates in force on each trade's own date. Three
-independently ablatable auditors judge each candidate: an AST-based leakage detector, a
-statistical layer computing the Deflated Sharpe Ratio against a hash-chained trial ledger the
-generator cannot write to, and a local-LLM semantic layer reading each stated rationale against
-its own implementation ($\kappa = 0.589$ against 50 human labels).
+\medskip\noindent
+\textbf{We release AlphaAudit: an environment, a protocol and a corpus for measuring whether
+machine-written trading research is real.} It comprises a survivorship-free point-in-time
+universe of Indian equities, a transaction-cost model built to the Indian statutory schedule and
+verified against a broker's public calculator, deliberately-cheating and honest fixture suites, a
+hash-chained trial ledger the generator cannot write to, a frozen one-shot evaluation protocol,
+and \pgmParadigmDraws{} audited machine-written candidates.
 
-\keyfinding{\textbf{The dominant failure mode of an LLM strategy researcher is not that it
-cheats---it is that it does not run.} All 1,550 draws returned parseable,
-interface-conforming code; 631 (40.7\%) survived contact with real data; 406 of those
-(64.3\%) never took a position. \textbf{14.5\% of the corpus produced a strategy that both
-executes and trades.} The auditor is rarely the binding constraint.}
+\medskip\noindent
+\textbf{What we measured.} Four generators --- one local 7B model and three frontier models ---
+and \pgmParadigmArms{} generation methods, all issued the same frozen task specification and all
+run through the same unchanged funnel. The question the programme asks is not which model writes
+the best code. It is whether making the AI better makes the \emph{research} better.
 
-\paragraph{Costs.} Net of costs, the best of 225 rankable strategies falls from a gross Sharpe of
-1.3049 to 1.2807---and survives only because it barely trades. The median strategy loses 0.194 of
-Sharpe and 4.4\% of annual return; the mean loses 0.587 and 58.1\%, the gap being a tail churning
-above 80$\times$ annual turnover. \textbf{35 of 225 (15.6\%) reverse the sign of their Sharpe, and
-11 are bankrupted outright.} None reverse the other way, as none can. Two of eleven standard
-academic factors also flip, and momentum, at a net Sharpe of 0.966, no longer beats
-equal-weighting the same universe. At an honest trial count of $N=1{,}887$, \textbf{zero of 631
-candidates attain a deflated Sharpe probability above 0.95}; the corpus maximum is
-$4.4\times10^{-8}$.
+\medskip\noindent
+\textbf{The headline result is a separation.} On the local 7B, the binding constraint is not
+cheating but competence: every draw returned parseable, interface-conforming code, and only
+\pgmLocalTrade\% produced a strategy that both ran on real data and took a position. Frontier
+models remove that constraint completely --- \aaGvTotal{} of \aaGvTotal{} candidates executed and
+traded, a rate of 100\% against \pgmLocalTrade\%. \textbf{They do not remove the second
+constraint at all.} Not one of the \aaGvTotal{} frontier candidates attained a deflated Sharpe
+probability above \aaGvBar{} at its own honest trial count, on development or on holdout;
+\aaGvFlipsTotal{} of them reverse the sign of their Sharpe once Indian costs are charged; and
+across ten independently generated corpora and \pgmNullCombos{} auditor configurations,
+\pgmNullBeating{} beat random rejection at matched coverage out of sample.
 
-\paragraph{The null.} Sweeping coverage from 1.0 to 0.05 over all seven layer combinations, scored
-on a holdout evaluated three times under logged authorisation and now permanently closed,
-\textbf{no configuration beats random rejection at matched coverage} (AUAP $-1.20$ to $-1.43$
-against a random 95\% interval of $[-1.22, -0.86]$; six fall below it). The one configuration that
-beat random in sample was the one that provably cannot---its ranking signal is a monotone function
-of the quantity it was scored against---and out of sample it fails with the rest. We report the
-null rather than tune past it, and note that it survived two subsequent corrections of our own
-pipeline---the entire cost implementation, and a sign error in the ranking itself: \emph{the
-magnitudes moved, the conclusion did not}. It remains confounded
-with corpus degeneracy and cannot separate \textit{``the auditor is uninformative''} from
-\textit{``this corpus is too weak to test it''}.
-
-\paragraph{Disposition.} We report the reference implementation's failure as the benchmark's first
-entry rather than as a result to be improved upon. The environment, protocol and fixtures are
-independent of whether our auditor worked; a stronger generator can be scored against exactly the
-same apparatus and contest the second claim directly.
+\medskip\noindent
+\textbf{Better code did not become better evidence.} We report that as the benchmark's first
+entry rather than as a result to be improved upon: the environment, the protocol and the
+fixtures are independent of whether our auditor worked, and a stronger auditor can contest the
+second claim against exactly the same apparatus.
 \end{abstract}
 
-\vspace{0.4em}
+\vspace{0.2em}
 \noindent{\small\sffamily\color{navy}\textbf{Keywords:} backtest overfitting \textbullet\
 deflated Sharpe ratio \textbullet\ lookahead bias \textbullet\ selective prediction \textbullet\
-LLM agents \textbullet\ transaction costs \textbullet\ Indian equities}
+LLM code generation \textbullet\ transaction costs \textbullet\ Indian equities}
 
 % =====================================================================================
-\section{Introduction}
+\section*{Key findings}
+\addcontentsline{toc}{section}{Key findings}
 
-Ask a large language model for a systematic equity strategy and it will give you one. It
-will give you three hundred. Each will arrive with a plausible economic rationale, clean
-code, and---if you backtest it naively---a Sharpe ratio that would embarrass most
-professional managers. This is not evidence of skill. It is evidence that the search space
-is large and that a backtest is a very weak instrument.
+Each of the six numbers below answers a question. Every one carries the sample it was measured
+on, and every one is tagged with the population it describes --- because the distance between
+\emph{``we observed this in our corpus''} and \emph{``AI does this''} is where this literature
+usually goes wrong.
 
-Two mechanisms account for nearly all of it. The first is \emph{leakage}: the code sees
-information it could not have had. A signal computed from today's close that trades at
-today's close is not a strategy, it is a memory. The second is \emph{multiple testing}: if
-$N$ independent strategies are tried and the best is selected, the maximum of $N$ draws
-from a mean-zero distribution is positive by construction, and grows with $\log N$
-\citep{harvey2016,bailey2014}. Neither mechanism announces itself. Both produce equity
-curves that look exactly like skill.
+\begin{finding}[title={1.\ \ Does the AI cheat, or does it simply not work? \hfill\taglocal}]
+\textbf{It does not work.} All 1{,}550 local draws returned syntactically valid, interface-conforming
+Python with a stated rationale --- a 100\% success rate at looking correct. Only 631 (\pgmLocalExec\%)
+survived contact with real data, and of those 406 (64.3\%) never took a position.
+\textbf{\pgmLocalTrade\% of the corpus produced a strategy that both executes and trades.}
+An auditor built to catch cheating is guarding a door most candidates never reach.
+\end{finding}
 
-An LLM strategy generator makes both worse, and it does so in a specific and
-under-appreciated way. It does not merely raise $N$; it raises $N$ silently. A researcher
-who tries twenty ideas by hand remembers trying twenty. A generator that emits a candidate
-every few seconds, unattended, destroys the researcher's ability to know their own
-denominator---and the Deflated Sharpe Ratio is meaningless without an honest one.
+\begin{finding}[title={2.\ \ Do frontier models fix that? \hfill\tagfrontier}]
+\textbf{Completely.} \aaGvTotal{} of \aaGvTotal{} candidates from three frontier models executed to
+completion and took a position: \textbf{100\% against the local model's \pgmLocalTrade\%.}
+The execution barrier that dominates the local corpus is an artefact of model capability, and it
+disappears when capability rises. Total static leak findings across all \aaGvTotal{}:
+\aaGvStaticTotal{}.
+\end{finding}
 
-This paper builds the instrument, not the strategy. We construct an auditor $A$ that maps
-a candidate strategy to a rejection decision, a reason, and a deflated performance
-estimate, with three independently ablatable layers: an AST-based static analyser, a
-statistical deflation layer backed by a tamper-evident trial ledger, and a local-LLM
-semantic layer that reads each strategy's stated rationale against its own implementation.
-We then ask whether the auditor is worth having, by measuring \emph{selective deployment}:
-if you act only on the fraction $c$ of candidates the auditor most trusts, does realised
-out-of-sample performance improve as $c$ falls? The area under that curve, $\mathrm{AUAP}$,
-is our primary metric, and the null hypothesis---that $A$ is no better than rejecting at
-random---is something we test rather than assume away.
+\begin{finding}[title={3.\ \ Does better code become better evidence? \hfill\tagfrontier\ \tagindep}]
+\textbf{No.} \textbf{Zero} of \aaGvTotal{} frontier candidates cleared a deflated Sharpe
+probability of \aaGvBar{} at its own trial count --- \aaGvClearedDev{} on development,
+\aaGvClearedHoldout{} on the holdout --- matching the local corpus's 0 of 631. Median holdout
+Sharpe is \emph{worse} for every frontier arm than for the local reference
+(\pgmGPTHoldMed, \pgmClaudeHoldMed, \pgmGeminiHoldMed{} against \pgmLocalHoldMed).
+\textbf{Frontier models solved the execution problem. They did not touch the evidence problem.}
+\end{finding}
 
-We run the whole apparatus on Indian equities, a market chosen for a reason that turns out
-to matter more than expected. Indian statutory transaction costs are heavy, asymmetric
-between buy and sell legs, and include a per-scrip depository charge that does not scale
-with trade size. A cost model that treats them as a flat basis-point haircut is not a
-simplification; it is a different experiment.
+\begin{finding}[title={4.\ \ Are transaction costs a haircut or a filter? \hfill\taglocal\ \tagfrontier}]
+\textbf{A filter.} \aaLocalFlipsPct\% of the local corpus's \aaLocalFlipsOf{} tradeable strategies
+reverse the sign of their Sharpe once Indian costs are charged; none reverse the other way, as
+none can; 11 are bankrupted outright. \aaGvFlipsTotal{} of \aaGvTotal{} frontier candidates flip
+as well. The best surviving strategy in the corpus survives \emph{because it barely trades}, at
+$2.8\times$ annual turnover. \textbf{Cost survival selects for low turnover, not for skill.}
+\end{finding}
 
-\paragraph{What this paper is primarily offering.} The auditor we build fails its own headline
-test. We nonetheless regard the paper's central artifact as the \emph{benchmark}, not the
-auditor, and we have written it that way. The reason is structural: an auditor is a method and
-methods are superseded, but the environment a method must be tested in---a survivorship-free
-universe, an honest cost model, a fixed holdout, known-leaky positive controls, and a protocol
-that prevents the test set from being optimised against---is infrastructure, and in this area it
-does not currently exist openly for any market, let alone for India. Our null is the benchmark's
-first entry. It is a low bar, and it is deliberately published as one.
+\begin{finding}[title={5.\ \ Does more elaborate prompting help? \hfill\tagmethod\ \tagprereg}]
+\textbf{Not at equal compute.} Of \pgmScaffoldArms{} scaffolded generation methods ---
+chain-of-thought, planning, reflection, graph-of-thoughts and Monte Carlo tree search ---
+\textbf{\pgmScaffoldWins{} beat plain prompting once plain prompting was given the same token
+budget} and allowed to keep its best of $k$ attempts. The scaffolding buys candidates, and the
+control buys the same number of candidates more cheaply.
+\end{finding}
 
-\subsection*{Contributions}
-\begin{enumerate}\setlength\itemsep{0.2em}
-\item \textbf{AlphaAudit, a frozen benchmark for strategy auditing}: environment, fixtures,
-  audited corpus, one-shot evaluation protocol, and the AUAP metric with its random-rejection
-  baseline (\S\ref{sec:release}).
-\item \textbf{A negative result about LLM strategy generation that is not about leakage.}
-  Of 1,550 candidates, all 1,550 parsed and conformed to the engine interface; 631 executed
-  against real data; 406 of those never traded. The auditor is not the binding
-  constraint---the interpreter is (\S\ref{sec:corpus}).
-\item \textbf{A time-varying Indian transaction cost model}, verified line by line against a
-  discount broker's public calculator, wired \emph{inside} the backtest engine and charged
-  per leg. It reverses the sign of 15.6\% of profitable candidates and bankrupts eleven
-  (\S\ref{sec:costs-results}).
-\item \textbf{An honest trial counter}, hash-chained and append-only, outside the
-  generator's write path, and the demonstration that at $N=1{,}887$ nothing in the corpus
-  survives deflation (\S\ref{sec:deflation}).
-\item \textbf{A pre-registered null, published as the benchmark's reference entry.} The auditor
-  does not beat random rejection at matched coverage, in any of seven layer configurations, on a
-  holdout evaluated under logged authorisation and now permanently closed. We report it, and we
-  report that it survived two full corrections of our own pipeline---the cost implementation, and
-  a sign error in the ranking (\S\ref{sec:correction}, \S\ref{sec:negative}).
+\begin{finding}[title={6.\ \ Can the auditor tell in advance which ones are real? \hfill\tagindep}]
+\textbf{Not on any corpus we generated.} Across \pgmNullCorpora{} independently generated corpora
+--- six generation methods, three frontier models, and the pooled local corpus --- and all seven
+combinations of the three auditor layers, \textbf{\pgmNullBeating{} of \pgmNullCombos{}
+configurations beat random rejection at matched coverage on out-of-sample data.} We publish the
+null rather than tune past it. It survived two subsequent corrections of our own pipeline.
+\end{finding}
+
+\vspace{0.6em}
+\trilogymap
+
+\clearpage
+{\hypersetup{linkcolor=navy}\tableofcontents}
+\clearpage
+
+% =====================================================================================
+\section{The question}
+\label{sec:question}
+
+A language model can now write a trading strategy. Ask one for a systematic equity strategy on
+Indian large-caps and it will return a stated economic rationale, a feature specification, entry
+and exit rules, position sizing, and executable code. Ask for three hundred and it will return
+three hundred.
+
+The natural next step is to backtest them, sort by Sharpe ratio, and look at the top of the list.
+That procedure is worthless, and it is worthless in a way that gets \emph{worse} as the model
+gets better.
+
+\begin{finding}
+The overarching question of this three-paper programme:
+\textbf{does making the AI better actually make the quantitative research better?}
+\smallskip
+
+Those are two different things, and the rest of this paper exists because the literature
+routinely treats them as one. \emph{Generator quality} is how well a model writes code that
+compiles, runs, and does what its author intended. \emph{Research quality} is whether the
+resulting finding is true. A better generator raises the first by construction. Whether it raises
+the second is an empirical question, and the answer we measured is no.
+\end{finding}
+
+\subsection{Why the two come apart}
+
+Suppose a generator improves so much that every strategy it writes executes flawlessly on the
+first attempt. Nothing about that improvement makes the underlying market predictable. What it
+changes is the \emph{number of plausible-looking candidates per unit of effort} --- and the
+probability that the best of a large set looks impressive by luck alone rises with the size of
+the set. A better generator therefore produces a better-looking best backtest and no more real
+alpha. Improvement on the generator axis is improvement in the rate at which candidates arrive at
+the door; it is not improvement in what is behind the door.
+
+This is not a hypothetical worry about future models. It is the result reported here, measured on
+three frontier models against a local 7B on the same task specification.
+
+\subsection{What this paper answers, and what it does not}
+
+AlphaAudit answers three questions and is honest about failing the fourth.
+
+\begin{enumerate}
+\item \textbf{Where do machine-written strategies actually die?} Not where the literature
+assumes. \S\ref{sec:local}.
+\item \textbf{Does a more capable generator change that?} Yes at the front of the funnel,
+not at all at the back. \S\ref{sec:frontier}.
+\item \textbf{Does a more elaborate generation \emph{method} change it?} Not at equal
+compute. \S\ref{sec:methods}.
+\item \textbf{Can an auditor identify the survivors in advance?} \textbf{We could not build
+one that does}, on any of ten corpora. \S\ref{sec:null}.
 \end{enumerate}
 
-% =====================================================================================
-\section{Related work}
-
-\paragraph{Backtest overfitting.} That the reported Sharpe of a selected strategy is
-biased upward is old news; quantifying the bias is not. \citet{bailey2014} derive the
-Deflated Sharpe Ratio, which adjusts an observed Sharpe for trial count, sample length,
-skewness and kurtosis by raising the threshold a strategy must clear rather than lowering
-its estimate. \citet{bailey2017} introduce the Probability of Backtest Overfitting via
-combinatorially symmetric cross-validation. \citet{harvey2016} argue that the conventional
-$t>2$ hurdle should be roughly $t>3$ once the published factor zoo is treated as one
-enormous multiple-testing exercise. \citet{lopezdeprado2018} supplies the machinery we use
-for purged $k$-fold cross-validation with embargo. Our contribution is not to these
-statistics but to their \emph{plumbing}: all of them require $N$, and none of the papers
-that define them address what happens when the researcher is a program that cannot
-remember how many times it has tried.
-
-\paragraph{Transaction costs and the anomaly literature.} \citet{novymarx2016} show that a
-large share of published anomalies do not survive realistic US trading costs, and that the
-survivors are disproportionately the low-turnover ones. \citet{frazzini2018} estimate
-real-world costs from live institutional trading and find them lower than the academic
-consensus for large-cap strategies. Both literatures are calibrated to US market
-microstructure. India's cost structure differs qualitatively---Securities Transaction Tax
-on both legs, stamp duty on the buy alone, a flat depository fee on the sell---and to our
-knowledge no open Indian equivalent exists.
-
-\paragraph{Selective prediction.} The idea that a model should be allowed to abstain is
-well developed in classification \citep{elyaniv2010,geifman2017}, where risk--coverage
-curves are standard. We import the framework and change what it measures: coverage is the
-fraction of \emph{strategies deployed}, and risk is realised out-of-sample Sharpe. The
-translation is not free, and \S\ref{sec:design} discusses where it strains.
-
-\paragraph{LLMs as code and research agents.} Code-generating models are now reliable
-enough to produce syntactically valid, interface-conforming programs at scale
-\citep{chen2021}, and finance-specific models exist \citep{wu2023}. What is not established
-is whether the output constitutes research. Our corpus statistics
-(\S\ref{sec:corpus}) are a direct measurement of that gap for one 7B open-weights model.
+The fourth is the one we set out to answer positively, and the null is reported at the same
+prominence as the rest. A benchmark whose reference implementation fails is still a benchmark;
+what would destroy it is adjusting the implementation until it passed.
 
 % =====================================================================================
-\section{Infrastructure}
+\section{What can go wrong with an AI-generated strategy}
+\label{sec:whatgoeswrong}
+
+Before any machinery, the failure modes --- in plain terms, because the rest of the paper is
+about detecting them and a reader who has not met them cannot judge whether the detectors are
+adequate.
+
+\subsection{The code reads the future}
+
+A backtest simulates trading through history. It is trivially easy, and usually accidental, to
+write one that uses information from after the moment it claims to be deciding. A signal computed
+from today's closing price cannot be used to buy at today's opening price, but nothing in ordinary
+Python stops you writing that. The resulting equity curve is not a slightly optimistic estimate
+--- it is a measurement of a machine that can see tomorrow, and it can be arbitrarily good.
+
+This is called \textbf{lookahead bias} or \textbf{leakage}. It has recognisable species:
+
+\begin{itemize}
+\item \textbf{Future indexing.} Directly using a value from a later timestamp --- a
+  \texttt{shift(-1)}, a reversed slice.
+\item \textbf{Full-sample statistics.} Computing a mean, standard deviation or quantile over the
+  whole history and using it to make decisions early in that history. The mean of a series you
+  have not lived through yet is not available to you.
+\item \textbf{Fitting before splitting.} Scaling features using statistics from the test period.
+\item \textbf{Snooped parameters.} A lookback window or threshold chosen because it worked on the
+  data being tested.
+\item \textbf{Survivorship selection.} Choosing which stocks to trade in 2020 using the list of
+  companies that still exist in 2025. The ones that went to zero are silently absent, and the
+  strategy looks like genius rather than luck.
+\end{itemize}
+
+Only some of these announce themselves in the source. The last is a property of how the data was
+assembled, not of the strategy code at all --- which is why \S\ref{sec:infra} spends as much space
+on the universe as on the auditor.
+
+\subsection{Someone tried three hundred things}
+
+The second defect needs no bug at all. Take a market with no predictability whatsoever, generate
+three hundred strategies at random, and rank them. The best will look good. Not because anything
+was learned, but because the maximum of three hundred noisy numbers is large. This is
+\textbf{multiple testing}, or in this setting \textbf{backtest overfitting}
+\citep{bailey2017,harvey2016}.
+
+The correction is not to shrink the winner's Sharpe ratio. It is to \emph{raise the bar} it must
+clear, by the amount that luck alone would deliver given how many attempts were made
+\citep{bailey2014}. With widely dispersed trials, two hundred attempts buy an expected best Sharpe
+of about $2.77$ by luck --- so an observed $2.0$ from two hundred attempts is not impressive, it
+is \emph{below} what chance produces.
+
+That correction has a precondition which is where LLM pipelines quietly fail: \textbf{you must
+know how many attempts were made}, honestly, including the ones that crashed, the ones you
+discarded, and the ones from last week. A generator that regenerates on syntax error and reports
+only its successes has destroyed the denominator. \S\ref{sec:auditor} describes the ledger we
+built because of this, and \S\ref{sec:selfreport-ledger} reports the one place ours is imperfect
+and why we did not repair it.
+
+\subsection{The costs are not a rounding error}
+
+Indian equity trading carries securities transaction tax, exchange transaction charges, an
+investor protection fund levy, a SEBI turnover fee, stamp duty, GST on the brokerage and exchange
+components, and a per-scrip depository charge on every sell. For a strategy that trades often,
+these compound into a drag that routinely exceeds the entire apparent edge. A great many published
+Indian backtests are fiction for this reason alone \citep{novymarx2016,frazzini2018}.
+
+\subsection{The story and the code disagree}
+
+A machine-written strategy comes with a stated rationale. Nothing enforces that the rationale
+describes the code. A model can write a paragraph about liquidity provision in mid-caps and
+implement momentum; it can offer a mechanism so elastic that it would explain any outcome; or it
+can rediscover a forty-year-old anomaly and present it as novel. None of these is a bug --- the
+code runs, the backtest is honest --- and all of them mean the finding is not what it claims.
+
+% =====================================================================================
+\section{What was available before AlphaAudit, and why it was not enough}
+\label{sec:related}
+
+Four literatures each hold part of the problem, and none holds the whole of it.
+
+\paragraph{Code-generation benchmarks} measure whether a model writes code that passes tests
+\citep{chen2021}. That is exactly the wrong success criterion here. A leaky strategy passes every
+test; it is \emph{more} likely to pass, because it works better. The property we need to measure
+is invisible to a test suite by construction.
+
+\paragraph{Backtest-overfitting statistics} give us the corrections
+\citep{bailey2014,bailey2017,harvey2016,lopezdeprado2018} and are the reason the statistical layer
+in \S\ref{sec:auditor} is not our invention. What they do not supply is the honest denominator
+when the researcher is an autonomous loop. The literature assumes a human who knows roughly how
+many models they fitted.
+
+\paragraph{Selective prediction} formalises the right question --- a system that declines to act
+when unconfident is worth more than one that is occasionally brilliant and frequently wrong
+\citep{elyaniv2010,geifman2017}. It has not been applied to strategy research, where the
+``label'' arrives only after out-of-sample time has elapsed, and where abstention is nearly free
+while a wrong action is not.
+
+\paragraph{Finance-specific language models} \citep{wu2023} raise capability without addressing
+evaluation. A more capable finance model produces more plausible candidates. Section
+\ref{sec:frontier} is a direct measurement of what that does and does not buy.
+
+\begin{finding}
+The gap AlphaAudit fills: there was no environment in which a machine-written strategy corpus
+could be scored for \emph{validity} --- survivorship-free, cost-realistic, trial-counted,
+holdout-disciplined --- under a protocol fixed before the results were seen. Building the
+environment is the contribution that does not depend on our auditor working.
+\end{finding}
+
+% =====================================================================================
+\section{What we built}
 \label{sec:infra}
 
-Three components had to be built before any experiment could be run. Each is boring, and
-each is load-bearing in the sense that a defect in it would silently invalidate everything
-downstream. We describe them at the level of detail required to know whether to trust them.
+Four components, in the order a result has to pass through them. Each is a place a published
+Indian backtest commonly goes wrong.
 
-\subsection{A survivorship-free, point-in-time universe}
+\subsection{A universe that includes the companies that failed}
 
-The universe on date $t$ must contain exactly the securities investable on date $t$,
-including those that later delisted. A universe built from today's index membership and
-applied backwards embeds survivorship bias so thoroughly that no downstream correction can
-remove it.
+\textbf{This is the most important correctness requirement in the repository}, and getting it
+wrong invalidates everything downstream regardless of the quality of the rest.
 
-We did not use a published index membership list, because free point-in-time NIFTY~100
-constituent history could not be sourced. Instead the universe is \emph{rules-based}: at
-each quarterly rebalance, the 100 NSE equities with the highest trailing 126-session median
-traded value, computed using only sessions strictly before the rebalance date, with a
-buffer band to suppress rank churn. Nothing consults a membership list, so a company that
-collapses simply stops qualifying rather than vanishing from history.
+The universe on any date $t$ contains exactly the hundred most liquid NSE equities \emph{as they
+were known on $t$}, including names later delisted or dropped. It is rebuilt quarterly from
+exchange bhavcopy archives, ranking by median traded value over a trailing window that ends
+strictly before the rebalance date. No constituent list from the present is ever applied backwards.
 
-\begin{table}[t]\centering\small
-\caption{Data foundation. The universe is a liquidity proxy and is never described as the
-NIFTY~100.}
-\label{tab:data}
-\begin{tabular}{lrl}
-\toprule
-\textbf{Quantity} & \textbf{Value} & \textbf{Sample} \\
-\midrule
-Trading sessions in calendar & 1,475 & 2019-01-01 to 2024-12-31 \\
-Bhavcopy sessions cached & 1,359 / 1,359 & zero gaps \\
-Panel rows & 2,287,802 & 2,697 symbols, EQ series \\
-Quarterly rebalances & 20 & 2020-01 to 2024-10 \\
-Universe size at each rebalance & exactly 100 & 20 / 20 \\
-Distinct names ever in universe & \textbf{185} & vs.\ 100 at any one time \\
-Names in first universe, gone by last & \textbf{41} & the survivorship evidence \\
-Development window & 1,232 sessions & 2020-01-01 to 2024-12-31 \\
-Holdout window & 246 sessions & 2025 calendar year \\
-\bottomrule
-\end{tabular}
-\end{table}
+The verification that matters is not that the code looks right, it is that stocks actually leave:
+the suite asserts the presence of at least one symbol in an early-period universe and absent from
+a late one, and fails loudly otherwise. A survivorship-biased universe makes every strategy in
+this paper look better than it is, and the bias is invisible in every downstream number.
 
-The 41 names that were in the first universe and absent from the last are the direct
-evidence the construction is survivorship-free (Table~\ref{tab:data}). A biased universe
-would show that count near zero.
+\subsection{Costs at the rates in force on each trade's own date}
 
-Prices come from NSE's own end-of-day bhavcopy archives, adjusted for splits and bonuses.
-We cross-checked against \texttt{yfinance} and found a \textbf{17.47\% disagreement rate on
-adjusted closes} across 35,757 aligned observations. Inspection of the worst offenders
-showed \emph{exact} integer ratios---BAJFINANCE at precisely $10\times$, ASHOKLEY at
-precisely $2\times$---for securities with no declared corporate action in the window.
-Genuine data noise is never exactly $10\times$. We designate the exchange file
-authoritative and report the discrepancy rather than reconciling it, because the
-reconciliation would be a fiction.
+\texttt{src/costs/india.py} implements the Indian statutory schedule per leg, separately for
+delivery and intraday, with each rate cited to its source and effective date in the docstring, and
+applied \emph{as of the trade's date} rather than at today's rate. Slippage is a
+volume-participation model, so cost rises with order size as a share of that day's volume; a flat
+basis-point assumption was not acceptable and is not used.
 
-\subsection{An engine that makes lookahead hard to express}
+The model is validated by hand-computing a \rupee 1{,}00{,}000 delivery round trip line by line
+and asserting agreement to the paisa, and independently by entering the same trade into a
+discount broker's public calculator. One component --- the square-root market-impact coefficient
+--- remains an uncalibrated engineering assumption, and paper 3 of this programme reports the
+measurement showing that daily data cannot calibrate it \citep{almgren2005}.
 
-Point-in-time discipline is enforced structurally rather than by convention. A strategy is
-never handed the price panel; it receives a \texttt{MarketView} already truncated to before
-its decision moment. Every signal carries an \texttt{information\_available\_at} stamp, and
-the engine raises \texttt{PointInTimeError}---an exception, not a warning---if that stamp is
-not strictly prior to the fill session. A signal formed at session $t$'s close fills at
-session $t{+}1$'s \emph{open}.
+\subsection{An engine that raises rather than warns}
 
-Returns are accrued by provenance: a position carried from the previous session earns the
-full close-to-close move including the overnight gap, while only the portion bought this
-morning earns from the open. Collapsing both into open-to-close would silently liquidate
-the book every evening, discarding most of the equity premium in the sample and making
-every long-horizon strategy look structurally unprofitable.
+Point-in-time discipline is a property of the engine, not a convention the strategy author is
+trusted to honour. Every signal carries the timestamp at which its information became available,
+and the engine raises \texttt{PointInTimeError} --- an exception, not a warning --- if any order's
+signal timestamp is not strictly prior to its fill timestamp. A signal computed from a session's
+close may trade no earlier than the next session's open. Cross-validation is purged with an
+embargo after each test fold, following \citet{lopezdeprado2018}, so overlapping label windows
+cannot leak across the split.
 
-\paragraph{Deliberate self-sabotage.} Three strategies that cheat on purpose are permanent
-fixtures: one uses next-day return directly, one fits a \texttt{StandardScaler} on the full
-sample before splitting, one selects its universe from end-of-period membership. Gross of
-costs they return Sharpe ratios of \textbf{12{,}098}, \textbf{2.33} and \textbf{1.23}
-respectively. Each holds its number when known data artifacts are removed, confirming it
-cheats for its intended reason rather than riding a data scar. Thirty honest strategies
-form the false-positive control. \emph{We built the disease before building the test for
-it.}
+\subsection{Fixtures: we wrote the disease before the test for it}
 
-As a sanity check, equal-weighting the universe returns 19.98\% annualised at 21.14\%
-volatility over 1,232 sessions, with 7.64\% annualised tracking error and 0.9334
-correlation against the NIFTY~100 price index---close enough to be a market proxy, distant
-enough to reflect that it is an equal-weighted liquidity portfolio rather than a
-capitalisation-weighted index.
+Three strategies in \texttt{tests/fixtures/leaky/} cheat deliberately --- one uses next-day
+returns as a feature, one fits a scaler on the full sample before splitting, one selects its
+universe from end-of-period membership. All three produce absurd results, which is the point:
+they are the positive controls for the auditor. Thirty honest strategies --- moving-average
+crossovers, simple momentum, mean reversion --- measure the false-positive rate.
 
-\subsection{The Indian transaction cost model}
-\label{sec:costmodel}
-
-Costs are charged \emph{inside} the engine, per name and per side, at the statutory rates in
-force on each trade's own date. The two legs are not symmetric---stamp duty falls on the buy
-alone, the depository charge on the sell alone---so a blended round-trip rate gets both
-wrong. Rates are stored as a schedule of complete epoch snapshots (three, reflecting the
-April 2024 NSE reduction and the October 2024 SEBI true-to-label change) rather than as
-deltas, so no edit can silently corrupt a neighbouring period.
-
-\begin{table}[t]\centering\small
-\caption{Round trip on a \rupee1,00,000 delivery trade, verified against a discount broker's
-public calculator. The calculator omits the depository charge, which is levied separately;
-the first total is therefore the directly comparable figure.}
-\label{tab:cost}
-\begin{tabular}{lr}
-\toprule
-\textbf{Component} & \textbf{Amount (Rs.)} \\
-\midrule
-Securities Transaction Tax, both legs & 200.00 \\
-Exchange transaction charge + IPFT, both legs & 6.14 \\
-SEBI turnover fee & 0.20 \\
-Stamp duty (buy leg only) & 15.00 \\
-GST at 18\% on charges (not on taxes) & 1.14 \\
-\midrule
-\textbf{Total, broker-comparable} & \textbf{222.4812} \\
-Depository charge, retail mode (sell leg, per scrip) & 15.34 \\
-\midrule
-\textbf{Total, as charged in this study} & \textbf{237.8212} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Table~\ref{tab:cost} is pinned as a unit test, asserted to the paisa, so no future rate edit
-can move it silently. Slippage is modelled as linear in volume participation and impact as a
-square-root law \citep{almgren2005}. \textbf{Both coefficients are engineering defaults, not
-calibrations to Indian data}; daily bars cannot support a calibration and we do not claim
-one. \S\ref{sec:costs-results} reports what fraction of measured drag they are responsible
-for, which is the only honest way to bound the damage they can do.
-
-\paragraph{The depository charge is not scale-invariant.} At \rupee15.34 per scrip per sell
-instruction, a hundred-name book rebalancing once costs \rupee1,534 regardless of position
-size---15 basis points of a \rupee10 lakh book, and 0.0015 basis points of a \rupee100 crore
-one. Any conclusion about a diversified strategy is therefore partly a statement about
-assumed capital. We report this dependence explicitly rather than hiding it in a default.
+\begin{scopebox}
+The fixtures establish that the auditor catches cheats \emph{of the kinds we thought to write}.
+They say nothing about kinds we did not. \S\ref{sec:leakclasses} reports a leak class on which
+our static layer returned a zero we do not believe.
+\end{scopebox}
 
 % =====================================================================================
 \section{The auditor}
 \label{sec:auditor}
 
-\subsection{$A_{\mathrm{static}}$: leakage by structure, not by syntax}
+Three layers, each independently ablatable, so that the question ``which layer earns its place''
+is answerable rather than asserted.
 
-The static layer parses candidate source with Python's \texttt{ast} module and classifies
-findings by leak class, line number, and severity. Its two strongest rules are structural
-rather than syntactic: \emph{did the constructor accept bulk data?} and \emph{did the
-decision function read stored state instead of the point-in-time view?} These mirror the
-engine's own information boundary, which is why they catch cheats whose results look
-plausible; pattern-matching \texttt{shift(-1)} catches only the cheats that announce
-themselves.
+\subsection{$A_{\mathrm{static}}$ --- leakage by structure, not by syntax}
 
-Against the fixture suite the layer achieves recall $1.00$ (3/3 leaky) and precision
-$1.00$ (0/30 honest flagged). \textbf{This number should be discounted and we say so in the
-paper rather than the appendix.} With syntax-based detectors alone, recall was $1/3$; the
-structural rules were added after observing that failure, and were then measured on the same
-three fixtures that motivated them. That is closer to training accuracy than to a test. The
-genuine out-of-sample evaluation is against generated code the detectors were never designed
-around (\S\ref{sec:leakclasses}).
+The static layer parses candidate source with Python's \texttt{ast} module and classifies each
+finding by leak class, line number and severity. Its two strongest rules are structural rather
+than syntactic: \emph{did the constructor accept bulk data?} and \emph{did the decision function
+read stored state instead of the point-in-time view?} These mirror the engine's own information
+boundary, which is why they catch cheats whose results look plausible. Pattern-matching
+\texttt{shift(-1)} catches only the cheats that announce themselves.
 
-\subsection{$A_{\mathrm{stat}}$: deflation against an honest denominator}
+Against the fixture suite the layer achieves recall $1.00$ (3 of 3 leaky) and precision $1.00$
+(0 of 30 honest flagged).
 
-We compute the Deflated Sharpe Ratio of \citet{bailey2014}, which converts an observed
-Sharpe $\widehat{SR}$ into the probability that it exceeds what $N$ trials would produce by
-luck, given sample length $T$, skewness $\gamma_3$ and kurtosis $\gamma_4$:
+\begin{selfreport}[title={This 100\% should be discounted, and here is why}]
+With syntax-based detectors alone, recall was 1 of 3. The structural rules were added
+\emph{after} observing that failure, and were then measured on the same three fixtures that
+motivated them. That is closer to training accuracy than to a test, and we report it in the
+results rather than the appendix. The genuine out-of-sample evaluation is against generated code
+the detectors were never designed around (\S\ref{sec:leakclasses}), and it is far less flattering.
+\end{selfreport}
+
+\subsection{$A_{\mathrm{stat}}$ --- deflation against an honest denominator}
+
+We compute the Deflated Sharpe Ratio of \citet{bailey2014}, which converts an observed Sharpe
+$\widehat{SR}$ into the probability that it exceeds what $N$ trials would produce by luck, given
+sample length $T$, skewness $\gamma_3$ and kurtosis $\gamma_4$:
 \[
 \mathrm{DSR} \;=\; \Phi\!\left(
 \frac{(\widehat{SR} - SR_0)\sqrt{T-1}}
      {\sqrt{1 - \gamma_3 \widehat{SR} + \frac{\gamma_4 - 1}{4}\widehat{SR}^{\,2}}}
 \right),
 \]
-where $SR_0$ is the expected maximum Sharpe across $N$ trials---a function of both $N$ and
-the \emph{dispersion} of the trials' Sharpes. The mechanism deserves a plain statement,
-because it is routinely misread: deflation does not shrink the strategy's Sharpe, it raises
-the bar. With widely dispersed trials, 200 attempts buy an expected best of $2.77$ by luck
-alone, so an observed $2.0$ is \emph{worse} than chance would produce.
+where $SR_0$ is the expected maximum Sharpe across $N$ trials --- a function of both $N$ and the
+\emph{dispersion} of the trials' Sharpes. Restating the mechanism, because it is routinely
+misread: deflation does not shrink the strategy's Sharpe, it raises the bar the Sharpe must clear.
 
-This is worthless without an honest $N$, and an LLM generator is a machine for losing count.
-We therefore maintain a \textbf{hash-chained, append-only trial ledger} outside the
-generator's write path. Every draw increments it---including syntax errors, runtime
-failures, and retries. Verification walks the chain and raises on any broken link, naming
-the edited entry. Nothing under \texttt{src/generate/} opens the file.
+\paragraph{The ledger.} This is worthless without an honest $N$, and an LLM generator is a machine
+for losing count. We maintain a \textbf{hash-chained, append-only trial ledger outside the
+generator's write path}. Every draw increments it, including syntax errors, runtime failures and
+retries. Verification walks the chain and raises on any broken link, naming the edited entry.
+Nothing under \texttt{src/generate/} opens the file. Pooled across every arm in this programme the
+ledger stands at \pgmPooledTrials{} entries.
 
-\begin{selfreport}[title={One deliberate imperfection in the ledger}]
-The ledger holds 1,877 entries but the true draw count is 1,887, because an early run recorded
-one entry per candidate rather than one per draw. We did \textbf{not} retroactively edit the
-chain to insert the missing ten. An append-only ledger that gets rewritten when found wrong is
-not tamper-evident. The correction is applied at the point of use, and the discrepancy is
-deliberate.
+\begin{selfreport}[title={One deliberate imperfection in the ledger},
+  label={sec:selfreport-ledger}]
+The local corpus's ledger holds 1{,}877 entries but the true draw count is 1{,}887, because an
+early run recorded one entry per candidate rather than one per draw. We did \textbf{not}
+retroactively edit the chain to insert the missing ten. An append-only ledger that gets rewritten
+when found wrong is not tamper-evident, and the property is worth more than the tidiness. The
+correction is applied at the point of use, the discrepancy is deliberate, and every deflation in
+this paper uses $N=1{,}887$.
 \end{selfreport}
 
-\subsection{$A_{\mathrm{sem}}$: does the story match the code?}
+\subsection{$A_{\mathrm{sem}}$ --- does the story match the code?}
 
 The semantic layer presents \texttt{qwen2.5:7b-instruct-q4\_K\_M} with a candidate's stated
-rationale and its implementation, and asks for one of four labels: \texttt{consistent},
+rationale and its implementation and asks for one of four labels: \texttt{consistent},
 \texttt{rationale\_\allowbreak implementation\_\allowbreak mismatch},
 \texttt{unfalsifiable\_\allowbreak mechanism}, or
-\texttt{unacknowledged\_\allowbreak known\_\allowbreak anomaly}. Validation is against 50
-human-labelled items,
-labelled before the model was run.
+\texttt{unacknowledged\_\allowbreak known\_\allowbreak anomaly}.
 
-\textbf{Cohen's $\kappa = 0.589$} \citep{cohen1960}, raw agreement 38/50, at the top of the
-``moderate'' band of \citet{landis1977}. Per-class agreement is uneven: \texttt{consistent}
-26/31, \texttt{unfalsifiable\_mechanism} only 2/5. No prompt was tuned before this
-measurement and none was tuned after it. The disposition---keep the layer---was decided
-before the number was known.
+Validation is against 50 items labelled by hand \emph{before} the model was run.
+\textbf{Cohen's $\kappa = 0.589$} \citep{cohen1960}, raw agreement 38 of 50, at the top of the
+``moderate'' band of \citet{landis1977}. Per-class agreement is uneven: \texttt{consistent} 26 of
+31, \texttt{unfalsifiable\_mechanism} only 2 of 5. No prompt was tuned before this measurement and
+none was tuned after it, and the disposition --- keep the layer --- was fixed before the number
+was known.
 
-One reconciliation is worth reporting because it is the ablation argument in miniature. The
-human reviewer labelled \texttt{leak\_full\_sample\_scaler} as \texttt{consistent}, and that
-is \emph{correct}: its rationale honestly describes what its code does, and its only defect
-is where the scaler was fitted. It is caught by $A_{\mathrm{static}}$ and correctly passed by
-$A_{\mathrm{sem}}$. \textbf{A leaky strategy can carry a perfectly honest rationale.} The
-layers are not redundant, and any evaluation collapsing them into one ``flagged by
-something'' signal would obscure that.
+\paragraph{One reconciliation, which is the ablation argument in miniature.} The human reviewer
+labelled the deliberately-leaky \texttt{leak\_full\_sample\_scaler} fixture as
+\texttt{consistent}, and that is \emph{correct}: its rationale honestly describes what its code
+does, and its only defect is where the scaler was fitted. It is caught by $A_{\mathrm{static}}$
+and correctly passed by $A_{\mathrm{sem}}$. \textbf{A leaky strategy can carry a perfectly honest
+rationale.} The layers are not redundant, and any evaluation collapsing them into one ``flagged by
+something'' signal would obscure exactly that.
 
 % =====================================================================================
 \section{Experimental design}
 \label{sec:design}
 
-\paragraph{Generation.} One model, one prompt (SHA256 digest
-\texttt{f307433c\ldots}), temperature 0.8, candidate $i$ seeded at $42+i$. 1,550 draws in two
-batches, pooled only after asserting identical model tag, prompt digest, seed rule and
-window. Each candidate emits a rationale, a feature specification, entry and exit rules, and
-executable code conforming to the engine's strategy interface. Every attempt increments the
-trial ledger.
+\subsection{One task specification, four generators, six methods}
 
-\paragraph{Evaluation.} Each candidate runs in a sandboxed worker with a 180-second bound
-over the development window, net of costs, at a \rupee10 lakh book.
+Every arm in this programme receives the \textbf{same frozen task specification} --- one prompt,
+whose SHA256 digest \texttt{f307433c\ldots} is published so that any later arm can be verified as
+having received it verbatim. This is what makes the comparisons in \S\ref{sec:frontier} and
+\S\ref{sec:methods} comparisons of the generator and the method rather than of the prompt.
 
-\paragraph{The abstention curve.} For coverage $c \in (0,1]$, rank candidates by auditor
-confidence, retain the top $c$ fraction, and let $P(c)$ be the mean realised out-of-sample
-Sharpe of the retained set. Then
+Candidate $i$ is seeded at $42+i$; the global seed is 42; every stochastic operation takes an
+explicit seed. Each candidate emits a rationale, a feature specification, entry and exit rules,
+and executable code conforming to the engine's strategy interface. Each is evaluated in a
+sandboxed worker with a 180-second bound over the development window, net of costs, at a
+\rupee 10 lakh book. Every attempt increments the ledger.
+
+\subsection{The abstention--performance curve}
+
+For coverage $c \in (0,1]$, rank candidates by auditor confidence, retain the top $c$ fraction,
+and let $P(c)$ be the mean realised out-of-sample Sharpe of the retained set. Then
 \[
 \mathrm{AUAP} \;=\; \int_0^1 P(c)\, \mathrm{d}c,
 \]
-evaluated on the grid $c \in \{0.05, 0.1, 0.2, \ldots, 1.0\}$. The baseline is rejection at
-random at matched coverage, with a bootstrap 95\% interval. \textbf{An auditor that is
-informative must produce $P(c)$ rising as $c \to 0$.}
+evaluated on the grid $c \in \{0.05, 0.1, 0.2, \ldots, 1.0\}$. The baseline is rejection
+\emph{at random} at matched coverage, with a bootstrap 95\% interval. An auditor that carries
+information must produce $P(c)$ rising as $c \to 0$: the more selective it becomes, the better
+what it keeps must perform on data it never saw. A flat or falling curve means the ranking is
+noise.
 
-\paragraph{Two design choices that shape the result, stated plainly.} Flat candidates---those
-that executed but never traded---are excluded from the ranking population rather than ranked
-last. They are all tied at exactly zero and at 64\% of the executed set would dominate every
-retained set. Ranking them last would have been equally defensible and would have produced a
-different, lower curve. Second, survivors handed forward to future work are defined by
-$A_{\mathrm{static}} \wedge A_{\mathrm{sem}}$, excluding the statistical layer, which rejects
-the entire corpus and would make the handoff empty by construction. \textbf{This is the one
-place we chose the definition that produces a non-empty answer, and we flag it as such.}
+The random baseline is the whole test. Any rejection rule improves the retained set's average if
+the discarded candidates were worse on average --- so ``performance improved as we became
+selective'' proves nothing unless it beats discarding at random by the same amount.
 
-\paragraph{Holdout discipline.} The 2025 calendar year was frozen before any holdout data was
-fetched, set to a calendar boundary rather than to the latest available session so that
-window length could not become a researcher degree of freedom. It has been evaluated three times,
-each under written authorisation logged with a timestamp: once on a gross-of-costs pipeline, once
-after that pipeline was found defective and rebuilt, and once after the ranking defect described
-in \S\ref{sec:correction}. The first evaluation is retired and its artifacts are frozen under a
-directory whose README forbids quoting them without the word ``gross''; the second is superseded
-and retained beside the third.
+\subsection{Two design choices that shape the result, stated plainly}
+
+\textbf{Flat candidates are excluded from the ranking population} rather than ranked last. They
+are all tied at exactly zero, and at 64\% of the executed set they would dominate every retained
+set. Ranking them last would have been equally defensible and would have produced a different,
+lower curve.
+
+\textbf{Survivors handed forward to papers 2 and 3 are defined by
+$A_{\mathrm{static}} \wedge A_{\mathrm{sem}}$}, excluding the statistical layer --- which rejects
+the entire corpus and would make the handoff empty by construction. This is the one place in the
+programme where we chose the definition that produces a non-empty answer, and we flag it as such
+here rather than in a footnote.
+
+\subsection{Holdout discipline}
+
+The 2025 calendar year was frozen as a holdout before any holdout data was fetched, set to a
+calendar boundary rather than to the latest available session so that window length could not
+become a researcher degree of freedom.
+
+It has been evaluated three times for paper 1, each under written authorisation logged with a
+timestamp: once on a gross-of-costs pipeline, once after that pipeline was found defective and
+rebuilt, and once after the ranking defect described in \S\ref{sec:correction}. The first
+evaluation is retired and its artefacts frozen under a directory whose README forbids quoting them
+without the word ``gross''; the second is superseded and retained beside the third.
 
 \textbf{Every one of the three was authorised in advance to repair a defect, and no parameter,
 threshold, prompt or model was changed after any of them.} That is the property that matters, and
-it is a different property from the count. A holdout is contaminated by iterative optimisation
-against it, not by arithmetic being performed on it correctly more than once; but we recognise that
-``we re-ran it and the conclusion held'' is exactly what a researcher would say in both the honest
-and the dishonest case, so we publish the full before/after of each correction and the diffs that
-produced them rather than asking to be believed. \textbf{The holdout is now permanently closed.}
+it is a different property from the count: a holdout is contaminated by iterative optimisation
+against it, not by correct arithmetic being performed on it more than once. We recognise that
+``we re-ran it and the conclusion held'' is what a researcher would say in both the honest and the
+dishonest case, so we publish the full before-and-after of each correction and the diffs that
+produced them rather than asking to be believed. \textbf{The paper-1 holdout is permanently closed.}
+
+The frontier and generation-method arms of \S\ref{sec:frontier} and \S\ref{sec:methods} were
+evaluated on the same holdout once each, under a separate written authorisation, on an apparatus
+frozen beforehand and unmodified since --- reuse being contaminating when one method is repeatedly
+tuned against the same data, whereas here each generator is a new subject scored by a frozen
+instrument.
 
 % =====================================================================================
-\section{Results}
+\section{The local-model experiment: where strategies actually die}
+\label{sec:local}
 
-\subsection{The corpus: strategies fail as programs, not as research}
-\label{sec:corpus}
+\begin{finding}
+\taglocal\ \ \textbf{The dominant failure mode of an LLM strategy researcher is not that it
+cheats. It is that it does not run.}
+\end{finding}
+
+One local model (\texttt{qwen2.5:7b-instruct-q4\_K\_M}, temperature 0.8), one prompt,
+\aaLocalDraws{} draws in two batches pooled only after asserting identical model tag, prompt
+digest, seed rule and window.
 
 \begin{table}[t]\centering\small
-\caption{The funnel. $n=1{,}550$ draws, one model, one prompt.}
+\caption{The funnel. $n=\aaLocalDraws{}$ draws, one model, one prompt.}
 \label{tab:funnel}
 \begin{tabular}{lrr}
 \toprule
-\textbf{Stage} & \textbf{Count} & \textbf{Share} \\
+\thead{Stage} & \thead{Count} & \thead{Share} \\
 \midrule
-Draws requested & 1,550 & --- \\
-Returned parseable, interface-conforming code & \textbf{1,550} & 100.0\% of draws \\
-Executed to completion against real data & \textbf{631} & 40.7\% of corpus \\
-\quad --- of those, flat: ran 1,232 sessions, never traded & \textbf{406} & 64.3\% of executed \\
-\quad --- of those, rankable: executed and traded & \textbf{225} & \textbf{14.5\% of corpus} \\
+Draws requested & 1{,}550 & --- \\
+Returned parseable, interface-conforming code & \textbf{1{,}550} & \textbf{100.0\% of draws} \\
+Executed to completion against real data & \textbf{631} & \pgmLocalExec\% of corpus \\
+\quad --- of those, flat: ran 1{,}232 sessions, never traded & 406 & 64.3\% of executed \\
+\quad --- of those, rankable: executed \emph{and} traded & \textbf{\aaLocalRankable{}} &
+  \textbf{\aaLocalRankablePct\% of corpus} \\
 Runtime error & 894 & 57.7\% \\
 Timeout at 180\,s & 25 & 1.6\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Read the first row of Table~\ref{tab:funnel} carefully. \emph{Every} draw returned
-syntactically valid Python defining a conforming \texttt{Strategy} subclass with a rationale.
-The model is entirely reliable at producing code that looks right. The attrition happens on
-contact with data.
+\takeaway{Read the second row. \emph{Every} draw returned syntactically valid Python defining a
+conforming strategy with a rationale. The model is entirely reliable at producing code that looks
+right. All the attrition happens on contact with data.}
 
-The 894 runtime errors are dominated by a single confusion: \texttt{AttributeError} (327)
-and \texttt{ColumnNotFoundError} (247) together account for 64\% of failures, and both
-trace overwhelmingly to the model calling pandas methods on polars frames, or treating a
-wide frame as though it were long. The prompt states the distinction explicitly and carries
-a worked example. The model makes the error anyway, in roughly a fifth of all draws.
+The 894 runtime errors are dominated by a single confusion. \texttt{AttributeError} (327) and
+\texttt{ColumnNotFoundError} (247) together account for 64\% of failures, and both trace
+overwhelmingly to the model calling pandas methods on polars frames, or treating a wide frame as
+though it were long. The prompt states the distinction explicitly and carries a worked example.
+The model makes the error anyway, in roughly a fifth of all draws.
 
-\keyfinding{This relocates RQ1. The question ``what fraction of LLM-generated strategies
-fail static leakage screening'' presumes leakage is the binding constraint. On this corpus
-it is not. The auditor was never reached for 59\% of the corpus, and for a further 26\% it
+\begin{finding}
+This relocates the question the project was built to ask. ``What fraction of LLM-generated
+strategies fail static leakage screening'' presumes leakage is the binding constraint. On this
+corpus it is not: the auditor was never reached for 59\% of the corpus, and for a further 26\% it
 had nothing to deflate. \textbf{An auditor tuned to catch cheating is guarding a door most
-candidates never reach.}}
+candidates never reach.}
+\end{finding}
 
 \subsection{Leak classes, and one number we do not believe}
 \label{sec:leakclasses}
 
-Static analysis needs no execution, so it ran over all 1,550 sources: 222 rejected (14.3\%),
-of which 195 carried one class, 26 two, and one three. By class:
+Static analysis needs no execution, so it ran over all 1{,}550 sources: \aaLocalStatic{} rejected
+(\aaLocalStaticPct\%), of which 195 carried one class, 26 two, and one three.
 
 \begin{center}\small
 \begin{tabular}{lr@{\hspace{2.5em}}lr}
@@ -631,677 +591,651 @@ of which 195 carried one class, 26 two, and one three. By class:
 \end{tabular}
 \end{center}
 
-\textbf{We do not believe the zero.} Full-sample statistics are the most common leak class in
-hand-written quantitative code, and a corpus of 1,550 candidates containing none of it is not
-plausible. The cause is almost certainly ours: to raise the executable rate from near zero,
-the prompt advises working in plain Python rather than in long polars expression chains, and
-\texttt{pl.col("x").mean()} over an unfiltered frame is precisely where this class arises.
-The class distribution above therefore describes \emph{this prompt}, not LLM-generated
-strategies in general, and the zero should be read as evidence that the instrument is blind
-here---not as evidence the defect is absent.
+\begin{selfreport}[title={We do not believe the zero}]
+Full-sample statistics are the most common leak class in hand-written quantitative code, and a
+corpus of 1{,}550 candidates containing none of it is not plausible. The cause is almost certainly
+ours: to raise the executable rate from near zero, the prompt advises working in plain Python
+rather than in long polars expression chains, and \texttt{pl.col("x").mean()} over an unfiltered
+frame is precisely where this class arises. The distribution above therefore describes
+\textbf{this prompt}, not LLM-generated strategies in general, and the zero should be read as
+evidence that the instrument is blind here --- not that the defect is absent.
+\end{selfreport}
 
 \paragraph{Most leak flags land on code that never produced a result.} Static analysis is a
-statement about source, not about realised PnL, and the two are correctly independent: a leak is
-a leak whether or not the strategy went on to trade. But the \emph{distribution} of where flags
-land is itself a measurement, and on this corpus it is stark.
+statement about source, not about realised profit, and the two are correctly independent: a leak
+is a leak whether or not the strategy went on to trade. But \emph{where} the flags land is itself
+a measurement.
 
 \begin{center}\small
 \begin{tabular}{lrr}
 \toprule
-\textbf{Fate of the 222 static-rejected candidates} & \textbf{Count} & \textbf{Share} \\
+\thead{Fate of the \aaLocalStatic{} static-rejected candidates} & \thead{Count} & \thead{Share} \\
 \midrule
 Runtime error --- never ran & 114 & 51.4\% \\
 Evaluated but flat --- ran, never traded & 79 & 35.6\% \\
 Timeout & 1 & 0.5\% \\
-\textbf{Evaluated and traded} & \textbf{28} & \textbf{12.6\%} \\
+\textbf{Evaluated and traded} & \textbf{\aaLocalStaticRankable{}} &
+  \textbf{\aaLocalStaticRankablePct\%} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent \textbf{Only 28 leak findings in the entire corpus attach to a strategy that took a
-position.} A worked example makes the mechanism concrete. Candidate 053 is flagged
-\texttt{future\_indexing} at confidence 1.0 for a \texttt{shift(-1)} whose result is then filtered
-onto a past session date---textbook future indexing, and correctly caught. But the block is
+\noindent \textbf{Only \aaLocalStaticRankable{} leak findings in the entire corpus attach to a
+strategy that took a position.} A worked example makes the mechanism concrete. Candidate 053 is
+flagged \texttt{future\_indexing} at confidence 1.0 for a \texttt{shift(-1)} whose result is then
+filtered onto a past session date --- textbook future indexing, correctly caught. But the block is
 unreachable: the guard preceding it requires 21 rows from a view that returns at most 20, so it is
 false on every session and the function exits before the leak executes. Had it been reached it
-would have raised twice over, on an invalid \texttt{date} construction and on a column absent from
-the pivoted frame.
+would have raised twice over.
 
 The verdict and the flat return series are compatible, not contradictory. What the pairing shows
-is that \textbf{a leakage prevalence rate measured over generated source is not a deployment risk
-rate}. Reported as ``14.3\% of candidates leak'', the static layer sounds like it is intercepting
-a substantial hazard; reported as ``28 of 1,550 candidates leak \emph{and} trade'', the same
-measurement says the hazard is rare because the population is inert. Both numbers are true. Only
-the second is decision-relevant, and we are not aware of prior work that separates them.
+is that \textbf{a leakage-prevalence rate measured over generated source is not a deployment-risk
+rate}. Reported as ``\aaLocalStaticPct\% of candidates leak'', the static layer sounds like it is
+intercepting a substantial hazard. Reported as ``\aaLocalStaticRankable{} of 1{,}550 candidates
+leak \emph{and} trade'', the same measurement says the hazard is rare because the population is
+inert. Both numbers are true. Only the second is decision-relevant, and we are not aware of prior
+work that separates them.
 
 \medskip
-The semantic layer labelled 90.1\% of the corpus \texttt{consistent}, rejecting 154 (9.9\%):
-119 rationale--implementation mismatches, 21 unacknowledged known anomalies, 14 unfalsifiable
-mechanisms. It is not a detector that fires indiscriminately. Whether the 154 are the
-\emph{right} ones is not established on this population, since $\kappa$ was measured on a
-different one.
+The semantic layer labelled 90.1\% of the corpus \texttt{consistent}, rejecting 154 (9.9\%): 119
+rationale--implementation mismatches, 21 unacknowledged known anomalies, 14 unfalsifiable
+mechanisms. It is not a detector that fires indiscriminately. Whether the 154 are the \emph{right}
+ones is not established on this population, since $\kappa$ was measured on a different one.
 
-\subsection{What Indian transaction costs did to the corpus}
-\label{sec:costs-results}
+% =====================================================================================
+\section{The frontier-model comparison}
+\label{sec:frontier}
+
+\begin{finding}
+\tagfrontier\ \ \textbf{Frontier models solved the execution problem. They did not solve the
+evidence problem.}
+\end{finding}
+
+The obvious objection to \S\ref{sec:local} --- and the first one a referee reaches for --- is that
+we measured a small local model, not AI strategy generation. So the identical frozen task
+specification was issued to three frontier models, and every candidate was run through the
+identical unchanged funnel. \textbf{This is not an appendix.} The generator is part of the
+scientific design, because the programme's question is what changes when the AI gets better.
+
+\aaGvRequestsPerArm{} requests per arm, \aaGvTotal{} candidates in total, \aaGvNLarge{} per arm.
+
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_front_vs_back.png}
+\caption{The same generators on one axis, measured at two points in the funnel. Left: the fraction
+of draws producing code that runs on real data and takes a position. Right: median Sharpe on the
+never-touched holdout year. Sample sizes differ by up to $40\times$ between the reference and the
+frontier arms; see the scope box below.}
+\label{fig:frontback}
+\end{figure}
+
+\takeaway{Capability moves the left panel to its ceiling and does not move the right panel in the
+direction that would matter.}
+
+\subsection{The front of the funnel: solved}
 
 \begin{table}[t]\centering\small
-\caption{Gross to net over the development window. $n=225$ traded candidates. Gross and net
-come from a \emph{single run}---the engine records the pre-cost series alongside the
-post-cost one---so the drag is a measured quantity on one path.}
-\label{tab:grossnet}
+\caption{Generator axis. Identical prompt, identical funnel, \textbf{not compute-matched} ---
+these are rate claims only, never efficiency claims.}
+\label{tab:frontier}
+\begin{tabular}{lrrrr}
+\toprule
+\thead{Quantity} & \thead{local 7B} & \thead{GPT} & \thead{Claude} & \thead{Gemini} \\
+\midrule
+Draws & \pgmPlainDraws{} & \aaGvGptN{} & \aaGvClaudeN{} & \aaGvGeminiN{} \\
+Executed on real data & \pgmLocalExec\% & \pgmGPTExec\% & \pgmClaudeExec\% & \pgmGeminiExec\% \\
+Executed \emph{and} traded & \pgmLocalTrade\% & \pgmGPTTrade\% & \pgmClaudeTrade\% &
+  \pgmGeminiTrade\% \\
+\midrule
+Static leak findings & --- & \aaGvGptStatic{} & \aaGvClaudeStatic{} & \aaGvGeminiStatic{} \\
+Semantic rejections & --- & \aaGvGptSemantic{} & \aaGvClaudeSemantic{} & \aaGvGeminiSemantic{} \\
+Statistical rejections & \textbf{all} & \aaGvGptStatistical{} & \aaGvClaudeStatistical{} &
+  \aaGvGeminiStatistical{} \\
+\midrule
+Mean Sharpe, development & --- & \aaGvGptDevSharpe{} & \aaGvClaudeDevSharpe{} &
+  \aaGvGeminiDevSharpe{} \\
+Mean Sharpe, holdout & --- & \aaGvGptHoldSharpe{} & \aaGvClaudeHoldSharpe{} &
+  \aaGvGeminiHoldSharpe{} \\
+Median Sharpe, holdout & \pgmLocalHoldMed{} & \pgmGPTHoldMed{} & \pgmClaudeHoldMed{} &
+  \pgmGeminiHoldMed{} \\
+Best Sharpe, holdout & --- & \aaGvGptHoldBest{} & \aaGvClaudeHoldBest{} & \aaGvGeminiHoldBest{} \\
+\midrule
+Probability of backtest overfitting & --- & \aaGvGptPbo{} & \aaGvClaudePbo{} & \aaGvGeminiPbo{} \\
+Mean Sharpe lost to costs & \aaLocalCostDrop{} & \aaGvGptCostDrop{} & \aaGvClaudeCostDrop{} &
+  \aaGvGeminiCostDrop{} \\
+Sharpe sign reversed by costs & \aaLocalFlips{}/\aaLocalFlipsOf{} & \aaGvGptFlips{}/20 &
+  \aaGvClaudeFlips{}/20 & \aaGvGeminiFlips{}/20 \\
+\midrule
+\textbf{Cleared DSR $\ge \aaGvBar{}$, development} & \textbf{0/631} &
+  \multicolumn{3}{c}{\textbf{\aaGvClearedDev{} of \aaGvTotal{}}} \\
+\textbf{Cleared DSR $\ge \aaGvBar{}$, holdout} & \textbf{0/631} &
+  \multicolumn{3}{c}{\textbf{\aaGvClearedHoldout{} of \aaGvTotal{}}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every frontier arm executed and traded at 100\%. The execution barrier that consumes 85\% of the
+local corpus is not a property of machine-written strategies; it is a property of a 7B model, and
+it vanishes with capability. Total static leak findings across all \aaGvTotal{} frontier
+candidates: \aaGvStaticTotal{}. Frontier models do not write the cheats our static layer was built
+to detect --- but note that the local corpus barely did either
+(\aaLocalStaticRankable{} of 1{,}550 that both leaked and traded), so this is a small effect
+measured on a small sample, not a demonstration that capability eliminates leakage.
+
+\subsection{The back of the funnel: unmoved}
+
+\begin{finding}
+\tagfrontier\ \ \textbf{Zero of \aaGvTotal{} frontier candidates cleared the significance bar} at
+their own honest trial counts, on development or on holdout. The local corpus cleared 0 of 631.
+Capability changed the numerator of the funnel by a factor of seven and left this at zero.
+\end{finding}
+
+Every frontier arm's median holdout Sharpe is \emph{worse} than the local reference's, and every
+arm's mean is negative on both windows. The best single holdout Sharpe in any frontier arm is
+\aaGvClaudeHoldBest{} --- positive, but nowhere near clearing deflation at that arm's own trial
+count, and selected as the maximum of twenty.
+
+\begin{scopebox}
+\textbf{The supportable claim is that frontier models did not \emph{improve} out-of-sample
+performance --- not that they produced none.} Three things block the stronger claim.
+\begin{itemize}
+\item Median holdout Sharpe is worse for all three arms, but the \emph{fraction} with a positive
+  holdout Sharpe is better: 40\%, 35\% and 30\% against the local arm's \pgmPlainHoldPos\%.
+  Those two facts point in opposite directions and we report both.
+\item The populations are differently selected. The local arm's \pgmPlainHoldPos\% is measured on
+  the \pgmLocalTrade\% of draws that survived execution; the frontier arms' on 100\% of draws.
+  The local survivors passed a filter the frontier candidates never faced.
+\item \textbf{The generator axis is not compute-matched.} \aaGvNLarge{} frontier draws against
+  \pgmPlainDraws{} local draws, at unequal and unmeasured token cost. Under Rule 11 of this
+  programme's charter no generator-axis comparison may be reported as an efficiency win, and none
+  is.
+\end{itemize}
+\end{scopebox}
+
+\subsection{The matched-size control, and why small samples flatter}
+
+Comparing a 20-draw arm against a 1{,}550-draw corpus is not a fair deflation comparison, because
+deflation punishes trials: a 20-trial arm faces a much lower bar than a 1{,}550-trial one. So we
+drew \aaGvSubsamples{} random subsamples of the local corpus at each frontier arm's size and
+deflated each subsample at its own trial count, recomputing trial dispersion \emph{within} the
+subsample --- because that is the only information a 20-draw arm actually has.
+
+\begin{center}\small
 \begin{tabular}{lrr}
 \toprule
-\textbf{Quantity} & \textbf{Value} & \textbf{Sample} \\
+\thead{Subsamples of the local corpus clearing DSR $\ge \aaGvBar{}$} & \thead{at $n=\aaGvNSmall{}$}
+  & \thead{at $n=\aaGvNLarge{}$} \\
 \midrule
-Best Sharpe, gross & 1.3049 & 225 \\
-Best Sharpe, net & \textbf{1.2807} & 225 \\
-Mean Sharpe reduction & 0.5867 & 225 \\
-\textbf{Median} Sharpe reduction & \textbf{0.1943} & 225 \\
-Mean turnover, annualised & 82.2$\times$ & 225 \\
-Median turnover, annualised & 17.6$\times$ & 225 \\
-Mean cost drag, annualised & 58.13\% & 225 \\
-Median cost drag, annualised & 4.39\% & 225 \\
-\textbf{Sharpe sign reversed, $+\!\rightarrow-$} & \textbf{35 (15.6\%)} & 225 \\
-Sharpe sign reversed, $-\!\rightarrow+$ & \textbf{0} & 225 \\
-Ruined outright (equity reached zero) & 11 & 631 \\
+Development window & \aaGvMatchedDevSmall{}/\aaGvSubsamples{} &
+  \aaGvMatchedDevLarge{}/\aaGvSubsamples{} \\
+\textbf{Holdout} & \textbf{\aaGvMatchedHoldoutSmall{}/\aaGvSubsamples{}} &
+  \textbf{\aaGvMatchedHoldoutLarge{}/\aaGvSubsamples{}} \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{center}
 
-Mean and median diverge by a factor of thirteen on cost drag (Table~\ref{tab:grossnet}). The
-mean is dragged by a tail of candidates churning above $80\times$ annual turnover; the median
-strategy loses 0.19 of Sharpe and 4.4\% a year. Both are reported because quoting either
-alone misleads.
+\takeaway{On development, a five-draw slice of the \emph{local} corpus clears the bar 4.1\% of the
+time --- purely because five trials are cheap to deflate. No frontier arm cleared it at twenty. On
+the holdout, nothing clears at any size: \aaGvMatchedHoldoutSmall{} of \aaGvSubsamples{} local
+subsamples, and \aaGvClearedHoldout{} of \aaGvTotal{} frontier candidates. This is the control
+that shows the frontier arms' failure is not a small-sample artefact.}
 
-The best gross strategy is also the best net strategy---because it barely trades, at
-$2.8\times$ annual turnover and 0.4\% annual cost. That is the finding in miniature:
-\textbf{cost survival selects for low turnover, not for skill}, which is the same conclusion
-\citet{novymarx2016} reach for US anomalies, arrived at here through a very different door.
+\subsection{Two vendors wrote the same strategy, and it was the median}
 
-\paragraph{Standard factors are not spared.} Running eleven textbook factors through the same
-pipeline as a positive control, drag rises monotonically with turnover in ten of eleven rows.
-Two factors flip from profitable to unprofitable. Momentum \citep{jegadeesh1993} survives at
-a net Sharpe of 0.9656---but equal-weighting the same universe returns 0.9615. \textbf{Net of
-Indian costs, the momentum premium on this universe is inside the noise.}
+\begin{finding}
+\tagfrontier\ \tagexpl\ \ Three GPT candidates and two Gemini candidates produce holdout return
+series \textbf{identical to within $8.7\times10^{-19}$ across all 245 sessions} --- the same
+turnover, the same volatility, the same return. Two different vendors, given the same prompt,
+converged on behaviourally identical code. \textbf{That cluster sits exactly on the median of both
+arms}, which is why GPT and Gemini report the same median holdout Sharpe to sixteen decimal
+places (\pgmGPTHoldMed{} and \pgmGeminiHoldMed).
+\end{finding}
 
-\paragraph{The eleventh row, and why the book size matters.} The one factor that breaks
-monotonicity is inverse-volatility weighting: the \emph{lowest} turnover of any active
-strategy (0.011 per session) and the second \emph{highest} cost (10.18 bps per session). It
-holds a hundred names and nudges each daily, and the depository charge is levied per scrip
-regardless of size. Sweeping book size confirms the mechanism precisely:
+This was found while checking whether the identical medians were a bug. They are not; they are a
+measurement. Duplicate clustering is not a local-model pathology --- it recurs at the frontier,
+across vendors. It also means a per-arm mean or median can be a statement about one duplicated
+idea rather than about twenty independent ones, and any comparison across these arms inherits that.
 
-\begin{table}[h]\centering\small
-\caption{Depository charge contribution by book size, obtained by differencing against a
-no-DP ablation rather than recomputed from the rate.}
-\label{tab:dp}
-\begin{tabular}{llrrrr}
-\toprule
-\textbf{Strategy} & \textbf{Book} & \textbf{Total bps/day} & \textbf{DP bps/day} &
-\textbf{DP share} & \textbf{Sharpe} \\
-\midrule
-inverse\_volatility & \rupee10 L  & 10.183 & 9.963 & 97.8\% & $-1.3792$ \\
-inverse\_volatility & \rupee1 Cr  & 0.866  & 0.597 & 69.0\% & $+0.6359$ \\
-inverse\_volatility & \rupee10 Cr & 0.590  & 0.059 & 10.0\% & $+0.6922$ \\
-\midrule
-momentum\_skip\_month & \rupee10 L  & 1.685 & 0.066 & 3.9\% & 0.9656 \\
-momentum\_skip\_month & \rupee10 Cr & 3.944 & 0.001 & 0.0\% & 0.7506 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{scopebox}
+This is an \textbf{exploratory} finding: it was not pre-registered, it was discovered while
+verifying another number, and it rests on five candidates. It is reported because it materially
+affects how the medians in Table~\ref{tab:frontier} should be read, not because five candidates
+establish a general property of frontier models.
+\end{scopebox}
 
-The depository contribution falls $169\times$ across a $100\times$ book sweep, close to the
-inverse proportionality the model predicts, and \textbf{the strategy's verdict reverses with
-assumed capital}: $-1.38$ at \rupee10 lakh, $+0.69$ at \rupee10 crore. Momentum runs the
-opposite way---its cost \emph{rises} with book size as impact and slippage grow while the
-fixed fee shrinks. The two regimes cross over. Small books are killed by flat fees; large
-books by market impact.
+% =====================================================================================
+\section{Advanced generation methods, at equal compute}
+\label{sec:methods}
 
-We report the corpus at \rupee10 lakh, which was the pre-existing default, and we did not
-change it after observing that it flips a sign. Changing a benchmark default in response to
-an inconvenient result is the pathology this paper exists to detect.
+\begin{finding}
+\tagmethod\ \tagprereg\ \ \textbf{Of \pgmScaffoldArms{} scaffolded generation methods,
+\pgmScaffoldWins{} beat plain prompting once plain prompting was given the same token budget.}
+\end{finding}
 
-\paragraph{How much of the drag is our assumption?} For a realistically-trading strategy,
-79.6\% of the drag is published statutory rate, 3.9\% depository charge, and only 16.5\%
-comes from the two coefficients we chose. \textbf{The headline is not hostage to our
-slippage and impact defaults.} For the near-zero-turnover market reference the proportions
-invert, but the absolute cost there is 0.1 bps and immaterial.
+If capability does not help, perhaps method does. The same local model, the same frozen task
+specification, and \pgmParadigmArms{} generation methods: plain prompting, chain-of-thought
+\citep{wei2022}, planning, reflection \citep{shinn2023}, graph-of-thoughts \citep{besta2024}, and
+Monte Carlo tree search over candidate programs \citep{yao2023}. \pgmParadigmDraws{} draws in
+total.
 
-\subsection{Deflation at an honest trial count}
-\label{sec:deflation}
+\subsection{Why the naive comparison is worthless}
 
-At $N = 1{,}887$, the deflated Sharpe probability exceeds 0.95 for \textbf{0 of 631}
-evaluated candidates. The corpus maximum is $4.4 \times 10^{-8}$. The best raw Sharpe in the
-corpus, 1.3049, carries a deflated probability of $5.9\times10^{-5}$.
+A five-agent committee that spends five times the tokens of a single prompt and produces better
+output has demonstrated nothing. Of course it does --- it thought five times as hard. The honest
+control is not plain prompting at its natural budget; it is \textbf{plain prompting run $k$ times
+at the same total token budget, allowed to keep its best}. We compute $k$ from measured tokens per
+accepted strategy, and we count barren blocks in the denominator so that a method is not rewarded
+for the attempts it wasted.
 
-Those two numbers should feel violently inconsistent, and the inconsistency is the point:
-apparent skill and statistical significance are different quantities, and the gap between
-them is exactly what a trial count of 1,887 buys.
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_compute_matched.png}
+\caption{Each scaffolded method against plain prompting at the same measured token budget. $k$ is
+the number of plain-prompting attempts the scaffolded method's token spend buys.}
+\label{fig:matched}
+\end{figure}
 
-\paragraph{Result: the statistical layer's rejection rate is uninterpretable at this trial
-count.} We state this as a finding rather than a caveat, because it is an empirical observation
-about the instrument and not a hedge about the data.
-
-\keyfinding{\textbf{At $N = 1{,}887$ over 1,232 sessions, every evaluated strategy is rejected.
-Whether this reflects appropriate statistical correction or saturation of the test cannot be
-determined from these data.} The deflation term grows with $N$ while sample length is fixed, so
-at some ratio the test rejects everything regardless of merit. A 100\% rejection rate is
-consistent with an honest correction \emph{and} with a saturated one, and no measurement in this
-study separates them.}
-
-\noindent This bears directly on the ablation in \S\ref{sec:auap}, and more sharply than we first
-realised. The layer rejects all 631 strategies it scores, at a recorded confidence of exactly
-$1.0$ in every case, so it carries \emph{no} ordering information whatever among the candidates it
-scored: they all tie. Its only discrimination is between scored and unscored. The four
-configurations containing it are the four with the steepest fall at tight coverage. The rejection
-rate and the ranking failure are plausibly the same fact observed twice. Establishing which requires evaluating the layer across trial-count regimes, which this
-corpus cannot support because $N$ is a property of the experiment rather than a free parameter.
-
-The Probability of Backtest Overfitting could not be computed on the pooled corpus: the
-eleven ruined strategies produce short series and the common-length matrix loses too many
-columns. \textbf{We report it as unavailable rather than repairing it by dropping the ruined
-strategies}, which would be a post-hoc restriction not part of the intended protocol. On the
-twelve-fixture suite, where it can be computed, PBO is 0.588 (0.531--0.667 across split
-counts)---above 0.5 in every variant, meaning selecting the in-sample best yields a
-below-median strategy out of sample more often than not.
-
-\subsection{The abstention frontier}
-\label{sec:auap}
+\takeaway{Every scaffolded method loses to its own control. The gap widens with the amount of
+scaffolding: graph-of-thoughts spends $k=\pgmGraphK{}$ plain prompts' worth of tokens per
+strategy, and tree search spends $k=\pgmMctsK{}$.}
 
 \begin{table}[t]\centering\small
-\caption{Holdout ablation, $n=225$, ranked by AUAP. Random-rejection 95\% interval
-$[-1.2208, -0.8600]$; population mean $P(1.0) = -1.0351$.}
-\label{tab:ablation}
-\begin{tabular}{lrrc}
+\caption{Methodology axis, all on the same local model at matched token budget. Yield is the
+fraction of draws producing a rankable strategy. \emph{Every} arm loses to its control.}
+\label{tab:matched}
+\begin{tabular}{lrrrrrr}
 \toprule
-\textbf{Layers} & \textbf{AUAP} & \textbf{$P(0.05)$} & \textbf{Beats random} \\
+\thead{Method} & \thead{Draws} & \thead{$k$} & \thead{Control yield} & \thead{Method yield} &
+  \thead{Redundancy} & \thead{Holdout med.} \\
 \midrule
-semantic                     & $-1.1967$ & $-1.1347$ & no \\
-static                       & $-1.2529$ & $-1.1176$ & no --- \emph{below the interval} \\
-static + semantic            & $-1.2782$ & $-1.1805$ & no --- \emph{below the interval} \\
-statistical                  & $-1.3497$ & $-3.0643$ & no --- \emph{below the interval} \\
-semantic + statistical       & $-1.3777$ & $-3.2931$ & no --- \emph{below the interval} \\
-static + semantic + statistical & $-1.4184$ & $-3.2931$ & no --- \emph{below the interval} \\
-static + statistical         & $-1.4339$ & $-3.2931$ & no --- \emph{below the interval} \\
+plain prompting     & \pgmPlainDraws{}   & ---          & ---                & \pgmPlainTrade\%   & \pgmPlainRedund\%   & \pgmPlainHoldMed{} \\
+chain-of-thought    & \pgmCotDraws{}     & \pgmCotK{}     & \pgmCotCtrlYield\%     & \pgmCotTreatYield\%     & \pgmCotRedund\%     & \pgmCotHoldMed{} \\
+planning            & \pgmPlanDraws{}    & \pgmPlanK{}    & \pgmPlanCtrlYield\%    & \pgmPlanTreatYield\%    & \pgmPlanRedund\%    & \pgmPlanHoldMed{} \\
+reflection          & \pgmReflectDraws{} & \pgmReflectK{} & \pgmReflectCtrlYield\% & \pgmReflectTreatYield\% & \pgmReflectRedund\% & \pgmReflectHoldMed{} \\
+graph-of-thoughts   & \pgmGraphDraws{}   & \pgmGraphK{}   & \pgmGraphCtrlYield\%   & \pgmGraphTreatYield\%   & \pgmGraphRedund\%   & \pgmGraphHoldMed{} \\
+tree search         & \pgmMctsDraws{}    & \pgmMctsK{}    & \pgmMctsCtrlYield\%    & \pgmMctsTreatYield\%    & \pgmMctsRedund\%    & \pgmMctsHoldMed{} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{figure}[t]\centering
-\includegraphics[width=\linewidth]{figures/abstention_holdout.png}
-\caption{The abstention--performance curve, holdout, $n=225$. An informative auditor produces
-curves that \emph{rise} to the left: the more selective the system, the better what it keeps.
-Every configuration falls instead, and the four containing the statistical layer fall
-steeply---at 5\% coverage they select an average holdout Sharpe near $-3$ against a population
-mean of $-1.04$. The grey band is random rejection at matched coverage, and it widens to the
-left because 5\% of 225 is eleven strategies.}
-\label{fig:auap}
+\includegraphics[width=\linewidth]{figures/fig_funnel.png}
+\caption{Where each method's corpus dies, as a share of its own draws. The dark bar is the share
+clearing the entire evaluation stack.}
+\label{fig:funnel}
 \end{figure}
 
-\textbf{No configuration beats random rejection at matched coverage}
-(Table~\ref{tab:ablation}, Figure~\ref{fig:auap}). One sits inside the random interval; six sit
-below it, meaning they order strategies \emph{worse} than chance. The null is not rejected.
+\subsection{The one arm that looks like a win, and why we do not report it as one}
 
-Figure~\ref{fig:auap} makes a point the table cannot. The curves do not merely fail to rise as
-coverage tightens---all of them \emph{fall}. Concentrating on the candidates the auditor trusts
-most selects a worse portfolio than taking everything. Whatever the layers are ranking on, it is
-not out-of-sample performance, and at high confidence it is mildly anti-correlated with it.
+Tree search reaches \pgmMctsTrade\% yield and \pgmMctsSurv\% full-stack survival against plain
+prompting's \pgmPlainTrade\% and \pgmPlainSurv\% --- by far the highest in the programme. It is
+also the arm whose compute-matched control is highest of all, at \pgmMctsCtrlYield\% against its
+own \pgmMctsTreatYield\%.
 
-One diagnostic is worth the space. On development data, the \texttt{statistical} layer alone
-was the only configuration to beat random---and it provably cannot be evidence, because its
-confidence is $1 - \mathrm{DSR}$ and DSR is a monotone function of the very development
-Sharpe that $P(c)$ measures. Ranking by a quantity and then scoring on that same quantity
-beats random by construction. Out of sample the comparison becomes legitimate, and the layer
-fails with the rest, landing fourth of seven and below the random interval, with the worst
-$P(0.05)$ of any single layer. \textbf{The circularity diagnosis was made by argument in advance
-and confirmed by experiment afterwards.}
+\begin{scopebox}
+\textbf{Tree search is treated as an anomaly to investigate, not an effect to report}, on the
+principal investigator's ruling and for three reasons stated before its downstream numbers were
+examined. Its sample is the smallest in the programme (\pgmMctsDraws{} draws). Its $k$ is the
+largest (\pgmMctsK{}), so its control is correspondingly generous. And a jump of this size in this
+domain is, on the programme's own standing rule, more likely to be a defect than a discovery. We
+did not delete the arm --- deleting an inconvenient arm is worse than reporting a confusing one
+--- and we do not claim it as a win.
+\end{scopebox}
 
-The corpus also collapses wholesale from development to holdout: mean Sharpe $+{\sim}0.40$
-gross in sample against $-1.0351$ net out of sample, with 216/221 positive in sample and
-roughly half positive out of it. The best out-of-sample performer, at $+1.3618$, had a
-development Sharpe of $-1.6696$. \textbf{The single best out-of-sample strategy is one any
-sane process would have discarded in sample.} That is not a finding about the strategy. It is
-multiple testing appearing inside our own results, which is the most direct evidence we can
-offer that the phenomenon we set out to measure is real.
+\subsection{Does scaffolding trade diversity for quality?}
 
-\subsection{A sign error in our own ranking, and what it cost}
-\label{sec:correction}
+The hypothesis stated in advance was that heavier scaffolding induces mode collapse: quality rises
+while diversity falls. The measurement is redundancy --- the share of a method's tradeable output
+sitting inside a cluster of behaviourally identical return series, detected by union-find over
+realised returns.
 
-The numbers in Table~\ref{tab:ablation} are the second version. The first inverted the semantic
-layer's contribution, and we describe the defect in full because a paper about detecting false
-results that concealed one of its own would be self-refuting.
+Redundancy does not rise with scaffolding: chain-of-thought is highest at \pgmCotRedund\%,
+and planning and graph-of-thoughts report \pgmPlanRedund\% and \pgmGraphRedund\%. But those two
+zeros are \textbf{not evidence of diversity}, and this is a case where reporting the number
+without its power would mislead. At the reference duplicate rate observed in the two large arms, a
+sample of planning's size would return zero duplicates by chance \pgmPlanPZero\% of the time, and
+one of graph-of-thoughts' size \pgmGraphPZero\% of the time. \textbf{Those zeros are consistent
+with the same duplication rate as everything else.} Only the two large arms have the power to say
+anything: there, zero duplicates would occur \pgmPlainPZero\% and \pgmCotPZero\% of the time, and
+duplicates were observed.
 
-Each auditor layer records a \texttt{confidence} alongside its verdict. The code that turned those
-into a ranking negated the confidence, on the assumption that it meant \emph{confidence that
-something is wrong}. For the static layer it does---the field holds a finding count. For the
-statistical layer it does vacuously, since that layer rejects every candidate it scores at
-confidence $1.0$. For the semantic layer it does not: the language model reports confidence in
-\emph{its own label}, around $0.95$ for a confident \texttt{consistent} and $0.85$ for a confident
-defect. Negating it ranked the strategies that layer had condemned above the ones it had cleared.
-The Spearman correlation between the two rankings is $-0.972$, and the set retained at 5\% coverage
-went from eleven of eleven semantically rejected to zero of eleven.
+\takeaway{We cannot confirm or reject the mode-collapse hypothesis on the small arms. Saying so is
+the result; quoting the zeros as diversity would not be.}
 
-Four of the seven configurations were affected. The other three are provably untouched: under the
-corrected rule the static and statistical layers produce numerically identical scores on this
-corpus, and the recomputed AUAP for all three agrees to every printed digit. Nothing else was
-changed---not the corpus, the labels, the backtests, the cost model, the trial counter, or the
-holdout contents.
-
-\paragraph{What the defect did not do.} It did not change the conclusion, and it did not flatter
-us. Every affected AUAP moved \emph{down}---the best configuration went from $-1.1441$ to
-$-1.1967$---and the identity of the best configuration did not change. The inverted ranking had
-been the more favourable one.
-
-\paragraph{A second error, found while checking the first.} An earlier draft of this section
-reported that the correction raised the number of configurations ordering strategies worse than
-chance from two to six. It did not. Six of the seven AUAPs were already below the random
-interval before the correction; the sentence counting them in the previous version of this paper
-said ``two'', and its table annotated \texttt{static} at $-1.2529$ as below the interval while
-leaving \texttt{statistical} at $-1.3497$ unmarked. That was a transcription error in the prose,
-not in the measurement, and it is corrected here rather than folded into the ranking correction it
-did not belong to. The count is six of seven in both versions.
-
-\paragraph{What it did do, and why it belongs in the results.} On development data the correction
-raises $P(0.05)$ for the semantic layer from $-0.1088$ to $+0.2910$, and for
-\texttt{static + semantic} from $-0.0918$ to $+0.3142$, against a population mean of $-0.1896$. A
-correctly-oriented semantic layer visibly concentrates the better strategies at tight coverage
-\emph{on the data it was developed against}. The identical ranking on the holdout gives $-1.1347$
-and $-1.1805$. The gap between an in-sample selectivity that looks real and an out-of-sample one
-that is absent is this paper's subject, and it appeared here by accident, in our own pipeline,
-while we were measuring it in someone else's.
-
-\paragraph{Why no test caught it.} Each layer's tests check its labels, which were right. The
-abstention tests check that a curve is computed correctly from a ranking, which it was. The defect
-lived only in the join: a ranking computed correctly from a quantity that meant the opposite of
-what the calling code believed. It was found not by testing but by attempting to reuse the ranking
-for a different purpose in a subsequent project---which is a general lesson about where this class
-of defect hides, and a limitation of static and unit-level checking that our own static layer
-shares. A regression test now asserts the join directly.
+Cross-arm duplication is the sharper measurement, since it does not depend on within-arm sample
+size: \pgmPlainXArm\% of plain prompting's tradeable output and \pgmCotXArm\% of
+chain-of-thought's is behaviourally identical to something another arm produced. Different
+methods, same strategies.
 
 % =====================================================================================
-\section{Do these conclusions depend on who wrote the strategies?}
-\label{sec:generators}
+\section{What survives costs, multiple testing and the holdout}
+\label{sec:survives}
 
-Every number above was measured on a corpus written by one local seven-billion-parameter model. The
-first objection a referee raises is that this paper measures that model rather than machine-written
-strategies in general, and nothing in the preceding sections distinguishes the two.
+\subsection{Costs are a selection mechanism}
 
-The frozen task specification of Section~\ref{sec:design} was therefore issued verbatim to
-\aaGvArms{} frontier models through their consumer chat interfaces --- \aaGvRequestsPerArm{}
-independent requests of five strategies each --- and all \aaGvTotal{} were passed through the
-identical funnel with no auditor parameter altered and no line of measurement code added. The
-auditor has been read-only since the release of the companion stress benchmark, which is what makes
-this comparison possible at all. Design, hypotheses and predicted directions were pre-registered
-before any strategy was generated.
-
-\subsection{What changed, and what did not}
-
-\begin{table}[t]
-\centering
-\caption{AlphaAudit measurements by generator. Each arm is \aaGvGptN{} strategies; the local corpus
-is \aaLocalDraws{} draws, of which \aaLocalRankable{} executed and traded.}
-\label{tab:generators}
-\begin{tabular}{lrrrr}
+\begin{table}[t]\centering\small
+\caption{Gross to net over the development window, local corpus. $n=\aaLocalRankable{}$ traded
+candidates. Gross and net come from a \emph{single run} --- the engine records the pre-cost series
+alongside the post-cost one --- so the drag is a measured quantity on one path, not a difference
+between two runs.}
+\label{tab:grossnet}
+\begin{tabular}{lrr}
 \toprule
-\thead{Quantity} & \thead{Local 7B} & \thead{GPT} & \thead{Claude} & \thead{Gemini} \\
+\thead{Quantity} & \thead{Value} & \thead{Sample} \\
 \midrule
-Executed and took a position & \aaLocalRankablePct{}\% & 100\% & 100\% & 100\% \\
-Static findings & \aaLocalStaticRankable{} of \aaLocalRankable{}
-  & \textbf{\aaGvGptStatic{}} & \textbf{\aaGvClaudeStatic{}} & \textbf{\aaGvGeminiStatic{}} \\
-Semantic rejections & --- & \aaGvGptSemantic{} & \aaGvClaudeSemantic{}
-  & \aaGvGeminiSemantic{} \\
-Deflation rejections & --- & \aaGvGptStatistical{} of \aaGvGptN{}
-  & \aaGvClaudeStatistical{} of \aaGvClaudeN{} & \aaGvGeminiStatistical{} of \aaGvGeminiN{} \\
-Mean Sharpe lost to costs & \aaLocalCostDrop{} & \aaGvGptCostDrop{} & \aaGvClaudeCostDrop{}
-  & \aaGvGeminiCostDrop{} \\
-Profitable gross, unprofitable net & \aaLocalFlipsPct{}\% & \aaGvGptFlips{} of \aaGvGptN{}
-  & \aaGvClaudeFlips{} of \aaGvClaudeN{} & \aaGvGeminiFlips{} of \aaGvGeminiN{} \\
-Mean holdout Sharpe & \aaLocalHoldoutSharpe{} & \aaGvGptHoldSharpe{} & \aaGvClaudeHoldSharpe{}
-  & \aaGvGeminiHoldSharpe{} \\
+Best Sharpe, gross & 1.3049 & \aaLocalRankable{} \\
+Best Sharpe, net & \textbf{1.2807} & \aaLocalRankable{} \\
+Mean Sharpe reduction & \aaLocalCostDrop{} & \aaLocalRankable{} \\
+\textbf{Median} Sharpe reduction & \textbf{0.1943} & \aaLocalRankable{} \\
+Mean turnover, annualised & 82.2$\times$ & \aaLocalRankable{} \\
+Median turnover, annualised & 17.6$\times$ & \aaLocalRankable{} \\
+Mean cost drag, annualised & 58.13\% & \aaLocalRankable{} \\
+Median cost drag, annualised & 4.39\% & \aaLocalRankable{} \\
+\textbf{Sharpe sign reversed, $+\!\rightarrow-$} &
+  \textbf{\aaLocalFlips{} (\aaLocalFlipsPct\%)} & \aaLocalRankable{} \\
+Sharpe sign reversed, $-\!\rightarrow+$ & \textbf{0} & \aaLocalRankable{} \\
+Ruined outright (equity reached zero) & 11 & 631 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\paragraph{Executability rises to saturation.} Every one of the \aaGvTotal{} frontier strategies
-parsed, executed over the full window and took a position, against \aaLocalRankablePct{} per cent of
-the local corpus. The dominant failure mode of Section~\ref{sec:corpus} --- strategies that fail as
-programs rather than as research --- is a property of the small local model and disappears entirely.
+Mean and median diverge by a factor of thirteen on cost drag. The mean is dragged by a tail
+churning above $80\times$ annual turnover; the median strategy loses 0.19 of Sharpe and 4.4\% a
+year. Both are reported because quoting either alone misleads.
 
-\paragraph{The static auditor almost stops firing.} It raised \aaGvStaticTotal{} finding across all
-\aaGvTotal{} frontier strategies, against \aaLocalStaticRankable{} of \aaLocalRankable{} rankable
-local candidates. We had pre-registered the opposite --- that a more capable generator would leak
-just as often, in subtler ways --- and that prediction is falsified. The single finding was a
-snooped parameter, not the class we predicted would dominate.
+The best gross strategy is also the best net strategy --- because it barely trades, at
+$2.8\times$ annual turnover and 0.4\% annual cost. \textbf{Cost survival selects for low turnover,
+not for skill}, the same conclusion \citet{novymarx2016} reach for US anomalies, arrived at here
+through a very different door.
 
-\begin{selfreport}
-\textbf{We cannot distinguish a robust detector from an inert one on this evidence.} One finding in
-\aaGvTotal{} is consistent with frontier models genuinely not leaking, and equally consistent with a
-detector whose patterns do not match how they write. Distinguishing the two needs deliberately leaky
-frontier-authored fixtures, which we do not have. Reported as an open question rather than as a
-result in either direction.
-\end{selfreport}
+\paragraph{Standard factors are not spared.} Eleven textbook factors through the same pipeline as
+a positive control: drag rises monotonically with turnover in ten of eleven rows, and two factors
+flip from profitable to unprofitable. Momentum \citep{jegadeesh1993} survives at a net Sharpe of
+0.9656 --- but equal-weighting the same universe returns 0.9615. \textbf{Net of Indian costs, the
+momentum premium on this universe is inside the noise.}
 
-\paragraph{Costs bite regardless of author.} The cost model removes \aaGvGptCostDrop{} to
-\aaGvGeminiCostDrop{} of Sharpe per arm, against \aaLocalCostDrop{} locally, and turns
-\aaGvFlipsTotal{} of \aaGvTotal{} frontier strategies from profitable before costs into
-unprofitable after --- a rate comparable to the \aaLocalFlipsPct{} per cent measured on the local
-corpus. The best gross Sharpe on any arm, \aaGvGeminiBestGross{}, becomes \aaGvGeminiBestNet{} net.
+\paragraph{The eleventh row, and why the assumed book size decides the verdict.} The one factor
+breaking monotonicity is inverse-volatility weighting: the \emph{lowest} turnover of any active
+strategy (0.011 per session) and the second \emph{highest} cost (10.18 bps per session). It holds
+a hundred names and nudges each daily, and the depository charge is levied per scrip regardless of
+size.
 
-\subsection{Deflation, and the holdout}
+\begin{table}[h]\centering\small
+\caption{Depository-charge contribution by book size, obtained by differencing against a no-DP
+ablation rather than recomputed from the rate.}
+\label{tab:dp}
+\begin{tabular}{llrrrr}
+\toprule
+\thead{Strategy} & \thead{Book} & \thead{Total bps/day} & \thead{DP bps/day} &
+\thead{DP share} & \thead{Sharpe} \\
+\midrule
+inverse\_volatility & \rupee 10 L  & 10.183 & 9.963 & 97.8\% & $-1.3792$ \\
+inverse\_volatility & \rupee 1 Cr  & 0.866  & 0.597 & 69.0\% & $+0.6359$ \\
+inverse\_volatility & \rupee 10 Cr & 0.590  & 0.059 & 10.0\% & $+0.6922$ \\
+\midrule
+momentum\_skip\_month & \rupee 10 L  & 1.685 & 0.066 & 3.9\% & 0.9656 \\
+momentum\_skip\_month & \rupee 10 Cr & 3.944 & 0.001 & 0.0\% & 0.7506 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Not one of the \aaGvTotal{} frontier strategies clears a Deflated Sharpe of \aaGvBar{} at its own
-arm's trial count, on development data or on the holdout. Neither does a single one of
-\aaGvSubsamples{} size-matched subsamples of the local corpus when scored on the holdout, against
-\aaGvMatchedDevSmall{} in \aaGvSubsamples{} on development data. The bar is not merely uncleared by
-the frontier arms; out of sample it is uncleared by everything.
+\takeaway{The depository contribution falls $169\times$ across a $100\times$ book sweep, close to
+the inverse proportionality the model predicts, and \textbf{the strategy's verdict reverses with
+assumed capital}: $-1.38$ at \rupee 10 lakh, $+0.69$ at \rupee 10 crore. Momentum runs the
+opposite way. Small books are killed by flat fees, large books by market impact, and the two
+regimes cross over.}
 
-Mean holdout Sharpe is \aaGvGptHoldSharpe{}, \aaGvClaudeHoldSharpe{} and
-\aaGvGeminiHoldSharpe{} across the three arms, against \aaLocalHoldoutSharpe{} for the
-\aaLocalHoldoutN{} local rankable strategies. Every arm loses ground between the development window
-and the holdout, which is the ordinary out-of-sample decay this apparatus exists to measure.
+We report the corpus at \rupee 10 lakh, which was the pre-existing default, and we did not change
+it after observing that it flips a sign.
 
-\subsection{The abstention frontier, as an exploratory analysis}
+\subsection{Nothing clears deflation, on any arm}
 
-\emph{The following is exploratory: AUAP appears nowhere in the generator-validation
-pre-registration, and was computed only after the fact, from holdout return series already spent.}
-Coverage granularity is one strategy in twenty against one in \aaLocalRankable{} locally, so the
-curves are correspondingly coarse.
+At an honest trial count of $N=1{,}887$, \textbf{zero of 631 executed local candidates attain a
+deflated Sharpe probability above \aaGvBar{}}; the corpus maximum is $4.4\times10^{-8}$. Zero of
+\aaGvTotal{} frontier candidates clear it at their own trial counts. The best frontier deflated
+probability in any arm is $4.5\times10^{-39}$.
 
-\emph{No auditor combination beats random rejection on any arm} --- \aaGvAuapBeats{} of
-\aaGvAuapCells{} arm-by-combination cells. The best combination is
-\aaGvGptAuapLayers{} at \aaGvGptAuapBest{} on the GPT arm against a random interval of
-[\aaGvGptRandomLow{}, \aaGvGptRandomHigh{}], \aaGvClaudeAuapBest{} on Claude against
-[\aaGvClaudeRandomLow{}, \aaGvClaudeRandomHigh{}], and \aaGvGeminiAuapBest{} on Gemini against
-[\aaGvGeminiRandomLow{}, \aaGvGeminiRandomHigh{}]. Locally the best was \aaLocalAuapLayers{} at
-\aaLocalAuapBest{} against [\aaLocalRandomLow{}, \aaLocalRandomHigh{}]. \emph{The central null of
-this paper replicates on all three frontier populations}, which is a stronger statement than the
-paper could make on its own corpus.
-
-Two structures recur in every population, both exploratory. Adding the statistical layer to the
-ranking makes selectivity actively harmful: the single most-trusted strategy is worse than the
-average one, on the local corpus and on every arm. And the static layer contributes no ordering
-information at all --- on one arm every combination containing it is identical, to four decimal
-places, to the same combination without it. A detector that flags almost nothing cannot reorder
-anything, which is the ablation restating the finding above.
-
-\subsection{What this does and does not license}
-
-The measurements that describe \emph{the market} --- what costs remove, what deflation rejects, what
-survives out of sample, whether abstention helps --- are unchanged by a change of generator. The
-measurements that describe \emph{the programs} --- whether they run, whether they leak detectably
---- change substantially. Frontier models write better programs and, on this evidence, no better
-strategies.
-
-The arms are identified by product name and effort setting as their interfaces reported them, not by
-version string. This study is reproducible as a procedure and not as a set of subjects: the same
-prompt issued in six months would reach different weights under the same names. That is a real limit
-of collecting frontier arms through consumer interfaces on a zero-rupee budget, and it is why the
-claims here are about a dated observation rather than about vendors.
-
-\section{Negative results}
-\label{sec:negative}
-
-This section exists because the charter governing this work requires it, and because a paper
-that reports only what worked is the artifact this paper is about.
-
-\begin{enumerate}\setlength\itemsep{0.35em}
-\item \textbf{$\mathrm{AUAP}$ does not beat random rejection}, in seven of seven
-  configurations, out of sample, under a pre-registered protocol. Six configurations are
-  worse than chance.
-\item \textbf{The null survived two full corrections of our own pipeline.} The first
-  evaluation was gross of costs because no cost model existed. We built one, wired it in, and
-  re-ran everything downstream. The magnitudes moved substantially---holdout mean from
-  $-0.2755$ to $-1.0351$---and the conclusion did not move at all. The second correction is
-  described in \S\ref{sec:correction}: a sign error that had inverted the semantic layer's
-  contribution to the ranking. Every affected number moved, and the conclusion again did not.
-  We consider this the most informative single fact in the paper, because it distinguishes
-  ``we found a null'' from ``we found a null and then twice checked whether it was an artifact
-  of our own defect.''
-\item \textbf{This null is confounded with corpus degeneracy}, and we cannot resolve the
-  confound. The 225 rankable strategies are tightly clustered and mostly weak. A null
-  therefore cannot distinguish \emph{``the auditor is uninformative''} from \emph{``this
-  corpus is too weak to test the auditor''}. Both explanations survive the data. This caveat
-  travels with the number permanently, and it is the reason the benchmark is released.
-\item \textbf{The tracking-error decomposition failed.} Total tracking error against the
-  index is 0.0775 over 1,231 sessions, but the two legs of the attempted decomposition came
-  out at 0.1152 and 0.1463---each exceeding the total they were meant to partition. The
-  traded-value proxy does not stand in for capitalisation weighting. Only the total is
-  reported. Nothing was adjusted to make the numbers add up.
-\item \textbf{The one suggestive signal we reported did not survive our own correction, and we
-  record that it existed.} Before the ranking defect of \S\ref{sec:correction} was found, the
-  semantic layer alone reached $P(0.05) = -0.5147$ against a population mean of $-1.0351$---its
-  most confident 5\% appearing to do roughly twice as well as average. We declined to build on it
-  at the time, on the grounds that five per cent of 225 is eleven strategies and the random
-  interval's width said it was noise. It was worse than noise: it was the inverted ranking, and
-  those eleven strategies were the ones the layer had \emph{rejected}. Corrected, the same figure
-  is $-1.1347$, slightly \emph{below} the population mean. \textbf{The suggestive signal is gone
-  and nothing replaced it.} We report the episode rather than the corrected number alone, because
-  the useful part is that a caveat stated in the right direction still understated the problem.
-\item \textbf{27 of the 174 surviving strategies are not deterministic functions of their
-  inputs.} Run one again, on the same panel with the same code, and its Sharpe changes---by up to
-  $2.5352$. Two mechanisms, both confirmed in source: unseeded randomness in 26 of the 27, and
-  \texttt{set} iteration order, which Python randomises per process, in 27 of 27. The clearest
-  instance keeps an arbitrary ten of its qualifying symbols via
-  \texttt{list(set(\ldots))[:10]}, giving Sharpe $0.7652$, $0.4566$ and $0.6825$ under three hash
-  seeds. All 27 are generator output; all eleven hand-written factor fixtures are deterministic,
-  which locates the defect in what the model wrote rather than in the harness that ran it.
-  Survivor membership is unaffected---the auditors read source, and the only performance gate is a
-  flatness threshold seven orders of magnitude away---and the null is unaffected, because noise
-  makes an ordering harder to detect and cannot manufacture one. The $\mathrm{AUAP}$ figures are
-  computed from these Sharpe ratios and carry the noise, so their trailing digits are not exact.
-  \textbf{We report this as a property of LLM-generated strategies that the literature does not
-  discuss: a generated strategy may not define a portfolio as a function of data at all}, and no
-  auditor layer we built detects it, because it is invisible in a single execution.
-\end{enumerate}
-
-\begin{selfreport}[title={A process failure we are obliged to report}]
-During the cost re-run, six candidates were silently reclassified as runtime errors by a
-type-inference defect: summing over an empty book returns integer zero, which caused a column to
-be inferred as integer and raise on the first genuine float. \textbf{The exit code was zero.}
-Among the six was the candidate holding the highest holdout Sharpe in the previous evaluation.
-
-It was caught only by comparing funnel counts against the retired gross run---a check imposed by
-review, not by the code. \textbf{Without that comparison this paper would have been wrong and
-would have looked fine.} We report it because a paper about detecting silent failure that
-concealed its own would be self-refuting.
-\end{selfreport}
-
-\begin{selfreport}[title={A second one, found after the benchmark was frozen}]
-\texttt{PYTHONHASHSEED} is set nowhere in our repository, so the entire corpus was backtested with
-hash randomisation active and a different seed in every worker process. Our seeding module seeds
-Python's \texttt{random} and NumPy; neither reaches a strategy that constructs its own generator,
-and neither can affect hash order, which must be fixed before the interpreter starts. Every auditor
-layer had tests. \textbf{No test ran the same strategy twice and compared the results.}
-
-The gap survived all of Phase~1 and was found only when the follow-on project needed a variance
-across resampled histories to mean something---at which point a strategy whose score already varies
-for no reason becomes arithmetically indistinguishable from the quantity being measured. The check
-that would have caught it is one line. It was the absence of the check, rather than any individual
-script, that failed, and the charter we wrote for ourselves forbids exactly this.
-\end{selfreport}
-
-\begin{selfreport}[title={A third, and the one that bears on the null}]
-Of 150 corpus strategies compared in follow-on work, \textbf{11 clusters contain strategies whose
-realised net return series are identical on every session} to within $10^{-12}$: different code,
-different stated rationale, identical behaviour. 27 strategies sit in a cluster; the largest holds
-four. A further 20 pairs correlate above 0.9999.
-
-\textbf{One cluster pairs a generated candidate with the equal-weight baseline it was meant to
-beat.} The model rediscovered equal-weighting and presented it as novel with its own economic
-rationale. $A_{\mathrm{sem}}$ is specified to flag exactly this---``unacknowledged known
-anomaly''---and did not. That is one checkable miss found incidentally, not a measured
-false-negative rate, and we do not present it as one.
-
-The generator's failure mode is therefore not only that its strategies are weak but that
-\textbf{it writes the same weak strategy repeatedly}, and no auditor layer can see this, because
-every layer reads one candidate at a time. This is direct evidence for the corpus-degeneracy
-confound we flag against our own null in \S\ref{sec:auap}: a corpus with 27 behavioural
-duplicates in 150 has fewer effective candidates than its count implies, so an abstention curve
-computed over it ranks fewer distinct objects than the coverage axis suggests. The null stands as
-reported. The confound is now measured rather than suspected.
-\end{selfreport}
+\begin{scopebox}
+\textbf{We cannot separate ``deflation is the right bar and nothing here is real'' from
+``deflation at this trial count is unclearable by construction on this corpus''.} The statistical
+layer rejects 100\% of every population it has been shown, which means it has never been observed
+to discriminate. A layer that rejects everything is either correct about a worthless corpus or
+non-informative under this evaluation regime, and this experiment cannot tell which. The
+principal investigator's ruling was to leave the question open rather than resolve it by choosing
+the flattering reading. It is the largest open question in the programme.
+\end{scopebox}
 
 % =====================================================================================
-\section{Limitations}
-\label{sec:limitations}
+\section{The auditor null}
+\label{sec:null}
 
-\begin{enumerate}\setlength\itemsep{0.3em}
-\item \textbf{One generator, one prompt, one temperature.} Every corpus statistic describes
-  \texttt{qwen2.5:7b-instruct-q4\_K\_M} at temperature 0.8 under a single prompt whose digest
-  is published. These are not claims about LLM strategy generation in general. A stronger
-  generator would plausibly change the funnel and might change the null.
-\item \textbf{The prompt steers implementation style}, which biases the leak-class
-  distribution downward in at least one class (\S\ref{sec:leakclasses}).
-\item \textbf{The corpus is smaller than its count.} 27 of 150 compared strategies are exact
-  behavioural duplicates of another, so the effective number of distinct candidates the abstention
-  curve ranks is lower than the coverage axis implies, by an amount we have not corrected for. No
-  auditor layer detects this, because each reads one candidate in isolation. Cross-candidate
-  redundancy detection is an obvious addition to the auditor and we did not build it.
-\item \textbf{The static layer's perfect fixture score is provisional}, for the reason given
-  in \S\ref{sec:auditor}: its decisive rules were written after seeing it fail.
-\item \textbf{Slippage and impact coefficients are uncalibrated.} They account for roughly
-  16\% of drag on realistically-trading strategies at a \rupee10 lakh book, but they dominate
-  in the large-book regime, so Table~\ref{tab:dp}'s right-hand rows are more assumption-laden
-  than its left-hand ones.
-\item \textbf{Three historical statutory rates could not be sourced} and are held constant
-  across the window; each is documented with the maximum error it could introduce, jointly
-  under one part in a thousand of a round trip. Stamp duty before July 2020 was
-  state-dependent and the uniform rate overstates cost in the first six months.
-\item \textbf{The universe is a liquidity proxy, not the NIFTY~100}, because free
-  point-in-time index membership could not be obtained. It is survivorship-free by
-  construction, which was the binding requirement, but it is not the index and is never
-  described as such.
-\item \textbf{The statistical layer was evaluated at a single trial count.} Future work should
-  evaluate it across different trial-count regimes; the result at $N = 1{,}887$ is reported in
-  \S\ref{sec:deflation} rather than here, because it is an observation and not a caveat.
-\item \textbf{PBO is unavailable} on the pooled corpus, for the reason in
-  \S\ref{sec:deflation}.
-\item \textbf{Flat candidates are excluded from the ranking population} rather than ranked
-  last; the alternative is defensible and would lower the curve.
-\item \textbf{The holdout is a single calendar year} (246 sessions) of one market. Out-of-sample
-  evidence of this length supports a direction, not a magnitude.
-\item \textbf{Reported performance for 27 survivors is one draw, not a fixed quantity}, for the
-  reason in \S\ref{sec:negative}. We did not re-run under a pinned seed, and would not: pinning
-  replaces one arbitrary draw with another rather than with a correct value, because the defect is
-  in the strategies and not in our measurement of them. Any downstream use of the surviving set
-  should exclude them---and must report that doing so is not performance-neutral, since the
-  excluded 27 average $-0.6722$ against the retained 147's $-0.1320$.
-\end{enumerate}
+\begin{finding}
+\tagindep\ \ Across \pgmNullCorpora{} independently generated corpora and all seven combinations
+of the three auditor layers, \textbf{\pgmNullBeating{} of \pgmNullCombos{} configurations beat
+random rejection at matched coverage} on out-of-sample data.
+\end{finding}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/fig_null_forest.png}
+\caption{One row per corpus. The bar is that corpus's own random-rejection 95\% interval; the dot
+is the best of seven auditor configurations. A working auditor's dot sits to the right of its bar.
+None does. Sample sizes are printed per row and range from 13 to 225.}
+\label{fig:null}
+\end{figure}
+
+\takeaway{The result does not depend on the generator, the generation method, or the corpus.
+Every dot is inside or below its interval.}
+
+Six of the ten corpora place the best configuration \emph{below} the random interval --- worse
+than discarding at random. The pooled local corpus's best configuration is
+$\aaLocalAuapBest{}$ against a random interval of
+$[\aaLocalRandomLow{}, \aaLocalRandomHigh{}]$; the best frontier arm is
+$\aaGvClaudeAuapBest{}$ against $[\aaGvClaudeRandomLow{}, \aaGvClaudeRandomHigh{}]$.
+Across the frontier arms, \aaGvAuapBeats{} of \aaGvAuapCells{} configurations beat random.
+
+\paragraph{The configuration that beat random in sample was the one that provably cannot.} Its
+ranking signal is a monotone function of the quantity it was scored against, so its in-sample
+advantage is arithmetic rather than information. Out of sample it fails with the rest.
+
+\subsection{Two corrections, and what they did to the conclusion}
+\label{sec:correction}
+
+\begin{selfreport}[title={We found two defects in our own pipeline after first computing this null}]
+The first was the entire cost implementation: the initial null was computed on a gross-of-costs
+pipeline, which was found defective and rebuilt. The second was a sign error in the ranking
+itself, which had been inverting the auditor's confidence order.
+
+Both were repaired, the holdout was re-opened once for each under written prior authorisation, and
+the null was recomputed. \textbf{The magnitudes moved. The conclusion did not.} No parameter,
+threshold, prompt or model was changed after any holdout evaluation, and the diffs that produced
+each correction are published rather than described.
+
+We report this because a reader is entitled to ask whether a null that survived two corrections of
+its own apparatus is a null or an artefact of a third defect not yet found. We cannot rule that
+out. What we can do is publish the apparatus.
+\end{selfreport}
+
+\subsection{What the null does and does not establish}
+
+\begin{scopebox}
+\textbf{The null is confounded with corpus degeneracy and cannot separate ``the auditor is
+uninformative'' from ``these corpora are too weak to test it''.}
+
+The population being ranked is one in which \pgmLocalTrade\% of draws trade at all, nothing clears
+deflation, and \aaLocalFlipsPct\% of the profitable reverse sign under costs. Asking an auditor to
+rank that population for out-of-sample quality may be asking it to order noise. A stronger
+generator would test the auditor properly --- and the frontier arms, which are a stronger
+generator, produce the same null on a population that executes at 100\%. That narrows the
+confound. It does not eliminate it, because those arms are \aaGvNLarge{} candidates each.
+\end{scopebox}
+
+% =====================================================================================
+\section{What the auditor can and cannot detect}
+\label{sec:limits-auditor}
+
+Setting aside whether the ranking works, the layers have measurable and asymmetric competence.
+
+\begin{center}\small
+\begin{tabular}{p{0.28\linewidth}p{0.32\linewidth}p{0.32\linewidth}}
+\toprule
+\thead{Layer} & \thead{Detects, with evidence} & \thead{Blind to, with evidence} \\
+\midrule
+$A_{\mathrm{static}}$ &
+All 3 leaky fixtures; 0 of 30 honest ones flagged; 4 leak classes observed in the wild &
+\texttt{full\_sample\_statistic}: \textbf{0} findings in 1{,}550 sources, which we do not believe
+(\S\ref{sec:leakclasses}). Unreachable code: flags a leak that never executes. \\
+\midrule
+$A_{\mathrm{stat}}$ &
+Trial inflation, with a tamper-evident denominator; recovers the known result that a Sharpe of 2.0
+from 200 dispersed trials is below chance &
+Discrimination. It has rejected 100\% of every population shown to it, so it has never been
+observed to separate anything from anything. \\
+\midrule
+$A_{\mathrm{sem}}$ &
+Rationale--implementation mismatch at $\kappa=0.589$ on 50 pre-labelled items; correctly passes a
+leaky fixture whose rationale is honest &
+\texttt{unfalsifiable\_mechanism}: 2 of 5 agreement. Whether its 154 rejections on the corpus are
+the right ones is not established, since $\kappa$ was measured on a different population. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\takeaway{The layers are not redundant --- the fixture that $A_{\mathrm{static}}$ catches is the
+one $A_{\mathrm{sem}}$ correctly passes --- but neither is their union sufficient, and the
+statistical layer's behaviour is currently indistinguishable from a constant.}
+
+% =====================================================================================
+\section{Threats to validity}
+\label{sec:threats}
+
+\paragraph{The prompt is a confound we cannot remove.} The prompt advises plain Python over polars
+expression chains to raise executability, and that advice plausibly suppresses the
+\texttt{full\_sample\_statistic} class to zero. Every leak-class distribution in this paper
+describes this prompt.
+
+\paragraph{One market, one period.} Indian equities, 2020--2024 development, 2025 holdout, the
+hundred most liquid NSE names. Cost structure, retail participation and liquidity are specific to
+that market; the execution-failure rates are specific to the libraries in the prompt.
+
+\paragraph{Sample sizes differ by up to $40\times$ across arms.} \aaGvNLarge{} frontier draws
+against \pgmPlainDraws{} for plain prompting; \pgmMctsDraws{} for tree search against
+\pgmPlainDraws{}. Where a comparison is underpowered we compute the power and say so
+(\S\ref{sec:methods}); we do not average across arms of different size, and no table in this paper
+pools them.
+
+\paragraph{The generator axis is not compute-matched, by construction.} Token spend for hosted
+models is not comparable to local inference, so \S\ref{sec:frontier} reports rates only. No
+sentence in it claims a frontier model is more \emph{efficient}.
+
+\paragraph{The static layer's fixture score is closer to training accuracy than to a test.}
+Stated in \S\ref{sec:auditor} where the number appears, not here.
+
+\paragraph{The statistical layer's 100\% rejection rate is unresolved.} Stated in
+\S\ref{sec:survives}. It is the threat we are least able to bound.
+
+\paragraph{Numbers predating the macro pipeline are stated inline.} The local-corpus cost and
+leak-class tables were computed before the generated-macro discipline was adopted, and are
+transcribed rather than macro-substituted. They are regenerable from
+\texttt{data/raw/} by documented commands, but they are not machine-inserted into this document,
+and that is a real gap in the paper's own reproducibility guarantee.
+
+\paragraph{Impact remains an assumption.} The square-root market-impact coefficient in the cost
+model is uncalibrated. Paper 3 reports the measurement showing daily data cannot calibrate it, so
+this is a permanent property of the apparatus rather than a to-do.
+
+% =====================================================================================
+\section{What this tells us about AI-driven research}
+\label{sec:meaning}
+
+\begin{finding}
+\textbf{Can AI write code? Yes, increasingly and now essentially completely. Can AI generate
+statistically credible quantitative research? On this apparatus, much less clearly --- and the
+first capability improving did not cause the second to.}
+\end{finding}
+
+Three claims, at three different scopes, which the rest of this section keeps separate because
+collapsing them is the error the programme was built to avoid.
+
+\paragraph{Generator-independent \tagindep} The auditor null holds on all
+\pgmNullCorpora{} corpora, produced by four generators and six methods. Nothing clears deflation
+on any arm. Costs reverse signs on every arm. These are the claims that survive a change of
+generator, and they are the ones that license the apparatus being used by anyone else.
+
+\paragraph{Generator-specific \taglocal\ \tagfrontier} The execution barrier is a property of the
+local 7B, not of machine-written strategies: \pgmLocalTrade\% against 100\%. Any paper reporting
+execution rates for one model is reporting that model. Our own paper 1 result, published before
+the frontier arms existed, was such a claim, and this section is where we say so.
+
+\paragraph{Method-specific \tagmethod} Scaffolding buys candidates, not quality, at equal budget:
+\pgmScaffoldWins{} of \pgmScaffoldArms{} arms beat their control. This is the claim most likely to
+generalise beyond finance, because it is a claim about compute accounting rather than about
+markets.
+
+\subsection{The one recommendation we are willing to make}
+
+If you evaluate a machine-written quantitative finding, the ordering that matters is: \emph{does
+it run}, then \emph{does it survive costs}, then \emph{does it survive the number of things you
+tried}, then \emph{does it survive data you have never seen}. Most published pipelines measure the
+first and report the fourth. The attrition between them, on this corpus, is total.
 
 % =====================================================================================
 \section{The AlphaAudit benchmark}
-\label{sec:release}
+\label{sec:benchmark}
 
-\begin{table}[h]\centering\small
-\caption{What is released. Each component is usable independently of the others and of whether
-our reference auditor worked.}
-\label{tab:benchmark}
-\begin{tabular}{ll}
-\toprule
-\textbf{Component} & \textbf{Contents} \\
-\midrule
-Environment & survivorship-free liquidity universe, 20 quarterly rebalances, \\
-            & 185 distinct constituents; point-in-time engine raising on stale signals \\
-Cost model & Indian statutory schedule, three epochs, verified to the paisa; \\
-           & participation slippage and square-root impact, coefficients exposed \\
-Positive controls & 3 leaky fixtures with documented cheats (Sharpe 12{,}098 / 2.33 / 1.23) \\
-Negative controls & 30 honest fixtures, for false-positive rate \\
-Corpus & 1,550 candidates, per-layer verdicts, outcomes, and return series \\
-Human labels & 50 hand-labelled rationale--code pairs ($\kappa$ reference standard) \\
-Metric & AUAP over the coverage grid, with a bootstrap random-rejection baseline \\
-Protocol & fixed shared holdout, one evaluation per submission \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The protocol is deliberately restrictive: a fixed shared holdout, \textbf{one evaluation per
-submission}, no tuning on holdout results, and no revision of the benchmark in response to
-submissions. Independent one-shot evaluations do not contaminate a frozen test set; iterative
-optimisation against it does, and a benchmark that permits the latter measures nothing after its
-first few users. Every reported AUAP must carry its trial count $N$ and its generator, because
-an AUAP without the trial count that produced its corpus is not interpretable.
-
-\paragraph{Availability.} Everything in Table~\ref{tab:benchmark} is at
-\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}%
-{\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}, together with the source of this
-paper. Start at \texttt{benchmarks/alphaaudit/RESULTS.md}, which carries every number in this
-study with its sample size, including the ones we could not compute and the reason why.
-
-\paragraph{What a submission must beat.} The reference entry is the seven-configuration table in
-\S\ref{sec:auap}: best AUAP $-1.1967$, against a random-rejection interval of $[-1.2208,
--0.8600]$, on a corpus generated by \texttt{qwen2.5:7b-instruct-q4\_K\_M} at $N = 1{,}887$. This
-is a low bar. We publish it as one.
-
-\paragraph{The honest reason a benchmark is the right artifact here.} Our null is confounded
-with corpus degeneracy and we cannot resolve the confound (\S\ref{sec:negative}). A single group
-with a single 7B generator cannot. What can resolve it is a second entry using a stronger
-generator on the identical environment: if a capable generator produces a corpus on which some
-auditor beats random, the degeneracy explanation is settled and our null is correctly read as a
-statement about weak corpora. The benchmark exists because that is the experiment we cannot run
-alone.
-
-% =====================================================================================
-% =====================================================================================
-\section{The companion benchmarks}
-\label{sec:companions}
-
-This benchmark is one of three built on a shared point-in-time universe, a shared Indian
-transaction-cost model and a shared backtest engine, released from a single repository. A
-strategy can therefore carry an audit verdict, a fragility score and a deployment capacity
-measured on the same data under the same assumptions, which is what makes the
-cross-benchmark statements in this paper possible.
+Frozen and released at \repo:
 
 \begin{itemize}
-\item \textbf{RegimeStress} --- when a surviving strategy breaks, measured across counterfactual regime paths. It supplies the fragility scores and the duplicate criterion.\\
-\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/regimestress.pdf}%
-{\texttt{papers/pdf/regimestress.pdf}} \quad$\cdot$\quad
-\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/regimestress}%
-{\texttt{benchmarks/regimestress}}
-
-\item \textbf{FlowState} --- how much capital a strategy can absorb before it can no longer be traded within its own participation limit. It supplies the deployment-capacity figures.\\
-\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/flowstate.pdf}%
-{\texttt{papers/pdf/flowstate.pdf}} \quad$\cdot$\quad
-\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/flowstate}%
-{\texttt{benchmarks/flowstate}}
-\item \textbf{Generator validation} --- the study of Section~\ref{sec:generators}:
-the identical frozen task specification issued to three frontier models and passed
-through all three benchmarks unchanged, with its pre-registration, its falsified
-hypotheses and its full results.\\
-\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/generator_validation}%
-{\texttt{benchmarks/generator\_validation}}
+\item \textbf{Environment.} Survivorship-free point-in-time universe, verified cost model,
+  raising point-in-time engine, purged cross-validation with embargo.
+\item \textbf{Fixtures.} 3 deliberately-leaky and 30 honest strategies, permanent assets.
+\item \textbf{Corpus.} \pgmParadigmDraws{} machine-written candidates across
+  \pgmParadigmArms{} generation methods, plus \aaGvTotal{} frontier candidates and the
+  \aaLocalDraws{}-draw local corpus, each with audit verdicts, backtests, and holdout results
+  where applicable.
+\item \textbf{Protocol.} The frozen task specification and its digest, the abstention--performance
+  harness, the random-rejection baseline, and the trial ledger with its verification.
+\item \textbf{Every number.} \texttt{RESULTS.md} per benchmark, and the generated macro files this
+  paper is built from. If this paper and the repository disagree, the repository is right.
 \end{itemize}
 
-The three were designed to be read in order --- is it real, when does it break, how much
-can it take --- and each answers a question the previous one raises. Every artifact,
-correction log and evaluation protocol is in the repository:
-\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}{\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}.
+A stronger auditor can be scored against exactly this apparatus and contest the null directly.
+That is the point of releasing an environment whose reference implementation failed.
 
+% =====================================================================================
 \section{Conclusion}
 
-We set out to determine whether an adversarial auditor can tell real trading signals from
-artifacts in a corpus written by a language model. On the evidence assembled here, for this
-generator, it cannot---not better than chance.
+We built an environment in which a machine-written trading strategy can be scored for validity
+rather than for plausibility, and we ran four generators and six generation methods through it
+without changing it between arms.
 
-Three things were learned along the way that we did not expect to be the interesting part.
-The dominant failure mode of an LLM strategy researcher is not dishonesty but inertness:
-six candidates in ten never survive contact with data, and two thirds of the rest never
-trade.
-Indian transaction costs, honestly modelled, reverse the sign of one profitable strategy in
-six and reduce the momentum premium on a liquid universe to the width of the noise. And an
-honest trial count of 1,887 removes every trace of statistical significance from a corpus
-whose best member has a superficially respectable Sharpe of 1.28.
+The local model's strategies fail as programs, not as research: 100\% produce conforming code and
+\pgmLocalTrade\% produce a strategy that trades. Frontier models remove that barrier entirely, at
+100\%. \textbf{They remove nothing else.} Zero of \aaGvTotal{} frontier candidates clear
+deflation; \aaGvFlipsTotal{} reverse sign under costs; every arm's median holdout Sharpe is
+negative. More elaborate generation methods lose to plain prompting at every matched token budget
+we measured. And across \pgmNullCorpora{} corpora, \pgmNullBeating{} of \pgmNullCombos{} auditor
+configurations beat random rejection out of sample.
 
-The infrastructure functions as designed, and it behaved consistently under repeated
-evaluation: it reported no signal because none was detectable in this corpus, and it reported
-the same thing after we corrected our own most serious implementation error. That invariance
-is the closest thing to a control a null result admits.
+\begin{finding}
+\textbf{Better code did not mean better quantitative research.} That is one measurement, on one
+market, on one apparatus, with the confounds named in \S\ref{sec:threats}. It is also the
+measurement the field is currently not making, and the apparatus for making it is now public.
+\end{finding}
 
-What we are left holding is therefore not a method but a measuring apparatus, and that is what
-we release. A benchmark whose reference implementation fails its own headline test is an
-unusual object to publish, but it is the honest one: the protocol, the fixtures, the corpus and
-the cost model are all independent of whether our particular auditor worked, and they are what
-another group would otherwise have to rebuild before disagreeing with us. It is all at
-\href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}%
-{\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}.
+\subsection*{Where this leaves us}
+\addcontentsline{toc}{subsection}{Where this leaves us}
+
+This paper asked whether a machine-written strategy is \emph{real}. For most of the corpus the
+answer was no, and the survivors it hands forward --- defined by
+$A_{\mathrm{static}} \wedge A_{\mathrm{sem}}$, since the statistical layer leaves nothing --- are
+a small set of low-turnover strategies that survived costs and one holdout year.
+
+Surviving one history is a weak claim. The 2020--2024 development window contains one pandemic
+crash, one full rate cycle and one structural liquidity shift; a strategy that survived it
+survived a single sequence of events, and the number of independent regime observations available
+is very small. \textbf{The next question is therefore not whether these strategies are real, but
+when they break} --- and answering it requires plausible histories that did not happen, because
+history did not supply enough of them.
+
+That is paper 2, \textbf{RegimeStress}.
 
 % =====================================================================================
 \small
@@ -1320,6 +1254,11 @@ non-normality. \emph{The Journal of Portfolio Management}, 40(5), 94--107.
 Bailey, D. H., Borwein, J., L\'opez de Prado, M., and Zhu, Q. J. (2017).
 The Probability of Backtest Overfitting. \emph{Journal of Computational Finance}, 20(4),
 39--69.
+
+\bibitem[Besta et al.(2024)]{besta2024}
+Besta, M., Blach, N., Kubicek, A., et al. (2024).
+Graph of Thoughts: Solving Elaborate Problems with Large Language Models.
+\emph{Proceedings of the AAAI Conference on Artificial Intelligence}, 38(16), 17682--17690.
 
 \bibitem[Chen et al.(2021)]{chen2021}
 Chen, M., Tworek, J., Jun, H., et al. (2021).
@@ -1361,9 +1300,24 @@ L\'opez de Prado, M. (2018). \emph{Advances in Financial Machine Learning}. Wile
 Novy-Marx, R., and Velikov, M. (2016). A taxonomy of anomalies and their trading costs.
 \emph{The Review of Financial Studies}, 29(1), 104--147.
 
+\bibitem[Shinn et al.(2023)]{shinn2023}
+Shinn, N., Cassano, F., Gopinath, A., Narasimhan, K., and Yao, S. (2023).
+Reflexion: Language Agents with Verbal Reinforcement Learning.
+\emph{Advances in Neural Information Processing Systems}, 36.
+
+\bibitem[Wei et al.(2022)]{wei2022}
+Wei, J., Wang, X., Schuurmans, D., et al. (2022).
+Chain-of-Thought Prompting Elicits Reasoning in Large Language Models.
+\emph{Advances in Neural Information Processing Systems}, 35, 24824--24837.
+
 \bibitem[Wu et al.(2023)]{wu2023}
 Wu, S., Irsoy, O., Lu, S., et al. (2023).
 BloombergGPT: A Large Language Model for Finance. \emph{arXiv:2303.17564}.
+
+\bibitem[Yao et al.(2023)]{yao2023}
+Yao, S., Yu, D., Zhao, J., et al. (2023).
+Tree of Thoughts: Deliberate Problem Solving with Large Language Models.
+\emph{Advances in Neural Information Processing Systems}, 36.
 
 \end{thebibliography}
 
