@@ -32,19 +32,18 @@ is actually observable --- and a principal negative result on what is not.}
 \noindent
 The first question a portfolio manager asks about a strategy is how much money it can take. The
 standard answer is a capacity curve, and building one requires knowing how far a given order moves
-the price. \textbf{We measure whether daily bars can supply that knowledge, and report that within
-the estimators and information available from daily OHLCV the obstruction is one of identification
-rather than statistical precision.} Two equally
+the price. Within the estimators and information daily OHLCV affords, \textbf{the obstruction is
+one of identification rather than statistical precision.} Two equally
 defensible weighting schemes applied to the same reversal regression disagree about the
 \emph{sign} of transient impact at \fsSignDisagreements\ of \fsHorizonsTested\ horizons, and nothing
 in the data adjudicates between them. Amihud illiquidity, computed on the same panel as a control,
 is stable across a sample split at \fsAmihudSpearman\ while the fitted impact exponent reaches only
 \fsDeltaSpearman: the failure is in the model, not in the data.
 
-\textbf{We therefore release FlowState, a frozen benchmark that reports what daily bars do support.}
-Deployment capacity is redefined as a \emph{constraint}---the largest AUM at which a strategy can
-place every one of its trades inside a stated participation limit---which is arithmetic on observed
-turnover and assumes no impact coefficient. On a survivorship-free Indian liquidity universe of
+We therefore release FlowState, a frozen benchmark reporting what daily bars do support.
+Deployment capacity is redefined as a \emph{constraint}: the largest AUM at which a strategy can
+place every one of its trades inside a stated participation limit. That is arithmetic on observed
+turnover, and it assumes no impact coefficient. On a survivorship-free Indian liquidity universe of
 \fsNSymbols\ symbols over 2020--2024, standard price-and-volume factors deploy
 \rupee\fsFactorBindingMin--\fsFactorBindingMax\ crore, and in every case the binding constraint is
 the least liquid position the strategy holds rather than the average liquidity of its book.
@@ -52,10 +51,9 @@ the least liquid position the strategy holds rather than the average liquidity o
 Two further results are null. \textbf{No factor's edge decays measurably} across horizons from
 \fsHorizonMin\ to \fsHorizonMax\ sessions, and none is statistically established at the shortest
 horizon, so the precondition for a decay study fails. \textbf{Deployable size does not collapse when
-foreign participation reverses}---the effect this benchmark was designed to detect---with
+foreign participation reverses}, the effect this benchmark was designed to detect, with
 outflow-to-inflow ratios between \fsFlowRatioMin\ and \fsFlowRatioMax. That null rests on a
-derivatives-based flow proxy and cannot distinguish a stable capacity from an uninformative proxy;
-we state this in the results rather than the discussion.
+derivatives-based flow proxy and cannot distinguish a stable capacity from an uninformative proxy.
 
 Finally, a result about benchmarks rather than about markets. Applying the finished benchmark to
 \fsCorpusN\ machine-generated strategies \emph{before} publishing it exposed two defects that
@@ -79,15 +77,14 @@ describes.
   \hfill\tagindep}]
 \textbf{\rupee\fsFactorBindingMin--\fsFactorBindingMax{} crore}, across \fsNFactors{} factors on a
 survivorship-free universe of \fsNSymbols{} symbols. We are not aware of these figures being
-openly published for Indian equities. They are \emph{constraint} figures --- the largest book that
-can place every trade inside the participation limit --- and never impact-erosion figures.
+openly published for Indian equities. They are \emph{constraint} figures, the largest book that
+can place every trade inside the participation limit, and never impact-erosion figures.
 \end{finding}
 
 \begin{finding}[title={2.\ \ What sets that number? \hfill\tagindep}]
 \textbf{The single least liquid position, not the average liquidity of the book.} Capacity computed
 from the median session overstates the binding figure by \fsMomentumMedianOverBinding{}$\times$ to
-\fsReversalMedianOverBinding{}$\times$. \textbf{The weakest position determines the capacity of the
-entire portfolio}, and for one factor a single name accounts for
+\fsReversalMedianOverBinding{}$\times$, and for one factor a single name accounts for
 \fsReversalOneName\% of the constraint.
 \end{finding}
 
@@ -100,7 +97,7 @@ identification, not precision.
 \end{finding}
 
 \begin{finding}[title={4.\ \ Is that just noisy data? \hfill\tagindep}]
-\textbf{No --- the control on the same bars is stable.} Amihud illiquidity, computed on the same
+\textbf{No.} The control on the same bars is stable. Amihud illiquidity, computed on the same
 panel and split the same way, reaches \fsAmihudSpearman{} while the fitted impact exponent reaches
 \fsDeltaSpearman{} ($n=\fsAmihudN{}$). \textbf{The failure is in the model, not in the data.}
 \end{finding}
@@ -117,8 +114,8 @@ capacity from an uninformative proxy.
 \textbf{No, and this is the paper's methodological result.} Applying the finished benchmark to
 \fsCorpusN{} machine-written strategies \emph{before} publishing it exposed two defects that
 \fsNFactors{} standard factors had not. \textbf{Repairing them moved every capacity figure
-downward.} The machine corpus spans \fsCorpusSpan$\times$ against the factors' \fsFactorSpan$\times$
---- \fsSpanRatio$\times$ wider --- and both defects lived in tails the validation set never reached.
+downward.} The machine corpus spans \fsCorpusSpan$\times$ against the factors' \fsFactorSpan$\times$,
+\fsSpanRatio$\times$ wider, and both defects lived in tails the validation set never reached.
 \end{finding}
 
 \vspace{0.6em}
@@ -158,13 +155,13 @@ Paper 1 asked whether a machine-written strategy is real, and for most of a \pgm
 executable corpus the answer was no. Paper 2 took the survivors and asked when they break,
 finding that fragility is a property of the strategy rather than of the model that wrote it, and
 that it cannot be predicted from strategy characteristics. Both questions are ones a researcher
-asks. \textbf{This paper asks the first question an allocator asks}, and it is the one neither
+asks. \textbf{This paper asks the first question an allocator asks}, and the one neither
 predecessor could answer: \emph{how much money can this take?}
 
 \begin{finding}
-A strategy that is real and robust at one crore may not exist at a hundred. Size is not a
-footnote on a backtest --- it is a separate property, it is not implied by the Sharpe ratio, and a
-strategy can pass every test in papers 1 and 2 and still be undeployable.
+A strategy that is real and robust at one crore may not exist at a hundred. Size is a separate
+property, not implied by the Sharpe ratio: a strategy can pass every test in papers 1 and 2 and
+still be undeployable.
 \end{finding}
 
 Every strategy has a size at which it stops working. Run a hundred crore through a mid-cap reversal
@@ -175,8 +172,8 @@ either omitted or asserted.
 
 The standard construction is a capacity curve: net return as a function of deployed AUM, declining
 as the strategy's own trading pushes prices against it, with capacity read off where the curve
-crosses zero. Every point on that curve is a claim about market impact---how far a given order moves
-the price---and impact is not observable in a daily bar. It is therefore modelled, usually with the
+crosses zero. Every point on that curve is a claim about market impact (how far a given order moves
+the price), and impact is not observable in a daily bar. It is therefore modelled, usually with the
 square-root law \citep{almgren2005}, whose functional form is standard and whose coefficient is
 calibrated on proprietary records of institutional orders in which the order and the price path it
 caused are separately visible.
@@ -185,10 +182,10 @@ We have no such record, and neither does anyone working from public Indian data.
 paper opens with is whether the coefficient can be recovered anyway.
 
 \begin{finding}
-It cannot, and Section~\ref{sec:identification} is the measurement rather than the assertion. The
-obstruction is not noise. It is that a daily bar aggregates every participant's trading and cannot
-isolate one order, and---more decisively---that temporary impact decays over minutes to hours, so
-the finest resolution a daily bar offers is already coarser than the phenomenon being estimated.
+It cannot, and \S\ref{sec:identification} is the measurement rather than the assertion. The
+obstruction is not noise. A daily bar aggregates every participant's trading and cannot isolate one
+order; more decisively, temporary impact decays over minutes to hours, so the finest resolution a
+daily bar offers is already coarser than the phenomenon being estimated.
 \end{finding}
 
 \subsection{What this paper does and does not claim}
@@ -204,14 +201,14 @@ the finest resolution a daily bar offers is already coarser than the phenomenon 
   frontier models papers 1 and 2 used. \S\ref{sec:generators}.
 \end{enumerate}
 
-\paragraph{What this paper is not.} It is not a capacity curve. We do not report the AUM at which a strategy's edge reaches zero,
-because that quantity is not identified from the data available to us, and reporting it would
-require an impact coefficient we would have had to invent. A great many published backtests price
-market impact from daily bars; this paper is in part a measurement of what that assumption is worth.
+\paragraph{What this paper is not.} It is not a capacity curve. We do not report the AUM at which a
+strategy's edge reaches zero, because that quantity is not identified from our data, and reporting
+it would require an impact coefficient we would have had to invent. A great many published
+backtests price market impact from daily bars; this paper measures what that assumption is worth.
 
 It is not a claim that impact does not exist, or that it cannot be measured. It is a claim about
 what \emph{daily bars} can identify. Intraday data would change the answer, and we report in
-Section~\ref{sec:threats} what we could and could not obtain.
+\S\ref{sec:threats} what we could and could not obtain.
 
 It is not a study of Indian market microstructure. It is a benchmark: a frozen, versioned instrument
 that returns the same verdict on the same strategy tomorrow, so that different strategy generators
@@ -235,8 +232,8 @@ cannot be attributed to noisy bars.
 
 \paragraph{Trading-cost taxonomies} \citep{novy2016} establish that costs reorder the factor zoo
 and that many published anomalies do not survive them. They work on US data with US
-microstructure, and they price impact from an assumed coefficient --- the assumption this paper
-measures.
+microstructure, and they price impact from an assumed coefficient, which is the assumption this
+paper measures.
 
 \paragraph{Backtest methodology} \citep{lopez2018} supplies the discipline papers 1 and 2 are built
 on, and its concern is whether a result is real. Capacity is a different axis: a result can be
@@ -308,7 +305,7 @@ the volume that the order itself helped create is circular, and the circularity 
 \paragraph{The outer minimum runs over sessions, not a median.} A strategy must be executable on
 every rebalance it makes, not on a typical one. This also makes the session that builds the opening
 position binding for a near-static strategy, so initial portfolio construction is priced like any
-other trade rather than treated as free. Section~\ref{sec:validation} describes what a median
+other trade rather than treated as free. \S\ref{sec:validation} describes what a median
 concealed before we corrected it.
 
 \paragraph{$\varepsilon$ excludes weight changes too small to be trades.} A strategy that recomputes
@@ -348,13 +345,12 @@ across \fsNFactors\ factors. \emph{Upper panel, log scale:} what capacity would 
 session set it (pale), the session that builds the opening position (mid), and what actually binds
 (dark). The distance between pale and dark is what a typical-session summary would have concealed.
 \emph{Lower panel:} the share of sessions on which the tightest position is more than twice as
-tight as the next --- that is, on which a single name is the constraint.}
+tight as the next; that is, on which a single name is the constraint.}
 \label{fig:capacitybinding}
 \end{figure}
 
-\takeaway{\textbf{The weakest position determines the capacity of the entire portfolio.} A book is
-not deployable at its average liquidity --- it is deployable at the liquidity of the single worst
-trade it must place, and the gap between those two readings runs from
+\takeaway{A book is not deployable at its average liquidity but at the liquidity of the single
+worst trade it must place. The gap between those two readings runs from
 \fsSizeProxyMedianOverBinding$\times$ to \fsReversalMedianOverBinding$\times$.}
 \label{sec:capacity}
 
@@ -364,24 +360,23 @@ ten million US dollars. \textbf{The least liquid position the strategy holds dec
 average liquidity of its book.
 \end{finding}
 
-\paragraph{The mechanism, because the number is otherwise easy to misread.} These are equal-weighted
-books. Every name in a leg carries the same weight and must therefore be traded in the same rupee
+\paragraph{The mechanism.} These are equal-weighted books. Every name in a leg carries the same weight and must therefore be traded in the same rupee
 size. A strategy holding a name that turns over a tenth of what another turns over trades both
 identically, and the participation constraint binds on the thinner one first. Capacity is set there,
 for the whole book.
 
-The consequence is counter-intuitive and worth stating plainly: \textbf{a strategy holding a hundred
-large-capitalisation names can still be capacity-constrained by one of them.} Diversification across
-many liquid names does not raise capacity if the weighting scheme forces the thinnest name to be
-traded at the same size as the deepest. The \emph{one name} column reports how often this is
+The consequence is counter-intuitive: \textbf{a strategy holding a hundred large-capitalisation
+names can still be capacity-constrained by one of them.} Diversification across many liquid names
+does not raise capacity if the weighting scheme forces the thinnest name to be traded at the same
+size as the deepest. The lower panel of Figure~\ref{fig:capacitybinding} reports how often this is
 literally a single position.
 
-This is not an artefact of our definition---it is the constraint a desk actually faces---but it is a
+This is not an artefact of our definition; it is the constraint a desk actually faces. But it is a
 property of \emph{equal weighting} as much as of the market. The standard remedies, liquidity-tilted
 weights or a liquidity screen at entry, both change the portfolio and therefore change the returns
 that the capacity is a capacity \emph{for}. We measure the strategies as specified rather than
-silently repairing them, and note that a capacity figure is only meaningful when paired with the
-weighting scheme that produced it.
+silently repairing them. A capacity figure is only meaningful paired with the weighting scheme that
+produced it.
 
 Dropping the single tightest position each session raises capacity by well under an order of
 magnitude. That robustness check is what establishes these figures describe the strategy rather than
@@ -408,21 +403,20 @@ flat to gently rising out to a quarter.
 
 We report this as a null about our measurement rather than as a finding about Indian markets,
 because the precondition fails. The largest $|t|$ at the shortest horizon is
-\fsDecayMaxAbsTstatShortest, and the largest at any horizon in the table is \fsDecayMaxAbsTstat.
-\textbf{The edges whose decay is being measured are not themselves established}, and a decay
-half-life is only a meaningful quantity for a signal that had an edge to lose. Reporting one for a
-factor that never made money would be a category error dressed as a measurement.
+\fsDecayMaxAbsTstatShortest, and the largest at any horizon is \fsDecayMaxAbsTstat.
+\textbf{The edges whose decay is being measured are not themselves established.} Reporting a
+half-life for a factor that never made money would be a category error dressed as a measurement.
 
 Two factors carry the wrong sign for their names, which is itself informative about the window.
 \texttt{reversal\_1m} loses money, so at a one-month horizon this period shows \emph{continuation}
-rather than reversal. \texttt{low\_volatility} loses, so high-beta names outperformed---consistent
+rather than reversal. \texttt{low\_volatility} loses, so high-beta names outperformed, consistent
 with a window containing the COVID drawdown and the recovery that followed it, in which the names
 that fell hardest rebounded hardest.
 
 \paragraph{A research question retired rather than deferred.} This benchmark was specified to ask
 whether alpha decays faster in India than in developed markets and whether retail participation
-explains it. The first clause is answered: no decay was observed. The second therefore loses its
-antecedent---there is nothing for retail participation to explain---and is retired. Delivery-share
+explains it. The first clause is answered: no decay was observed. The second loses its antecedent,
+since there is nothing for retail participation to explain, and is retired. Delivery-share
 data that would have supported a retail analysis is freely available and was deliberately not
 collected, on the principle that the availability of data is not a reason to ask a question.
 
@@ -454,8 +448,8 @@ substantially hedging against cash positions, so its sign need not track the dir
 cash-market demand at all.
 
 \textbf{Whether capacity is genuinely stable across flow states, or the proxy is simply
-uninformative about cash liquidity, is not separable with this data.} We state this beside the
-result rather than in a limitations section, because it governs how the null may be read.
+uninformative about cash liquidity, is not separable with this data.} That governs how the null may
+be read, which is why it sits here rather than in a limitations section.
 
 % -------------------------------------------------------------------------------------
 \subsection{Why daily OHLCV cannot price transient impact}
@@ -470,7 +464,7 @@ sample split ($n=\fsAmihudN{}$). Rank stability across the split.}
 
 \takeaway{This single comparison carries the negative result. A quantity computed from exactly the
 same data holds its ordering at \fsAmihudSpearman{} while the parameter a capacity study needs
-reaches \fsDeltaSpearman{}. \textbf{If the data were simply too noisy, both would fail. The failure
+reaches \fsDeltaSpearman{}. If the data were simply too noisy, both would fail. \textbf{The failure
 is in the model.}}
 
 \begin{figure}[h]\centering
@@ -479,7 +473,7 @@ is in the model.}}
 restricted to each symbol's heaviest-volume decile, $n = \fsIdentNSymbols$ symbols. Precision
 weighting is inverse-variance pooling; equal weighting counts each symbol once. Both are standard
 and neither is wrong. The shaded band is the effect the pooled estimator could have detected at
-80\% power, so the two lines are separated by more than the data's own resolution --- the
+80\% power, so the two lines are separated by more than the data's own resolution; the
 disagreement is not a power problem, and \textbf{the sign of the coefficient is decided by the
 analyst rather than by the market.}}
 \label{fig:reversalweighting}
@@ -492,10 +486,9 @@ coefficient is therefore the signature of impact, and its sign is the quantity o
 daily-bar impact estimate depends.
 
 \begin{finding}
-\textbf{The sign depends on the weighting scheme.} Precision weighting and equal weighting are both
-standard, neither is wrong, and they \textbf{disagree on sign at \fsSignDisagreements\ of
-\fsHorizonsTested\ horizons}. A quantity whose sign is determined by an analyst's choice among
-defensible estimators is not identified by the data.
+\textbf{The sign depends on the weighting scheme.} Two standard estimators disagree on sign at
+\fsSignDisagreements\ of \fsHorizonsTested\ horizons. A quantity whose sign is determined by an
+analyst's choice among defensible estimators is not identified by the data.
 \end{finding}
 
 The disagreement is not a puzzle to be resolved by picking the better estimator; it is the result.
@@ -518,22 +511,22 @@ liquidity concession being repaid.
 per-symbol exponent correlates \fsDeltaSpearman\ with itself ($n = \fsDeltaSpearmanN$). A parameter
 that does not survive its own sample split is not a parameter.
 \item \textbf{Extrapolation.} A capacity study asks about \fsTargetParticipation\% participation.
-Observed relative traded value has a median of \fsObservedMedianRelValue---\fsOrdersOfMagnitude\
-orders of magnitude away---and only \fsSymbolDaysBelowTarget\ of \fsIdentSymbolDays\ symbol-days fall
+Observed relative traded value has a median of \fsObservedMedianRelValue, \fsOrdersOfMagnitude\
+orders of magnitude away, and only \fsSymbolDaysBelowTarget\ of \fsIdentSymbolDays\ symbol-days fall
 inside the region of interest. Fitting here and applying there is not interpolation.
 \item \textbf{The control.} Amihud illiquidity, computed on the same panel, correlates
 \fsAmihudSpearman\ across the same split ($n = \fsAmihudN$, $p = \fsAmihudSpearmanP$). The data
 supports a stable liquidity \emph{measure} while refusing to support an impact \emph{model
-parameter}. \textbf{The failure is in the model, not in the data}---which is the whole reason the
-control is reported.
+parameter}. \textbf{The failure is in the model, not in the data}, which is why the control is
+reported.
 \end{itemize}
 
 \begin{selfreport}
 \textbf{Two corrections to our own earlier reporting of this result.} An earlier version reported
 that \emph{no} reversal was detected, citing the proportion of symbols with a negative coefficient
 as evidence. That proportion was noise. A single symbol's daily test can detect only an effect of
-\fsMdeSymbolFive\ or larger at the five-session horizon---an order of magnitude above the pooled
-coefficient of \fsPooledBetaFive\ that the same data supports---so the proportion was always going to
+\fsMdeSymbolFive\ or larger at the five-session horizon, an order of magnitude above the pooled
+coefficient of \fsPooledBetaFive\ that the same data supports, so the proportion was always going to
 land near half regardless of the truth. We had reported an underpowered statistic as a measurement.
 
 Computing the detectability bound then showed that the pooled coefficient \emph{is} significantly
@@ -549,7 +542,7 @@ survived, and a reader is entitled to know that the argument moved.
 \begin{finding}
 The benchmark was validated on \fsNFactors\ standard factor strategies spanning
 \fsFactorSpan$\times$ in capacity, then applied to \fsCorpusN\ machine-generated strategies spanning
-\fsCorpusSpan$\times$---\fsSpanRatio$\times$ wider. \textbf{Two defects lived in that gap, and the
+\fsCorpusSpan$\times$, \fsSpanRatio$\times$ wider. \textbf{Two defects lived in that gap, and the
 corpus found both immediately.}
 \end{finding}
 
@@ -568,13 +561,13 @@ crore. The remedy is the tolerance $\varepsilon$ defined earlier.
 near-zero rebalancing turnover, so the one tightly constrained session that builds the position was
 drowned by a thousand that barely trade. The remedy is the minimum over sessions.
 
-A subtlety worth recording, because we diagnosed it wrongly at first. We initially believed the
-formula never counted the acquisition of the opening position. It did---a strategy's first session
-enters at full weight from zero. \textbf{The defect was that the summary statistic discarded it},
-which is a different error and took a direct check to see. Using the median would overstate the
-typical corpus strategy by \fsCorpusMedianOverBinding$\times$, and entry is the binding session for
-only \fsEntryBindsCount\ of \fsCorpusN\ strategies (\fsEntryBindsShare\%)---so the median was
-concealing considerably more than the entry constraint alone.
+We diagnosed this wrongly at first. We initially believed the formula never counted the acquisition
+of the opening position. It did: a strategy's first session enters at full weight from zero.
+\textbf{The defect was that the summary statistic discarded it}, which is a different error and took
+a direct check to see. Using the median would overstate the typical corpus strategy by
+\fsCorpusMedianOverBinding$\times$, and entry is the binding session for only \fsEntryBindsCount\ of
+\fsCorpusN\ strategies (\fsEntryBindsShare\%), so the median was concealing considerably more than
+the entry constraint alone.
 
 Neither defect was reachable from the validation set. All five factor strategies rebalance
 substantially every session, so none ever produced a near-zero traded fraction, and for all five the
@@ -588,18 +581,16 @@ results it reports. Repairing an objective omission in a definition is not the s
 a threshold until a result improves, and the sign of the change is the cheapest available evidence
 of which one happened.
 
-We state the obvious objection rather than leave it to the reader to raise. \emph{Both defects were
-found by data the benchmark was about to be applied to, and repaired before it was frozen}---the
-corrections are, in the literal sense, post-hoc. Our argument that they are repairs and not tuning
-rests on three things: each defect is demonstrable without reference to any result, in one case as
-a dimensional absurdity and in the other as a statistic that provably omits a constraint the
-definition already contained; the ordering was fixed in advance, so the corpus run was scheduled
-before the freeze rather than reached for after a disappointing number; and every correction moved
-every published figure downward. None of that is proof, and a reader is entitled to weigh it
-themselves. We report it here, in the result, rather than in a list of caveats, because the
-alternative---discovering the defects after publication, or not at all---is the outcome this
-ordering exists to prevent, and a paper that buried the episode would be recommending a process it
-declined to display.
+The obvious objection: \emph{both defects were found by data the benchmark was about to be applied
+to, and repaired before it was frozen}. The corrections are, in the literal sense, post-hoc. Our
+argument that they are repairs and not tuning rests on three things. Each defect is demonstrable
+without reference to any result, in one case as a dimensional absurdity and in the other as a
+statistic that provably omits a constraint the definition already contained. The ordering was fixed
+in advance, so the corpus run was scheduled before the freeze rather than reached for after a
+disappointing number. And every correction moved every published figure downward. None of that is
+proof, and a reader is entitled to weigh it themselves. We report it in the result rather than in a
+list of caveats, because the alternative, discovering the defects after publication or not at all,
+is what this ordering exists to prevent.
 
 \begin{finding}
 The general form: \textbf{a benchmark's soundness cannot be established on the population that
@@ -632,9 +623,9 @@ benchmarks, are in the study's own report; what follows is the part that bears o
 \includegraphics[width=\linewidth]{figures/fig_capacity_by_generator.png}
 \caption{Constraint-based deployment capacity by generator, log scale. The dot is the arm median
 and the bar is its full range. The local corpus is \fsCorpusN{} strategies; each frontier arm is
-twenty. \textbf{The medians move --- one of them outside the pre-registered bound --- while every
-arm spans one to two orders of magnitude internally.} The second fact is the more important one:
-the spread within any single generator is wider than the gap between generators.}
+twenty. \textbf{The medians move, one of them outside the pre-registered bound, while every arm
+spans one to two orders of magnitude internally.} The second fact is the more important one: the
+spread within any single generator is wider than the gap between generators.}
 \label{fig:capacitybygenerator}
 \end{figure}
 
@@ -646,12 +637,12 @@ participation limit, neither of which knows who wrote the code. Two arms are con
 GPT at \fsGvGptCapRatio{}$\times$ and Claude at \fsGvClaudeCapRatio{}$\times$. Claude clears the
 stated bound by a margin far smaller than the sampling error of a twenty-strategy median, and we
 report it as not clearly failing rather than as passing. Gemini Pro is
-\fsGvGeminiCapRatio{}$\times$ --- outside the bound, and in the opposite direction from the one the
+\fsGvGeminiCapRatio{}$\times$, outside the bound and in the opposite direction from the one the
 bound was written to catch.
 
-\paragraph{The flow-conditional null holds too.} Section~\ref{sec:flow} reported that deployable
-capital does not collapse when foreign investors withdraw --- a prediction we made and then
-falsified on five factor strategies. Sixty machine-written strategies agree. The ratio of outflow
+\paragraph{The flow-conditional null holds too.} \S\ref{sec:flow} reported that deployable
+capital does not collapse when foreign investors withdraw, a prediction we made and then falsified
+on five factor strategies. Sixty machine-written strategies agree. The ratio of outflow
 capacity to inflow capacity has a median of \fsGvGptFlowMedian{} on the GPT arm,
 \fsGvClaudeFlowMedian{} on Claude and \fsGvGeminiFlowMedian{} on Gemini, against
 \fsFlowRatioMedian{} for the factors. No arm's median falls below
@@ -670,7 +661,7 @@ books would be constructed after seeing the result it explains, and would be exp
 precise sense this laboratory exists to police. We state the measurement and stop.
 
 \paragraph{What it means for this paper.} Capacity is \emph{not} generator-invariant, and any
-reading of Section~\ref{sec:capacity} as a statement about machine-written strategies in general is
+reading of \S\ref{sec:capacity} as a statement about machine-written strategies in general is
 unsupported by this evidence. The figures in this paper describe the strategies this paper measured.
 That is a narrower claim than we expected to be making, and it is the claim the data supports.
 
@@ -678,9 +669,9 @@ That is a narrower claim than we expected to be making, and it is the claim the 
 populations: capacity is set by the least liquid name a strategy insists on trading, the span within
 each arm is one to two orders of magnitude, and the frontier arms span
 \fsGvGeminiCapSpan{}$\times$ at the widest against \fsCorpusSpan{}$\times$ locally. The validation
-gap of Section~\ref{sec:validation} therefore recurs with more force than it was first reported
-with: a benchmark validated on five factor strategies spanning under ten times was, on this
-evidence, being validated on a population narrower than any generator produces.
+gap of \S\ref{sec:validation} therefore recurs with more force: a benchmark validated on five
+factor strategies spanning under ten times was, on this evidence, being validated on a population
+narrower than any generator produces.
 
 \section{Design flaws, mistakes, and things that did not work}
 \label{sec:flaws}
@@ -711,7 +702,7 @@ correction rather than treated as invalidating the published figures. & correcti
 \midrule
 The ML impact model was withdrawn &
 Originally specified here. It would have been trained to predict a quantity the data cannot
-identify, and benchmarked against an equally unidentified baseline --- a comparison between two
+identify, and benchmarked against an equally unidentified baseline: a comparison between two
 artefacts. Deleted rather than shipped. & \S\ref{sec:identification} \\
 \midrule
 Value and quality factors are absent &
@@ -743,8 +734,8 @@ this data, so the cost model carries it as a stated engineering assumption forev
 \end{itemize}
 
 \begin{finding}
-Three of this paper's four original research questions returned nulls, and the fourth --- capacity
---- survives only because it was narrowed to a claim the data supports. \textbf{We report the
+Three of this paper's four original research questions returned nulls, and the fourth, capacity,
+survives only because it was narrowed to a claim the data supports. \textbf{We report the
 narrowing in the results rather than presenting the smaller claim as though it had always been the
 plan.}
 \end{finding}
@@ -755,8 +746,8 @@ plan.}
 
 \begin{enumerate}
 \item \textbf{The flow proxy.} The flow-conditional null rests on derivatives activity rather than
-cash-market flow. This is the threat we would attack first, and it is stated in the abstract and in
-the result rather than only here.
+cash-market flow. This is the threat we would attack first, and it is stated in the abstract and
+the result, not only here.
 
 \item \textbf{Capacity is an extreme-value statistic.} The headline is a minimum over roughly twelve
 hundred sessions and is therefore sensitive to any one of them. We report the fifth percentile and a
@@ -791,8 +782,8 @@ about the phenomenon.
 \section{What this tells us about AI-driven research}
 \label{sec:meaning}
 
-Three claims, at three scopes, kept separate --- the same discipline papers 1 and 2 apply, because
-the three papers must be readable as one argument.
+Three claims, at three scopes, kept separate. Papers 1 and 2 apply the same discipline, because the
+three must be readable as one argument.
 
 \paragraph{Generator-independent \tagindep} The \emph{mechanism} that sets capacity, the
 flow-conditional null, and the identification failure are all properties of the market rather than
@@ -807,8 +798,8 @@ than we expected to be claiming.
 
 \paragraph{Method-independent \tagmethod} The validation gap is not about language models at all.
 A benchmark validated on a narrow, familiar population missed defects that a broad one exposed
-immediately, and the generality of that has nothing to do with what wrote the strategies --- only
-with how much of the input space the validation set covered.
+immediately, and the generality of that has nothing to do with what wrote the strategies, only with
+how much of the input space the validation set covered.
 
 \begin{finding}
 Paper 1 found that a better generator writes better code without producing better evidence. Paper
@@ -832,7 +823,7 @@ Frozen and released at \repo:
   sessions, and the tolerance $\varepsilon$ that the machine corpus forced us to add.
 \item \textbf{The factor zoo}, price-and-volume only, with the two families we could not build
   named rather than quietly omitted.
-\item \textbf{The identification suite} --- four diagnostics, each with a detectability bound, and
+\item \textbf{The identification suite}: four diagnostics, each with a detectability bound, and
   the Amihud control that locates the failure in the model rather than the data. This is shipped
   as an artefact because it is the result other researchers are most likely to want to contest.
 \item \textbf{The reference corpus.} \fsCorpusAllThree{} strategies carrying an audit verdict, a
@@ -852,18 +843,18 @@ measured on the same data under the same assumptions, which is what makes the
 cross-benchmark statements in this paper possible.
 
 \begin{itemize}
-\item \textbf{AlphaAudit} --- whether a generated strategy is real, or an artifact of leakage and multiple testing. It supplies the strategy corpus the other two measure.\\
+\item \textbf{AlphaAudit}: whether a generated strategy is real, or an artifact of leakage and multiple testing. It supplies the strategy corpus the other two measure.\\
 \href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/1-alphaaudit.pdf}%
 {\texttt{papers/pdf/1-alphaaudit.pdf}} \quad$\cdot$\quad
 \href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/alphaaudit}%
 {\texttt{benchmarks/alphaaudit}}
 
-\item \textbf{RegimeStress} --- when a surviving strategy breaks, measured across counterfactual regime paths. It supplies the fragility scores and the duplicate criterion.\\
+\item \textbf{RegimeStress}: when a surviving strategy breaks, measured across counterfactual regime paths. It supplies the fragility scores and the duplicate criterion.\\
 \href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/2-regimestress.pdf}%
 {\texttt{papers/pdf/2-regimestress.pdf}} \quad$\cdot$\quad
 \href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/tree/main/benchmarks/regimestress}%
 {\texttt{benchmarks/regimestress}}
-\item \textbf{Generator validation} --- the study of Section~\ref{sec:generators}:
+\item \textbf{Generator validation}, the study of \S\ref{sec:generators}:
 the identical frozen task specification issued to three frontier models and passed
 through all three benchmarks unchanged, with its pre-registration, its falsified
 hypotheses and its full results.\\
@@ -871,8 +862,8 @@ hypotheses and its full results.\\
 {\texttt{benchmarks/generator\_validation}}
 \end{itemize}
 
-The three were designed to be read in order --- is it real, when does it break, how much
-can it take --- and each answers a question the previous one raises. Every artifact,
+The three were designed to be read in order (is it real, when does it break, how much
+can it take), and each answers a question the previous one raises. Every artifact,
 correction log and evaluation protocol is in the repository:
 \href{https://github.com/Ashwin-aadi/Trivijaya-Quant-Research}{\texttt{github.com/Ashwin-aadi/Trivijaya-Quant-Research}}.
 
@@ -888,25 +879,23 @@ have needed.
 
 The result we expect to outlast the others is the one about instruments rather than about markets.
 Within the estimators and information daily OHLCV affords, a transient-impact coefficient is not
-identified---the obstruction is not statistical precision, but that two equally defensible estimators
-disagree about its sign and the data cannot arbitrate. A great many
-published backtests price market impact from daily data. This is a measurement of what that
-assumption is worth, and it comes with a control showing that the same data supports a stable
-liquidity measure perfectly well.
+identified. The obstruction is not statistical precision, but that two equally defensible estimators
+disagree about its sign and the data cannot arbitrate. A great many published backtests price market
+impact from daily data. This measures what that assumption is worth, with a control showing that the
+same data supports a stable liquidity measure perfectly well.
 
-\textbf{FlowState is intended as benchmark infrastructure rather than a completed scientific
-result.} It is frozen, versioned, and reproducible from raw data by a documented command sequence,
-so that future strategy generators, future capacity definitions and future impact estimators can be
-evaluated against the same protocol and progress can be measured against a common standard. The
-corpus it now carries---\fsCorpusAllThree\ strategies with an audit verdict, a fragility score and a
-deployment capacity apiece---exists to make the next comparison possible.
+FlowState is \textbf{benchmark infrastructure rather than a completed scientific result}. It is
+frozen, versioned, and reproducible from raw data by a documented command sequence, so that future
+strategy generators, capacity definitions and impact estimators can be evaluated against the same
+protocol. The corpus it now carries, \fsCorpusAllThree\ strategies with an audit verdict, a
+fragility score and a deployment capacity apiece, exists to make the next comparison possible.
 
 \subsection*{Where this leaves us}
 \addcontentsline{toc}{subsection}{Where this leaves us}
 
 This paper closes the sequence the programme set out to build. A trading idea now passes through
-three questions in order --- \emph{is it real}, \emph{when does it break}, \emph{how much can it
-take} --- and \fsCorpusAllThree{} machine-written strategies carry an answer to all three, on one
+three questions in order (\emph{is it real}, \emph{when does it break}, \emph{how much can it
+take}), and \fsCorpusAllThree{} machine-written strategies carry an answer to all three, on one
 universe, one cost model and one backtest engine.
 
 \begin{finding}

@@ -32,15 +32,15 @@
 % =====================================================================================
 \programmecover{%
 A benchmark for measuring whether machine-generated quantitative research survives
-transaction costs, multiple testing and a never-touched holdout --- and whether an auditor can
+transaction costs, multiple testing and a never-touched holdout, and whether an auditor can
 tell which candidates will, before the holdout is opened.}
 
 % =====================================================================================
 \begin{abstract}
 \noindent
 A language model that writes trading strategies is a machine for manufacturing plausible
-backtests. The two defects that make such backtests worthless --- code that secretly reads the
-future, and the near-certainty that something looks brilliant if you try enough things --- are
+backtests. The two defects that make such backtests worthless, code that secretly reads the
+future and the near-certainty that something looks brilliant if you try enough things, are
 precisely the two an ordinary evaluation cannot see. As models become better programmers, the
 backtests become more plausible, not more true, and the problem gets worse rather than better.
 
@@ -53,7 +53,7 @@ hash-chained trial ledger the generator cannot write to, a frozen one-shot evalu
 and \pgmParadigmDraws{} audited machine-written candidates.
 
 \medskip\noindent
-\textbf{What we measured.} Four generators --- one local 7B model and three frontier models ---
+\textbf{What we measured.} Four generators (one local 7B model and three frontier models)
 and \pgmParadigmArms{} generation methods, all issued the same frozen task specification and all
 run through the same unchanged funnel. The question the programme asks is not which model writes
 the best code. It is whether making the AI better makes the \emph{research} better.
@@ -62,7 +62,7 @@ the best code. It is whether making the AI better makes the \emph{research} bett
 \textbf{The headline result is a separation.} On the local 7B, the binding constraint is not
 cheating but competence: every draw returned parseable, interface-conforming code, and only
 \pgmLocalTrade\% produced a strategy that both ran on real data and took a position. Frontier
-models remove that constraint completely --- \aaGvTotal{} of \aaGvTotal{} candidates executed and
+models remove that constraint completely: \aaGvTotal{} of \aaGvTotal{} candidates executed and
 traded, a rate of 100\% against \pgmLocalTrade\%. \textbf{They do not remove the second
 constraint at all.} Not one of the \aaGvTotal{} frontier candidates attained a deflated Sharpe
 probability above \aaGvBar{} at its own honest trial count, on development or on holdout;
@@ -87,13 +87,13 @@ LLM code generation \textbullet\ transaction costs \textbullet\ Indian equities}
 \addcontentsline{toc}{section}{Key findings}
 
 Each of the six numbers below answers a question. Every one carries the sample it was measured
-on, and every one is tagged with the population it describes --- because the distance between
+on, and every one is tagged with the population it describes, because the distance between
 \emph{``we observed this in our corpus''} and \emph{``AI does this''} is where this literature
 usually goes wrong.
 
 \begin{finding}[title={1.\ \ Does the AI cheat, or does it simply not work? \hfill\taglocal}]
 \textbf{It does not work.} All 1{,}550 local draws returned syntactically valid, interface-conforming
-Python with a stated rationale --- a 100\% success rate at looking correct. Only 631 (\pgmLocalExec\%)
+Python with a stated rationale: a 100\% success rate at looking correct. Only 631 (\pgmLocalExec\%)
 survived contact with real data, and of those 406 (64.3\%) never took a position.
 \textbf{\pgmLocalTrade\% of the corpus produced a strategy that both executes and trades.}
 An auditor built to catch cheating is guarding a door most candidates never reach.
@@ -108,9 +108,9 @@ disappears when capability rises. Total static leak findings across all \aaGvTot
 \end{finding}
 
 \begin{finding}[title={3.\ \ Does better code become better evidence? \hfill\tagfrontier\ \tagindep}]
-\textbf{No.} \textbf{Zero} of \aaGvTotal{} frontier candidates cleared a deflated Sharpe
-probability of \aaGvBar{} at its own trial count --- \aaGvClearedDev{} on development,
-\aaGvClearedHoldout{} on the holdout --- matching the local corpus's 0 of 631. Median holdout
+\textbf{No.} Zero of \aaGvTotal{} frontier candidates cleared a deflated Sharpe
+probability of \aaGvBar{} at its own trial count (\aaGvClearedDev{} on development,
+\aaGvClearedHoldout{} on the holdout), matching the local corpus's 0 of 631. Median holdout
 Sharpe is \emph{worse} for every frontier arm than for the local reference
 (\pgmGPTHoldMed, \pgmClaudeHoldMed, \pgmGeminiHoldMed{} against \pgmLocalHoldMed).
 \textbf{Frontier models solved the execution problem. They did not touch the evidence problem.}
@@ -125,8 +125,8 @@ $2.8\times$ annual turnover. \textbf{Cost survival selects for low turnover, not
 \end{finding}
 
 \begin{finding}[title={5.\ \ Does more elaborate prompting help? \hfill\tagmethod\ \tagprereg}]
-\textbf{Not at equal compute.} Of \pgmScaffoldArms{} scaffolded generation methods ---
-chain-of-thought, planning, reflection, graph-of-thoughts and Monte Carlo tree search ---
+\textbf{Not at equal compute.} Of \pgmScaffoldArms{} scaffolded generation methods
+(chain-of-thought, planning, reflection, graph-of-thoughts and Monte Carlo tree search),
 \textbf{\pgmScaffoldWins{} beat plain prompting once plain prompting was given the same token
 budget} and allowed to keep its best of $k$ attempts. The scaffolding buys candidates, and the
 control buys the same number of candidates more cheaply.
@@ -134,7 +134,7 @@ control buys the same number of candidates more cheaply.
 
 \begin{finding}[title={6.\ \ Can the auditor tell in advance which ones are real? \hfill\tagindep}]
 \textbf{Not on any corpus we generated.} Across \pgmNullCorpora{} independently generated corpora
---- six generation methods, three frontier models, and the pooled local corpus --- and all seven
+across six generation methods, three frontier models, and the pooled local corpus, and all seven
 combinations of the three auditor layers, \textbf{\pgmNullBeating{} of \pgmNullCombos{}
 configurations beat random rejection at matched coverage on out-of-sample data.} We publish the
 null rather than tune past it. It survived two subsequent corrections of our own pipeline.
@@ -176,7 +176,7 @@ the second is an empirical question, and the answer we measured is no.
 
 Suppose a generator improves so much that every strategy it writes executes flawlessly on the
 first attempt. Nothing about that improvement makes the underlying market predictable. What it
-changes is the \emph{number of plausible-looking candidates per unit of effort} --- and the
+changes is the \emph{number of plausible-looking candidates per unit of effort}, and the
 probability that the best of a large set looks impressive by luck alone rises with the size of
 the set. A better generator therefore produces a better-looking best backtest and no more real
 alpha. Improvement on the generator axis is improvement in the rate at which candidates arrive at
@@ -208,7 +208,7 @@ what would destroy it is adjusting the implementation until it passed.
 \section{What can go wrong with an AI-generated strategy}
 \label{sec:whatgoeswrong}
 
-Before any machinery, the failure modes --- in plain terms, because the rest of the paper is
+Before any machinery, the failure modes, in plain terms, because the rest of the paper is
 about detecting them and a reader who has not met them cannot judge whether the detectors are
 adequate.
 
@@ -218,12 +218,12 @@ A backtest simulates trading through history. It is trivially easy, and usually 
 write one that uses information from after the moment it claims to be deciding. A signal computed
 from today's closing price cannot be used to buy at today's opening price, but nothing in ordinary
 Python stops you writing that. The resulting equity curve is not a slightly optimistic estimate
---- it is a measurement of a machine that can see tomorrow, and it can be arbitrarily good.
+It is a measurement of a machine that can see tomorrow, and it can be arbitrarily good.
 
 This is called \textbf{lookahead bias} or \textbf{leakage}. It has recognisable species:
 
 \begin{itemize}
-\item \textbf{Future indexing.} Directly using a value from a later timestamp --- a
+\item \textbf{Future indexing.} Directly using a value from a later timestamp: a
   \texttt{shift(-1)}, a reversed slice.
 \item \textbf{Full-sample statistics.} Computing a mean, standard deviation or quantile over the
   whole history and using it to make decisions early in that history. The mean of a series you
@@ -237,7 +237,7 @@ This is called \textbf{lookahead bias} or \textbf{leakage}. It has recognisable 
 \end{itemize}
 
 Only some of these announce themselves in the source. The last is a property of how the data was
-assembled, not of the strategy code at all --- which is why \S\ref{sec:infra} spends as much space
+assembled, not of the strategy code at all, which is why \S\ref{sec:infra} spends as much space
 on the universe as on the auditor.
 
 \subsection{Someone tried three hundred things}
@@ -251,7 +251,7 @@ was learned, but because the maximum of three hundred noisy numbers is large. Th
 The correction is not to shrink the winner's Sharpe ratio. It is to \emph{raise the bar} it must
 clear, by the amount that luck alone would deliver given how many attempts were made
 \citep{bailey2014}. With widely dispersed trials, two hundred attempts buy an expected best Sharpe
-of about $2.77$ by luck --- so an observed $2.0$ from two hundred attempts is not impressive, it
+of about $2.77$ by luck, so an observed $2.0$ from two hundred attempts is not impressive; it
 is \emph{below} what chance produces.
 
 That correction has a precondition which is where LLM pipelines quietly fail: \textbf{you must
@@ -274,8 +274,8 @@ Indian backtests are fiction for this reason alone \citep{novymarx2016,frazzini2
 A machine-written strategy comes with a stated rationale. Nothing enforces that the rationale
 describes the code. A model can write a paragraph about liquidity provision in mid-caps and
 implement momentum; it can offer a mechanism so elastic that it would explain any outcome; or it
-can rediscover a forty-year-old anomaly and present it as novel. None of these is a bug --- the
-code runs, the backtest is honest --- and all of them mean the finding is not what it claims.
+can rediscover a forty-year-old anomaly and present it as novel. None of these is a bug. The
+code runs and the backtest is honest, yet all of them mean the finding is not what it claims.
 
 % =====================================================================================
 \section{What was available before AlphaAudit, and why it was not enough}
@@ -294,7 +294,7 @@ in \S\ref{sec:auditor} is not our invention. What they do not supply is the hone
 when the researcher is an autonomous loop. The literature assumes a human who knows roughly how
 many models they fitted.
 
-\paragraph{Selective prediction} formalises the right question --- a system that declines to act
+\paragraph{Selective prediction} formalises the right question: a system that declines to act
 when unconfident is worth more than one that is occasionally brilliant and frequently wrong
 \citep{elyaniv2010,geifman2017}. It has not been applied to strategy research, where the
 ``label'' arrives only after out-of-sample time has elapsed, and where abstention is nearly free
@@ -306,8 +306,8 @@ evaluation. A more capable finance model produces more plausible candidates. Sec
 
 \begin{finding}
 The gap AlphaAudit fills: there was no environment in which a machine-written strategy corpus
-could be scored for \emph{validity} --- survivorship-free, cost-realistic, trial-counted,
-holdout-disciplined --- under a protocol fixed before the results were seen. Building the
+could be scored for \emph{validity} (survivorship-free, cost-realistic, trial-counted,
+holdout-disciplined) under a protocol fixed before the results were seen. Building the
 environment is the contribution that does not depend on our auditor working.
 \end{finding}
 
@@ -343,15 +343,15 @@ basis-point assumption was not acceptable and is not used.
 
 The model is validated by hand-computing a \rupee 1{,}00{,}000 delivery round trip line by line
 and asserting agreement to the paisa, and independently by entering the same trade into a
-discount broker's public calculator. One component --- the square-root market-impact coefficient
---- remains an uncalibrated engineering assumption, and paper 3 of this programme reports the
+discount broker's public calculator. One component, the square-root market-impact coefficient,
+remains an uncalibrated engineering assumption, and paper 3 of this programme reports the
 measurement showing that daily data cannot calibrate it \citep{almgren2005}.
 
 \subsection{An engine that raises rather than warns}
 
 Point-in-time discipline is a property of the engine, not a convention the strategy author is
 trusted to honour. Every signal carries the timestamp at which its information became available,
-and the engine raises \texttt{PointInTimeError} --- an exception, not a warning --- if any order's
+and the engine raises \texttt{PointInTimeError}, an exception rather than a warning, if any order's
 signal timestamp is not strictly prior to its fill timestamp. A signal computed from a session's
 close may trade no earlier than the next session's open. Cross-validation is purged with an
 embargo after each test fold, following \citet{lopezdeprado2018}, so overlapping label windows
@@ -359,11 +359,11 @@ cannot leak across the split.
 
 \subsection{Fixtures: we wrote the disease before the test for it}
 
-Three strategies in \texttt{tests/fixtures/leaky/} cheat deliberately --- one uses next-day
+Three strategies in \texttt{tests/fixtures/leaky/} cheat deliberately: one uses next-day
 returns as a feature, one fits a scaler on the full sample before splitting, one selects its
 universe from end-of-period membership. All three produce absurd results, which is the point:
-they are the positive controls for the auditor. Thirty honest strategies --- moving-average
-crossovers, simple momentum, mean reversion --- measure the false-positive rate.
+they are the positive controls for the auditor. Thirty honest strategies (moving-average
+crossovers, simple momentum, mean reversion) measure the false-positive rate.
 
 \begin{scopebox}
 The fixtures establish that the auditor catches cheats \emph{of the kinds we thought to write}.
@@ -409,9 +409,9 @@ sample length $T$, skewness $\gamma_3$ and kurtosis $\gamma_4$:
      {\sqrt{1 - \gamma_3 \widehat{SR} + \frac{\gamma_4 - 1}{4}\widehat{SR}^{\,2}}}
 \right),
 \]
-where $SR_0$ is the expected maximum Sharpe across $N$ trials --- a function of both $N$ and the
-\emph{dispersion} of the trials' Sharpes. Restating the mechanism, because it is routinely
-misread: deflation does not shrink the strategy's Sharpe, it raises the bar the Sharpe must clear.
+where $SR_0$ is the expected maximum Sharpe across $N$ trials, a function of both $N$ and the
+\emph{dispersion} of the trials' Sharpes. The mechanism is routinely misread: deflation does not
+shrink the strategy's Sharpe, it raises the bar the Sharpe must clear.
 
 \paragraph{The ledger.} This is worthless without an honest $N$, and an LLM generator is a machine
 for losing count. We maintain a \textbf{hash-chained, append-only trial ledger outside the
@@ -442,7 +442,7 @@ Validation is against 50 items labelled by hand \emph{before} the model was run.
 \textbf{Cohen's $\kappa = 0.589$} \citep{cohen1960}, raw agreement 38 of 50, at the top of the
 ``moderate'' band of \citet{landis1977}. Per-class agreement is uneven: \texttt{consistent} 26 of
 31, \texttt{unfalsifiable\_mechanism} only 2 of 5. No prompt was tuned before this measurement and
-none was tuned after it, and the disposition --- keep the layer --- was fixed before the number
+none was tuned after it, and the disposition (keep the layer) was fixed before the number
 was known.
 
 \paragraph{One reconciliation, which is the ablation argument in miniature.} The human reviewer
@@ -459,7 +459,7 @@ something'' signal would obscure exactly that.
 
 \subsection{One task specification, four generators, six methods}
 
-Every arm in this programme receives the \textbf{same frozen task specification} --- one prompt,
+Every arm in this programme receives the \textbf{same frozen task specification}: one prompt,
 whose SHA256 digest \texttt{f307433c\ldots} is published so that any later arm can be verified as
 having received it verbatim. This is what makes the comparisons in \S\ref{sec:frontier} and
 \S\ref{sec:methods} comparisons of the generator and the method rather than of the prompt.
@@ -484,10 +484,10 @@ what it keeps must perform on data it never saw. A flat or falling curve means t
 noise.
 
 The random baseline is the whole test. Any rejection rule improves the retained set's average if
-the discarded candidates were worse on average --- so ``performance improved as we became
+the discarded candidates were worse on average, so ``performance improved as we became
 selective'' proves nothing unless it beats discarding at random by the same amount.
 
-\subsection{Two design choices that shape the result, stated plainly}
+\subsection{Two design choices that shape the result}
 
 \textbf{Flat candidates are excluded from the ranking population} rather than ranked last. They
 are all tied at exactly zero, and at 64\% of the executed set they would dominate every retained
@@ -495,7 +495,7 @@ set. Ranking them last would have been equally defensible and would have produce
 lower curve.
 
 \textbf{Survivors handed forward to papers 2 and 3 are defined by
-$A_{\mathrm{static}} \wedge A_{\mathrm{sem}}$}, excluding the statistical layer --- which rejects
+$A_{\mathrm{static}} \wedge A_{\mathrm{sem}}$}, excluding the statistical layer, which rejects
 the entire corpus and would make the handoff empty by construction. This is the one place in the
 programme where we chose the definition that produces a non-empty answer, and we flag it as such
 here rather than in a footnote.
@@ -522,7 +522,7 @@ produced them rather than asking to be believed. \textbf{The paper-1 holdout is 
 
 The frontier and generation-method arms of \S\ref{sec:frontier} and \S\ref{sec:methods} were
 evaluated on the same holdout once each, under a separate written authorisation, on an apparatus
-frozen beforehand and unmodified since --- reuse being contaminating when one method is repeatedly
+frozen beforehand and unmodified since, reuse being contaminating when one method is repeatedly
 tuned against the same data, whereas here each generator is a new subject scored by a frozen
 instrument.
 
@@ -544,7 +544,7 @@ digest, seed rule and window.
 \caption{The funnel. $n=\aaLocalDraws{}$ draws, one model, one prompt. \textbf{Everything the model
 returned was parseable and interface-conforming; almost nothing survived contact with real data.}
 Of the candidates that executed, most ran their full course without ever
-taking a position --- a failure mode that produces no error and would be invisible to any check
+taking a position, a failure mode that produces no error and would be invisible to any check
 that only asks whether the code ran.}
 \label{fig:localfunnel}
 \end{figure}
@@ -577,7 +577,7 @@ Static analysis needs no execution, so it ran over all 1{,}550 sources: \aaLocal
 \begin{figure}[h]\centering
 \includegraphics[width=\linewidth]{figures/fig_leak_classes.png}
 \caption{\emph{Left:} what the static auditor found across all \aaLocalDraws{} sources, by class.
-One class dominates and one is empty, and the empty one is the finding --- see below.
+One class dominates and one is empty, and the empty one is the finding; see below.
 \emph{Right:} what became of the \aaLocalStatic{} candidates it rejected. \textbf{Almost every
 flag landed on code that never took a position}, so a leakage-prevalence rate measured over
 generated source is not a deployment-risk rate.}
@@ -592,7 +592,7 @@ ours: to raise the executable rate from near zero, the prompt advises working in
 rather than in long polars expression chains, and \texttt{pl.col("x").mean()} over an unfiltered
 frame is precisely where this class arises. The distribution above therefore describes
 \textbf{this prompt}, not LLM-generated strategies in general, and the zero should be read as
-evidence that the instrument is blind here --- not that the defect is absent.
+evidence that the instrument is blind here, not that the defect is absent.
 \end{selfreport}
 
 \paragraph{Most leak flags land on code that never produced a result.} Static analysis is a
@@ -606,7 +606,7 @@ The right-hand panel of Figure~\ref{fig:leakclasses} shows where they landed.
 \noindent \textbf{Only \aaLocalStaticRankable{} leak findings in the entire corpus attach to a
 strategy that took a position.} A worked example makes the mechanism concrete. Candidate 053 is
 flagged \texttt{future\_indexing} at confidence 1.0 for a \texttt{shift(-1)} whose result is then
-filtered onto a past session date --- textbook future indexing, correctly caught. But the block is
+filtered onto a past session date: textbook future indexing, correctly caught. But the block is
 unreachable: the guard preceding it requires 21 rows from a view that returns at most 20, so it is
 false on every session and the function exits before the leak executes. Had it been reached it
 would have raised twice over.
@@ -634,7 +634,7 @@ ones is not established on this population, since $\kappa$ was measured on a dif
 evidence problem.}
 \end{finding}
 
-The obvious objection to \S\ref{sec:local} --- and the first one a referee reaches for --- is that
+The obvious objection to \S\ref{sec:local}, and the first one a referee reaches for, is that
 we measured a small local model, not AI strategy generation. So the identical frozen task
 specification was issued to three frontier models, and every candidate was run through the
 identical unchanged funnel. \textbf{This is not an appendix.} The generator is part of the
@@ -658,11 +658,11 @@ direction that would matter.}
 
 \begin{figure}[t]\centering
 \includegraphics[width=\linewidth]{figures/fig_frontier_axis.png}
-\caption{The generator axis: identical prompt, identical funnel, \textbf{not compute-matched} ---
+\caption{The generator axis: identical prompt, identical funnel, \textbf{not compute-matched}:
 these are rate claims only, never efficiency claims. Each quantity gets its own panel because they
 share no unit. \textbf{The top row moves and the bottom row does not.} Draws are \pgmPlainDraws{}
 locally and \aaGvGptN{} on each frontier arm. The statistical layer is not plotted because it
-rejected \emph{every} strategy on \emph{every} arm --- a flat row of four identical bars, and
+rejected \emph{every} strategy on \emph{every} arm, a flat row of four identical bars, and
 \S\ref{sec:factors} is where that gets taken seriously.}
 \label{fig:frontier}
 \end{figure}
@@ -672,7 +672,7 @@ Every frontier arm executed and traded at 100\%. The execution barrier that cons
 local corpus is not a property of machine-written strategies; it is a property of a 7B model, and
 it vanishes with capability. Total static leak findings across all \aaGvTotal{} frontier
 candidates: \aaGvStaticTotal{}. Frontier models do not write the cheats our static layer was built
-to detect --- but note that the local corpus barely did either
+to detect, but note that the local corpus barely did either
 (\aaLocalStaticRankable{} of 1{,}550 that both leaked and traded), so this is a small effect
 measured on a small sample, not a demonstration that capability eliminates leakage.
 
@@ -686,12 +686,12 @@ Capability changed the numerator of the funnel by a factor of seven and left thi
 
 Every frontier arm's median holdout Sharpe is \emph{worse} than the local reference's, and every
 arm's mean is negative on both windows. The best single holdout Sharpe in any frontier arm is
-\aaGvClaudeHoldBest{} --- positive, but nowhere near clearing deflation at that arm's own trial
+\aaGvClaudeHoldBest{}: positive, but nowhere near clearing deflation at that arm's own trial
 count, and selected as the maximum of twenty.
 
 \begin{scopebox}
 \textbf{The supportable claim is that frontier models did not \emph{improve} out-of-sample
-performance --- not that they produced none.} Three things block the stronger claim.
+performance, not that they produced none.} Three things block the stronger claim.
 \begin{itemize}
 \item Median holdout Sharpe is worse for all three arms, but the \emph{fraction} with a positive
   holdout Sharpe is better: 40\%, 35\% and 30\% against the local arm's \pgmPlainHoldPos\%.
@@ -712,7 +712,7 @@ Comparing a 20-draw arm against a 1{,}550-draw corpus is not a fair deflation co
 deflation punishes trials: a 20-trial arm faces a much lower bar than a 1{,}550-trial one. So we
 drew \aaGvSubsamples{} random subsamples of the local corpus at each frontier arm's size and
 deflated each subsample at its own trial count, recomputing trial dispersion \emph{within} the
-subsample --- because that is the only information a 20-draw arm actually has.
+subsample, because that is the only information a 20-draw arm actually has.
 
 \begin{center}\small
 \begin{tabular}{lrr}
@@ -729,7 +729,7 @@ Development window & \aaGvMatchedDevSmall{}/\aaGvSubsamples{} &
 \end{center}
 
 \takeaway{On development, a five-draw slice of the \emph{local} corpus clears the bar 4.1\% of the
-time --- purely because five trials are cheap to deflate. No frontier arm cleared it at twenty. On
+time, purely because five trials are cheap to deflate. No frontier arm cleared it at twenty. On
 the holdout, nothing clears at any size: \aaGvMatchedHoldoutSmall{} of \aaGvSubsamples{} local
 subsamples, and \aaGvClearedHoldout{} of \aaGvTotal{} frontier candidates. This is the control
 that shows the frontier arms' failure is not a small-sample artefact.}
@@ -738,7 +738,7 @@ that shows the frontier arms' failure is not a small-sample artefact.}
 
 \begin{finding}
 \tagfrontier\ \tagexpl\ \ Three GPT candidates and two Gemini candidates produce holdout return
-series \textbf{identical to within $8.7\times10^{-19}$ across all 245 sessions} --- the same
+series \textbf{identical to within $8.7\times10^{-19}$ across all 245 sessions}, the same
 turnover, the same volatility, the same return. Two different vendors, given the same prompt,
 converged on behaviourally identical code. \textbf{That cluster sits exactly on the median of both
 arms}, which is why GPT and Gemini report the same median holdout Sharpe to sixteen decimal
@@ -746,7 +746,7 @@ places (\pgmGPTHoldMed{} and \pgmGeminiHoldMed).
 \end{finding}
 
 This was found while checking whether the identical medians were a bug. They are not; they are a
-measurement. Duplicate clustering is not a local-model pathology --- it recurs at the frontier,
+measurement. Duplicate clustering is not a local-model pathology; it recurs at the frontier,
 across vendors. It also means a per-arm mean or median can be a statement about one duplicated
 idea rather than about twenty independent ones, and any comparison across these arms inherits that.
 
@@ -762,8 +762,9 @@ establish a general property of frontier models.
 \label{sec:methods}
 
 \begin{finding}
-\tagmethod\ \tagprereg\ \ \textbf{Of \pgmScaffoldArms{} scaffolded generation methods,
-\pgmScaffoldWins{} beat plain prompting once plain prompting was given the same token budget.}
+\tagmethod\ \tagprereg\ \ Of \pgmScaffoldArms{} scaffolded generation methods,
+\textbf{\pgmScaffoldWins{} beat plain prompting} once plain prompting was given the same token
+budget.
 \end{finding}
 
 If capability does not help, perhaps method does. The same local model, the same frozen task
@@ -775,7 +776,7 @@ total.
 \subsection{Why the naive comparison is worthless}
 
 A five-agent committee that spends five times the tokens of a single prompt and produces better
-output has demonstrated nothing. Of course it does --- it thought five times as hard. The honest
+output has demonstrated nothing. Of course it does; it thought five times as hard. The honest
 control is not plain prompting at its natural budget; it is \textbf{plain prompting run $k$ times
 at the same total token budget, allowed to keep its best}. We compute $k$ from measured tokens per
 accepted strategy, and we count barren blocks in the denominator so that a method is not rewarded
@@ -786,7 +787,7 @@ for the attempts it wasted.
 \caption{The methodology axis, all on the same local model. \emph{Top:} each scaffolded method
 against plain prompting at the same measured token budget, where $k$ is the number of
 plain-prompting attempts the scaffolded method's token spend buys. \emph{Middle and bottom:} the
-two panels a yield comparison alone would have missed --- a method that collapses onto one idea and
+two panels a yield comparison alone would have missed: a method that collapses onto one idea and
 repeats it scores well on average and is worth nothing, and a method that raises yield without
 raising out-of-sample performance has produced code rather than research.}
 \label{fig:matched}
@@ -807,7 +808,7 @@ clearing the entire evaluation stack.}
 \subsection{The one arm that looks like a win, and why we do not report it as one}
 
 Tree search reaches \pgmMctsTrade\% yield and \pgmMctsSurv\% full-stack survival against plain
-prompting's \pgmPlainTrade\% and \pgmPlainSurv\% --- by far the highest in the programme. It is
+prompting's \pgmPlainTrade\% and \pgmPlainSurv\%, by far the highest in the programme. It is
 also the arm whose compute-matched control is highest of all, at \pgmMctsCtrlYield\% against its
 own \pgmMctsTreatYield\%.
 
@@ -817,14 +818,14 @@ principal investigator's ruling and for three reasons stated before its downstre
 examined. Its sample is the smallest in the programme (\pgmMctsDraws{} draws). Its $k$ is the
 largest (\pgmMctsK{}), so its control is correspondingly generous. And a jump of this size in this
 domain is, on the programme's own standing rule, more likely to be a defect than a discovery. We
-did not delete the arm --- deleting an inconvenient arm is worse than reporting a confusing one
---- and we do not claim it as a win.
+did not delete the arm, since deleting an inconvenient arm is worse than reporting a confusing one,
+and we do not claim it as a win.
 \end{scopebox}
 
 \subsection{Does scaffolding trade diversity for quality?}
 
 The hypothesis stated in advance was that heavier scaffolding induces mode collapse: quality rises
-while diversity falls. The measurement is redundancy --- the share of a method's tradeable output
+while diversity falls. The measurement is redundancy: the share of a method's tradeable output
 sitting inside a cluster of behaviourally identical return series, detected by union-find over
 realised returns.
 
@@ -854,8 +855,8 @@ methods, same strategies.
 
 \begin{table}[t]\centering\small
 \caption{Gross to net over the development window, local corpus. $n=\aaLocalRankable{}$ traded
-candidates. Gross and net come from a \emph{single run} --- the engine records the pre-cost series
-alongside the post-cost one --- so the drag is a measured quantity on one path, not a difference
+candidates. Gross and net come from a \emph{single run} (the engine records the pre-cost series
+alongside the post-cost one), so the drag is a measured quantity on one path, not a difference
 between two runs.}
 \label{tab:grossnet}
 \begin{tabular}{lrr}
@@ -882,7 +883,7 @@ Mean and median diverge by a factor of thirteen on cost drag. The mean is dragge
 churning above $80\times$ annual turnover; the median strategy loses 0.19 of Sharpe and 4.4\% a
 year. Both are reported because quoting either alone misleads.
 
-The best gross strategy is also the best net strategy --- because it barely trades, at
+The best gross strategy is also the best net strategy, because it barely trades, at
 $2.8\times$ annual turnover and 0.4\% annual cost. \textbf{Cost survival selects for low turnover,
 not for skill}, the same conclusion \citet{novymarx2016} reach for US anomalies, arrived at here
 through a very different door.
@@ -890,7 +891,7 @@ through a very different door.
 \paragraph{Standard factors are not spared.} Eleven textbook factors through the same pipeline as
 a positive control: drag rises monotonically with turnover in ten of eleven rows, and two factors
 flip from profitable to unprofitable. Momentum \citep{jegadeesh1993} survives at a net Sharpe of
-0.9656 --- but equal-weighting the same universe returns 0.9615. \textbf{Net of Indian costs, the
+0.9656, but equal-weighting the same universe returns 0.9615. \textbf{Net of Indian costs, the
 momentum premium on this universe is inside the noise.}
 
 \paragraph{The eleventh row, and why the assumed book size decides the verdict.} The one factor
@@ -944,15 +945,14 @@ puts the question to a population where the answer is known in advance, and sett
 
 \begin{finding}
 \tagexpl\ \ \textbf{The statistical layer rejects momentum.} Eleven published factor strategies,
-deflated at their own family trial count, produce \textbf{\sfCleared{} clearing the
-\sfBar{} bar} --- the same verdict the layer returns on every machine-written corpus. Its maximum
-is \sfMaxDsr{}. \textbf{The auditor's 100\% rejection rate carries no information about who wrote
-the strategies.}
+deflated at their own family trial count, produce \sfCleared{} clearing the \sfBar{} bar, the same
+verdict the layer returns on every machine-written corpus; its maximum is \sfMaxDsr{}. The
+auditor's 100\% rejection rate carries no information about who wrote the strategies.
 \end{finding}
 
 Everything in \S\ref{sec:local}--\S\ref{sec:methods} compares machine-written corpora against one
 another. That cannot tell us whether a verdict is about machine authorship or about the market, so
-the pipeline also carries \sfN{} standard factor strategies --- momentum, low volatility,
+the pipeline also carries \sfN{} standard factor strategies: momentum, low volatility,
 short-term and long-term reversal, relative strength, an equal-weight market reference, and two
 deliberate controls including a random walk. They were hand-written as Phase 1.2 fixtures, the set
 was frozen before any of them was run, and they were never drawn from any search of ours.
@@ -960,7 +960,7 @@ was frozen before any of them was run, and they were never drawn from any search
 \begin{selfreport}[title={They had never been shown to the statistical layer at all}]
 This is a gap we found late and report rather than quietly close. The factors were run through the
 static layer (\sfStatic{} rejected of \sfN{}) and through the cost model, and their determinism and
-knife-edge behaviour were measured for paper 2 --- but the positive-control artefact carries a
+knife-edge behaviour were measured for paper 2, but the positive-control artefact carries a
 static verdict and nothing else. \textbf{The one population that would make the statistical layer's
 rejection rate interpretable had never been put to it.} The deflation below was run on 2026-08-08,
 appears in no pre-registration, and is \textbf{exploratory throughout}.
@@ -980,7 +980,7 @@ one factor; the bar length is what costs take. Rust marks a factor whose Sharpe 
 survival is not a machine-authorship problem; it is a turnover problem, and it applies to
 published anomalies exactly as it applies to generated ones.}
 
-Momentum \citep{jegadeesh1993} survives at a net Sharpe of \sfBestNet{} --- but equal-weighting
+Momentum \citep{jegadeesh1993} survives at a net Sharpe of \sfBestNet{}, but equal-weighting
 the same universe returns 0.9615. \textbf{Net of Indian costs, the momentum premium on this
 universe is inside the noise.}
 
@@ -994,18 +994,18 @@ have its rust dot to the right of the dashed line. None does.}
 \label{fig:factordeflation}
 \end{figure}
 
-Undeflated, the best factors look conclusive --- momentum's probabilistic Sharpe ratio against zero
+Undeflated, the best factors look conclusive: momentum's probabilistic Sharpe ratio against zero
 is 0.981. Deflated at $N=\sfTrials{}$, it is \textbf{0.00048}. The trial count is barely doing any
 work at eleven trials; what sets the bar is the \emph{dispersion} of the comparison family, which
 came out at an annualised trial-Sharpe standard deviation of \sfTrialSd{}.
 
 \begin{finding}
 The arithmetic, stated so a reader can check it: at $N=\sfTrials{}$ with the measured dispersion,
-the luck threshold is \textbf{2.51 annualised}. Momentum's \sfBestNet{} falls \textbf{1.54 short}.
-\textbf{To clear \sfBar{} on this window a strategy needs an annualised Sharpe of 3.36} --- against
-a best observed of \sfBestNet{}, and against a charter that treats any Sharpe above 1.5 before
-costs as an automatic halt-and-investigate condition. \textbf{The auditor's pass bar sits at more
-than twice the level at which our own rules require us to presume the result is a bug.}
+the luck threshold is 2.51 annualised, and momentum's \sfBestNet{} falls 1.54 short. To clear
+\sfBar{} on this window a strategy needs an annualised Sharpe of 3.36, against a best observed of
+\sfBestNet{}, and against a charter that treats any Sharpe above 1.5 before costs as an automatic
+halt-and-investigate condition. \textbf{The auditor's pass bar sits at more than twice the level at
+which our own rules require us to presume the result is a bug.}
 \end{finding}
 
 \subsection{The mechanism: dispersion, not trial count}
@@ -1022,7 +1022,7 @@ to diagnose rather than to flatter, does not exempt it from being labelled.
 \end{center}
 
 \textbf{Same strategy, same Sharpe, same trial count, and a verdict that moves by three orders of
-magnitude} --- 0.0005 to 0.786 --- depending only on which other strategies stand beside it. The
+magnitude} (0.0005 to 0.786) depending only on which other strategies stand beside it. The
 Deflated Sharpe Ratio's verdict is dominated by an input the researcher chooses.
 
 The primary figure remains the pre-specified set of all \sfN{}. We do not adopt any of the reduced
@@ -1037,8 +1037,8 @@ reproduces independently, at an annualised trial-Sharpe standard deviation of \s
 these \sfN{} factors and 2.234 across a separate set of 30 clean fixtures measured a year earlier.
 
 \textbf{The implementation is correct and the bar is unreachable.} The Deflated Sharpe Ratio's
-standard error scales as $1/\sqrt{T}$, and $T=1{,}232$ sessions --- five years, the most this
-repository's free data allows --- cannot resolve a 0.97 Sharpe from a 2.51 threshold. The three
+standard error scales as $1/\sqrt{T}$, and $T=1{,}232$ sessions (five years, the most this
+repository's free data allows) cannot resolve a 0.97 Sharpe from a 2.51 threshold. The three
 things that would make the layer informative are a longer window, a dispersion measured from a
 genuinely skill-free null rather than from a live family containing genuinely bad strategies, and
 reporting the deflated value as a continuous score rather than through a 0.95 gate.
@@ -1063,7 +1063,7 @@ panel has its own scale; the five quantities share no unit. $n=\sfN{}$ factors a
 
 \takeaway{Three tests separate the two arms and two do not. Machine-written strategies are
 \emph{more} nondeterministic (\sfNondet{} of \sfN{} factors against 27 of 185) and land more static
-leak flags. Costs and deflation treat both arms the same. \textbf{And fragility runs backwards} ---
+leak flags. Costs and deflation treat both arms the same. \textbf{And fragility runs backwards}:
 the standard factors are \emph{more} fragile (\sfMedFrag{}) than the machine corpus (0.618),
 because fragility scores consistency and the machine corpus is full of strategies that are
 consistently near-flat. Paper 2 makes that argument in full.}
@@ -1071,7 +1071,7 @@ consistently near-flat. Paper 2 makes that argument in full.}
 \begin{scopebox}
 \textbf{These are \sfN{} strategies.} Every rate in Figure~\ref{fig:factorsvscorpus} computed on
 the factor arm has a denominator of eleven, so a single strategy moves it by nine percentage
-points. The arm is a control, not a sample --- it establishes that a verdict is \emph{not} specific
+points. The arm is a control, not a sample; it establishes that a verdict is \emph{not} specific
 to machine authorship, and it cannot establish the size of any difference that remains.
 
 \textbf{It is also not a ``human versus AI'' comparison and must not be read as one.} These
@@ -1101,7 +1101,7 @@ None does. Sample sizes are printed per row and range from 13 to 225.}
 \takeaway{The result does not depend on the generator, the generation method, or the corpus.
 Every dot is inside or below its interval.}
 
-Six of the ten corpora place the best configuration \emph{below} the random interval --- worse
+Six of the ten corpora place the best configuration \emph{below} the random interval: worse
 than discarding at random. The pooled local corpus's best configuration is
 $\aaLocalAuapBest{}$ against a random interval of
 $[\aaLocalRandomLow{}, \aaLocalRandomHigh{}]$; the best frontier arm is
@@ -1139,7 +1139,7 @@ uninformative'' from ``these corpora are too weak to test it''.}
 The population being ranked is one in which \pgmLocalTrade\% of draws trade at all, nothing clears
 deflation, and \aaLocalFlipsPct\% of the profitable reverse sign under costs. Asking an auditor to
 rank that population for out-of-sample quality may be asking it to order noise. A stronger
-generator would test the auditor properly --- and the frontier arms, which are a stronger
+generator would test the auditor properly, and the frontier arms, which are a stronger
 generator, produce the same null on a population that executes at 100\%. That narrows the
 confound. It does not eliminate it, because those arms are \aaGvNLarge{} candidates each.
 \end{scopebox}
@@ -1176,8 +1176,8 @@ the right ones is not established, since $\kappa$ was measured on a different po
 \end{tabular}
 \end{center}
 
-\takeaway{The layers are not redundant --- the fixture that $A_{\mathrm{static}}$ catches is the
-one $A_{\mathrm{sem}}$ correctly passes --- but neither is their union sufficient, and the
+\takeaway{The layers are not redundant (the fixture that $A_{\mathrm{static}}$ catches is the
+one $A_{\mathrm{sem}}$ correctly passes), but neither is their union sufficient, and the
 statistical layer is, on this window, a constant that we can now prove is a constant.}
 
 % =====================================================================================
@@ -1220,7 +1220,7 @@ Not plausible in 1{,}550 candidates. Our own prompt almost certainly suppresses 
 instrument is blind and the leak-class distribution describes this prompt. & \S\ref{sec:leakclasses} \\
 \midrule
 Trial ledger is 10 entries short &
-1{,}877 recorded against 1{,}887 drawn. \textbf{Not repaired} --- an append-only ledger that gets
+1{,}877 recorded against 1{,}887 drawn. \textbf{Not repaired}: an append-only ledger that gets
 rewritten is not tamper-evident. Corrected at the point of use. & \S\ref{sec:selfreport-ledger} \\
 \midrule
 Flat candidates excluded, not ranked last &
@@ -1248,7 +1248,7 @@ reproducibility guarantee has a hole in it. & \S\ref{sec:threats} \\
 \item \textbf{Frontier models do not improve out-of-sample performance}, having entirely solved
   executability.
 \item \textbf{The statistical layer discriminates nothing}, now demonstrated rather than suspected.
-\item \textbf{One configuration beat random in sample} and was the one that provably cannot --- its
+\item \textbf{One configuration beat random in sample} and was the one that provably cannot: its
   ranking signal is a monotone function of the quantity it was scored against.
 \end{itemize}
 
@@ -1301,9 +1301,9 @@ this is a permanent property of the apparatus rather than a to-do.
 \label{sec:meaning}
 
 \begin{finding}
-\textbf{Can AI write code? Yes, increasingly and now essentially completely. Can AI generate
-statistically credible quantitative research? On this apparatus, much less clearly --- and the
-first capability improving did not cause the second to.}
+Can AI write code? \textbf{Yes, increasingly and now essentially completely.} Can AI generate
+statistically credible quantitative research? \textbf{On this apparatus, much less clearly}, and
+the first capability improving did not cause the second to.
 \end{finding}
 
 Three claims, at three different scopes, which the rest of this section keeps separate because
@@ -1379,15 +1379,15 @@ measurement the field is currently not making, and the apparatus for making it i
 \addcontentsline{toc}{subsection}{Where this leaves us}
 
 This paper asked whether a machine-written strategy is \emph{real}. For most of the corpus the
-answer was no, and the survivors it hands forward --- defined by
-$A_{\mathrm{static}} \wedge A_{\mathrm{sem}}$, since the statistical layer leaves nothing --- are
+answer was no, and the survivors it hands forward, defined by
+$A_{\mathrm{static}} \wedge A_{\mathrm{sem}}$ since the statistical layer leaves nothing, are
 a small set of low-turnover strategies that survived costs and one holdout year.
 
 Surviving one history is a weak claim. The 2020--2024 development window contains one pandemic
 crash, one full rate cycle and one structural liquidity shift; a strategy that survived it
 survived a single sequence of events, and the number of independent regime observations available
 is very small. \textbf{The next question is therefore not whether these strategies are real, but
-when they break} --- and answering it requires plausible histories that did not happen, because
+when they break}, and answering it requires plausible histories that did not happen, because
 history did not supply enough of them.
 
 That is paper 2, \textbf{RegimeStress}.

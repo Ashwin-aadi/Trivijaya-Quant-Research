@@ -26,7 +26,7 @@
 % =====================================================================================
 \programmecover{%
 A benchmark for measuring how much a strategy's performance moves when the market environment
-is varied --- rather than how high it is on the one environment that happened to occur.}
+is varied, rather than how high it is on the one environment that happened to occur.}
 
 % =====================================================================================
 \begin{abstract}
@@ -39,8 +39,8 @@ whether a machine-written strategy is real. The survivors it handed forward surv
 sequence of events}, and that is a weaker claim than it looks.
 
 \medskip\noindent
-\textbf{We release RegimeStress: a benchmark, protocol and reference implementation for measuring
-how much a strategy's performance moves when the environment changes.} It provides a
+We release RegimeStress: \textbf{a benchmark for measuring how much a strategy's performance moves
+when the environment changes.} It provides a
 causally-labelled regime series over \rsNLabelledSessions{} sessions, estimated by expanding-window
 refits with a forward-only decode so that no label uses information from after the session it
 describes; \textbf{Counterfactual Regime Resampling}, a stationary block bootstrap conditioned on
@@ -49,16 +49,16 @@ those synthetic histories must pass; two stress tiers of very different cost; an
 population whose exclusion rules were fixed \emph{before} any stress path was run.
 
 \medskip\noindent
-\textbf{The central methodological result is that a shortcut reproduced performance and did not
-reproduce fragility.} Resampling a strategy's realised returns agrees with full counterfactual
-re-simulation at Spearman \rsTierAgreementMeanSharpe{} on mean performance but only
-\rsTierAgreementFragility{} on fragility (\mbox{$n=\rsTierAgreementN{}$}) --- and fragility is the
+The central methodological result: \textbf{a shortcut reproduced performance and did not reproduce
+fragility.} Resampling a strategy's realised returns agrees with full counterfactual re-simulation
+at Spearman \rsTierAgreementMeanSharpe{} on mean performance but only
+\rsTierAgreementFragility{} on fragility (\mbox{$n=\rsTierAgreementN{}$}), and fragility is the
 quantity of interest. A second shortcut, measured the same way, holds at \rsShortcutSpearman{} and
 is adopted. \textbf{Shortcut safety is an experiment here, not a design decision.}
 
 \medskip\noindent
-\textbf{The benchmark's first prediction task is a null, and we diagnose it rather than report it
-bare.} Fragility cannot be predicted from strategy characteristics at this sample size: five models
+The benchmark's first prediction task is a null, and we diagnose it rather than report it bare.
+Fragility cannot be predicted from strategy characteristics at this sample size: five models
 on identical folds reach an out-of-sample $R^2$ of \rsPathsRawBestRsquared{} across
 \rsPredictorRows{} strategies and \rsPredictorFeatures{} features. A permutation test nonetheless
 rejects the null for the \emph{ranking} while failing to reject it for the \emph{level}. Trained
@@ -67,8 +67,8 @@ the predictor reaches $R^2 = \rsGvPredPooledRsq{}$: no better than a constant. \
 is a property of the problem, not of one small model's output.}
 
 \medskip\noindent
-Fragility itself proved generator-independent --- every frontier arm's median lands within a sixth
-of the local corpus's --- while one measured pathology did not recur at all. We report our own two
+Fragility itself proved generator-independent, every frontier arm's median landing within a sixth
+of the local corpus's, while one measured pathology did not recur at all. We report our own two
 corrections in the results, because the first version of our headline number was better and wrong.
 \end{abstract}
 
@@ -99,14 +99,14 @@ admissible.
 Spearman \rsTierAgreementMeanSharpe{} on \emph{mean performance} and only
 \rsTierAgreementFragility{} on \emph{fragility} ($n=\rsTierAgreementN{}$).
 \textbf{A shortcut reproduced performance. It did not reproduce fragility.} The expensive tier is
-not optional, and we know that because we ran both.
+not optional, and we know because we ran both.
 \end{finding}
 
 \begin{finding}[title={3.\ \ Can fragility be predicted without running the test?
   \hfill\tagindep}]
 \textbf{No.} Out-of-sample $R^2 = \rsPathsRawBestRsquared{}$ on the primary target across
 \rsPredictorRows{} strategies. Applied to \rsGvPredPooledN{} frontier strategies as held-out data
-it reaches \rsGvPredPooledRsq{} --- indistinguishable from predicting the mean. The limitation is
+it reaches \rsGvPredPooledRsq{}, indistinguishable from predicting the mean. The limitation is
 \emph{variance, not bias}: every model fits its training folds far better than it generalises, and
 the gap is widest for the model with the most capacity. So we added no capacity.
 \end{finding}
@@ -122,15 +122,15 @@ arms ($n=\rsGvGptN{}$ each). Every arm lands within a sixth of the local median.
 \begin{finding}[title={5.\ \ Is a low fragility score good news? \hfill\taglocal}]
 \textbf{Not by itself, and this is not a rare edge case.} \rsUniformlyBadCount{} of
 \rsNPrimary{} strategies have a negative Sharpe in \emph{every} labelled regime. The most extreme
-ranks \rsUniformlyBadRank{} of \rsNPrimary{} on the low-fragility end --- among the most robust
-strategies we measured --- and it never makes money. \textbf{A fragility score is uninterpretable
+ranks \rsUniformlyBadRank{} of \rsNPrimary{} on the low-fragility end, among the most robust
+strategies we measured, and it never makes money. \textbf{A fragility score is uninterpretable
 without a performance figure beside it.}
 \end{finding}
 
 \begin{finding}[title={6.\ \ Our own first answer was better, and wrong. \hfill\tagexpl}]
 Deduplicating the corpus revealed \rsDuplicateClusters{} clusters of strategies with identical
 realised return series. A duplicate sitting in a training fold with its twin in the test fold was
-worth \textbf{\rsLeakageDelta{} of $R^2$} --- the difference between a modest positive result and
+worth \textbf{\rsLeakageDelta{} of $R^2$}: the difference between a modest positive result and
 nothing at all. A second defect had one feature column duplicating another under a different name.
 Both corrections made the result worse, and both are in the results rather than a footnote.
 \end{finding}
@@ -147,15 +147,15 @@ Both corrections made the result worse, and both are in the results rather than 
 \label{sec:question}
 
 Paper 1 asked whether a machine-written strategy is real, and for most of a
-\pgmLocalTrade\%-executable corpus the answer was no. The survivors --- low-turnover strategies
+\pgmLocalTrade\%-executable corpus the answer was no. The survivors, low-turnover strategies
 that cleared static leakage screening, a semantic consistency check, transaction costs, and one
-never-touched holdout year --- are the input to this paper.
+never-touched holdout year, are the input to this paper.
 
 That is a weaker claim than it sounds, and the weakness is not statistical in the usual sense.
 
 \begin{finding}
 A strategy backtested over five years of Indian equities has been tested against
-\textbf{one sequence of events}. Not five years of independent evidence --- one draw. The window
+\textbf{one sequence of events}. Not five years of independent evidence: one draw. The window
 contains approximately one pandemic crash, one full rate cycle and one structural liquidity shift.
 \textbf{The number of independent regime observations is very small, and no amount of daily
 resolution increases it.}
@@ -181,7 +181,7 @@ variation: how much the answer moves relative to how big the answer is. Low frag
 strategy performs similarly wherever you put it.
 
 Two things follow immediately, and both matter later. \textbf{Fragility scores consistency, not
-quality} --- a strategy that loses money identically everywhere scores as admirably stable
+quality}: a strategy that loses money identically everywhere scores as admirably stable
 (\S\ref{sec:uniformlybad}). And it has a mean in its denominator, so a strategy whose average
 performance is near zero has an inflated score for purely arithmetic reasons.
 
@@ -208,7 +208,7 @@ paper's load-bearing limitation rather than a caveat.
 
 \paragraph{Regime-switching models} \citep{hamilton1989,ang2012} give us the labelling machinery and
 are not our contribution. What the literature typically does with them is fit on the whole sample
-and then evaluate strategies within the resulting labels --- which uses information from after each
+and then evaluate strategies within the resulting labels, which uses information from after each
 session to describe that session. That is the same leakage paper 1 was built to detect, and
 \S\ref{sec:regimes} reports what it costs to avoid it.
 
@@ -270,7 +270,7 @@ usually does.
 \begin{selfreport}[title={What causality costs, reported rather than smoothed}]
 \textbf{\rsRegimeTerminalDisagreement\% of causal labels disagree with what the same estimator says
 at the end of the sample}, and the labelling revises itself at a rate of
-\rsRegimeRevisionRate\% as data arrives. That drift is not a defect to be tuned away --- it is what
+\rsRegimeRevisionRate\% as data arrives. That drift is not a defect to be tuned away; it is what
 it looks like to label regimes without hindsight, and a paper that reports clean stable labels has
 probably used the future to get them. Regime occupancy ranges from \rsRegimeOccupancyMin{} to
 \rsRegimeOccupancyMax{} sessions across the \rsRegimeK{} states, so no state is a degenerate corner.
@@ -287,7 +287,7 @@ History supplied one path. \textbf{CRR manufactures more of them.}
 
 The mechanism is a stationary block bootstrap \citep{politis1994} over \emph{dates}, conditioned on
 regime label. Resampling dates rather than individual assets is what preserves the cross-sectional
-correlation structure --- on any resampled day, every stock's return is the return it actually had
+correlation structure: on any resampled day, every stock's return is the return it actually had
 on some real day, so the relationships between them survive. Block length
 \rsBlockLength{} sessions was selected by the automatic rule of \citet{politis2004}, as corrected
 by \citet{patton2009}, at bandwidth \rsBlockBandwidth{}; blocks rather than individual days are
@@ -303,14 +303,14 @@ drawn within regime, so a calm stretch is built from calm days rather than from 
 
 A resampler that produces statistically valid but economically absurd paths would invalidate
 everything downstream, so the paths are tested rather than asserted. \rsNMoments{} target moments
---- volatility clustering, autocorrelation, skew and others --- are computed on the real series and
+(volatility clustering, autocorrelation, skew and others) are computed on the real series and
 on each synthetic one, and the real value must fall plausibly inside the synthetic distribution.
 
 \begin{finding}
 \textbf{The conditional resampler fails \rsMomentsFailedConditional{} of \rsNMoments{} moments. The
 unconditional one fails \rsMomentsFailedUnconditional{}}, with the real series sitting at the
 \rsFailingMomentPercentile{}th percentile of the synthetic distribution on the failing moment.
-Conditioning on regime is not a refinement --- it is the difference between paths that pass their
+Conditioning on regime is not a refinement; it is the difference between paths that pass their
 own validation and paths that do not.
 \end{finding}
 
@@ -327,10 +327,10 @@ Fragility can be measured across two different kinds of environment variation, a
 computes both because they answer different questions.
 
 \begin{itemize}
-\item \textbf{Across regimes} --- how much does performance move between the
+\item \textbf{Across regimes.} How much does performance move between the
   \rsRegimeK{} labelled market states of the \emph{real} history? Cheap. The charter's primary
   definition.
-\item \textbf{Across paths} --- how much does performance move between synthetic histories that
+\item \textbf{Across paths.} How much does performance move between synthetic histories that
   never happened? Expensive: \rsTierOnePaths{} paths, \rsTierOneCpuHours{} CPU-hours,
   \rsTierOneSecondsPerPath{} seconds per path.
 \end{itemize}
@@ -359,7 +359,7 @@ relative difference of $\rsBurninWorstRelative{}$.
 
 \rsTierOneCpuHours{} CPU-hours is a lot for a measurement that a cheaper procedure might
 approximate. The obvious shortcut is to skip re-simulating the strategy on each synthetic path and
-instead resample the strategy's \emph{realised return series} directly --- vastly cheaper
+instead resample the strategy's \emph{realised return series} directly, which is vastly cheaper
 (\rsTierTwoSeconds{} seconds for \rsTierTwoPaths{} paths, against
 \rsTierOneSecondsPerPath{} seconds for one). Whether that is legitimate is an empirical question,
 and we answered it by running the expensive version anyway and comparing.
@@ -392,13 +392,13 @@ Mean performance & \rsTierAgreementMeanSharpe{} & --- \\
 \paragraph{What explains the divergence, and what we will not claim.} The two tiers differ in
 exactly one respect: in the expensive tier the strategy \emph{re-decides} on the path it is given,
 and in the cheap tier it cannot. The divergence is therefore \emph{consistent with} strategy
-re-decision contributing materially to measured fragility --- and it is fragility rather than
+re-decision contributing materially to measured fragility, and it is fragility rather than
 performance that the cheap tier loses, which is what that explanation predicts.
 
 \begin{scopebox}
 \textbf{We do not claim causation from a rank correlation.} The observation is that two procedures
 differing in one respect disagree on one quantity and agree on another. That is an empirical
-methodological result with a practical consequence --- \emph{run the expensive tier} --- and it is
+methodological result with a practical consequence, \emph{run the expensive tier}, and it is
 not a demonstration of the mechanism.
 \end{scopebox}
 
@@ -425,7 +425,7 @@ and that is the argument for running both.}
 \label{sec:properties}
 
 These are facts about the strategies and about the metric. They also appear in Threats to Validity,
-because each limits what the rest of the paper can claim --- and they are stated here as well
+because each limits what the rest of the paper can claim, and they are stated here as well
 because a reader who met them only among the caveats would reasonably conclude we had tried to keep
 them quiet.
 
@@ -452,14 +452,14 @@ the simplicity that also drives fragility. The census was frozen before any stre
 \label{sec:knifeedge}
 
 A strategy is \textbf{knife-edge} if its Sharpe ratio is not stable under a numerically negligible
-change to its inputs --- a relative perturbation on the order of $10^{-15}$, which no economic
+change to its inputs, a relative perturbation on the order of $10^{-15}$, which no economic
 interpretation survives. \rsKnifeEdgeExcluded{} of \rsNStressed{} qualify, including
 \rsKnifeEdgeFactors{} standard academic factor. The rule was applied without exemption.
 
 \begin{figure}[h]\centering
 \includegraphics[width=\linewidth]{figures/fig_knife_edge.png}
 \caption{How the knife-edge exclusions differ from the strategies that were retained, on four
-characteristics with four different units. \textbf{The filter did not remove a random slice --- it
+characteristics with four different units. \textbf{The filter did not remove a random slice; it
 removed the fast end of the corpus}, and the paper's honesty depends on saying so, because the
 retained population is therefore slower-trading than the one that entered.}
 \label{fig:knifeedge}
@@ -472,7 +472,7 @@ The excluded strategies are systematically the \emph{fast} end of the corpus: tw
 turnover and a twentieth of the holding period of those retained. Every result downstream is
 therefore conditioned on a restricted range of exactly the characteristic most likely to drive
 fragility. Sharpe swing among the excluded has a median of \rsKnifeEdgeSwingMedian{} and a maximum
-of \rsKnifeEdgeSwingMax{}, with \rsKnifeEdgeSwingAboveHalf{} above 0.5 --- so for most of them the
+of \rsKnifeEdgeSwingMax{}, with \rsKnifeEdgeSwingAboveHalf{} above 0.5, so for most of them the
 instability is small, and for a few it is not.
 \end{selfreport}
 
@@ -487,7 +487,7 @@ it.
 \textbf{This is not hypothetical and it is not rare.} \rsUniformlyBadCount{} of \rsNPrimary{}
 strategies have a negative Sharpe ratio in \emph{every} labelled regime. The most extreme,
 \texttt{\rsUniformlyBadName}, ranges from \rsUniformlyBadWorstSharpe{} to
-\rsUniformlyBadBestSharpe{} across the \rsRegimeK{} regimes --- and with a fragility of
+\rsUniformlyBadBestSharpe{} across the \rsRegimeK{} regimes, and with a fragility of
 \rsUniformlyBadFragility{} it ranks \rsUniformlyBadRank{} of \rsNPrimary{} on the low-fragility end
 of the corpus. \textbf{It is among the most robust strategies we measured, and it never makes
 money.}
@@ -504,9 +504,9 @@ that boundary for the flag to miss them is unknown.
 \section{Predicting fragility, and why it fails}
 \label{sec:prediction}
 
-The benchmark's first task: predict a strategy's fragility from its characteristics alone ---
+The benchmark's first task: predict a strategy's fragility from its characteristics alone,
 turnover, holding period, concentration, book-similarity decay, and factor exposures obtained from
-one joint regression on all \rsFactorCount{} factors at once --- \emph{without running the stress
+one joint regression on all \rsFactorCount{} factors at once, \emph{without running the stress
 suite}. If that worked it would be genuinely useful, since the stress suite costs
 \rsTierOneCpuHours{} CPU-hours and the characteristics are free.
 
@@ -521,7 +521,7 @@ out-of-sample $R^2$ on the primary target. Zero is what predicting the training 
 
 \takeaway{Every model fits its training folds far better than it generalises, and the gap is
 \emph{widest} for the model with the most capacity. That is the signature of variance rather than
-bias --- which is why we added no capacity, and why a larger corpus rather than a larger model is
+bias, which is why we added no capacity, and why a larger corpus rather than a larger model is
 the correct next experiment.}
 
 \rsPredictorRows{} strategies, \rsPredictorFeatures{} features, five model families on identical
@@ -551,7 +551,7 @@ harder or to stop. We separate the candidate explanations by measurement.
 Heavy-tailed target &
 Skew \rsPathsRawSkew{}, kurtosis \rsPathsRawKurtosis{}; top 5\% of observations hold
 \rsPathsRawTailShareFive\% of the variance &
-Real. A $\log(1+x)$ transform lifts the best $R^2$ to \rsPathsLogBestRsquared{} --- still weak. \\
+Real. A $\log(1+x)$ transform lifts the best $R^2$ to \rsPathsLogBestRsquared{}, still weak. \\
 \midrule
 Multicollinear features &
 Condition number \rsFeatureCondition{}; worst pair \texttt{\rsFeatureWorstPairA} and
@@ -584,7 +584,7 @@ reject it for the level on three of four targets.
 \end{finding}
 
 \textbf{Every model fits its training folds far better than it generalises, and the gap is widest
-for the model with the most capacity} --- gradient boosting at \rsPathsRawBoostingGap{} against
+for the model with the most capacity}: gradient boosting at \rsPathsRawBoostingGap{} against
 the random forest's \rsPathsRawForestGap{}. That is the signature of variance rather than bias.
 \textbf{We therefore added no capacity}, which is the action the diagnosis implies and the opposite
 of what a search for a better number would have produced.
@@ -604,22 +604,22 @@ economic finding: \texttt{\rsImportanceFirstName} (\rsImportanceFirstValue),
 The first version of the fragility predictor produced a modest positive result. It was wrong, and
 we found out by deduplicating the corpus.
 
-\textbf{Correction 1 --- duplicate leakage.} \rsDuplicateClusters{} clusters of strategies produce
+\textbf{Correction 1: duplicate leakage.} \rsDuplicateClusters{} clusters of strategies produce
 \emph{identical} realised return series, covering \rsDuplicateMembers{} of
 \rsDuplicateCompared{} compared strategies, with a largest cluster of
 \rsLargestDuplicateCluster{}. A duplicate sitting in a training fold with its twin in the test fold
-is not generalisation --- it is memorisation with the answer key in the room. Deduplicating
+is not generalisation; it is memorisation with the answer key in the room. Deduplicating
 (\rsDuplicateRemoved{} rows removed, \rsDuplicateUncompared{} not comparable) moved the Spearman
 result from \rsLeakageWithDuplicates{} at $n=\rsLeakageNWith{}$ to
 \rsLeakageWithoutDuplicates{} at $n=\rsLeakageNWithout{}$. \textbf{The duplicates were worth
 \rsLeakageDelta{} of $R^2$}, which is to say: the entire original result.
 
-\textbf{Correction 2 --- a duplicated feature.} One feature column duplicated another under a
+\textbf{Correction 2: a duplicated feature.} One feature column duplicated another under a
 different name, inflating that characteristic's apparent importance.
 
 Both corrections made every reported number worse. Both are in the benchmark's corrections log.
 And the duplicate structure ships as a benchmark artefact rather than being quietly removed,
-because \textbf{it is a fact about machine-written strategy corpora, not a blemish on ours} --- a
+because \textbf{it is a fact about machine-written strategy corpora, not a blemish on ours}: a
 near-duplicate rule at threshold \rsNearDuplicateThreshold{} fires a further
 \rsNearDuplicatePairs{} times below the exact criterion.
 \end{selfreport}
@@ -629,7 +629,7 @@ near-duplicate rule at threshold \rsNearDuplicateThreshold{} fires a further
 \label{sec:narratives}
 
 A local model (\rsNarrativeModel) generates natural-language descriptions of when a strategy
-fails --- the explainability layer that would make a fragility number presentable to a risk
+fails, the explainability layer that would make a fragility number presentable to a risk
 committee. \rsNarrativeCount{} narratives at \rsNarrativeSeconds{} seconds each.
 
 \begin{scopebox}
@@ -657,7 +657,7 @@ model.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\linewidth]{figures/fig_fragility_by_origin.png}
-\caption{Median fragility across labelled regimes --- one definition, one axis. The upper block
+\caption{Median fragility across labelled regimes, on one definition and one axis. The upper block
 varies \emph{who} wrote the strategy; the lower block varies \emph{how} the same model was
 prompted. Sample sizes are printed on every bar because they vary by an order of magnitude.}
 \label{fig:origin}
@@ -671,7 +671,7 @@ generation method either. It is closer to a property of the market than of the a
 \begin{figure}[t]\centering
 \includegraphics[width=\linewidth]{figures/fig_generator_fragility_range.png}
 \caption{Every RegimeStress measurement, by generator. \emph{Upper:} fragility across labelled
-regimes --- the charter's primary definition --- with the full range each median summarises, on a
+regimes, the charter's primary definition, with the full range each median summarises, on a
 log axis. \textbf{The spread inside any one arm is far wider than the gap between arms.}
 \emph{Lower:} the three pathologies and the duplicate structure, as rates so that a
 \rsGvGptN{}-strategy arm and the \rsNStressed{}-strategy local corpus sit on one scale.
@@ -726,7 +726,7 @@ worth testing properly, not a finding.}
 
 \rsGvGptDupCovered{} of \rsGvGptDupCompared{} comparable GPT strategies sit inside an
 exact-duplicate cluster, \rsGvClaudeDupCovered{} of \rsGvClaudeDupCompared{} on Claude and
-\rsGvGeminiDupCovered{} of \rsGvGeminiDupCompared{} on Gemini --- across requests issued in
+\rsGvGeminiDupCovered{} of \rsGvGeminiDupCompared{} on Gemini, across requests issued in
 independent sessions. The near-duplicate rule that the exact criterion does not merge fires
 \rsGvClaudeNearPairs{} times on Claude and \rsGvGptNearPairs{} and \rsGvGeminiNearPairs{} times on
 the other two.
@@ -741,11 +741,11 @@ The same benchmark, applied to \pgmParadigmArms{} generation methods on the loca
 the across-regime definition.
 
 The lower block of Figure~\ref{fig:origin} carries the six arms on the same axis and the same
-definition as the upper block, so the two questions --- does the generator matter, does the method
-matter --- can be read against one another without rescaling.
+definition as the upper block, so the two questions (does the generator matter, does the method
+matter) can be read against one another without rescaling.
 
 
-\takeaway{Reflection is the outlier at \pgmReflectFrag{} on \pgmReflectFragN{} strategies --- the
+\takeaway{Reflection is the outlier at \pgmReflectFrag{} on \pgmReflectFragN{} strategies, the
 only method whose median exceeds one, meaning its strategies' performance varies by more than its
 own average
 size. Every other method sits in a band from \pgmGraphFrag{} to \pgmCotFrag{}. We report the
@@ -780,7 +780,7 @@ would predict, and the reason is \S\ref{sec:uniformlybad}.
 \end{finding}
 
 \S\ref{sec:generators} varied the generator. This section varies something else: the population
-includes \sfN{} standard factor strategies --- momentum, low volatility, short-term and long-term
+includes \sfN{} standard factor strategies: momentum, low volatility, short-term and long-term
 reversal, relative strength, an equal-weight market reference, and two deliberate controls. They
 are published, long-standing, and were never drawn from any search of ours.
 
@@ -788,7 +788,7 @@ are published, long-standing, and were never drawn from any search of ours.
 \includegraphics[width=\linewidth]{figures/fig_factors_vs_corpus.png}
 \caption{The standard-factor arm beside the machine-written corpus on five frozen tests, each
 panel on its own scale because the five quantities share no unit. Sample sizes differ by an order
-of magnitude --- \sfN{} against \rsNStressed{} --- and the two reversals, costs and fragility
+of magnitude, \sfN{} against \rsNStressed{}, and the two reversals, costs and fragility
 running opposite ways, are the reason this is drawn rather than tabulated.}
 \label{fig:factorsvscorpus}
 \end{figure}
@@ -796,7 +796,7 @@ running opposite ways, are the reason this is drawn rather than tabulated.}
 
 \paragraph{Why fragility runs backwards, and why that is the metric's fault rather than the
 corpus's.} A published factor takes real positions and its performance genuinely differs between a
-crisis and a calm stretch --- which is what fragility is supposed to measure. Much of the machine
+crisis and a calm stretch, which is what fragility is supposed to measure. Much of the machine
 corpus is near-flat or uniformly mediocre, and a strategy that does approximately nothing does
 approximately the same nothing in every regime. It therefore scores as admirably stable.
 \S\ref{sec:uniformlybad} showed \rsUniformlyBadCount{} of \rsNPrimary{} machine strategies losing
@@ -838,7 +838,7 @@ The deflation column and this assembly appear in no pre-registration and are exp
 \midrule
 Duplicate leakage &
 \rsDuplicateClusters{} clusters of identical return series split across training and test folds
-were worth \rsLeakageDelta{} of $R^2$ --- the whole of our original positive result. &
+were worth \rsLeakageDelta{} of $R^2$, the whole of our original positive result. &
 \S\ref{sec:corrections} \\
 \midrule
 A duplicated feature column &
@@ -881,7 +881,7 @@ Every across-path number inherits it. \rsMomentsFailedConditional{} moment failu
 \item \textbf{The cheap stress tier cannot replace the expensive one} for the quantity of interest:
   \rsTierAgreementFragility{} on fragility against \rsTierAgreementMeanSharpe{} on performance.
 \item \textbf{Our first predictor result was better and wrong}, by \rsLeakageDelta{} of $R^2$.
-\item \textbf{Fragility does not separate generators} --- which we report as a success for the
+\item \textbf{Fragility does not separate generators}, which we report as a success for the
   benchmark and a null for anyone hoping to rank models by it.
 \item \textbf{Our own metric prefers strategies that do nothing}, demonstrated in
   \S\ref{sec:factors} on a control population.
@@ -966,7 +966,7 @@ Frozen and released at \repo:
   \rsNMoments{}-moment validation suite it must pass.
 \item \textbf{The population.} \rsNPrimary{} strategies with fragility on both definitions, plus
   the \rsNKnifeEdge{} knife-edge and \rsNExcludedNondeterministic{} nondeterministic exclusions
-  shipped rather than discarded --- they are the benchmark's hardest cases.
+  shipped rather than discarded, since they are the benchmark's hardest cases.
 \item \textbf{The duplicate structure} as an artefact, since it is a fact about generated corpora.
 \item \textbf{Every number}, regenerable from \texttt{data/raw/} by documented commands. If this
   paper and the repository disagree, the repository is right.
@@ -981,8 +981,8 @@ against the real one, and measured fragility on a frozen population with its exc
 advance.
 
 The methodological result is that \textbf{a shortcut reproduced performance and did not reproduce
-fragility} --- Spearman \rsTierAgreementMeanSharpe{} against \rsTierAgreementFragility{} on the
-same \rsTierAgreementN{} strategies --- so the expensive tier is not optional, and we know that
+fragility}: Spearman \rsTierAgreementMeanSharpe{} against \rsTierAgreementFragility{} on the
+same \rsTierAgreementN{} strategies, so the expensive tier is not optional, and we know that
 because we ran it. The prediction task is a diagnosed null: $R^2=\rsPathsRawBestRsquared{}$, bounded
 by sample variance rather than model bias, and reproducing at \rsGvPredPooledRsq{} on strategies
 from three other generators. And fragility proved to be a property of the market rather than the
@@ -999,7 +999,7 @@ anything.
 \addcontentsline{toc}{subsection}{Where this leaves us}
 
 Papers 1 and 2 asked whether a strategy is real and when it breaks. Both questions are asked at a
-fixed, small book size --- \rupee 10 lakh --- and the answers are conditional on it in a way that
+fixed, small book size (\rupee 10 lakh), and the answers are conditional on it in a way that
 is easy to miss. Paper 1 already found one standard factor whose verdict \emph{reverses} between
 \rupee 10 lakh and \rupee 10 crore, because flat per-scrip fees dominate small books and market
 impact dominates large ones.
@@ -1010,7 +1010,7 @@ absorb?} Run \rupee 10 crore through a strategy that works at \rupee 10 lakh and
 moves prices against you until the edge is gone. Nobody has published those numbers openly for
 Indian markets.
 
-That is the third paper, \textbf{FlowState} --- which also reports, as a principal finding, why
+That is the third paper, \textbf{FlowState}, which also reports, as a principal finding, why
 daily data cannot answer the version of that question everyone asks first.
 
 % =====================================================================================
