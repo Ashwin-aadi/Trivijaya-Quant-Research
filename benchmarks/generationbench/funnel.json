@@ -1,0 +1,186 @@
+{
+  "equal_n_size": 60,
+  "note": "equal_token is the primary design; equal_n is secondary and exploratory, and discards the budget advantage the expensive arms were given.",
+  "stages": [
+    "generated",
+    "static",
+    "semantic",
+    "traded",
+    "stress",
+    "deployed"
+  ],
+  "views": {
+    "equal_n": [
+      {
+        "arm": "G1",
+        "counts": {
+          "deployed": 5,
+          "generated": 60,
+          "semantic": 49,
+          "static": 52,
+          "statistical_if_applied": 0,
+          "stress": 5,
+          "traded": 9
+        },
+        "full_stack_survival": 0.08333333333333333,
+        "paradigm": "G1_plain"
+      },
+      {
+        "arm": "G2",
+        "counts": {
+          "deployed": 6,
+          "generated": 60,
+          "semantic": 49,
+          "static": 56,
+          "statistical_if_applied": 0,
+          "stress": 7,
+          "traded": 8
+        },
+        "full_stack_survival": 0.1,
+        "paradigm": "G2_cot"
+      },
+      {
+        "arm": "G4",
+        "counts": {
+          "deployed": 6,
+          "generated": 60,
+          "semantic": 39,
+          "static": 46,
+          "statistical_if_applied": 0,
+          "stress": 6,
+          "traded": 6
+        },
+        "full_stack_survival": 0.1,
+        "paradigm": "G4_planning"
+      },
+      {
+        "arm": "G5",
+        "counts": {
+          "deployed": 4,
+          "generated": 60,
+          "semantic": 43,
+          "static": 51,
+          "statistical_if_applied": 0,
+          "stress": 4,
+          "traded": 6
+        },
+        "full_stack_survival": 0.06666666666666667,
+        "paradigm": "G5_reflection"
+      },
+      {
+        "arm": "G6",
+        "counts": {
+          "deployed": 1,
+          "generated": 60,
+          "semantic": 43,
+          "static": 48,
+          "statistical_if_applied": 0,
+          "stress": 2,
+          "traded": 2
+        },
+        "full_stack_survival": 0.016666666666666666,
+        "paradigm": "G6_graph_of_thoughts"
+      },
+      {
+        "arm": "G7",
+        "counts": {
+          "deployed": 26,
+          "generated": 60,
+          "semantic": 50,
+          "static": 55,
+          "statistical_if_applied": 0,
+          "stress": 27,
+          "traded": 30
+        },
+        "full_stack_survival": 0.43333333333333335,
+        "paradigm": "G7_mcts"
+      }
+    ],
+    "equal_token": [
+      {
+        "arm": "G1",
+        "counts": {
+          "deployed": 71,
+          "generated": 830,
+          "semantic": 652,
+          "static": 718,
+          "statistical_if_applied": 0,
+          "stress": 75,
+          "traded": 93
+        },
+        "full_stack_survival": 0.0855421686746988,
+        "paradigm": "G1_plain"
+      },
+      {
+        "arm": "G2",
+        "counts": {
+          "deployed": 64,
+          "generated": 800,
+          "semantic": 627,
+          "static": 698,
+          "statistical_if_applied": 0,
+          "stress": 69,
+          "traded": 71
+        },
+        "full_stack_survival": 0.08,
+        "paradigm": "G2_cot"
+      },
+      {
+        "arm": "G4",
+        "counts": {
+          "deployed": 20,
+          "generated": 365,
+          "semantic": 266,
+          "static": 299,
+          "statistical_if_applied": 0,
+          "stress": 20,
+          "traded": 21
+        },
+        "full_stack_survival": 0.0547945205479452,
+        "paradigm": "G4_planning"
+      },
+      {
+        "arm": "G5",
+        "counts": {
+          "deployed": 18,
+          "generated": 288,
+          "semantic": 210,
+          "static": 241,
+          "statistical_if_applied": 0,
+          "stress": 20,
+          "traded": 26
+        },
+        "full_stack_survival": 0.0625,
+        "paradigm": "G5_reflection"
+      },
+      {
+        "arm": "G6",
+        "counts": {
+          "deployed": 8,
+          "generated": 152,
+          "semantic": 118,
+          "static": 127,
+          "statistical_if_applied": 0,
+          "stress": 10,
+          "traded": 11
+        },
+        "full_stack_survival": 0.05263157894736842,
+        "paradigm": "G6_graph_of_thoughts"
+      },
+      {
+        "arm": "G7",
+        "counts": {
+          "deployed": 26,
+          "generated": 60,
+          "semantic": 50,
+          "static": 55,
+          "statistical_if_applied": 0,
+          "stress": 27,
+          "traded": 30
+        },
+        "full_stack_survival": 0.43333333333333335,
+        "paradigm": "G7_mcts"
+      }
+    ]
+  }
+}

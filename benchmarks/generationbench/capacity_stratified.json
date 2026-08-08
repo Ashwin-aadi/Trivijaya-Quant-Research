@@ -1,0 +1,151 @@
+{
+  "arms": [
+    {
+      "all": {
+        "max_crore": 23.647696428571425,
+        "median_crore": 2.603995952380952,
+        "min_crore": 0.1924833333333333,
+        "n": 121
+      },
+      "arm": "G1",
+      "deployed": {
+        "max_crore": 23.647696428571425,
+        "median_crore": 2.603995952380952,
+        "min_crore": 0.1924833333333333,
+        "n": 115
+      },
+      "near_cash": {
+        "max_crore": 12.18806,
+        "median_crore": 1.1579373333333334,
+        "min_crore": 0.5889640952380953,
+        "n": 6
+      },
+      "near_cash_share": 0.049586776859504134,
+      "near_cash_threshold": 0.1,
+      "paradigm": "G1_plain"
+    },
+    {
+      "all": {
+        "max_crore": 726.8555633333333,
+        "median_crore": 1.727351761904762,
+        "min_crore": 0.07862866666666668,
+        "n": 92
+      },
+      "arm": "G2",
+      "deployed": {
+        "max_crore": 61.34802380952381,
+        "median_crore": 1.7712239285714286,
+        "min_crore": 0.07862866666666668,
+        "n": 84
+      },
+      "near_cash": {
+        "max_crore": 726.8555633333333,
+        "median_crore": 1.6231374761904762,
+        "min_crore": 0.5391725714285714,
+        "n": 8
+      },
+      "near_cash_share": 0.08695652173913043,
+      "near_cash_threshold": 0.1,
+      "paradigm": "G2_cot"
+    },
+    {
+      "all": {
+        "max_crore": 36.877188571428576,
+        "median_crore": 3.8496666666666686,
+        "min_crore": 0.13724585714285717,
+        "n": 25
+      },
+      "arm": "G4",
+      "deployed": {
+        "max_crore": 36.877188571428576,
+        "median_crore": 3.8496666666666686,
+        "min_crore": 0.13724585714285717,
+        "n": 25
+      },
+      "near_cash": {
+        "max_crore": null,
+        "median_crore": null,
+        "min_crore": null,
+        "n": 0
+      },
+      "near_cash_share": 0.0,
+      "near_cash_threshold": 0.1,
+      "paradigm": "G4_planning"
+    },
+    {
+      "all": {
+        "max_crore": 9.861959523809524,
+        "median_crore": 1.3839423333333332,
+        "min_crore": 0.1924833333333333,
+        "n": 29
+      },
+      "arm": "G5",
+      "deployed": {
+        "max_crore": 9.861959523809524,
+        "median_crore": 1.3839423333333332,
+        "min_crore": 0.1924833333333333,
+        "n": 25
+      },
+      "near_cash": {
+        "max_crore": 8.126680952380951,
+        "median_crore": 1.0417005714285714,
+        "min_crore": 0.3237339047619048,
+        "n": 4
+      },
+      "near_cash_share": 0.13793103448275862,
+      "near_cash_threshold": 0.1,
+      "paradigm": "G5_reflection"
+    },
+    {
+      "all": {
+        "max_crore": 1283.0387142857144,
+        "median_crore": 9.906152380952381,
+        "min_crore": 0.24872904761904763,
+        "n": 13
+      },
+      "arm": "G6",
+      "deployed": {
+        "max_crore": 36.877188571428576,
+        "median_crore": 9.906152380952381,
+        "min_crore": 0.24872904761904763,
+        "n": 11
+      },
+      "near_cash": {
+        "max_crore": 1283.0387142857144,
+        "median_crore": 641.977295404762,
+        "min_crore": 0.9158765238095239,
+        "n": 2
+      },
+      "near_cash_share": 0.15384615384615385,
+      "near_cash_threshold": 0.1,
+      "paradigm": "G6_graph_of_thoughts"
+    },
+    {
+      "all": {
+        "max_crore": 371.86650793650807,
+        "median_crore": 5.162709047619047,
+        "min_crore": 0.3849666666666666,
+        "n": 35
+      },
+      "arm": "G7",
+      "deployed": {
+        "max_crore": 36.877188571428576,
+        "median_crore": 5.162709047619047,
+        "min_crore": 0.3849666666666666,
+        "n": 33
+      },
+      "near_cash": {
+        "max_crore": 371.86650793650807,
+        "median_crore": 282.1749206349207,
+        "min_crore": 192.4833333333333,
+        "n": 2
+      },
+      "near_cash_share": 0.05714285714285714,
+      "near_cash_threshold": 0.1,
+      "paradigm": "G7_mcts"
+    }
+  ],
+  "measure": "constraint-based deployment capacity, never impact erosion",
+  "note": "Near-cash strategies are reported as a separate stratum and never dropped. Any arm difference that does not survive stratification is reported as not surviving it.",
+  "rule": "PREREGISTRATION.md Amendment 4 section 4.3, fixed before this was computed"
+}

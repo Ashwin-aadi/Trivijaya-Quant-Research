@@ -1,0 +1,96 @@
+{
+  "exact_tolerance": 1e-12,
+  "n_clusters_pooled": 20,
+  "n_clusters_spanning_arms": 13,
+  "n_strategies_in_cross_arm_cluster": 43,
+  "n_traded_pooled": 291,
+  "per_arm_in_cross_arm_cluster": {
+    "G1": 16,
+    "G2": 16,
+    "G4": 3,
+    "G5": 6,
+    "G7": 2
+  },
+  "per_arm_traded": {
+    "G1": 115,
+    "G2": 81,
+    "G4": 23,
+    "G5": 25,
+    "G6": 12,
+    "G7": 35
+  },
+  "rule": "P2's union-find over realised net returns, imported unchanged from paradigm_redundancy; identical tolerance and code path as the within-arm run",
+  "share_in_cross_arm_cluster": 0.14776632302405499,
+  "spanning_clusters": [
+    [
+      "G1/candidate_003",
+      "G5/candidate_003"
+    ],
+    [
+      "G1/candidate_008",
+      "G5/candidate_008"
+    ],
+    [
+      "G1/candidate_039",
+      "G1/candidate_807",
+      "G2/candidate_771"
+    ],
+    [
+      "G1/candidate_060",
+      "G2/candidate_468"
+    ],
+    [
+      "G1/candidate_109",
+      "G1/candidate_719",
+      "G2/candidate_081",
+      "G2/candidate_372",
+      "G2/candidate_755"
+    ],
+    [
+      "G1/candidate_156",
+      "G5/candidate_144"
+    ],
+    [
+      "G1/candidate_231",
+      "G1/candidate_399",
+      "G2/candidate_375",
+      "G7/candidate_027"
+    ],
+    [
+      "G1/candidate_344",
+      "G1/candidate_507",
+      "G1/candidate_700",
+      "G2/candidate_729",
+      "G4/candidate_297",
+      "G5/candidate_195"
+    ],
+    [
+      "G1/candidate_543",
+      "G2/candidate_291",
+      "G2/candidate_723",
+      "G2/candidate_795"
+    ],
+    [
+      "G1/candidate_639",
+      "G2/candidate_567",
+      "G2/candidate_639",
+      "G7/candidate_051"
+    ],
+    [
+      "G1/candidate_681",
+      "G2/candidate_717",
+      "G5/candidate_033",
+      "G5/candidate_141"
+    ],
+    [
+      "G2/candidate_003",
+      "G4/candidate_015"
+    ],
+    [
+      "G2/candidate_249",
+      "G2/candidate_504",
+      "G4/candidate_003"
+    ]
+  ],
+  "status": "EXPLORATORY -- not pre-registered; prompted by ties in the capacity table"
+}

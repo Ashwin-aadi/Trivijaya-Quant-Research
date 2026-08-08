@@ -1,0 +1,67 @@
+{
+  "arms": [
+    {
+      "arm": "G1",
+      "duplicate_pairs": 9,
+      "n_pairs": 6555,
+      "n_traded": 115,
+      "p_zero_duplicates_at_reference_rate": 2.9683361516825976e-06,
+      "paradigm": "G1_plain",
+      "redundancy_of_traded": 0.13043478260869565
+    },
+    {
+      "arm": "G2",
+      "duplicate_pairs": 10,
+      "n_pairs": 3240,
+      "n_traded": 81,
+      "p_zero_duplicates_at_reference_rate": 0.001853012373896704,
+      "paradigm": "G2_cot",
+      "redundancy_of_traded": 0.1728395061728395
+    },
+    {
+      "arm": "G4",
+      "duplicate_pairs": 0,
+      "n_pairs": 253,
+      "n_traded": 23,
+      "p_zero_duplicates_at_reference_rate": 0.6118689283819109,
+      "paradigm": "G4_planning",
+      "redundancy_of_traded": 0.0
+    },
+    {
+      "arm": "G5",
+      "duplicate_pairs": 1,
+      "n_pairs": 300,
+      "n_traded": 25,
+      "p_zero_duplicates_at_reference_rate": 0.5585033344188796,
+      "paradigm": "G5_reflection",
+      "redundancy_of_traded": 0.08
+    },
+    {
+      "arm": "G6",
+      "duplicate_pairs": 0,
+      "n_pairs": 66,
+      "n_traded": 12,
+      "p_zero_duplicates_at_reference_rate": 0.8797224386920651,
+      "paradigm": "G6_graph_of_thoughts",
+      "redundancy_of_traded": 0.0
+    },
+    {
+      "arm": "G7",
+      "duplicate_pairs": 4,
+      "n_pairs": 595,
+      "n_traded": 35,
+      "p_zero_duplicates_at_reference_rate": 0.3149689754876473,
+      "paradigm": "G7_mcts",
+      "redundancy_of_traded": 0.14285714285714285
+    }
+  ],
+  "independence_caveat": "Pairs are treated as independent though duplicates arrive in clusters. The reported P(zero) is therefore conservative: the true probability of observing no duplicate is if anything higher.",
+  "reference_arms": [
+    "G1",
+    "G2"
+  ],
+  "reference_duplicate_pairs": 19,
+  "reference_rate_per_pair": 0.0019397651863195507,
+  "reference_total_pairs": 9795,
+  "status": "EXPLORATORY -- not pre-registered; added after Checkpoint 4.1"
+}
