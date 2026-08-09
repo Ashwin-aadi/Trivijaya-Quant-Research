@@ -88,9 +88,11 @@ SERVABLE = {".html": "text/html", ".css": "text/css", ".js": "text/javascript"}
 #: reason this counter exists at all. It is per-session and in-memory: it never touches the
 #: repository's tamper-evident ledger, which belongs to the published results.
 _TRIALS = 0
-#: Net Sharpes seen this session. The deflation needs the spread of the trials searched over, and
-#: estimating it from the search actually performed is the only honest source available here.
-_SHARPES: list[float] = []
+#: One entry per trial that produced a return series, holding everything needed to deflate it
+#: again later. Kept because N and the spread both grow as the session goes on, and a deflated
+#: Sharpe computed against a smaller search is not comparable to one computed against a larger:
+#: the whole ledger is recomputed on every run so the answer does not depend on paste order.
+_SESSION_TRIALS: list[dict[str, Any]] = []
 _LOCK = threading.Lock()
 
 #: The engine reports an annualised Sharpe; every figure in ``src.audit.stat`` is per-observation at
@@ -126,22 +128,77 @@ def _moments(returns: list[float]) -> tuple[float, float]:
     return float(sps.skew(array, bias=False)), float(sps.kurtosis(array, fisher=False, bias=False))
 
 
-def _variance_of_trials(sharpe: float) -> float | None:
-    """Spread of this session's per-observation Sharpes, or None when one trial shows no spread.
+def _record_trial(index: int, label: str, sharpe_annual: float, daily: float, skew: float,
+                  kurtosis: float, n_observations: int) -> None:
+    """Keep what is needed to re-deflate this trial later, when N and the spread have grown.
 
-    Takes the daily figure, not the annualised one, so the variance it returns is already in the
-    units :func:`deflated_sharpe_ratio` expects. See :data:`SESSIONS_PER_YEAR`.
+    ``index`` is the number :func:`_bump` handed back for *this* request, not a re-read of the
+    global. The server is threaded, so two runs started close together can otherwise both read the
+    counter after both have incremented it and record themselves under the same number -- which was
+    caught by running two strategies while a browser was working through a third.
+    """
+    with _LOCK:
+        _SESSION_TRIALS.append({
+            "index": index, "label": label, "sharpe_annual": sharpe_annual,
+            "sharpe_per_observation": daily, "skew": skew, "kurtosis": kurtosis,
+            "n_observations": n_observations,
+        })
+
+
+def _variance_of_trials() -> float | None:
+    """Spread of this session's per-observation Sharpes, or None while one trial shows no spread.
+
+    Per-observation, not annualised, so the figure is already in the units
+    :func:`deflated_sharpe_ratio` expects. See :data:`SESSIONS_PER_YEAR`.
 
     Returning None rather than a placeholder is deliberate. A made-up variance produces a deflated
     Sharpe that looks like a measurement, and on a single trial it produces a very flattering one --
     which is precisely the failure this repository exists to detect.
     """
     with _LOCK:
-        _SHARPES.append(sharpe)
-        if len(_SHARPES) < 2:
-            return None
-        mean = sum(_SHARPES) / len(_SHARPES)
-        return sum((s - mean) ** 2 for s in _SHARPES) / (len(_SHARPES) - 1)
+        values = [float(t["sharpe_per_observation"]) for t in _SESSION_TRIALS]
+    if len(values) < 2:
+        return None
+    mean = sum(values) / len(values)
+    return sum((s - mean) ** 2 for s in values) / (len(values) - 1)
+
+
+def session_ledger() -> dict[str, Any]:
+    """Every trial this session, re-deflated at the *current* N and spread.
+
+    This is how the corpus was deflated and the only way the numbers are comparable to each other:
+    one N and one variance for the whole search, applied to every strategy in it. Deflating each
+    submission against only the trials that happened to precede it would make the answer depend on
+    the order you pasted things in, and a strategy is not more credible for having been typed first.
+
+    Two different denominators, deliberately. **N counts every attempt**, including the ones that
+    failed to run -- they consumed the search. **The spread comes only from trials that produced a
+    return series**, because a strategy that never ran has no Sharpe to contribute. The corpus does
+    exactly this: N = 1,887 from the ledger, variance from the 225 that were rankable.
+    """
+    variance = _variance_of_trials()
+    with _LOCK:
+        trials = list(_SESSION_TRIALS)
+    rows: list[dict[str, Any]] = []
+    for trial in trials:
+        row = dict(trial)
+        row["deflated_sharpe_probability"] = None if variance is None else float(
+            deflated_sharpe_ratio(
+                float(trial["sharpe_per_observation"]), n_trials=_TRIALS,
+                n_observations=int(trial["n_observations"]), skew=float(trial["skew"]),
+                kurtosis=float(trial["kurtosis"]), variance_of_trial_sharpes=variance,
+            )
+        )
+        rows.append(row)
+    return {
+        "n_trials": _TRIALS,
+        "n_with_series": len(trials),
+        "variance_of_trial_sharpes": variance,
+        "luck_threshold_sharpe": None if variance is None else float(
+            expected_max_sharpe(_TRIALS, variance)
+        ),
+        "rows": rows,
+    }
 
 
 #: Loaded once at startup. Both are read-only inputs to the frozen benchmarks, and rebuilding the
@@ -368,6 +425,17 @@ def book_measures(positions_path: str | None, sessions: list[Any]) -> dict[str, 
     return {"available": True, **concentration(books), **holding_period(books)}
 
 
+def strategy_label(source: str, index: int) -> str:
+    """The submitted class's own name, so the session ledger is readable at a glance."""
+    try:
+        for node in ast.parse(source).body:
+            if isinstance(node, ast.ClassDef):
+                return node.name
+    except SyntaxError:
+        pass
+    return f"submission #{index}"
+
+
 def stated_rationale(tree: ast.Module) -> str:
     """The strategy's stated rationale, from wherever the author put it.
 
@@ -509,7 +577,9 @@ def backtest(source: str) -> dict[str, Any]:
             probabilistic_sharpe_ratio(daily, benchmark_sharpe=0.0, n_observations=observations,
                                        skew=skew, kurtosis=kurtosis)
         )
-        variance = _variance_of_trials(daily)
+        _record_trial(trials, strategy_label(source, trials), float(sharpe), daily, skew,
+                      kurtosis, int(observations))
+        variance = _variance_of_trials()
         if variance is not None:
             result["luck_threshold_sharpe"] = float(expected_max_sharpe(trials, variance))
             result["deflated_sharpe_probability"] = float(
@@ -522,6 +592,9 @@ def backtest(source: str) -> dict[str, Any]:
         result["skew"], result["kurtosis"] = skew, kurtosis
     result["session_trials"] = trials
     result["ledger_trials"] = _LEDGER.get("verified")
+    # The whole session re-deflated at the N this run just produced, so every earlier strategy is
+    # judged against the same search as this one. See session_ledger() for why order must not count.
+    result["session"] = session_ledger()
     return result
 
 
@@ -591,8 +664,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler's naming
         path = self.path.split("?", 1)[0].split("#", 1)[0]
-        if path == "/api/status":
-            self._send(json.dumps(status()).encode("utf-8"), "application/json; charset=utf-8")
+        if path in ("/api/status", "/api/session"):
+            payload = status() if path == "/api/status" else session_ledger()
+            self._send(json.dumps(payload).encode("utf-8"), "application/json; charset=utf-8")
             return
         name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
         target = (STATIC / name).resolve()

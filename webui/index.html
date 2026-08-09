@@ -232,6 +232,7 @@ footer a{color:var(--accent-bright)}
       <div class="actions">
         <button id="audit" class="ghost">Static layer only</button>
         <button id="run">Run the full pipeline</button>
+        <button id="ledger" class="ghost">Session ledger</button>
         <span class="hint">Ctrl + Enter</span>
         <span class="trials" id="trials">No strategies evaluated</span>
       </div>
@@ -692,6 +693,54 @@ function duplicateCard(d) {
       of which was the equal-weight baseline under several names.</p>`);
 }
 
+// --- the session ledger ------------------------------------------------------
+// Every trial re-deflated at the current N and spread, which is the only way the rows are
+// comparable to each other. Deflating each submission against just the trials that happened to
+// precede it would make the verdict depend on the order you pasted things in.
+const SEEN = {};   // label -> the DSR last shown for it, so the movement is visible
+
+function sessionCard(s) {
+  if (!s || !s.rows || !s.rows.length) {
+    return card("Session ledger &middot; <b>every trial, re-deflated together</b>",
+      `<div class="hero">Nothing evaluated yet.</div>
+       <p class="empty">Run a strategy and it appears here. Run a second and both are re-scored
+       against the larger search &mdash; including the first one, whose number will move.</p>`);
+  }
+  const rows = s.rows.map(r => {
+    const d = r.deflated_sharpe_probability;
+    const previous = SEEN[r.label];
+    let move = "";
+    if (typeof d === "number" && typeof previous === "number" && Math.abs(d - previous) > 5e-5) {
+      const down = d < previous;
+      move = `<span class="n">${down ? "▼" : "▲"} was ${previous.toFixed(3)}</span>`;
+    }
+    if (typeof d === "number") SEEN[r.label] = d;
+    const cleared = typeof d === "number" && d >= 0.95;
+    return `<tr class="${cleared ? "hi" : ""}">
+      <th>${r.index}. ${esc(r.label)}<span class="n">Sharpe ${num(r.sharpe_annual, 3)}</span></th>
+      <td class="num">${num(d, 3)}${move}</td></tr>`;
+  }).join("");
+  const any = s.rows.some(r => r.deflated_sharpe_probability >= 0.95);
+  return card("Session ledger &middot; <b>every trial, re-deflated together</b>",
+    (any ? `<div class="hero pass">Something clears the bar.</div>`
+         : `<div class="hero flag">Nothing clears 0.95.</div>`)
+    + figs([
+      [s.n_trials, "trials counted, N"],
+      [num(s.luck_threshold_sharpe, 4), "luck threshold, per session", "flag"],
+      [s.n_with_series, "of them produced a return series"],
+    ])
+    + `<table>${rows}</table>`
+    + `<p class="empty">Order does not matter here, and that is the point. Every row is deflated
+      against the same N and the same spread, exactly as the published corpus was &mdash; one N from
+      the ledger, one variance across the search. A strategy is not more credible for having been
+      typed first, so its number moves as the search around it grows.</p>
+    <p class="empty"><b>Two different denominators, deliberately.</b> N counts every attempt,
+      including runs that failed outright, because they consumed the search. The spread comes only
+      from trials that produced a return series, because a strategy that never ran has no Sharpe to
+      contribute. The corpus does the same: N = 1,887 from the ledger, variance from the 225 that
+      were rankable.</p>`, true);
+}
+
 // --- orchestration -----------------------------------------------------------
 
 const STAGES = [
@@ -765,6 +814,7 @@ async function go(full) {
       cards.push(capacityCard(r.capacity || {available: false, why: "the backtest produced no book"}));
       cards.push(duplicateCard(r.duplicate));
     }
+    cards.push(sessionCard(r.session));
     paint(null);
   } catch (e) {
     cards.push(card("Request failed",
@@ -796,6 +846,19 @@ loadStatus();
 
 document.getElementById("audit").onclick = () => go(false);
 document.getElementById("run").onclick = () => go(true);
+document.getElementById("ledger").onclick = async () => {
+  // Nothing is re-run: the server keeps each trial's Sharpe and moments and re-deflates them, so
+  // this costs one request rather than another pass over 1,232 sessions.
+  try {
+    const s = await (await fetch("/api/session")).json();
+    out.innerHTML = `<p class="readout">session ledger &middot; ${s.n_trials} trials counted &middot;
+      no strategy re-run</p><div class="cards">${sessionCard(s)}</div>`;
+  } catch (e) {
+    out.innerHTML = `<div class="cards">${card("Session ledger",
+      `<div class="hero flag">Could not reach the server.</div>
+       <pre class="finding">${esc(e.message || e)}</pre>`)}</div>`;
+  }
+};
 document.querySelectorAll(".preset").forEach(b => b.onclick = () => loadPreset(b.dataset.key));
 src.addEventListener("input", setCount);
 document.addEventListener("keydown", (e) => {
