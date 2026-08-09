@@ -91,7 +91,6 @@ button.ghost{background:transparent;color:var(--navy-900);border-color:var(--lin
 button.ghost:hover{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
 button:disabled{opacity:.42;cursor:default;background:var(--navy-900)}
 button.ghost:disabled{background:transparent;color:var(--navy-900)}
-button.small{padding:8px 13px;font-size:11px}
 .hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.04em}
 .trials{margin-left:auto;font-family:var(--mono);font-size:12px;letter-spacing:.06em;
   color:var(--muted)}
@@ -193,7 +192,6 @@ footer a{color:var(--accent-bright)}
           <button id="run">Run the full pipeline</button>
           <span class="hint">Ctrl + Enter</span>
           <span class="trials" id="trials">No strategies evaluated</span>
-          <button id="reset" class="ghost small" type="button">Reset trial count</button>
         </div>
       </section>
 
@@ -513,22 +511,9 @@ function bookHtml(b) {
     </table>`;
 }
 
-// Stage 4 is a refusal, and it is written down rather than left as an absence. Under charter
-// RULE 7 the holdout is evaluated once per project with logged authorisation; a console that
-// scored pasted code against it on demand would spend the only clean data the repository has.
-function holdoutHtml(st) {
-  if (!st) return "";
-  return `<p class="subhead">Stage 4 · Holdout · not run, and not runnable</p>
-    <div class="verdict warn">The ${esc(st.holdout_start)} – ${esc(st.holdout_end)} holdout is
-      closed. This process never opens that panel.</div>
-    <p class="empty">${esc(st.holdout_reason)} Every number above is measured
-      <b>in sample</b>, on ${esc(st.dev_start)} – ${esc(st.dev_end)}, which is the window the
-      strategies were free to be fitted to. That is the whole reason the deflation above exists:
-      in-sample performance is what a search produces, and the holdout is what would have told you
-      whether any of it was real. It was evaluated three times, under logged authorisation, and
-      spending it again on an idea typed into a text box is exactly the trade this repository was
-      built to refuse.</p>`;
-}
+// No holdout stage. The console does not evaluate one and the server exposes no route that could:
+// the refusal lives in webui/server.py's status(), where the reason is written down, and in the
+// "holdout not loaded" line on every readout. It is not repeated as a results panel.
 
 function unavailable(stage, why) {
   return `<p class="subhead">${stage}</p><p class="empty">Not computed — ${esc(why)}.</p>`;
@@ -643,7 +628,6 @@ async function go(full) {
     parts.push(fragilityHtml(r.fragility));
     parts.push(bookHtml(r.book));
     parts.push(capacityHtml(r.capacity));
-    parts.push(holdoutHtml(STATUS));
     trials.textContent = `${r.session_trials} evaluated this session`;
     paint(null);
   } catch (e) {
@@ -655,23 +639,11 @@ async function go(full) {
   }
 }
 
-// The button exists, and it declines. A trial counter you can zero is not a trial counter: the
-// deflated Sharpe is a statement about how hard you searched, and a reset would let forty attempts
-// be reported as one. Restarting the process does clear it, which is the honest way -- it costs
-// every result in the session too, and that symmetry is the point.
+// There is no control that lowers the trial count, and adding one would defeat the counter: the
+// deflated Sharpe is a statement about how hard you searched, so a count its user can zero reports
+// whatever its user prefers. Restarting the process clears it, and costs every result in the
+// session too -- that symmetry is what makes it the honest way to start over.
 let STATUS = null;
-document.getElementById("reset").onclick = () => {
-  const n = STATUS && STATUS.ledger ? STATUS.ledger.verified : null;
-  out.innerHTML = MARKS + `
-    <div class="verdict warn">The trial count does not reset.</div>
-    <p class="empty">Nothing on this page can lower it. The deflated Sharpe is a statement about
-      how many things you tried before keeping this one, so a counter with a reset button is a
-      counter that reports whatever its user prefers — the precise failure the three papers on the
-      results site were written to detect. Restart the server and the session count goes to zero,
-      along with every result you have looked at, which is the trade that makes it honest.
-      ${n === null ? "" : `The published ledger, separately, holds ${n} verified trials and this
-      process never writes to it.`}</p>`;
-};
 
 async function loadStatus() {
   try {
@@ -680,7 +652,7 @@ async function loadStatus() {
     trials.textContent = n
       ? `No strategies evaluated · ledger holds ${n} verified trials`
       : "No strategies evaluated";
-  } catch (e) { /* the console works without it; only the holdout panel needs the dates */ }
+  } catch (e) { /* the console works without it; it only supplies the ledger count */ }
 }
 loadStatus();
 
