@@ -213,7 +213,10 @@ _LEDGER: dict[str, Any] = {}
 #: The published corpus's return series, and this session's, for the duplicate check.
 _CORPUS: dict[str, np.ndarray] = {}
 _CORPUS_DATES: list[Any] | None = None
-_SESSION_RETURNS: list[tuple[list[Any], np.ndarray]] = []
+#: (trial index, session dates, net returns) per evaluated submission. The index is carried
+#: rather than inferred from position: a run that failed outright still consumed a trial number,
+#: so list position and trial number diverge the moment anything goes wrong.
+_SESSION_RETURNS: list[tuple[int, list[Any], np.ndarray]] = []
 
 
 def _load_benchmark_inputs() -> None:
@@ -262,7 +265,8 @@ def _load_corpus_returns() -> None:
         _CORPUS[str(name[0])] = ordered["net_return"].to_numpy()
 
 
-def duplicate_check(dates: list[Any], returns: np.ndarray) -> dict[str, Any]:
+def duplicate_check(trial_index: int, dates: list[Any],
+                    returns: np.ndarray) -> dict[str, Any]:
     """Is this strategy an earlier submission under a new name, and what is it closest to?
 
     Judged on the realised net return series and not on source text, at the tolerance the corpus
@@ -307,14 +311,14 @@ def duplicate_check(dates: list[Any], returns: np.ndarray) -> dict[str, Any]:
     if best > -2.0:
         result["nearest_correlation"] = best
 
-    for index, (previous_dates, previous) in enumerate(_SESSION_RETURNS, start=1):
+    for index, previous_dates, previous in _SESSION_RETURNS:
         if previous_dates != dates:
             continue
         result["n_session_compared"] += 1
         if float(np.max(np.abs(previous - returns))) <= EXACT_TOLERANCE:
             result["session_match"] = result["session_match"] or f"submission #{index}"
     with _LOCK:
-        _SESSION_RETURNS.append((dates, returns))
+        _SESSION_RETURNS.append((trial_index, dates, returns))
     return result
 
 
@@ -549,7 +553,7 @@ def backtest(source: str) -> dict[str, Any]:
                 result["book"] = {"available": False, "why": f"{type(exc).__name__}: {exc}"}
             try:
                 result["duplicate"] = duplicate_check(
-                    frame["session_date"].to_list(), frame["return"].to_numpy()
+                    trials, frame["session_date"].to_list(), frame["return"].to_numpy()
                 )
             except Exception as exc:  # noqa: BLE001
                 result["duplicate"] = {"available": False, "why": f"{type(exc).__name__}: {exc}"}
