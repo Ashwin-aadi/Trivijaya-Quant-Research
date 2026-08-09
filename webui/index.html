@@ -11,9 +11,12 @@
 <style>
 *,*::before,*::after{box-sizing:border-box}
 :root{
-  --navy-900:#0b1220;--paper:#f5f5f2;--panel:#fff;
-  --ink:#12161f;--muted:#5b6270;--line:rgba(18,22,31,.16);--line-strong:rgba(18,22,31,.32);
-  --accent:#1f3d6b;--accent-bright:#9fb6dc;--flag:#8c2f24;--ok:#1f5c3d;--warn:#8a6a1f;
+  /* Warm, low-contrast paper. Pure white against near-black reads as a screen shouting; the
+     figures on this page are meant to be looked at for a while. Panel sits a shade lighter than
+     the ground so cards lift without a border doing the work, and the ink stops short of black. */
+  --navy-900:#101828;--paper:#efece4;--panel:#faf8f3;
+  --ink:#26292f;--muted:#6b6f78;--line:rgba(38,41,47,.13);--line-strong:rgba(38,41,47,.26);
+  --accent:#2b4a78;--accent-bright:#a8bcdb;--flag:#8c3b2e;--ok:#2c6047;--warn:#8a6a2a;
   --serif:Georgia,"Times New Roman",Times,serif;
   --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
 }
@@ -64,9 +67,40 @@ header .lede b{color:#fff;font-weight:400;border-bottom:1px solid rgba(159,182,2
 .facts .v{font-family:var(--mono);font-size:14px;color:#fff;margin-top:5px;letter-spacing:.02em}
 /* layout */
 main{padding:clamp(36px,5vw,64px) 0 40px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}
-@media (max-width:1000px){.grid{grid-template-columns:1fr}}
 @media (max-width:640px){.wrap{padding:0 22px}}
+/* The editor spans the page and the results span it again underneath. An earlier version put them
+   side by side, which halved the width available to a results panel that is mostly numbers and
+   forced it into one tall column; nothing here is worth that much scrolling. */
+.editor{max-width:none}
+.results{margin-top:clamp(34px,4vw,56px)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(370px,1fr));gap:26px;
+  align-items:start}
+@media (max-width:820px){.cards{grid-template-columns:1fr}}
+.card{background:var(--panel);padding:24px 26px}
+.card.wide{grid-column:1/-1}
+.ct{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line-strong)}
+.ct b{color:var(--ink);font-weight:400}
+/* The headline of a card: the one thing to read if you read nothing else. */
+.hero{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.08;
+  font-size:clamp(23px,2.5vw,31px);margin:0 0 14px}
+.hero.pass{color:var(--ok)}.hero.flag{color:var(--flag)}.hero.warn{color:var(--warn)}
+.figs{display:flex;flex-wrap:wrap;gap:22px 34px;margin:0 0 18px}
+.fig{min-width:120px}
+.fig .n{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums;
+  font-size:clamp(27px,3vw,38px);line-height:1;letter-spacing:-.02em;color:var(--ink)}
+.fig .n.flag{color:var(--flag)}.fig .n.ok{color:var(--ok)}
+.fig .l{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);margin-top:9px;max-width:22ch;line-height:1.5}
+/* progress: which stage is running now, and what is still to come */
+.stagebar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}
+.st{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  padding:8px 12px;border:1px solid var(--line);color:var(--muted);background:var(--panel)}
+.st.run{border-color:var(--accent);color:var(--accent);font-weight:700}
+.st.run::after{content:" …"}
+.st.done{border-color:var(--ok);color:var(--ok)}
+.st.done::before{content:"✓ "}
+.st.skip{opacity:.5;text-decoration:line-through}
 /* editor */
 .presets{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;align-items:baseline}
 .presets .pl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
@@ -75,8 +109,16 @@ main{padding:clamp(36px,5vw,64px) 0 40px}
   color:var(--navy-900);border:1px solid var(--line-strong)}
 .presets button:hover{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
 .presets button[aria-pressed="true"]{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
-textarea{width:100%;height:520px;padding:18px;border:0;background:#070c15;color:#d6def0;
+textarea{width:100%;height:400px;padding:18px;border:0;background:#070c15;color:#d6def0;
   font:13.5px/1.7 var(--mono);resize:vertical;display:block;tab-size:4}
+/* The import lines the engine requires, shown but not editable. They are not a formality: the
+   strategy interface is what makes point-in-time discipline a property of the engine rather than
+   something the author is trusted to observe, and an editor that lets you delete the import is an
+   editor whose first error message is always the same one. */
+.locked{padding:16px 18px 14px;background:#050912;color:#7e8ba4;font:13.5px/1.7 var(--mono);
+  border-bottom:1px dashed rgba(159,182,220,.28);white-space:pre;overflow-x:auto}
+.locked .tag{display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:#5d6a83;margin-bottom:8px}
 textarea:focus{outline:2px solid var(--accent-bright);outline-offset:-2px}
 .editbar{display:flex;align-items:center;gap:12px;padding:11px 16px;background:#070c15;
   border-bottom:1px solid rgba(245,245,242,.14);color:#8b97ad;font-family:var(--mono);
@@ -172,40 +214,42 @@ footer a{color:var(--accent-bright)}
 
 <main>
   <div class="wrap">
-    <div class="grid">
-      <section>
-        <p class="kicker">Strategy source</p>
-        <div class="presets">
-          <span class="pl">Load an example</span>
-          <button type="button" class="preset" data-key="momentum" aria-pressed="true">Honest momentum</button>
-          <button type="button" class="preset" data-key="leaky">Leaky — flagged</button>
-          <button type="button" class="preset" data-key="cash">Holds cash</button>
-        </div>
-        <div class="bp">
-          <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
-          <div class="editbar"><span>python — submission.py</span><span class="count" id="count"></span></div>
-          <label class="skip" for="src">Strategy source code</label>
-          <textarea id="src" spellcheck="false"></textarea>
-        </div>
-        <div class="actions">
-          <button id="audit" class="ghost">Static layer only</button>
-          <button id="run">Run the full pipeline</button>
-          <span class="hint">Ctrl + Enter</span>
-          <span class="trials" id="trials">No strategies evaluated</span>
-        </div>
-      </section>
+    <section class="editor">
+      <p class="kicker">Strategy source</p>
+      <div class="presets">
+        <span class="pl">Load an example</span>
+        <button type="button" class="preset" data-key="momentum" aria-pressed="true">Honest momentum</button>
+        <button type="button" class="preset" data-key="leaky">Leaky — flagged</button>
+        <button type="button" class="preset" data-key="cash">Holds cash</button>
+      </div>
+      <div class="bp">
+        <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+        <div class="editbar"><span>python — submission.py</span><span class="count" id="count"></span></div>
+        <div class="locked" id="preamble" aria-label="Fixed preamble, not editable"></div>
+        <label class="skip" for="src">Strategy source code</label>
+        <textarea id="src" spellcheck="false"></textarea>
+      </div>
+      <div class="actions">
+        <button id="audit" class="ghost">Static layer only</button>
+        <button id="run">Run the full pipeline</button>
+        <span class="hint">Ctrl + Enter</span>
+        <span class="trials" id="trials">No strategies evaluated</span>
+      </div>
+    </section>
 
-      <section>
-        <p class="kicker">Result</p>
-        <div class="panel bp" id="out" aria-live="polite" aria-busy="false">
+    <section class="results">
+      <p class="kicker">Result</p>
+      <div id="out" aria-live="polite" aria-busy="false">
+        <div class="card bp">
           <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
-          <p class="empty">Results appear here, stage by stage as each finishes. The static layer
-            is instant; the local 7B takes a few seconds; the backtest runs 1,232 sessions and
-            takes about half a minute, after which fragility, capacity and the book measures are
-            computed from that same run.</p>
+          <p class="empty">Results appear here, stage by stage as each finishes, and spread across
+            the page rather than stacked in one column. The static layer is instant; the local 7B
+            takes a few seconds; the backtest runs 1,232 sessions and takes about half a minute,
+            after which the deflation, fragility, capacity and the book measures all come from that
+            same run.</p>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
 
     <div class="notes">
       <div class="note bp">
@@ -377,210 +421,287 @@ const MARKS = '<i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i cl
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const num = (v, d = 3) => (typeof v === "number" && isFinite(v)) ? v.toFixed(d) : "&mdash;";
 const pct = (v, d = 2) => (typeof v === "number" && isFinite(v)) ? (v * 100).toFixed(d) + "%" : "&mdash;";
+const cr = (v) => (typeof v === "number" && isFinite(v)) ? "₹" + v.toFixed(2) + " cr" : "&mdash;";
+
+// Fixed, and prepended to whatever is in the editor before anything is submitted. The strategy
+// interface is what makes point-in-time discipline a property of the engine instead of a
+// convention the author is trusted to follow, so the import that supplies it is not the author's
+// to remove. Every line number the static layer reports is shifted back by these lines before it
+// is shown, so findings point at the code you actually wrote.
+const PREAMBLE = `from datetime import date
+
+from src.backtest.strategy import MarketView, Signal, Strategy`;
+const JOIN = "\n\n";
+const LINE_OFFSET = (PREAMBLE + JOIN).split("\n").length - 1;
+const fullSource = () => PREAMBLE + JOIN + src.value;
+
+document.getElementById("preamble").innerHTML =
+  `<span class="tag">fixed &middot; supplied by the console &middot; not editable</span>` + esc(PREAMBLE);
 
 function setCount() {
   const lines = src.value ? src.value.split("\n").length : 0;
-  count.textContent = `${lines} lines · ${src.value.length} chars`;
+  count.textContent = `${lines} editable lines + ${LINE_OFFSET - 1} fixed`;
 }
 
 function loadPreset(key) {
-  src.value = EXAMPLES[key];
+  // The examples carry the import block so they read as complete files; the editor owns everything
+  // below it, so strip exactly the lines the preamble will put back.
+  src.value = EXAMPLES[key].replace(PREAMBLE + "\n", "");
   setCount();
   document.querySelectorAll(".preset").forEach(b =>
     b.setAttribute("aria-pressed", String(b.dataset.key === key)));
 }
 
-function findingsHtml(a) {
-  if (!a.findings.length) {
-    return `<div class="verdict pass">No leakage findings.</div>
-            <p class="empty">The static layer reads the code for future-peeking. Passing it is not
-            a claim that the strategy is any good — only that it does not visibly cheat.</p>`;
-  }
-  const high = a.findings.filter(f => String(f.severity).toLowerCase() === "high").length;
-  const head = a.rejected
-    ? `<div class="verdict flag">Rejected — ${a.findings.length} finding(s), ${high} of them high severity.</div>`
-    : `<div class="verdict warn">${a.findings.length} finding(s), none high severity.</div>`;
-  return head + a.findings.map(f => `
-    <div class="finding${String(f.severity).toLowerCase() === "high" ? "" : " med"}">
-      <div class="cls">${esc(f.leak_class)} · ${esc(f.severity)} · line ${esc(f.line)}</div>
-      <div class="why">${esc(f.explanation)}</div>
-      <pre>${esc(f.snippet)}</pre>
-    </div>`).join("");
+// --- cards -------------------------------------------------------------------
+
+function card(title, body, wide) {
+  return `<article class="card bp${wide ? " wide" : ""}">${MARKS}
+    <p class="ct">${title}</p>${body}</article>`;
 }
 
-function backtestHtml(r) {
-  if (r.outcome !== "evaluated") {
-    return `<div class="verdict flag">Did not run — ${esc(r.outcome)}</div>
-            <pre class="finding">${esc(r.error || "no detail recorded")}</pre>`;
-  }
-  const drag = (typeof r.sharpe === "number" && typeof r.sharpe_gross === "number")
-    ? r.sharpe_gross - r.sharpe : null;
-  // Performance only. The deflation lives in its own panel below, because it is a different
-  // layer of the auditor and reading it as one more row of the backtest is how a raw Sharpe ends
-  // up quoted without it.
-  const rows = [
-    ["Net Sharpe", num(r.sharpe), true],
-    ["Gross Sharpe, before costs", num(r.sharpe_gross), false],
-    ["Cost drag, in Sharpe units", num(drag), false],
-    ["Annualised return, net", pct(r.annualised_return), false],
-    ["Annualised return, gross", pct(r.annualised_return_gross), false],
-    ["Annualised volatility", pct(r.volatility), false],
-    ["Max drawdown", pct(r.max_drawdown), false],
-    ["Mean turnover per session", num(r.mean_turnover, 4), false],
-    ["Mean cost per session", num(r.mean_cost, 5), false],
-    ["Ruined on", r.ruined_on ? esc(r.ruined_on) : "never", false],
-    ["Return skew", num(r.skew, 2), false],
-    ["Return kurtosis", num(r.kurtosis, 2), false],
-    ["Sessions", r.n_sessions ?? "&mdash;", false],
-  ];
-  const flipped = drag !== null && r.sharpe_gross > 0 && r.sharpe <= 0;
-  const traded = (r.mean_turnover || 0) > 0;
-  let head;
-  if (!traded) {
-    head = `<div class="verdict flag">Ran, but never took a position.</div>`;
-  } else if (flipped) {
-    head = `<div class="verdict flag">Profitable before costs, unprofitable after them.</div>`;
-  } else {
-    head = `<div class="verdict pass">Ran and took a position.</div>`;
-  }
-  return head + `<table>${rows.map(([k, v, hi]) =>
+function figs(items) {
+  const cells = items.filter(Boolean).map(([value, label, tone]) =>
+    `<div class="fig"><div class="n${tone ? " " + tone : ""}">${value}</div>
+      <div class="l">${label}</div></div>`).join("");
+  return `<div class="figs">${cells}</div>`;
+}
+
+function rows(items) {
+  return `<table>${items.filter(Boolean).map(([k, v, hi]) =>
     `<tr class="${hi ? "hi" : ""}"><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>`;
 }
 
-// AlphaAudit layer 2. Two probabilities that differ only in what they are measured against: the
-// PSR asks whether this Sharpe beats zero, the DSR asks whether it beats what the luckiest of N
-// tries would have shown anyway. The gap between them is the price of the search.
-function statHtml(r) {
+function missing(title, why) {
+  return card(title, `<div class="hero warn">Not computed.</div>
+    <p class="empty">${esc(why)}.</p>`);
+}
+
+// --- AlphaAudit layer 1 ------------------------------------------------------
+
+function staticCard(a) {
+  const high = a.findings.filter(f => String(f.severity).toLowerCase() === "high").length;
+  let head;
+  if (!a.findings.length) {
+    head = `<div class="hero pass">No leakage findings.</div>
+      <p class="empty">The static layer reads the code for future-peeking. Passing it is not a
+      claim that the strategy is any good &mdash; only that it does not visibly cheat.</p>`;
+  } else if (a.rejected) {
+    head = `<div class="hero flag">Rejected.</div>` + figs([
+      [a.findings.length, "findings", "flag"], [high, "high severity", "flag"]]);
+  } else {
+    head = `<div class="hero warn">Flagged, not rejected.</div>` + figs([
+      [a.findings.length, "findings"], [0, "high severity"]]);
+  }
+  const list = a.findings.map(f => {
+    const line = f.line - LINE_OFFSET;
+    const where = line > 0 ? `line ${line}` : "the fixed preamble";
+    return `<div class="finding${String(f.severity).toLowerCase() === "high" ? "" : " med"}">
+      <div class="cls">${esc(f.leak_class)} &middot; ${esc(f.severity)} &middot; ${where}</div>
+      <div class="why">${esc(f.explanation)}</div>
+      <pre>${esc(f.snippet)}</pre>
+    </div>`;
+  }).join("");
+  return card("AlphaAudit &middot; layer 1 &middot; <b>A_static</b> &middot; leakage in the code",
+              head + list);
+}
+
+// --- the backtest ------------------------------------------------------------
+
+function backtestCard(r) {
+  if (r.outcome !== "evaluated") {
+    return card("Backtest &middot; development window",
+      `<div class="hero flag">Did not run &mdash; ${esc(r.outcome)}.</div>
+       <pre class="finding">${esc(r.error || "no detail recorded")}</pre>`);
+  }
+  const drag = (typeof r.sharpe === "number" && typeof r.sharpe_gross === "number")
+    ? r.sharpe_gross - r.sharpe : null;
+  const traded = (r.mean_turnover || 0) > 0;
+  const flipped = drag !== null && r.sharpe_gross > 0 && r.sharpe <= 0;
+  let head;
+  if (!traded) head = `<div class="hero flag">Ran, but never took a position.</div>`;
+  else if (flipped) head = `<div class="hero flag">Profitable before costs, unprofitable after them.</div>`;
+  else head = `<div class="hero pass">Ran and took a position.</div>`;
+  return card("Backtest &middot; development window &middot; <b>net of statutory costs</b>",
+    head + figs([
+      [num(r.sharpe, 2), "net Sharpe, annualised", r.sharpe > 0 ? "ok" : "flag"],
+      [num(r.sharpe_gross, 2), "gross Sharpe, before costs"],
+      [pct(r.max_drawdown, 1), "max drawdown", "flag"],
+    ]) + rows([
+      ["Cost drag, in Sharpe units", num(drag)],
+      ["Annualised return, net", pct(r.annualised_return)],
+      ["Annualised return, gross", pct(r.annualised_return_gross)],
+      ["Annualised volatility", pct(r.volatility)],
+      ["Mean turnover per session", num(r.mean_turnover, 4)],
+      ["Mean cost per session", num(r.mean_cost, 5)],
+      ["Ruined on", r.ruined_on ? esc(r.ruined_on) : "never"],
+      ["Sessions", r.n_sessions ?? "&mdash;"],
+    ]));
+}
+
+// --- AlphaAudit layer 2 ------------------------------------------------------
+// Two probabilities differing only in what they are measured against: the PSR asks whether this
+// Sharpe beats zero, the DSR asks whether it beats what the luckiest of N tries shows anyway.
+function statCard(r) {
   if (r.outcome !== "evaluated") return "";
-  const rows = [
-    ["Sharpe per session, the figure deflated", num(r.sharpe_per_observation, 4), false],
-    ["Probabilistic Sharpe, against zero", num(r.probabilistic_sharpe), false],
-    ["Sharpe per session the luckiest of N tries earns", num(r.luck_threshold_sharpe, 4), false],
-    ["Deflated Sharpe probability", num(r.deflated_sharpe_probability), true],
-    ["Return skew", num(r.skew, 2), false],
-    ["Return kurtosis", num(r.kurtosis, 2), false],
-    ["Trials this session, N", r.session_trials, false],
-    ["Trials in the published ledger", r.ledger_trials ?? "&mdash;", false],
-  ];
+  const d = r.deflated_sharpe_probability;
+  const tone = typeof d === "number" ? (d >= 0.95 ? "ok" : "flag") : "";
+  const head = typeof d === "number"
+    ? (d >= 0.95
+        ? `<div class="hero pass">Survives deflation at ${r.session_trials} trials.</div>`
+        : `<div class="hero flag">Does not survive deflation.</div>`)
+    : `<div class="hero warn">Not deflated yet.</div>`;
   const note = r.deflation_note
     ? `<p class="empty">${esc(r.deflation_note)}</p>`
-    : `<p class="empty">Every Sharpe in this panel is <b>per session</b>, not annualised: the
-       correction is defined at the frequency of the observation count, and handing it an
-       annualised figure beside a daily count inflates it badly. Divide the table's Sharpe by
-       &radic;252 and you get the first row. The deflation is computed against <b>this session's</b> trials and the
-       spread of their Sharpes — not against the ledger figure beside it, which belongs to the
-       published corpus and is shown here only so the two are never confused.</p>`;
-  return `<p class="subhead">AlphaAudit · layer 2 · A_stat · deflation</p>
-    <table>${rows.map(([k, v, hi]) =>
-      `<tr class="${hi ? "hi" : ""}"><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>`
-    + note;
+    : `<p class="empty">Every Sharpe in this card is <b>per session</b>, not annualised: the
+       correction is defined at the frequency of the observation count, and an annualised figure
+       beside a daily count inflates it badly. Divide the backtest's Sharpe by &radic;252 to get the
+       first figure. Deflation counts <b>this session's</b> trials, never the ledger's.</p>`;
+  return card("AlphaAudit &middot; layer 2 &middot; <b>A_stat</b> &middot; deflation",
+    head + figs([
+      [num(d, 3), "deflated Sharpe probability", tone],
+      [num(r.probabilistic_sharpe, 3), "probabilistic Sharpe, against zero"],
+      [r.session_trials, "trials this session, N"],
+    ]) + rows([
+      ["Sharpe per session, the figure deflated", num(r.sharpe_per_observation, 4), true],
+      ["Sharpe per session the luckiest of N tries earns", num(r.luck_threshold_sharpe, 4), true],
+      ["Return skew", num(r.skew, 2)],
+      ["Return kurtosis", num(r.kurtosis, 2)],
+      ["Trials in the published ledger", r.ledger_trials ?? "&mdash;"],
+    ]) + note);
 }
 
-// AlphaAudit layer 3. A local 7B reads the stated rationale against the code. It is the weakest
-// of the three layers and the paper says so; its agreement with hand labels is reported there.
-function semanticHtml(s) {
-  if (!s) return "";
-  if (!s.available) return unavailable("AlphaAudit · layer 3 · A_sem · rationale vs code", s.why);
-  const verdict = s.is_defect
-    ? `<div class="verdict warn">${esc(s.label)} — the model says the story and the code disagree.</div>`
-    : `<div class="verdict pass">consistent — the model reads the code as doing what the rationale claims.</div>`;
-  return `<p class="subhead">AlphaAudit · layer 3 · A_sem · rationale vs code</p>` + verdict +
-    `<table>
-      <tr class="hi"><th>Label</th><td class="num">${esc(s.label)}</td></tr>
-      <tr><th>Model confidence</th><td class="num">${num(s.confidence, 2)}</td></tr>
-      <tr><th>Model</th><td class="num">${esc(s.model_tag)}</td></tr>
-    </table>
-    <div class="finding med"><div class="cls">why the model said so</div>
+// --- AlphaAudit layer 3 ------------------------------------------------------
+
+function semanticCard(s) {
+  const title = "AlphaAudit &middot; layer 3 &middot; <b>A_sem</b> &middot; rationale vs code";
+  if (!s.available) return missing(title, s.why);
+  const head = s.is_defect
+    ? `<div class="hero flag">${esc(s.label)}</div>
+       <p class="empty">The model reads the story and the code as disagreeing.</p>`
+    : `<div class="hero pass">Consistent.</div>
+       <p class="empty">The model reads the code as doing what the rationale claims.</p>`;
+  return card(title, head + figs([
+      [num(s.confidence, 2), "model confidence", s.is_defect ? "flag" : "ok"],
+    ]) + rows([
+      ["Label", esc(s.label), true],
+      ["Model", esc(s.model_tag)],
+    ]) + `<div class="finding med"><div class="cls">why the model said so</div>
       <div class="why">${esc(s.explanation)}</div></div>
     <p class="empty">A judgment from a 7B model, not a measurement. Against 50 hand labels this
-      layer reached a Cohen's &kappa; that the paper reports in full, including where it is weak.</p>`;
+      layer reached a Cohen's &kappa; the paper reports in full, including where it is weak.</p>`);
 }
 
-// The features the fragility predictor is built from, so they belong beside the fragility score.
-function bookHtml(b) {
-  if (!b || !b.available) return "";
-  return `<p class="subhead">Strategy characteristics · from the position book</p>
-    <table>
-      <tr><th>Mean Herfindahl concentration</th><td class="num">${num(b.mean_herfindahl)}</td></tr>
-      <tr><th>Effective holdings, 1/HHI</th><td class="num">${num(b.effective_holdings, 2)}</td></tr>
-      <tr><th>Mean names held</th><td class="num">${num(b.mean_n_holdings, 1)}</td></tr>
-      <tr><th>Mean largest weight share</th><td class="num">${pct(b.mean_largest_weight_share, 1)}</td></tr>
-      <tr><th>Sessions holding nothing</th><td class="num">${pct(b.cash_session_rate, 1)}</td></tr>
-      <tr><th>Mean holding period, sessions</th><td class="num">${num(b.mean_holding_period, 1)}</td></tr>
-      <tr><th>Position entries</th><td class="num">${num(b.n_entries, 0)}</td></tr>
-    </table>`;
-}
+// --- stage 2 -----------------------------------------------------------------
 
-// No holdout stage. The console does not evaluate one and the server exposes no route that could:
-// the refusal lives in webui/server.py's status(), where the reason is written down, and in the
-// "holdout not loaded" line on every readout. It is not repeated as a results panel.
-
-function unavailable(stage, why) {
-  return `<p class="subhead">${stage}</p><p class="empty">Not computed — ${esc(why)}.</p>`;
-}
-
-// Stage 2. RegimeStress measures how far performance moves between market conditions, so a low
-// score is only good news if the strategy made money somewhere; the frozen measure flags the case
-// where it did not, and so does this.
-function fragilityHtml(f) {
-  if (!f) return "";
-  if (!f.available) return unavailable("Stage 2 · RegimeStress · fragility", f.why);
+function fragilityCard(f) {
+  const title = "Stage 2 &middot; RegimeStress &middot; <b>fragility</b>";
+  if (!f.available) return missing(title, f.why);
   const labels = Object.keys(f.regime_sharpe || {}).sort();
-  const perRegime = labels.map(k => `
-    <tr><th>Sharpe in regime ${esc(k)}</th><td class="num">${num(f.regime_sharpe[k])}
-      <span class="n">n = ${esc(f.regime_sessions[k])}</span></td></tr>`).join("");
-  const caveat = f.mean_is_near_zero
-    ? `<p class="empty"><b>This score is not meaningful.</b> Fragility is a ratio, and this
-       strategy's mean performance across regimes is near zero — a tiny denominator, so the number
-       is arithmetic rather than a statement about robustness.</p>`
-    : `<p class="empty">Lower is steadier across market conditions. The published corpus has a
-       median of 0.618 across four generators, measured this same way. A low score on a strategy
-       that never makes money is not robustness.</p>`;
-  return `<p class="subhead">Stage 2 · RegimeStress · fragility</p>
-    <table>
-      <tr class="hi"><th>Fragility across regimes</th><td class="num">${num(f.fragility_across_regimes)}</td></tr>
-      <tr><th>Mean Sharpe across regimes</th><td class="num">${num(f.mean_regime_sharpe)}</td></tr>
-      ${perRegime}
-      <tr><th>Sessions labelled</th><td class="num">${esc(f.n_sessions)}</td></tr>
-    </table>${caveat}`;
+  const perRegime = labels.map(k => [`Sharpe in regime ${esc(k)}`,
+    `${num(f.regime_sharpe[k])}<span class="n">n = ${esc(f.regime_sessions[k])}</span>`]);
+  const head = f.mean_is_near_zero
+    ? `<div class="hero warn">This score is not meaningful.</div>
+       <p class="empty">Fragility is a ratio, and this strategy's mean performance across regimes
+       is near zero &mdash; a tiny denominator, so the number is arithmetic rather than a statement
+       about robustness.</p>`
+    : `<div class="hero">Measured across ${labels.length} labelled regimes.</div>`;
+  return card(title, head + figs([
+      [num(f.fragility_across_regimes, 3), "fragility, lower is steadier",
+       f.mean_is_near_zero ? "" : (f.fragility_across_regimes > 0.618 ? "flag" : "ok")],
+      [num(f.mean_regime_sharpe, 2), "mean Sharpe across regimes"],
+    ]) + rows(perRegime.concat([["Sessions labelled", esc(f.n_sessions)]]))
+    + `<p class="empty">The published corpus has a median of <b>0.618</b> across four generators,
+       measured this same way. A low score on a strategy that never makes money is not
+       robustness.</p>`);
 }
 
-// Stage 3. A constraint computed from observed traded value -- never an estimate of the size at
-// which the edge erodes. The two answer different questions and only one is supported by the data.
-function capacityHtml(c) {
-  if (!c) return "";
-  if (!c.available) return unavailable("Stage 3 · FlowState · deployment capacity", c.why);
-  const cr = (v) => (typeof v === "number" && isFinite(v)) ? "₹" + v.toFixed(2) + " cr" : "&mdash;";
-  return `<p class="subhead">Stage 3 · FlowState · deployment capacity</p>
-    <table>
-      <tr class="hi"><th>Binding capacity</th><td class="num">${cr(c.binding_capacity_crore)}</td></tr>
-      <tr><th>Median session</th><td class="num">${cr(c.median_capacity_crore)}</td></tr>
-      <tr><th>5th percentile session</th><td class="num">${cr(c.p05_capacity_crore)}</td></tr>
-      <tr><th>Opening the position</th><td class="num">${cr(c.entry_capacity_crore)}</td></tr>
-      <tr><th>Tightest name</th><td class="num">${esc(c.binding_symbol)}</td></tr>
-      <tr><th>Sessions bound by one name</th><td class="num">${pct(c.fraction_bound_by_one_name, 1)}</td></tr>
-      <tr><th>Participation limit</th><td class="num">${pct(c.participation_limit, 1)}</td></tr>
-      <tr><th>Rebalance sessions</th><td class="num">${esc(c.n_rebalance_sessions)}</td></tr>
-    </table>
-    ${flowStateHtml(c.by_flow_state)}
-    <p class="empty">The binding figure is the worst session, and it is set by the single least
-      liquid name the strategy insists on trading — not by the average liquidity of the book. This
-      is a <b>constraint</b>: the largest book that still fits inside the participation limit. It is
-      not an estimate of the size at which the edge erodes, which daily bars cannot identify.</p>`;
+function bookCard(b) {
+  if (!b || !b.available) return "";
+  return card("Strategy characteristics &middot; from the position book",
+    figs([
+      [num(b.effective_holdings, 1), "effective holdings, 1/HHI"],
+      [num(b.mean_holding_period, 1), "mean holding period, sessions"],
+    ]) + rows([
+      ["Mean Herfindahl concentration", num(b.mean_herfindahl)],
+      ["Mean names held", num(b.mean_n_holdings, 1)],
+      ["Mean largest weight share", pct(b.mean_largest_weight_share, 1)],
+      ["Sessions holding nothing", pct(b.cash_session_rate, 1)],
+      ["Position entries", num(b.n_entries, 0)],
+    ]) + `<p class="empty">These are the features the fragility predictor is built from, which is
+      why they sit beside the fragility score rather than in a report of their own.</p>`);
 }
 
-// P3's actual question: does deployable size collapse when foreign money leaves? The session count
-// travels with every median, because the ratio between two states is what a reader will quote and a
-// ratio computed over thirty sessions is not evidence of anything.
-function flowStateHtml(states) {
-  if (!states || !states.length) return "";
-  const cr = (v) => (typeof v === "number" && isFinite(v)) ? "₹" + v.toFixed(2) + " cr" : "&mdash;";
-  return `<p class="subhead">Capacity by flow state · FII inflow, outflow, neutral</p>
-    <table>${states.map(s => `
-      <tr><th>${esc(s.flow_state)}</th><td class="num">${cr(s.median_capacity_crore)}
-        <span class="n">p05 ${cr(s.p05_capacity_crore)} · n = ${esc(s.n_sessions)}</span></td></tr>`
-    ).join("")}</table>`;
+// --- stage 3 -----------------------------------------------------------------
+
+function capacityCard(c) {
+  const title = "Stage 3 &middot; FlowState &middot; <b>deployment capacity</b>";
+  if (!c.available) return missing(title, c.why);
+  const states = (c.by_flow_state || []).map(s => [esc(s.flow_state),
+    `${cr(s.median_capacity_crore)}<span class="n">p05 ${cr(s.p05_capacity_crore)} &middot;
+     n = ${esc(s.n_sessions)}</span>`]);
+  return card(title,
+    `<div class="hero">Deployable at ${pct(c.participation_limit, 1)} of a day's volume.</div>`
+    + figs([
+      [cr(c.binding_capacity_crore), "binding capacity, the worst session", "flag"],
+      [cr(c.median_capacity_crore), "median session"],
+      [esc(c.binding_symbol), "tightest name"],
+    ]) + rows([
+      ["5th percentile session", cr(c.p05_capacity_crore)],
+      ["Opening the position", cr(c.entry_capacity_crore)],
+      ["Sessions bound by one name", pct(c.fraction_bound_by_one_name, 1)],
+      ["Rebalance sessions", esc(c.n_rebalance_sessions)],
+    ]) + (states.length
+      ? `<p class="subhead">By FII flow state</p>` + rows(states) : "")
+    + `<p class="empty">The binding figure is the worst session, set by the single least liquid
+      name the strategy insists on trading &mdash; not by the average liquidity of the book. This is
+      a <b>constraint</b>: the largest book that still fits inside the participation limit. It is
+      not an estimate of the size at which the edge erodes, which daily bars cannot identify.</p>`);
 }
+
+// --- duplicates --------------------------------------------------------------
+// Judged on the realised net return series and not on source text, at the tolerance the corpus
+// census used. Two strategies whose returns agree on every session are the same strategy here.
+function duplicateCard(d) {
+  const title = "Duplicate check &middot; <b>returns, not source text</b>";
+  if (!d || !d.available) return d ? missing(title, d.why) : "";
+  const near = d.nearest_correlation >= (d.near_threshold || 0.9999);
+  const head = d.session_match
+    ? `<div class="hero flag">Already run this session.</div>
+       <p class="empty">Identical returns on every session to <b>${esc(d.session_match)}</b>.
+       Different code can be the same strategy; this is the same strategy.</p>`
+    : (near
+      ? `<div class="hero warn">Behaviourally almost identical to a corpus strategy.</div>`
+      : `<div class="hero pass">Not a repeat of anything run this session.</div>`);
+  return card(title, head + figs([
+      [num(d.nearest_correlation, 4), "correlation with the closest corpus strategy",
+       near ? "flag" : ""],
+      [d.n_session_compared, "earlier submissions compared exactly"],
+    ]) + rows([
+      ["Closest corpus strategy", esc(d.nearest_name || "&mdash;")],
+      ["Corpus series compared", d.n_corpus_compared],
+      ["Exact-match tolerance", d.tolerance ?? "&mdash;"],
+    ]) + `<p class="empty"><b>The two arms are not equally strong.</b> Within this session the test
+      is exact and sound &mdash; both series came out of this process. Against the corpus only
+      <i>similarity</i> is reported: re-running a published fixture here reproduces its deflation
+      figures exactly but correlates 0.9615 with the series stored under its name, so an exact test
+      against those series could only ever return "no". A check that cannot fail is not evidence of
+      novelty, and it is not reported as one.</p>
+    <p class="empty">A duplicate <b>still counts as a trial</b>. It consumed a search, and the
+      deflation is a statement about how many searches were made &mdash; not how many distinct ideas
+      they contained. The corpus census found 11 clusters of behaviourally identical strategies, one
+      of which was the equal-weight baseline under several names.</p>`);
+}
+
+// --- orchestration -----------------------------------------------------------
+
+const STAGES = [
+  ["static", "Layer 1 · A_static"],
+  ["backtest", "Backtest · 1,232 sessions"],
+  ["stat", "Layer 2 · A_stat"],
+  ["semantic", "Layer 3 · A_sem"],
+  ["stress", "Stage 2 · RegimeStress"],
+  ["capacity", "Stage 3 · FlowState"],
+];
 
 async function call(path, source) {
   const res = await fetch(path, {
@@ -594,44 +715,61 @@ async function call(path, source) {
   return res.json();
 }
 
-// Rendered stage by stage rather than in one lump at the end. The whole pipeline takes the better
-// part of a minute, and watching it arrive in the order the funnel actually applies it is the part
-// worth seeing: the static layer decides before anything is measured, and the deflation arrives
-// after a Sharpe has already had a chance to look impressive.
+// Rendered stage by stage rather than in one lump at the end, in the order the funnel applies
+// them: the static layer decides before anything is measured, and the deflation arrives after a
+// Sharpe has already had its chance to look impressive.
 async function go(full) {
   const buttons = document.querySelectorAll("button");
   buttons.forEach(b => b.disabled = true);
   out.setAttribute("aria-busy", "true");
   const started = performance.now();
-  const parts = [];
-  const paint = (pending) => {
+  const cards = [];
+  const state = {};
+  const paint = (running) => {
     const secs = ((performance.now() - started) / 1000).toFixed(1);
-    out.innerHTML = MARKS
-      + `<p class="readout">${pending ? pending + "&hellip;" : "completed"} · ${secs}s · development panel, holdout not loaded</p>`
-      + parts.join("");
+    const bar = STAGES.map(([key, label]) => {
+      const cls = key === running ? "run" : (state[key] || "");
+      return `<span class="st ${cls}">${label}</span>`;
+    }).join("");
+    const what = running
+      ? `now calculating &mdash; ${esc(STAGES.find(s => s[0] === running)[1])}`
+      : "completed";
+    out.innerHTML = `<p class="readout">${what} &middot; ${secs}s &middot; development panel,
+      holdout not loaded</p><div class="stagebar">${full ? bar : ""}</div>
+      <div class="cards">${cards.join("")}</div>`;
   };
   try {
-    paint("reading the code");
-    const a = await call("/api/audit", src.value);
-    parts.push(`<p class="subhead">AlphaAudit · layer 1 · A_static · leakage in the code</p>`
-               + findingsHtml(a));
+    paint("static");
+    const source = fullSource();
+    const a = await call("/api/audit", source);
+    state.static = "done";
+    cards.push(staticCard(a));
     if (!full) { paint(null); return; }
 
-    paint("asking the local model to read the rationale");
-    const s = await call("/api/semantic", src.value);
-    parts.push(semanticHtml(s));
-
-    paint("backtesting 1,232 sessions");
-    const r = await call("/api/backtest", src.value);
-    parts.push(`<p class="subhead">Backtest · development window</p>` + backtestHtml(r));
-    parts.push(statHtml(r));
-    parts.push(fragilityHtml(r.fragility));
-    parts.push(bookHtml(r.book));
-    parts.push(capacityHtml(r.capacity));
+    paint("backtest");
+    const r = await call("/api/backtest", source);
+    state.backtest = state.stat = state.stress = state.capacity = "done";
+    cards.push(backtestCard(r));
+    cards.push(statCard(r));
     trials.textContent = `${r.session_trials} evaluated this session`;
+    paint("semantic");
+
+    // Layer 3 last of the three, because it is the slow one: the backtest and the deflation are on
+    // the page while the model is still reading, and the card lands in layer order regardless.
+    const s = await call("/api/semantic", source);
+    state.semantic = "done";
+    cards.push(semanticCard(s));
+    if (r.outcome === "evaluated") {
+      cards.push(fragilityCard(r.fragility || {available: false, why: "the backtest produced no series"}));
+      cards.push(bookCard(r.book));
+      cards.push(capacityCard(r.capacity || {available: false, why: "the backtest produced no book"}));
+      cards.push(duplicateCard(r.duplicate));
+    }
     paint(null);
   } catch (e) {
-    parts.push(`<div class="verdict flag">Request failed</div><pre class="finding">${esc(e.message || e)}</pre>`);
+    cards.push(card("Request failed",
+      `<div class="hero flag">Something broke.</div>
+       <pre class="finding">${esc(e.message || e)}</pre>`));
     paint(null);
   } finally {
     buttons.forEach(b => b.disabled = false);

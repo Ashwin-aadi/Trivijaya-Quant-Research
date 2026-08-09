@@ -44,7 +44,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import numpy as np  # noqa: E402
 import polars as pl  # noqa: E402
+import scipy.stats as sps  # noqa: E402
+from deduplicate_corpus import EXACT_TOLERANCE, NEAR_CORRELATION  # noqa: E402
 from run_corpus_backtest import _worker_init, run_one  # noqa: E402
 
 from src.audit import semantic as sem  # noqa: E402
@@ -109,15 +112,18 @@ def _bump() -> int:
 
 
 def _moments(returns: list[float]) -> tuple[float, float]:
-    """Skew and kurtosis of a return series, computed rather than assumed normal."""
-    n = len(returns)
-    mean = sum(returns) / n
-    centred = [r - mean for r in returns]
-    sigma = (sum(c * c for c in centred) / n) ** 0.5
-    if sigma <= 0:
+    """Skew and non-excess kurtosis of a return series, computed rather than assumed normal.
+
+    Bias-corrected, and kurtosis on the non-excess convention, because that is exactly what
+    ``scripts/deflate_standard_factors.py`` feeds the same frozen functions for the published
+    figures. An earlier version here used the population estimators, which agreed to about three
+    decimal places and moved the reported PSR in the fourth -- small, but it meant this page and the
+    papers were answering the same question with two different conventions.
+    """
+    array = np.asarray(returns, dtype=float)
+    if array.size < 2 or float(array.std(ddof=1)) <= 0:
         return 0.0, 3.0
-    return (sum(c**3 for c in centred) / n / sigma**3,
-            sum(c**4 for c in centred) / n / sigma**4)
+    return float(sps.skew(array, bias=False)), float(sps.kurtosis(array, fisher=False, bias=False))
 
 
 def _variance_of_trials(sharpe: float) -> float | None:
@@ -147,6 +153,10 @@ _CFG: Any = None
 #: Read once at startup and never written. This is the published corpus's tamper-evident count, and
 #: it is shown beside the session counter so the session's N is never mistaken for the honest one.
 _LEDGER: dict[str, Any] = {}
+#: The published corpus's return series, and this session's, for the duplicate check.
+_CORPUS: dict[str, np.ndarray] = {}
+_CORPUS_DATES: list[Any] | None = None
+_SESSION_RETURNS: list[tuple[list[Any], np.ndarray]] = []
 
 
 def _load_benchmark_inputs() -> None:
@@ -167,6 +177,88 @@ def _load_benchmark_inputs() -> None:
         ["session_date", "flow_state"]
     )
     _read_ledger()
+    _load_corpus_returns()
+
+
+def _load_corpus_returns() -> None:
+    """The published corpus's realised net return series, for the duplicate check.
+
+    Only strategies with the full session count are kept. A strategy ruined early has a shorter
+    series and cannot be elementwise-compared with a complete one; treating a short series as a
+    non-match would be right by accident, and padding it would manufacture agreement.
+    """
+    global _CORPUS_DATES  # noqa: PLW0603
+    frame = pl.read_parquet(_CFG.paths.data_processed / "real_returns.parquet").select(
+        ["name", "session_date", "net_return"]
+    ).sort(["name", "session_date"])
+    counts = frame.group_by("name").len()
+    # The longest series present, which is the complete development window. Read through the frame
+    # rather than assumed to be 1,232: the window is config, and a hardcoded length here would go
+    # quietly wrong the day someone changes it.
+    full = int(counts.select(pl.col("len").max()).item())
+    for name, rows in frame.join(
+        counts.filter(pl.col("len") == full).select("name"), on="name", how="inner"
+    ).group_by("name"):
+        ordered = rows.sort("session_date")
+        if _CORPUS_DATES is None:
+            _CORPUS_DATES = ordered["session_date"].to_list()
+        _CORPUS[str(name[0])] = ordered["net_return"].to_numpy()
+
+
+def duplicate_check(dates: list[Any], returns: np.ndarray) -> dict[str, Any]:
+    """Is this strategy an earlier submission under a new name, and what is it closest to?
+
+    Judged on the realised net return series and not on source text, at the tolerance the corpus
+    census used: two strategies whose returns agree on every session are the same strategy for every
+    purpose here, and two with near-identical code that diverge are not.
+
+    **Two arms, and they are not equally strong.**
+
+    *Within this session* the comparison is exact and sound: both series came out of this process,
+    so identical returns mean an identical strategy.
+
+    *Against the published corpus* only similarity is reported, never an exact verdict. Re-running
+    ``tests/fixtures/clean/momentum_skip_month.py`` through this engine today reproduces
+    ``standard_factor_deflation.json`` to the last decimal but correlates 0.9615 with the series
+    stored under that name in ``real_returns.parquet`` -- and the *gross* series differ too, so the
+    gap is in the positions rather than in costs. Until that is explained, an exact-match test
+    against those series could only ever return "no", and reporting that as evidence of novelty
+    would be a check that cannot fail pretending to be one that passed.
+
+    **A duplicate still counts as a trial.** It consumed a search, and the deflated Sharpe is a
+    statement about how many searches were made, not about how many distinct ideas they contained.
+    """
+    result: dict[str, Any] = {
+        "available": True, "session_match": None, "nearest_name": None,
+        "nearest_correlation": None, "tolerance": EXACT_TOLERANCE,
+        "near_threshold": NEAR_CORRELATION, "n_corpus_compared": 0,
+        "n_session_compared": 0, "corpus_exact_supported": False,
+    }
+
+    def correlation(series: np.ndarray) -> float | None:
+        a, b = series - series.mean(), returns - returns.mean()
+        denominator = float(np.linalg.norm(a) * np.linalg.norm(b))
+        return float(a @ b / denominator) if denominator > 0 else None
+
+    best = -2.0
+    if _CORPUS_DATES is not None and dates == _CORPUS_DATES:
+        result["n_corpus_compared"] = len(_CORPUS)
+        for name, series in _CORPUS.items():
+            value = correlation(series)
+            if value is not None and value > best:
+                best, result["nearest_name"] = value, name
+    if best > -2.0:
+        result["nearest_correlation"] = best
+
+    for index, (previous_dates, previous) in enumerate(_SESSION_RETURNS, start=1):
+        if previous_dates != dates:
+            continue
+        result["n_session_compared"] += 1
+        if float(np.max(np.abs(previous - returns))) <= EXACT_TOLERANCE:
+            result["session_match"] = result["session_match"] or f"submission #{index}"
+    with _LOCK:
+        _SESSION_RETURNS.append((dates, returns))
+    return result
 
 
 def _read_ledger() -> None:
@@ -276,21 +368,55 @@ def book_measures(positions_path: str | None, sessions: list[Any]) -> dict[str, 
     return {"available": True, **concentration(books), **holding_period(books)}
 
 
+def stated_rationale(tree: ast.Module) -> str:
+    """The strategy's stated rationale, from wherever the author put it.
+
+    Four places, in order: the module docstring, any bare string sitting at module level, the
+    strategy class's docstring, and a class-level ``rationale = "..."`` constant. The generator was
+    instructed to use the first. The console locks the import lines above the editor, which pushes
+    a docstring typed at the top of the editable area *below* those imports -- where Python no
+    longer calls it a docstring, though every human reader still would. Hence the second rule: a
+    rationale the author plainly stated must not go unaudited on a technicality of placement.
+    """
+    module_doc = ast.get_docstring(tree)
+    if module_doc:
+        return module_doc
+    for node in tree.body:
+        if (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)):
+            return node.value.value
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef):
+            continue
+        class_doc = ast.get_docstring(node)
+        if class_doc:
+            return class_doc
+        for statement in node.body:
+            if (isinstance(statement, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == "rationale"
+                            for t in statement.targets)):
+                value = ast.literal_eval(statement.value) if isinstance(
+                    statement.value, ast.Constant | ast.JoinedStr | ast.BinOp) else None
+                if isinstance(value, str):
+                    return value
+    return ""
+
+
 def semantic(source: str) -> dict[str, Any]:
     """A_sem: a local 7B reads the stated rationale against the code that implements it.
 
-    The rationale is the module docstring, which is where the generator was instructed to put it.
-    A strategy with no docstring has stated no rationale, and there is then nothing to check the
-    code against -- that is reported as such rather than audited against an empty string, which
+    A strategy with no rationale anywhere has stated no claim, and there is then nothing to check
+    the code against -- that is reported as such rather than audited against an empty string, which
     would return a label about a claim nobody made.
     """
     try:
-        rationale = ast.get_docstring(ast.parse(source)) or ""
-    except SyntaxError as exc:
+        rationale = stated_rationale(ast.parse(source))
+    except (SyntaxError, ValueError) as exc:
         return {"available": False, "why": f"the source does not parse: {exc}"}
     if not rationale.strip():
         return {"available": False,
-                "why": "no module docstring, so the strategy states no rationale to check"}
+                "why": "no docstring and no rationale constant, so the strategy states no claim "
+                       "for the model to check the code against"}
     if not sem.is_available():
         return {"available": False,
                 "why": f"no Ollama server answering at {sem.OLLAMA_HOST}. Start it with `ollama "
@@ -353,6 +479,12 @@ def backtest(source: str) -> dict[str, Any]:
                 )
             except Exception as exc:  # noqa: BLE001
                 result["book"] = {"available": False, "why": f"{type(exc).__name__}: {exc}"}
+            try:
+                result["duplicate"] = duplicate_check(
+                    frame["session_date"].to_list(), frame["return"].to_numpy()
+                )
+            except Exception as exc:  # noqa: BLE001
+                result["duplicate"] = {"available": False, "why": f"{type(exc).__name__}: {exc}"}
 
     result["deflated_sharpe_probability"] = None
     result["deflation_note"] = (
