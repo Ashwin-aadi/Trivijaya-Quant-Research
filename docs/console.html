@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strategy console — static demo — Trivijaya Quant Research</title>
+<meta name="robots" content="noindex, follow">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#0b1220">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b1220'/%3E%3Cg stroke='%239fb6dc' stroke-width='2' fill='none'%3E%3Ccircle cx='16' cy='16' r='7'/%3E%3Cpath d='M16 2v6M16 24v6M2 16h6M24 16h6'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+/* Copied from webui/index.html so the demo looks exactly like the thing it demonstrates.
+   Nothing computes on this page -- see the script at the foot. */
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --navy-900:#0b1220;--paper:#f5f5f2;--panel:#fff;
+  --ink:#12161f;--muted:#5b6270;--line:rgba(18,22,31,.16);--line-strong:rgba(18,22,31,.32);
+  --accent:#1f3d6b;--accent-bright:#9fb6dc;--flag:#8c2f24;--ok:#1f5c3d;--warn:#8a6a1f;
+  --serif:Georgia,"Times New Roman",Times,serif;
+  --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
+  font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+p{margin:0 0 1em;text-wrap:pretty}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.wrap{max-width:1320px;margin:0 auto;padding:0 44px;width:100%}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+.bp{position:relative;border:1px solid var(--line)}
+.bp>i.c{position:absolute;width:10px;height:10px;color:var(--line-strong);pointer-events:none}
+.bp>i.c::before,.bp>i.c::after{content:"";position:absolute;background:currentColor}
+.bp>i.c::before{left:4.5px;top:0;width:1px;height:100%}
+.bp>i.c::after{top:4.5px;left:0;width:100%;height:1px}
+.bp>i.tl{top:-5.5px;left:-5.5px}.bp>i.tr{top:-5.5px;right:-5.5px}
+.bp>i.bl{bottom:-5.5px;left:-5.5px}.bp>i.br{bottom:-5.5px;right:-5.5px}
+header{background:var(--navy-900);color:var(--paper);padding:24px 0 40px;position:relative;
+  overflow:hidden}
+header::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+             linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:46px 46px;mask:linear-gradient(180deg,#000,transparent 88%)}
+header .wrap{position:relative}
+.bar{display:flex;align-items:baseline;gap:20px;padding-bottom:20px;flex-wrap:wrap;
+  border-bottom:1px solid rgba(245,245,242,.16)}
+.bar .brand{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+  color:#aab4c6;margin-right:auto}
+.bar a{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:#cdd6e6;text-decoration:none}
+.bar a:hover{color:#fff}
+.bar .host{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:#e0a39b}
+h1{font-family:var(--serif);font-weight:700;letter-spacing:-.025em;line-height:1;
+  font-size:clamp(34px,5.5vw,58px);margin:28px 0 0;color:#fff}
+header .lede{font-size:clamp(16px,1.5vw,18.5px);color:#aeb8ca;max-width:66ch;margin:18px 0 0}
+header .lede b{color:#fff;font-weight:400;border-bottom:1px solid rgba(159,182,220,.6)}
+.facts{display:flex;flex-wrap:wrap;gap:0 1px;margin-top:30px;background:rgba(245,245,242,.16);
+  border:1px solid rgba(245,245,242,.16)}
+.facts div{background:var(--navy-900);padding:13px 20px;flex:1 1 190px}
+.facts .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:#8b97ad}
+.facts .v{font-family:var(--mono);font-size:14px;color:#fff;margin-top:5px;letter-spacing:.02em}
+main{padding:clamp(36px,5vw,64px) 0 40px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}
+@media (max-width:1000px){.grid{grid-template-columns:1fr}}
+@media (max-width:640px){.wrap{padding:0 22px}}
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;align-items:baseline}
+.presets .pl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin-right:6px}
+.presets button{padding:7px 13px;font-size:11.5px;letter-spacing:.08em;background:transparent;
+  color:var(--navy-900);border:1px solid var(--line-strong)}
+.presets button:hover{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
+.presets button[aria-pressed="true"]{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
+textarea{width:100%;height:520px;padding:18px;border:0;background:#070c15;color:#d6def0;
+  font:13.5px/1.7 var(--mono);resize:vertical;display:block;tab-size:4}
+textarea:focus{outline:2px solid var(--accent-bright);outline-offset:-2px}
+.editbar{display:flex;align-items:center;gap:12px;padding:11px 16px;background:#070c15;
+  border-bottom:1px solid rgba(245,245,242,.14);color:#8b97ad;font-family:var(--mono);
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.editbar .count{margin-left:auto;letter-spacing:.06em;text-transform:none}
+.actions{margin-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+button{font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:14px 22px;border:1px solid var(--navy-900);background:var(--navy-900);color:#fff;
+  cursor:pointer}
+button:hover{background:var(--accent)}
+button.ghost{background:transparent;color:var(--navy-900);border-color:var(--line-strong)}
+button.ghost:hover{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
+.hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+.trials{margin-left:auto;font-family:var(--mono);font-size:12px;letter-spacing:.06em;
+  color:var(--muted)}
+.panel{background:var(--panel);padding:26px 28px;min-height:520px}
+.empty{color:var(--muted);font-size:15.5px}
+.verdict{font-family:var(--serif);font-weight:700;font-size:clamp(21px,2.2vw,28px);
+  line-height:1.15;letter-spacing:-.015em;margin:0 0 18px}
+.verdict.flag{color:var(--flag)}
+.finding{border-left:2px solid var(--flag);background:var(--paper);padding:14px 16px;
+  margin-bottom:12px}
+.finding .cls{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--flag)}
+.finding .why{font-size:15px;margin-top:7px;color:#333b48}
+.finding pre{margin:10px 0 0;padding:9px 11px;background:#070c15;color:#d6def0;overflow-x:auto;
+  font:12.5px/1.5 var(--mono);white-space:pre-wrap}
+.subhead{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:26px 0 12px;padding-top:20px;border-top:1px solid var(--line-strong)}
+.notes{margin-top:clamp(40px,5vw,64px);display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px}
+@media (max-width:1100px){.notes{grid-template-columns:1fr 1fr}}
+@media (max-width:720px){.notes{grid-template-columns:1fr}}
+.note{padding:24px 26px;background:var(--panel)}
+.note h3{font-family:var(--serif);font-weight:700;font-size:20px;letter-spacing:-.01em;
+  margin:0 0 10px;line-height:1.2}
+.note p{font-size:15.5px;color:#333b48;margin:0 0 .8em}
+.note p:last-child{margin-bottom:0}
+/* "Run it" block, carried over from the research page so this page stands on its own */
+.runsec{background:var(--navy-900);color:var(--paper);padding:clamp(44px,6vw,72px) 0}
+.runsec h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.05;
+  font-size:clamp(26px,3.4vw,40px);margin:.3em 0 0;color:#fff}
+.runsec .kicker{color:#8b97ad}
+.run-grid{display:grid;grid-template-columns:1fr 1.15fr;gap:clamp(30px,4vw,60px);align-items:start;
+  margin-top:clamp(28px,4vw,44px)}
+@media (max-width:1000px){.run-grid{grid-template-columns:1fr}}
+.runsec .lede2{color:#c3cbdb;font-size:17.5px;line-height:1.6;margin:0 0 20px}
+.term{background:#070c15;border:1px solid rgba(245,245,242,.16);font-family:var(--mono);
+  font-size:13.5px;line-height:1.85;color:#d6def0;position:relative}
+.term .tbar{display:flex;align-items:center;padding:11px 16px;color:#8b97ad;font-size:11px;
+  letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid rgba(245,245,242,.14)}
+.term .tbody{padding:18px 20px;white-space:pre-wrap;word-break:break-word;margin:0;overflow-x:auto}
+.term .tbody .c{color:#6b7686}
+.runsec .warn{margin-top:26px;padding:18px 22px;border-left:2px solid var(--accent-bright);
+  background:rgba(255,255,255,.04)}
+.runsec .warn p{font-size:15px;line-height:1.6;color:#c3cbdb;margin:0}
+.runsec .warn b{color:#fff;font-weight:400;border-bottom:1px solid rgba(159,182,220,.6)}
+footer{background:var(--navy-900);color:#8b97ad;margin-top:0;padding:34px 0;
+  border-top:1px solid rgba(245,245,242,.16)}
+footer p{font-family:var(--mono);font-size:12px;line-height:1.8;margin:0;max-width:88ch}
+footer b{color:#fff;font-weight:400}
+footer a{color:var(--accent-bright)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="bar">
+      <span class="brand">Trivijaya Quant Research</span>
+      <a href="./">Research programme ↗</a>
+      <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">Repository ↗</a>
+      <span class="host">static demo · nothing runs here</span>
+    </div>
+    <h1>Strategy console</h1>
+    <p class="lede">This is the interface you get after cloning the repository — the same page,
+      served from your own machine at <b>127.0.0.1:8000</b>. On this website it is a picture with
+      working buttons: there is no Python here, no price panel, and nothing to execute your code.
+      Press either button and it will say so.</p>
+    <div class="facts">
+      <div><div class="k">Panel</div><div class="v">Development · 2020–2024</div></div>
+      <div><div class="k">Sessions per run</div><div class="v">1,232</div></div>
+      <div><div class="k">Costs charged</div><div class="v">STT, exchange, SEBI, GST, stamp, slippage</div></div>
+      <div><div class="k">Auditor</div><div class="v">AlphaAudit static layer, frozen</div></div>
+      <div><div class="k">Runs on</div><div class="v">Your machine, not this one</div></div>
+    </div>
+  </div>
+</header>
+
+<section class="runsec">
+  <div class="wrap">
+    <p class="kicker">Run it yourself</p>
+    <h2>Four commands, then this page is real.</h2>
+    <div class="run-grid">
+      <div>
+        <p class="lede2">Clone the repository and the console below stops being a picture. It runs
+          against the same instruments the papers used — the same static auditor, the same
+          point-in-time engine, the same Indian transaction costs. Nothing is uploaded, nothing is
+          ranked, and no account is required.</p>
+        <p class="lede2">The slow step is the price data. <code>download_bhavcopy.py</code> pulls
+          years of NSE end-of-day archives and builds an 86&nbsp;MB panel, so leave it running. It
+          has not hung.</p>
+        <div class="warn">
+          <p><b>This is why the console is not hosted.</b> It executes whatever Python you paste,
+            in its own process, with no sandbox — acceptable only because the person pasting the
+            code and the person running the server are the same person. The socket is pinned to
+            loopback and there is no flag to change it. On the open internet that is remote code
+            execution, which is a thing to build properly or not at all.</p>
+        </div>
+      </div>
+      <div class="term">
+        <div class="tbar">bash — local console</div>
+        <pre class="tbody"><span class="c"># clone and install — Python 3.11 or newer</span>
+git clone https://github.com/Ashwin-aadi/Trivijaya-Quant-Research.git
+cd Trivijaya-Quant-Research
+bash env/setup.sh
+source .venv/bin/activate       <span class="c"># .venv/Scripts/activate on Windows</span>
+
+<span class="c"># build the price data — raw archives first, then derived from them</span>
+python scripts/download_bhavcopy.py    <span class="c"># years of NSE end-of-day. Slow.</span>
+python scripts/build_universe.py
+python scripts/build_corporate_actions.py
+
+<span class="c"># open http://127.0.0.1:8000</span>
+python webui/server.py</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<main>
+  <div class="wrap">
+    <div class="grid">
+      <section>
+        <p class="kicker">Strategy source</p>
+        <div class="presets">
+          <span class="pl">On your own machine</span>
+          <button type="button" class="preset" data-key="setup" aria-pressed="true">How to run it</button>
+          <button type="button" class="preset" data-key="momentum">Honest momentum</button>
+          <button type="button" class="preset" data-key="leaky">Leaky — flagged</button>
+        </div>
+        <div class="bp">
+          <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+          <div class="editbar"><span>python — submission.py</span><span class="count" id="count"></span></div>
+          <textarea id="src" spellcheck="false"></textarea>
+        </div>
+        <div class="actions">
+          <button id="audit" class="ghost">Audit for leakage</button>
+          <button id="run">Audit &amp; backtest</button>
+          <span class="hint">Ctrl + Enter</span>
+          <span class="trials" id="trials">Nothing evaluated — this is a demo</span>
+        </div>
+      </section>
+
+      <section>
+        <p class="kicker">Result</p>
+        <div class="panel bp" id="out" aria-live="polite">
+          <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+          <p class="empty">Results appear here. On a real run the audit is instant and the backtest
+            takes about half a minute for 1,232 sessions. Press a button to see what this copy of
+            the page can and cannot do.</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="notes">
+      <div class="note bp">
+        <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+        <h3>Why your Sharpe falls as you iterate</h3>
+        <p>Every strategy you evaluate in a session counts as a trial, and the deflated Sharpe
+          adjusts for how many things you tried. Submit forty variants and keep the best, and the
+          best one now has to clear a higher bar — because with forty tries, something looks good
+          by luck alone.</p>
+        <p>The counter is per-session and lives in memory. It never touches the repository's
+          tamper-evident ledger, which belongs to the published results.</p>
+      </div>
+      <div class="note bp">
+        <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+        <h3>A high deflated Sharpe here is weak evidence</h3>
+        <p>The correction deflates by how many things you tried <em>and</em> by how much they
+          differed. Two near-identical variants have almost no spread between them, so there is
+          almost nothing to deflate and the number comes back near 1.000 — which reflects a search
+          too small to have found anything by luck, not a strategy that works.</p>
+        <p>The published results deflate against 1,887 genuinely distinct trials. A session of five
+          does not compare.</p>
+      </div>
+      <div class="note bp">
+        <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+        <h3>Passing the auditor is not a verdict on the strategy</h3>
+        <p>The static layer reads the code for patterns that see the future. It catches all three
+          deliberately leaky fixtures in the repository and flags none of the thirty honest ones,
+          but it returns a zero on one leak class that the corpus almost certainly contains — a
+          detector gap that is reported rather than quoted as a clean result.</p>
+        <p>The engine is the second line: any signal timestamped later than the data it could have
+          seen raises <em>PointInTimeError</em> rather than quietly producing a good number.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><b>Why this cannot be hosted.</b> The real console executes whatever Python is pasted into
+      it, in its own process, with no sandbox — acceptable only because whoever pastes the code and
+      whoever runs the server are the same person. The socket is pinned to loopback and there is no
+      flag to change it. It also needs an 86 MB price panel built from NSE archives on your own
+      machine. · Nothing here is investment advice. · <a
+      href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">Repository ↗</a></p>
+  </div>
+</footer>
+
+<script>
+const EXAMPLES = {
+setup: `# ---------------------------------------------------------------------------
+#  Nothing on this page runs. Here is how to get the version that does.
+#  Requires Python 3.11 or newer.
+# ---------------------------------------------------------------------------
+
+git clone https://github.com/Ashwin-aadi/Trivijaya-Quant-Research.git
+cd Trivijaya-Quant-Research
+
+bash env/setup.sh                 # creates .venv and installs everything
+source .venv/bin/activate         # .venv/Scripts/activate on Windows
+
+
+#  Build the price data. The first script downloads years of NSE end-of-day
+#  archives, so it is slow -- it has not hung.
+
+python scripts/download_bhavcopy.py
+python scripts/build_universe.py
+python scripts/build_corporate_actions.py
+
+
+#  Start the console, then open http://127.0.0.1:8000
+
+python webui/server.py
+
+
+#  Once it is up, this box holds your strategy instead of these notes. Paste a
+#  Strategy subclass, press "Audit for leakage" for an instant read of the code,
+#  or "Audit & backtest" to run it over 1,232 sessions net of Indian statutory
+#  costs. The first backtest of a session leaves the deflated Sharpe blank: one
+#  trial cannot show the spread of what you searched over, and the console says
+#  so rather than inventing a flattering number.
+`,
+
+momentum: `"""Cross-sectional momentum: hold the strongest names over a trailing window.
+
+A starting point, not a good strategy. Adapted from tests/fixtures/clean/, which holds twenty
+honest and mostly unprofitable strategies used to measure the auditor's false-positive rate.
+
+On a real run this returns a net Sharpe of 0.814 against a gross of 1.092 -- the difference is
+what Indian statutory costs take.
+"""
+from datetime import date
+
+from src.backtest.strategy import MarketView, Signal, Strategy
+
+
+class Momentum(Strategy):
+    rationale = (
+        "Names that outperformed over the last 126 sessions tend to keep outperforming for a "
+        "few weeks, so holding the strongest decile should capture some of that drift."
+    )
+
+    def __init__(self, lookback: int = 126, n_hold: int = 10) -> None:
+        self._lookback = lookback
+        self._n_hold = n_hold
+
+    def generate(self, view: MarketView) -> Signal:
+        # The last session actually visible -- never view.as_of, which is the session being
+        # traded. Claiming that timestamp asserts knowledge of the future and the engine
+        # raises PointInTimeError.
+        history = view.history()
+        stamp = history["session_date"].max() if not history.is_empty() else date(1900, 1, 1)
+
+        closes = view.closes(lookback=self._lookback + 1)
+        scores = {}
+        for symbol in view.symbols:
+            if symbol not in closes.columns:
+                continue
+            series = closes[symbol].drop_nulls()
+            if series.len() < 2 or series[0] <= 0:
+                continue
+            scores[symbol] = series[-1] / series[0] - 1.0
+
+        # Symbol breaks ties so the selection is reproducible run to run.
+        ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
+        picks = [symbol for symbol, _ in ranked[: self._n_hold]]
+        weights = {name: 1.0 / len(picks) for name in picks} if picks else {}
+        return Signal(information_available_at=stamp, weights=weights)
+`,
+
+leaky: `"""Deliberately leaky: builds a feature from the NEXT session's return.
+
+On a real run the static layer flags line 38 as future_indexing, high severity, and rejects it.
+The rationale below is entirely plausible and the code is tidy, which is the point -- a reviewer
+skimming for a story would pass it.
+"""
+from datetime import date
+
+from src.backtest.strategy import MarketView, Signal, Strategy
+
+
+class NextSessionDrift(Strategy):
+    rationale = (
+        "Short-horizon drift: names whose price is about to move tend to keep moving, so "
+        "ranking on the forward one-session return captures the strongest continuation."
+    )
+
+    def __init__(self, n_hold: int = 10) -> None:
+        self._n_hold = n_hold
+
+    def generate(self, view: MarketView) -> Signal:
+        history = view.history()
+        stamp = history["session_date"].max() if not history.is_empty() else date(1900, 1, 1)
+
+        closes = view.closes(lookback=20)
+        scores = {}
+        for symbol in view.symbols:
+            if symbol not in closes.columns:
+                continue
+            series = closes[symbol].drop_nulls()
+            if series.len() < 3:
+                continue
+            # THE CHEAT: a negative shift moves a later observation onto the current row.
+            forward = series.shift(-1) / series - 1.0
+            value = forward.drop_nulls()
+            if value.len():
+                scores[symbol] = value[-1]
+
+        ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
+        picks = [symbol for symbol, _ in ranked[: self._n_hold]]
+        weights = {name: 1.0 / len(picks) for name in picks} if picks else {}
+        return Signal(information_available_at=stamp, weights=weights)
+`,
+};
+
+const src = document.getElementById("src");
+const out = document.getElementById("out");
+const count = document.getElementById("count");
+const MARKS = '<i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>';
+
+function setCount() {
+  const lines = src.value ? src.value.split("\n").length : 0;
+  count.textContent = `${lines} lines · ${src.value.length} chars`;
+}
+
+function loadPreset(key) {
+  src.value = EXAMPLES[key];
+  setCount();
+  document.querySelectorAll(".preset").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.key === key)));
+}
+
+// The whole point of this copy: the buttons work, and what they do is explain themselves.
+function refuse(action) {
+  out.innerHTML = MARKS + `
+    <div class="verdict flag">Sorry — this one needs the repository.</div>
+    <p>Nothing on this page can ${action} your strategy. A website cannot: the auditor is Python,
+      the backtester needs an 86&nbsp;MB price panel built from NSE archives, and neither exists in
+      your browser. This copy of the console is the interface only.</p>
+    <div class="finding">
+      <div class="cls">what to do instead</div>
+      <div class="why">Clone the repository and run it on your own machine. It is the same page,
+        with the real auditor and the real engine behind it, and it takes three commands after
+        setup.</div>
+      <pre>git clone https://github.com/Ashwin-aadi/Trivijaya-Quant-Research.git
+cd Trivijaya-Quant-Research
+bash env/setup.sh
+python webui/server.py</pre>
+    </div>
+    <p class="subhead">Why it is not hosted</p>
+    <p class="empty">The real console executes whatever Python you paste, in its own process, with
+      no sandbox. That is fine when the person pasting the code and the person running the server
+      are the same person. Put it on the open internet and it becomes remote code execution, which
+      is a thing to build properly or not at all — so it has not been built.</p>`;
+}
+
+document.getElementById("audit").onclick = () => refuse("audit");
+document.getElementById("run").onclick = () => refuse("backtest");
+document.querySelectorAll(".preset").forEach(b => b.onclick = () => loadPreset(b.dataset.key));
+src.addEventListener("input", setCount);
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); refuse("backtest"); }
+});
+
+loadPreset("setup");
+</script>
+</body>
+</html>

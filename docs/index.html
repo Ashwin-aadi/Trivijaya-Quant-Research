@@ -47,7 +47,8 @@ p{margin:0 0 1em;text-wrap:pretty}
 .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0}
 .lead{font-size:clamp(19px,2vw,23px);line-height:1.55;color:#232a36;max-width:60ch}
 h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.04;font-size:clamp(30px,4.4vw,52px);margin:.35em 0 0}
-.sec{padding:clamp(64px,9vw,128px) 0;scroll-margin-top:24px}
+/* scroll-margin clears the sticky bar, so an anchored heading is not hidden under it */
+.sec{padding:clamp(64px,9vw,128px) 0;scroll-margin-top:64px}
 .sec-head{max-width:74ch;margin-bottom:clamp(40px,5vw,64px)}
 .skip{position:absolute;left:-9999px}
 .skip:focus{left:22px;top:14px;z-index:9;background:var(--accent-bright);color:var(--navy-900);padding:10px 16px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
@@ -66,8 +67,10 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
 .dark a:hover{color:#fff}
 .dark .bp{border-color:rgba(245,245,242,.2)}
 .dark .bp>i.c{color:rgba(245,245,242,.5)}
-/* nav */
-.nav{display:flex;align-items:baseline;gap:22px;padding:26px 0 0;flex-wrap:wrap}
+/* nav — sticky, so it must live outside .hero, whose overflow:hidden would kill it */
+.navbar{position:sticky;top:0;z-index:60;background:var(--navy-900);
+  border-bottom:1px solid rgba(245,245,242,.14)}
+.nav{display:flex;align-items:baseline;gap:22px;padding:15px 0 14px;flex-wrap:wrap}
 .nav .brand{font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#aab4c6;margin-right:auto}
 .nav a{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:#cdd6e6;text-decoration:none}
 .nav a:hover{color:#fff}
@@ -127,6 +130,23 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
 .fig-auap .fcap{font-family:var(--mono);font-size:12.5px;line-height:1.65;color:#8b97ad;letter-spacing:.02em}
 .fig-auap .fcap b{color:#fff;font-weight:400}
 @media (max-width:640px){.fig-auap .abl{font-size:11.5px}.fig-auap{padding:18px 14px 6px}}
+/* Light variant. The figure now sits on paper rather than in the dark hero, so every stroke,
+   fill and text colour is restated here — including the SVG's inline rect fill, which CSS
+   outrules because a presentation attribute loses to any stylesheet rule. */
+.fig-auap.light{background:var(--panel)}
+.fig-auap.light .figlab{color:var(--muted)}
+.fig-auap.light rect{fill:rgba(31,61,107,.13)}
+.fig-auap.light .grid{stroke:rgba(18,22,31,.11)}
+.fig-auap.light .axis{stroke:rgba(18,22,31,.38)}
+.fig-auap.light .curve{stroke:rgba(31,61,107,.34)}
+.fig-auap.light .curve.best{stroke:var(--accent);stroke-width:2.6}
+.fig-auap.light text{fill:var(--muted)}
+.fig-auap.light .ann{fill:var(--accent)}
+.fig-auap.light .abl th{color:var(--muted);border-bottom-color:var(--line-strong)}
+.fig-auap.light .abl td{color:#232a36;border-bottom-color:var(--line)}
+.fig-auap.light .abl .v{color:var(--flag)}
+.fig-auap.light .fcap{color:var(--muted)}
+.fig-auap.light .fcap b{color:var(--ink)}
 /* method */
 .method{display:grid;grid-template-columns:1fr 46px 1fr 46px 1fr;align-items:stretch;gap:0}
 .stage{padding:26px 26px 24px;display:flex;flex-direction:column;background:var(--panel)}
@@ -216,40 +236,9 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
 .dark a.btn-repo{display:inline-flex;align-items:center;gap:10px;margin-top:26px;font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--navy-900);background:var(--accent-bright);text-decoration:none;padding:14px 22px;border:1px solid var(--accent-bright)}
 .dark a.btn-repo:hover{background:#fff;color:var(--navy-900)}
-/* console figure — a reproduction, not a photograph; every value is real output */
-.shot{margin:clamp(44px,6vw,72px) 0 0;background:var(--paper)}
-.shot .chrome{display:flex;align-items:center;gap:9px;padding:11px 16px;background:#e4e4de;
-  border-bottom:1px solid rgba(18,22,31,.18)}
-.shot .chrome i{width:10px;height:10px;border-radius:50%;background:#c3c3bc;display:block}
-.shot .url{margin-left:12px;font-family:var(--mono);font-size:11.5px;color:#5b6270;background:#f5f5f2;
-  padding:4px 12px;border:1px solid rgba(18,22,31,.14);flex:1;max-width:340px}
-.shot .panes{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(18,22,31,.14)}
-.shot .pane{background:var(--paper);padding:20px 22px 24px}
-.shot .pl{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--muted);margin:0 0 12px}
-.shot pre{margin:0;padding:14px 16px;background:#070c15;color:#d6def0;overflow-x:auto;
-  font:11.5px/1.7 var(--mono)}
-.shot pre .c{color:#6b7686}
-.shot pre .x{color:#e0a39b}
-.shot .v-flag{font-family:var(--serif);font-weight:700;font-size:19px;line-height:1.2;
-  color:var(--flag);margin:0 0 14px}
-.shot .v-pass{font-family:var(--serif);font-weight:700;font-size:19px;line-height:1.2;
-  color:#1f5c3d;margin:0 0 14px}
-.shot .fnd{border-left:2px solid var(--flag);background:#fff;padding:12px 14px}
-.shot .fnd .cl{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--flag)}
-.shot .fnd .wh{font-size:13.5px;line-height:1.5;color:#333b48;margin-top:6px}
-.shot table{width:100%;border-collapse:collapse;margin:0}
-.shot table th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--muted);font-weight:400;padding:7px 0;
-  border-bottom:1px solid rgba(18,22,31,.12);width:60%}
-.shot table td{text-align:right;font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
-  padding:7px 0;border-bottom:1px solid rgba(18,22,31,.12);color:#232a36}
-.shot tr.hi th{color:var(--ink)}
-.shot tr.hi td{font-weight:700}
-.shot .cap{font-family:var(--mono);font-size:12px;line-height:1.7;color:#8b97ad;margin:18px 0 0;max-width:86ch}
-.shot .cap b{color:#fff;font-weight:400}
-@media (max-width:860px){.shot .panes{grid-template-columns:1fr}}
+.btnrow{display:flex;flex-wrap:wrap;gap:12px}
+.dark a.btn-repo.ghost{background:transparent;color:var(--accent-bright);border-color:rgba(159,182,220,.55)}
+.dark a.btn-repo.ghost:hover{background:var(--accent-bright);color:var(--navy-900);border-color:var(--accent-bright)}
 .warn{margin-top:30px;padding:20px 24px;border-left:2px solid var(--accent-bright);background:rgba(255,255,255,.04)}
 .warn p{font-size:15.5px;line-height:1.6;color:#c3cbdb;margin:0}
 .warn b{color:#fff;font-weight:400;border-bottom:1px solid rgba(159,182,220,.6)}
@@ -289,7 +278,7 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
 <a class="skip" href="#method">Skip to content</a>
 
 <!-- ===================== HERO ===================== -->
-<header class="dark hero" id="top">
+<div class="navbar dark" id="top">
   <div class="wrap">
     <nav class="nav">
       <span class="brand">Trivijaya Quant Research</span>
@@ -299,8 +288,13 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
       <a href="#nulls">Nulls</a>
       <a href="#papers">Papers</a>
       <a href="#rigour">Rigour</a>
-      <a href="#run">Run&nbsp;it</a>
+      <a href="console.html">Run&nbsp;it&nbsp;↗</a>
     </nav>
+  </div>
+</div>
+
+<header class="dark hero">
+  <div class="wrap">
     <div class="inner">
       <div class="eyebrow">
         <span class="rule"></span>
@@ -323,7 +317,19 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
         <div><div class="v">0</div><div class="k">Candidates that<br>cleared deflation</div></div>
       </div>
 
-      <figure class="chart bp fig-auap">
+    </div>
+  </div>
+</header>
+
+<!-- ===================== ABSTENTION FRONTIER ===================== -->
+<section class="sec" id="frontier" style="padding-bottom:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">The headline figure</p>
+      <h2>The metric this was built to produce, returning a null.</h2>
+      <p class="lead" style="margin-top:24px">An auditor earns its place by knowing when to abstain — by the strategies it keeps performing better, out of sample, than the ones it discards. Every combination of the three layers was measured against random rejection at matched coverage. None beat it.</p>
+    </div>
+      <figure class="chart bp fig-auap light">
         <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <figcaption class="figlab">Abstention frontier · AlphaAudit v1.2 · 2025 holdout</figcaption>
 <!-- FIGURE:AUAP:BEGIN -->
@@ -360,9 +366,8 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
 <table class="abl"><thead><tr><th>Auditor layers</th><th class="n">AUAP</th><th class="n">P at 5% coverage</th><th class="v">Beats random</th></tr></thead><tbody><tr><td>static</td><td class="n">-1.2529</td><td class="n">-1.1176</td><td class="v">no</td></tr><tr><td>semantic</td><td class="n">-1.1967</td><td class="n">-1.1347</td><td class="v">no</td></tr><tr><td>statistical</td><td class="n">-1.3497</td><td class="n">-3.0643</td><td class="v">no</td></tr><tr><td>static + semantic</td><td class="n">-1.2782</td><td class="n">-1.1805</td><td class="v">no</td></tr><tr><td>static + statistical</td><td class="n">-1.4339</td><td class="n">-3.2931</td><td class="v">no</td></tr><tr><td>semantic + statistical</td><td class="n">-1.3777</td><td class="n">-3.2931</td><td class="v">no</td></tr><tr><td>static + semantic + statistical</td><td class="n">-1.4184</td><td class="n">-3.2931</td><td class="v">no</td></tr></tbody></table><p class="fcap" style="margin-top:22px">Random-rejection baseline AUAP: <b>-1.2208 to -0.8600</b>, bootstrap interval, n = 225 ranked candidates on the 2025 holdout. Every combination falls inside or below it. The abstention frontier is the metric this benchmark was built to produce, and it returned a null.</p>
 <!-- FIGURE:AUAP:END -->
       </figure>
-    </div>
   </div>
-</header>
+</section>
 
 <!-- ===================== METHOD ===================== -->
 <section class="sec" id="method">
@@ -652,7 +657,10 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
       <div>
         <p style="color:#c3cbdb;font-size:19px;line-height:1.6;margin-top:0">Clone it and run a local console that audits and backtests your own strategy against the same instruments used here — the same static auditor, the same point-in-time engine, the same Indian transaction costs. Nothing is uploaded, nothing is ranked, and no account is required.</p>
         <p class="disclaim" style="margin-top:28px"><b>This page computes nothing.</b> Every result above is produced by code you run yourself, against data you build yourself.</p>
-        <a class="btn-repo" href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">Repository ↗</a>
+        <div class="btnrow">
+          <a class="btn-repo" href="console.html">See the console ↗</a>
+          <a class="btn-repo ghost" href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">Repository ↗</a>
+        </div>
         <div class="warn">
           <p><b>The console is deliberately not hosted anywhere.</b> It executes whatever Python you paste, in its own process, with no sandbox — which is acceptable only because the person pasting the code and the person running the server are the same person. Its socket is pinned to loopback and there is no flag to change it. Putting it on the open internet would be remote code execution, and that is a thing to build properly or not at all.</p>
         </div>
@@ -676,61 +684,6 @@ python webui/server.py</pre>
       </div>
     </div>
 
-    <figure class="shot bp">
-      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
-      <div class="chrome"><i></i><i></i><i></i><span class="url">127.0.0.1:8000 — strategy console</span></div>
-      <div class="panes">
-        <div class="pane">
-          <p class="pl">Strategy source</p>
-<pre><span class="c"># the bundled "leaky" example</span>
-series = closes[symbol].drop_nulls()
-if series.len() &lt; 3:
-    continue
-<span class="c"># THE CHEAT: a negative shift moves a</span>
-<span class="c"># later observation onto the current row.</span>
-<span class="x">forward = series.shift(-1) / series - 1.0</span>
-value = forward.drop_nulls()</pre>
-        </div>
-        <div class="pane">
-          <p class="pl">Result</p>
-          <p class="v-flag">Rejected — 1 finding, 1 of them high severity.</p>
-          <div class="fnd">
-            <div class="cl">future_indexing · high · line 38</div>
-            <div class="wh">`shift` is called with a negative period, which moves a future observation onto the current row. Any feature built this way already contains the outcome it is meant to predict.</div>
-          </div>
-        </div>
-      </div>
-      <div class="panes">
-        <div class="pane">
-          <p class="pl">Strategy source</p>
-<pre><span class="c"># the bundled "honest momentum" example</span>
-closes = view.closes(lookback=self._lookback + 1)
-scores[symbol] = series[-1] / series[0] - 1.0
-ranked = sorted(scores.items(),
-                key=lambda kv: (-kv[1], kv[0]))
-picks = [s for s, _ in ranked[: self._n_hold]]
-return Signal(information_available_at=stamp,
-              weights=weights)</pre>
-        </div>
-        <div class="pane">
-          <p class="pl">Result · backtest, development window</p>
-          <p class="v-pass">Ran and took a position.</p>
-          <table>
-            <tr class="hi"><th>Net Sharpe</th><td>0.814</td></tr>
-            <tr><th>Gross Sharpe, before costs</th><td>1.092</td></tr>
-            <tr><th>Cost drag, in Sharpe units</th><td>0.278</td></tr>
-            <tr><th>Annualised return, net</th><td>22.78%</td></tr>
-            <tr><th>Max drawdown</th><td>−43.39%</td></tr>
-            <tr><th>Mean turnover per session</th><td>0.1628</td></tr>
-            <tr><th>Return kurtosis</th><td>13.02</td></tr>
-            <tr><th>Sessions</th><td>1232</td></tr>
-            <tr class="hi"><th>Deflated Sharpe probability</th><td>—</td></tr>
-            <tr><th>Trials this session</th><td>1</td></tr>
-          </table>
-        </div>
-      </div>
-      <figcaption class="cap">A reproduction of the console, not a photograph of one — but every figure above is its real output, captured by running the two bundled examples against the development panel. The deflated Sharpe is blank because it is the first evaluation of the session: one trial cannot show the spread of what you searched over, and the console reports that rather than inventing a flattering number. Run a second strategy and it appears — and comes back near 1.000, which reflects a search too small to have found anything by luck rather than a strategy that works.</figcaption>
-    </figure>
   </div>
 </section>
 
