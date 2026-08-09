@@ -284,6 +284,37 @@ The holdout was evaluated three times, each under written authorisation, and is 
 
 ---
 
+## Two interfaces, and only one of them is meant to be public
+
+**`docs/` is the public site.** One hand-written HTML file with no build step, no dependencies and
+no external requests — no fonts, no scripts, no trackers, no third-party assets. It is served by
+GitHub Pages from the `main` branch, `/docs` folder, under
+*Settings → Pages → Build and deployment → Deploy from a branch*. Nothing else is required: the
+directory ships its own `.nojekyll`, `robots.txt`, `sitemap.xml` and `404.html`.
+
+The abstention figure in the hero is not hand-drawn. `scripts/build_site_figures.py` regenerates
+the SVG and its ablation table from the frozen artifacts and substitutes them between the
+`<!-- FIGURE:AUAP:BEGIN -->` markers, so the page cannot drift from the results it reports. Every
+other figure on the page is a number that also appears in one of the three papers.
+
+**`webui/` is a local console, and is deliberately not deployable.** It executes whatever Python is
+pasted into it, in its own process, with no sandbox. That is acceptable for exactly one reason —
+whoever pastes the code and whoever runs the server are the same person, and they could have run
+`python` directly with less ceremony. The listening socket is pinned to `127.0.0.1` and there is no
+flag to change it; making it reachable from another machine requires editing the file, which is the
+point. Hosting it would be remote code execution, and the sandbox requirements for that are
+specified but not built.
+
+```bash
+python webui/server.py                            # http://127.0.0.1:8000
+TRIVIJAYA_WEBUI_PORT=8010 python webui/server.py  # when 8000 is taken
+```
+
+The console loads the development panel only, never the holdout, and its trial counter lives in
+memory and dies with the process — it cannot write to the ledger the published results depend on.
+
+---
+
 ## Standards
 
 Python 3.11+ · `polars` over `pandas` · full type hints · `ruff` + `mypy` clean · `pytest` ·

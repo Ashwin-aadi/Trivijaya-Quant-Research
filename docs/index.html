@@ -5,6 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trivijaya Quant Research — instruments that detect when a quantitative result is false</title>
 <meta name="description" content="Three frozen benchmarks that test whether a quantitative trading result is real: leakage auditing, regime fragility, and constraint-based deployment capacity, on Indian equities.">
+<meta name="author" content="Ashwin Jain">
+<meta name="keywords" content="quantitative finance, backtest overfitting, deflated Sharpe ratio, data leakage, Indian equities, NIFTY, LLM code generation, benchmark, reproducible research">
+<meta name="robots" content="index, follow">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b1220">
+<link rel="canonical" href="https://ashwin-aadi.github.io/Trivijaya-Quant-Research/">
+<!-- Social preview. No image is declared: an image would be the page's only binary asset and
+     the point of this site is that it ships as one file with no external requests. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Trivijaya Quant Research">
+<meta property="og:title" content="Trivijaya Quant Research — instruments that detect when a quantitative result is false">
+<meta property="og:description" content="An AI can write an executable trading strategy. Whether the result is real, whether it survives a change of regime, and how much capital it can carry are three separate problems — and none of them improved when the model got better.">
+<meta property="og:url" content="https://ashwin-aadi.github.io/Trivijaya-Quant-Research/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Trivijaya Quant Research">
+<meta name="twitter:description" content="Three frozen benchmarks for AI-generated quantitative trading strategies. Most of the headline results are nulls, which is the point.">
+<!-- Inline SVG favicon: a registration mark, matching the blueprint frames below. Data URI so the
+     page still makes exactly zero network requests. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b1220'/%3E%3Cg stroke='%239fb6dc' stroke-width='2' fill='none'%3E%3Ccircle cx='16' cy='16' r='7'/%3E%3Cpath d='M16 2v6M16 24v6M2 16h6M24 16h6'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
@@ -12,7 +31,7 @@ html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
   --navy-900:#0b1220;--navy-850:#101a2c;--navy-800:#152238;--navy-700:#26344f;
   --paper:#f5f5f2;--panel:#ffffff;
   --ink:#12161f;--muted:#5b6270;--line:rgba(18,22,31,.16);--line-strong:rgba(18,22,31,.32);
-  --accent:#1f3d6b;--accent-bright:#9fb6dc;
+  --accent:#1f3d6b;--accent-bright:#9fb6dc;--flag:#8c2f24;
   --serif:Georgia,"Times New Roman",Times,serif;
   --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
 }
@@ -30,6 +49,8 @@ p{margin:0 0 1em;text-wrap:pretty}
 h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.04;font-size:clamp(30px,4.4vw,52px);margin:.35em 0 0}
 .sec{padding:clamp(64px,9vw,128px) 0;scroll-margin-top:24px}
 .sec-head{max-width:74ch;margin-bottom:clamp(40px,5vw,64px)}
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:22px;top:14px;z-index:9;background:var(--accent-bright);color:var(--navy-900);padding:10px 16px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
 /* blueprint frame + registration marks */
 .bp{position:relative;border:1px solid var(--line)}
 .bp>i.c{position:absolute;width:10px;height:10px;color:var(--line-strong);pointer-events:none}
@@ -46,7 +67,7 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
 .dark .bp{border-color:rgba(245,245,242,.2)}
 .dark .bp>i.c{color:rgba(245,245,242,.5)}
 /* nav */
-.nav{display:flex;align-items:baseline;gap:28px;padding:26px 0 0;flex-wrap:wrap}
+.nav{display:flex;align-items:baseline;gap:22px;padding:26px 0 0;flex-wrap:wrap}
 .nav .brand{font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#aab4c6;margin-right:auto}
 .nav a{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:#cdd6e6;text-decoration:none}
 .nav a:hover{color:#fff}
@@ -69,6 +90,15 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
   padding-top:26px;border-top:1px solid rgba(245,245,242,.16)}
 .author .name{font-family:var(--serif);font-weight:700;font-size:clamp(24px,3vw,34px);color:#fff;letter-spacing:-.01em}
 .author .dept{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:#8b97ad}
+.author .orcid{font-family:var(--mono);font-size:12.5px;letter-spacing:.06em;color:var(--accent-bright);text-decoration:none;border-bottom:1px solid rgba(159,182,220,.45)}
+/* scale strip */
+.strip{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;margin-top:clamp(40px,6vw,64px);
+  background:rgba(245,245,242,.16);border:1px solid rgba(245,245,242,.16)}
+.strip div{background:var(--navy-900);padding:20px 20px 18px}
+.strip .v{font-family:var(--serif);font-weight:700;font-size:clamp(24px,3vw,36px);line-height:1;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.strip .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:#8b97ad;margin-top:10px;line-height:1.45}
+@media (max-width:900px){.strip{grid-template-columns:1fr 1fr}}
+@media (max-width:420px){.strip{grid-template-columns:1fr}}
 /* hero chart */
 .chart{margin-top:clamp(44px,6vw,72px)}
 .chart svg{width:100%;height:auto;display:block}
@@ -124,8 +154,31 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
 .rec .qtext{font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.3;margin:0 0 14px}
 .rec .does{font-size:15.5px;line-height:1.55;color:#333b48;margin:0}
 .rec .find-l{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
-.rec .find{font-size:17px;line-height:1.4;color:var(--ink);margin:0}
+.rec .find{font-size:17px;line-height:1.4;color:var(--ink);margin:0 0 14px}
 .rec .find b{font-weight:700;font-variant-numeric:tabular-nums}
+.rec .also{font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--muted);margin:0;padding-top:12px;border-top:1px dashed var(--line)}
+/* data tables */
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.data{width:100%;min-width:640px;border-collapse:collapse;font-family:var(--mono);font-size:13.5px}
+table.data caption{caption-side:bottom;text-align:left;font-family:var(--mono);font-size:12.5px;line-height:1.65;
+  color:var(--muted);padding-top:16px;max-width:78ch}
+table.data th{text-align:left;font-weight:400;color:var(--muted);font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;padding:0 14px 11px 0;border-bottom:1px solid var(--line-strong);vertical-align:bottom}
+table.data td{padding:11px 14px 11px 0;border-bottom:1px solid var(--line);color:#232a36}
+table.data .n{text-align:right;font-variant-numeric:tabular-nums;padding-right:24px}
+table.data th.n{padding-right:24px}
+table.data tr.ref td{color:var(--muted)}
+table.data td.no{color:var(--flag)}
+table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
+/* findings list */
+.finds{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line)}
+.find-card{background:var(--panel);padding:26px 28px}
+.find-card .fc-k{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--flag);margin:0 0 12px}
+.find-card h3{font-family:var(--serif);font-weight:700;font-size:clamp(19px,1.8vw,23px);line-height:1.18;letter-spacing:-.015em;margin:0 0 10px}
+.find-card p{font-size:15.5px;line-height:1.55;color:#333b48;margin:0 0 .7em}
+.find-card p:last-child{margin-bottom:0}
+.find-card .stat{font-family:var(--mono);font-size:12.5px;color:var(--muted);letter-spacing:.02em}
+@media (max-width:820px){.finds{grid-template-columns:1fr}}
 /* papers */
 .paper{display:grid;grid-template-columns:56px 1fr auto;gap:clamp(18px,2.6vw,40px);align-items:baseline;
   padding:clamp(26px,3vw,40px) 0;border-bottom:1px solid var(--line)}
@@ -140,22 +193,35 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
 .feat{padding:clamp(48px,6vw,84px) clamp(40px,6vw,96px);background:var(--panel)}
 .feat .fq{font-family:var(--serif);font-weight:700;font-size:clamp(28px,4.6vw,58px);line-height:1.08;letter-spacing:-.02em;margin:24px 0 0;text-wrap:balance}
 .feat .fcap{font-family:var(--mono);font-size:13px;letter-spacing:.06em;color:var(--muted);margin:32px 0 0;max-width:60ch;line-height:1.6}
+/* rules / reproducibility */
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,3vw,44px)}
+@media (max-width:900px){.rules{grid-template-columns:1fr}}
+.rule-item{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start;padding:20px 0;border-top:1px solid var(--line)}
+.rule-item .rn{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--accent);padding-top:5px}
+.rule-item h3{font-family:var(--serif);font-weight:700;font-size:19px;line-height:1.2;margin:0 0 6px;letter-spacing:-.01em}
+.rule-item p{font-size:15.5px;line-height:1.55;color:#333b48;margin:0}
+.rule-item code{font-family:var(--mono);font-size:13px;background:rgba(18,22,31,.06);padding:1px 5px}
 /* run */
 .run-grid{display:grid;grid-template-columns:1fr 1.15fr;gap:clamp(36px,5vw,72px);align-items:start}
 .term{background:#070c15;border:1px solid rgba(245,245,242,.16);font-family:var(--mono);font-size:14px;line-height:1.85;color:#d6def0}
 .term .bar{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid rgba(245,245,242,.14);color:#8b97ad;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
-.term .body{padding:20px 22px;white-space:pre-wrap;word-break:break-word;margin:0}
+.term .body{padding:20px 22px;white-space:pre-wrap;word-break:break-word;margin:0;overflow-x:auto}
 .term .body .c{color:#6b7686}
 .disclaim{font-size:clamp(18px,2vw,22px);line-height:1.5;color:#eef2f8;max-width:44ch}
 .disclaim b{font-weight:700;color:#fff}
 .dark a.btn-repo{display:inline-flex;align-items:center;gap:10px;margin-top:26px;font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--navy-900);background:var(--accent-bright);text-decoration:none;padding:14px 22px;border:1px solid var(--accent-bright)}
 .dark a.btn-repo:hover{background:#fff;color:var(--navy-900)}
+.warn{margin-top:30px;padding:20px 24px;border-left:2px solid var(--accent-bright);background:rgba(255,255,255,.04)}
+.warn p{font-size:15.5px;line-height:1.6;color:#c3cbdb;margin:0}
+.warn b{color:#fff;font-weight:400;border-bottom:1px solid rgba(159,182,220,.6)}
 /* footer */
-.foot{display:flex;flex-wrap:wrap;gap:18px 40px;align-items:baseline;padding:clamp(40px,5vw,64px) 0;border-top:1px solid rgba(245,245,242,.16)}
+.foot{display:flex;flex-wrap:wrap;gap:18px 40px;align-items:baseline;padding:clamp(40px,5vw,64px) 0 0;border-top:1px solid rgba(245,245,242,.16)}
 .foot .fn{font-family:var(--serif);font-weight:700;font-size:22px;color:#fff}
 .foot .fd{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8b97ad}
 .foot .fr{margin-left:auto;font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase}
+.colophon{padding:34px 0 clamp(40px,5vw,64px);font-family:var(--mono);font-size:12px;line-height:1.8;color:#6b7686;max-width:80ch}
+.colophon a{color:#8b97ad}
 @media (max-width:1000px){
   .method{grid-template-columns:1fr}
   .method .conn{height:44px;transform:rotate(90deg)}
@@ -172,9 +238,17 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
   .feat{padding:34px 24px}
   .foot .fr{margin-left:0;width:100%}
 }
+@media print{
+  .dark{background:#fff;color:#000}
+  .hero::before,header::before{display:none}
+  .labname,.thesis,h2{color:#000}
+  .nav,.btn-repo{display:none}
+}
 </style>
 </head>
 <body>
+
+<a class="skip" href="#method">Skip to content</a>
 
 <!-- ===================== HERO ===================== -->
 <header class="dark hero" id="top">
@@ -183,14 +257,16 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
       <span class="brand">Trivijaya Quant Research</span>
       <a href="#method">Method</a>
       <a href="#benchmarks">Benchmarks</a>
+      <a href="#capability">Capability</a>
+      <a href="#nulls">Nulls</a>
       <a href="#papers">Papers</a>
-      <a href="#result">Result</a>
+      <a href="#rigour">Rigour</a>
       <a href="#run">Run&nbsp;it</a>
     </nav>
     <div class="inner">
       <div class="eyebrow">
         <span class="rule"></span>
-        <span class="kicker">Independent research programme</span>
+        <span class="kicker">Independent research programme · Indian equities</span>
       </div>
       <h1 class="labname">Trivijaya<br>Quant Research</h1>
       <p class="thesis">This lab builds instruments that detect when a quantitative result is <b>false</b>.</p>
@@ -198,7 +274,17 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
       <div class="author">
         <span class="name">Ashwin Jain</span>
         <span class="dept">Department of Computer Science &amp; Engineering · MNNIT Allahabad</span>
+        <a class="orcid" href="https://orcid.org/0009-0002-9296-8651" rel="me noopener">ORCID 0009-0002-9296-8651 ↗</a>
       </div>
+
+      <div class="strip">
+        <div><div class="v">3</div><div class="k">Benchmarks<br>released and frozen</div></div>
+        <div><div class="v">125</div><div class="k">Strategies carrying<br>all three verdicts</div></div>
+        <div><div class="v">3,499</div><div class="k">Trials in the<br>hash-chained ledger</div></div>
+        <div><div class="v">4</div><div class="k">Generators tested<br>on one frozen stack</div></div>
+        <div><div class="v">0</div><div class="k">Candidates that<br>cleared deflation</div></div>
+      </div>
+
       <figure class="chart bp fig-auap">
         <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <figcaption class="figlab">Abstention frontier · AlphaAudit v1.2 · 2025 holdout</figcaption>
@@ -289,24 +375,143 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
         <p class="kicker">Benchmarks</p>
         <h2>Three instruments.<br>All released and frozen.</h2>
       </div>
-      <p class="lead"><em>Frozen</em> means the specification will not change, so results stay comparable across time and across strategies. Each is reproducible from raw data by a documented command sequence.</p>
+      <p class="lead"><em>Frozen</em> means the specification will not change, so results stay comparable across time and across strategies. Each is reproducible from raw data by a documented command sequence, and each carries a corrections log recording every defect found after freezing and exactly what it changed.</p>
     </div>
     <div class="ledger">
       <div class="rec">
         <div><div class="idx">01</div><div class="nm">AlphaAudit</div><span class="status">Released · Frozen v1.2</span></div>
         <div><p class="qlabel">The question</p><p class="qtext">Is the signal real, or an artefact of leakage and multiple testing?</p><p class="does">A local model generated 1,550 strategies. Each was read for lookahead, deflated against a tamper-evident count of every trial attempted — failures included — and checked for whether its stated reasoning matched its code.</p></div>
-        <div class="r-find"><p class="find-l">Headline finding</p><p class="find"><b>0 of 631</b> backtested strategies cleared a deflated-Sharpe probability of 0.95. The highest in the corpus was <b>4.37 × 10⁻⁸</b>.</p></div>
+        <div class="r-find"><p class="find-l">Headline finding</p><p class="find"><b>0 of 631</b> backtested strategies cleared a deflated-Sharpe probability of 0.95. The highest in the corpus was <b>4.37 × 10⁻⁸</b>.</p><p class="also">Also measured · 40.7% of draws executed at all · 14.5% executed and took a position · 14.3% carried a static leakage finding · 15.6% of profitable strategies reversed sign under Indian statutory costs</p></div>
       </div>
       <div class="rec">
         <div><div class="idx">02</div><div class="nm">RegimeStress</div><span class="status">Released · Frozen v1</span></div>
         <div><p class="qlabel">The question</p><p class="qtext">Under which market conditions does the edge disappear?</p><p class="does">Regimes are labelled causally, on an expanding window, so the labels never see the future. Counterfactual histories are then resampled in blocks that preserve volatility clustering, and fragility is measured as the spread of performance across them.</p></div>
-        <div class="r-find"><p class="find-l">Headline finding</p><p class="find"><b>27 of 174</b> audit survivors turned out not to be deterministic functions of their own inputs — disclosed rather than quietly dropped.</p></div>
+        <div class="r-find"><p class="find-l">Headline finding</p><p class="find">Fragility is <b>generator-independent</b>: a median of 0.618 locally against 0.566, 0.624 and 0.696 for three frontier models. It is closer to a property of the market than of the author.</p><p class="also">Also measured · fragility is not predictable from strategy characteristics, best out-of-sample R² <b>+0.024</b> · 27 of 174 audit survivors were not deterministic functions of their own inputs, disclosed rather than quietly dropped</p></div>
       </div>
       <div class="rec">
         <div><div class="idx">03</div><div class="nm">FlowState</div><span class="status">Released · Frozen v1</span></div>
         <div><p class="qlabel">The question</p><p class="qtext">How large a book can the strategy trade within its own participation limit?</p><p class="does">Capacity is computed from observed traded value and the participation constraint, assuming no impact coefficient. The benchmark also carries a first-class negative result: why daily bars cannot price transient market impact at all.</p></div>
-        <div class="r-find"><p class="find-l">Headline finding</p><p class="find">Binding capacity of <b>₹0.81–7.91 crore</b> across five standard factors — roughly one to ten million US dollars, set by the least-liquid position.</p></div>
+        <div class="r-find"><p class="find-l">Headline finding</p><p class="find">Binding capacity of <b>₹0.81–7.91 crore</b> across five standard factors — roughly one to ten million US dollars, set by the least-liquid position.</p><p class="also">Also measured · capacity from a typical session overstates the binding figure by 4.3× to 26.2× · deployable size does not collapse when foreign flows reverse, ratios 0.94–1.24 · no factor's edge decays measurably from 1 to 63 sessions</p></div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CAPABILITY ===================== -->
+<section class="sec" id="capability">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">The cross-cutting result</p>
+      <h2>Better code is not better evidence.</h2>
+      <p class="lead" style="margin-top:24px">The obvious objection to all of the above is that it describes one small local model rather than machine-written strategies in general. It is the right objection. So the identical frozen task specification went to three frontier models, and all sixty candidates passed through the unmodified apparatus.</p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Generator</th>
+            <th class="n">Draws</th>
+            <th class="n">Executed</th>
+            <th class="n">Executed &amp; traded</th>
+            <th class="n">Median holdout Sharpe</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="ref"><td class="name">Local 7B — reference arm</td><td class="n">830</td><td class="n">40.7%</td><td class="n">14.6%</td><td class="n">−0.616</td></tr>
+          <tr><td class="name">GPT</td><td class="n">20</td><td class="n">100%</td><td class="n">100%</td><td class="n">−1.149</td></tr>
+          <tr><td class="name">Claude</td><td class="n">20</td><td class="n">100%</td><td class="n">100%</td><td class="n">−0.770</td></tr>
+          <tr><td class="name">Gemini</td><td class="n">20</td><td class="n">100%</td><td class="n">100%</td><td class="n">−1.149</td></tr>
+        </tbody>
+        <caption>Four independent requests per frontier arm, twenty candidates each, all passed through the frozen stack with no parameter touched. Total static leakage findings across all sixty: one. <b>Nothing cleared deflation anywhere</b> — 0 of 60 at the frontier, and 0 of 631 in the pooled local corpus of 1,550 draws. Against 1,000 bootstrap subsamples of the local corpus at matched size, the frontier arms look better in-sample in 3 of 60 comparisons at the larger size and 41 of 60 at the smaller — small samples flatter — while on the holdout the count is <b>zero at both sizes</b>. The reference row is the plain-prompting arm, which is the comparison the frozen artefact defines; the pooled corpus of 1,550 draws trades at 14.5%.</caption>
+      </table>
+    </div>
+
+    <div class="finds" style="margin-top:clamp(40px,5vw,64px)">
+      <div class="find-card">
+        <p class="fc-k">At the front of the funnel</p>
+        <h3>The difference is total.</h3>
+        <p>All 60 of 60 frontier candidates executed to completion and took a position, against the local model's 14.6%. The execution barrier that dominates the local corpus is an artefact of model capability, and it disappears when capability rises.</p>
+        <p class="stat">100% versus 14.6% · n = 60 and n = 830</p>
+      </div>
+      <div class="find-card">
+        <p class="fc-k">At the back of the funnel</p>
+        <h3>There is no difference at all.</h3>
+        <p>Not one of the sixty attained a deflated-Sharpe probability above 0.95 at its own honest trial count, on development or on holdout. The median holdout Sharpe is <em>worse</em> for every frontier arm than for the local reference.</p>
+        <p class="stat">0 of 60 cleared · 11 of 60 reversed sign under costs</p>
+      </div>
+    </div>
+
+    <p class="lead" style="margin-top:clamp(36px,4vw,52px);max-width:70ch">This is a separation, not a ranking. Frontier models solved the problem the code-generation literature measures. They did not touch the problem this framework measures.</p>
+  </div>
+</section>
+
+<!-- ===================== NULLS ===================== -->
+<section class="sec dark" id="nulls">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">Negative results</p>
+      <h2 style="color:#fff">What did not work,<br>and the evidence that it did not.</h2>
+      <p class="lead" style="margin-top:24px;color:#aeb8ca">These are the programme's principal findings, not its disappointments. A claim withdrawn is more useful to a fund than a claim left standing on luck, and each of the nulls below cost more to establish honestly than a positive result would have cost to manufacture.</p>
+    </div>
+
+    <div class="tbl-scroll">
+      <table class="data" style="color:#d6def0">
+        <thead style="color:#8b97ad">
+          <tr>
+            <th style="color:#8b97ad;border-bottom-color:rgba(245,245,242,.3)">Hypothesis tested</th>
+            <th style="color:#8b97ad;border-bottom-color:rgba(245,245,242,.3)">Result</th>
+            <th class="n" style="color:#8b97ad;border-bottom-color:rgba(245,245,242,.3)">Sample</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">An auditor can rank candidates that will hold up out of sample</td><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">0 of 70 configurations beat random rejection at matched coverage</td><td class="n" style="color:#8b97ad;border-bottom-color:rgba(245,245,242,.12)">10 corpora</td></tr>
+          <tr><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">Elaborate prompting scaffolds produce better strategies</td><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">0 of 5 beat plain prompting at equal token budget</td><td class="n" style="color:#8b97ad;border-bottom-color:rgba(245,245,242,.12)">2,495 draws</td></tr>
+          <tr><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">Fragility is predictable from strategy characteristics</td><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">Best out-of-sample R² of +0.024; −0.004 on a held-out generator</td><td class="n" style="color:#8b97ad;border-bottom-color:rgba(245,245,242,.12)">109 strategies</td></tr>
+          <tr><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">Daily bars can identify a market-impact parameter</td><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">They cannot; the exponent fails its own sample split at 0.374</td><td class="n" style="color:#8b97ad;border-bottom-color:rgba(245,245,242,.12)">208,042 rows</td></tr>
+          <tr><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">Deployable size collapses when foreign flows reverse</td><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">It does not; outflow-to-inflow ratios of 0.94 to 1.24</td><td class="n" style="color:#8b97ad;border-bottom-color:rgba(245,245,242,.12)">5 factors</td></tr>
+          <tr><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">Factor edges decay measurably over the holding horizon</td><td style="color:#d6def0;border-bottom-color:rgba(245,245,242,.12)">Reported as a null about the measurement: the edges are not established</td><td class="n" style="color:#8b97ad;border-bottom-color:rgba(245,245,242,.12)">1–63 sessions</td></tr>
+        </tbody>
+        <caption style="color:#8b97ad">The auditor null survived two corrections to the pipeline — a defective cost implementation, rebuilt, and a sign error inverting the auditor's confidence ordering. Both were repaired, the holdout was reopened once for each under written prior authorisation, and the null was recomputed. The magnitudes moved; the conclusion did not. The diffs that produced each correction are published, because <i>we re-ran it and the conclusion held</i> is what a researcher would say in both the honest and the dishonest case.</caption>
+      </table>
+    </div>
+
+    <div class="warn">
+      <p><b>What the auditor null does not establish.</b> It is confounded with corpus degeneracy, and cannot separate <i>the auditor carries no information</i> from <i>these corpora are too weak to test it</i>. The population being ranked is one in which 14.5% of draws trade at all and nothing clears deflation. Asking an auditor to rank that population may be asking it to order noise. The frontier arms narrow the confound — stronger generator, 100% execution, same null — but twenty candidates per arm does not eliminate it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== METHODOLOGY AXIS ===================== -->
+<section class="sec" id="methodology" style="background:var(--panel);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">Compute-matched comparison</p>
+      <h2>A five-call agent that beats one prompt has proved nothing.</h2>
+      <p class="lead" style="margin-top:24px">A scaffolded generation method spends several times the tokens of a single call. The honest control is therefore not plain prompting at its natural budget — it is plain prompting run <em>k</em> times at the scaffold's budget, allowed to keep its best. Under that control, every scaffold loses.</p>
+    </div>
+    <div class="tbl-scroll">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Generation method</th>
+            <th class="n">Draws</th>
+            <th class="n">Executed &amp; traded</th>
+            <th class="n">Control <i>k</i></th>
+            <th class="n">Control yield</th>
+            <th>Beats control</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="ref"><td class="name">Plain prompting</td><td class="n">830</td><td class="n">14.6%</td><td class="n">—</td><td class="n">—</td><td>reference</td></tr>
+          <tr><td class="name">Chain-of-thought</td><td class="n">800</td><td class="n">11.5%</td><td class="n">2</td><td class="n">27.1%</td><td class="no">no</td></tr>
+          <tr><td class="name">Planning</td><td class="n">365</td><td class="n">6.8%</td><td class="n">3</td><td class="n">39.1%</td><td class="no">no</td></tr>
+          <tr><td class="name">Reflection</td><td class="n">288</td><td class="n">10.1%</td><td class="n">3</td><td class="n">39.1%</td><td class="no">no</td></tr>
+          <tr><td class="name">Graph-of-thoughts</td><td class="n">152</td><td class="n">8.6%</td><td class="n">6</td><td class="n">64.3%</td><td class="no">no</td></tr>
+          <tr><td class="name">Monte Carlo tree search</td><td class="n">60</td><td class="n">58.3%</td><td class="n">14</td><td class="n">89.1%</td><td class="no">no</td></tr>
+        </tbody>
+        <caption>Monte Carlo tree search is the one arm that looks like a win on raw numbers — a 58.3% yield and the study's only non-negative median holdout Sharpe, at +0.047. It is not reported as a win. Its own compute-matched control beats it, and the mechanism is visible in the ledger: the arm consumed 736 entries to produce 60 draws, and the deflation bar rises with that count. An honest trial counter penalises a method for iterating, which is exactly what it should do.</caption>
+      </table>
     </div>
   </div>
 </section>
@@ -321,18 +526,18 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
     </div>
     <div class="paper">
       <div class="pn">[1]</div>
-      <div><h3 class="pt">Abstention-Calibrated Agentic Strategy Research with Adversarial Self-Audit on Indian Equities</h3><p class="pabs">A generator proposes trading strategies; a three-layer auditor tries to prove it is fooling itself. The system is then measured on whether it knows when to abstain — whether what it keeps performs better on data it never saw.</p><p class="pmeta">q-fin.TR · cs.LG</p></div>
-      <div class="plinks"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/alphaaudit.pdf">PDF ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit.tex">LaTeX source ↗</a></div>
+      <div><h3 class="pt">Abstention-Calibrated Agentic Strategy Research with Adversarial Self-Audit on Indian Equities</h3><p class="pabs">A generator proposes trading strategies; a three-layer auditor tries to prove it is fooling itself. The system is then measured on whether it knows when to abstain — whether what it keeps performs better on data it never saw. It does not, and the null is the paper.</p><p class="pmeta">q-fin.TR · cs.LG · AlphaAudit v1.2</p></div>
+      <div class="plinks"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/1-alphaaudit.pdf">PDF ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit.tex">LaTeX source ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit_numbers.tex">Numbers ↗</a></div>
     </div>
     <div class="paper">
       <div class="pn">[2]</div>
-      <div><h3 class="pt">Counterfactual Regime Resampling and Learned Fragility Estimation for Indian Equity Strategies</h3><p class="pabs">Indian markets since 2015 contain roughly one crash, one full rate cycle and one structural liquidity shift. The number of independent regime observations is very small; this addresses that scarcity rather than assuming it away.</p><p class="pmeta">q-fin.RM · q-fin.PM</p></div>
-      <div class="plinks"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/regimestress.pdf">PDF ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress.tex">LaTeX source ↗</a></div>
+      <div><h3 class="pt">Counterfactual Regime Resampling and Learned Fragility Estimation for Indian Equity Strategies</h3><p class="pabs">Indian markets since 2015 contain roughly one crash, one full rate cycle and one structural liquidity shift. The number of independent regime observations is very small; this addresses that scarcity rather than assuming it away.</p><p class="pmeta">q-fin.RM · q-fin.PM · RegimeStress v1</p></div>
+      <div class="plinks"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/2-regimestress.pdf">PDF ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress.tex">LaTeX source ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress_numbers.tex">Numbers ↗</a></div>
     </div>
     <div class="paper">
       <div class="pn">[3]</div>
-      <div><h3 class="pt">Flow-Conditional Capacity and Alpha-Decay Estimation in a Retail-Dominated Equity Market</h3><p class="pabs">Deployment capacity for Indian equities, measured from observable liquidity rather than an assumed impact function — together with the demonstration, reported as a principal finding, that daily bars cannot supply one.</p><p class="pmeta">q-fin.TR</p></div>
-      <div class="plinks"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/flowstate.pdf">PDF ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate.tex">LaTeX source ↗</a></div>
+      <div><h3 class="pt">Flow-Conditional Capacity and Alpha-Decay Estimation in a Retail-Dominated Equity Market</h3><p class="pabs">Deployment capacity for Indian equities, measured from observable liquidity rather than an assumed impact function — together with the demonstration, reported as a principal finding, that daily bars cannot supply one.</p><p class="pmeta">q-fin.TR · FlowState v1</p></div>
+      <div class="plinks"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/3-flowstate.pdf">PDF ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate.tex">LaTeX source ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate_numbers.tex">Numbers ↗</a></div>
     </div>
   </div>
 </section>
@@ -349,6 +554,55 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
   </div>
 </section>
 
+<!-- ===================== RIGOUR ===================== -->
+<section class="sec" id="rigour" style="background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">How the numbers are kept honest</p>
+      <h2>The apparatus that makes the results checkable.</h2>
+      <p class="lead" style="margin-top:24px">Every one of these is a constraint the repository enforces mechanically rather than a promise made in prose. They exist because the failure modes this lab studies are the ones a careful researcher still commits by accident.</p>
+    </div>
+    <div class="rules">
+      <div>
+        <div class="rule-item">
+          <div class="rn">01</div>
+          <div><h3>Point-in-time enforced by the engine</h3><p>Every signal carries the timestamp at which its information became available. If an order's signal timestamp is not strictly prior to its fill, the engine raises <code>PointInTimeError</code> — an exception, not a warning. Lookahead is made hard to express rather than forbidden by convention.</p></div>
+        </div>
+        <div class="rule-item">
+          <div class="rn">02</div>
+          <div><h3>A survivorship-free universe</h3><p>The universe on any date holds exactly the index constituents of that date, including names later delisted or removed. A universe built from today's constituents applied backwards would invalidate everything downstream, and no amount of care elsewhere would recover it.</p></div>
+        </div>
+        <div class="rule-item">
+          <div class="rn">03</div>
+          <div><h3>A tamper-evident trial ledger</h3><p>Every evaluation increments an append-only, hash-chained counter — including syntax errors and crashes, which consumed search effort too. The generator cannot write to it. Deflation is only as honest as its denominator, and 3,499 trials are recorded.</p></div>
+        </div>
+        <div class="rule-item">
+          <div class="rn">04</div>
+          <div><h3>Purged cross-validation with embargo</h3><p>Overlapping label windows are purged from training folds and an embargo follows each test fold, so serial correlation cannot leak a result across the boundary. Any fitted transform is fit on training data alone.</p></div>
+        </div>
+      </div>
+      <div>
+        <div class="rule-item">
+          <div class="rn">05</div>
+          <div><h3>No number is typed twice</h3><p>Every figure in every paper is a macro emitted by a build script from a named artefact. A checker fails the build if a bare numeral appears where a claim belongs. Transcription error is removed as a category rather than guarded against.</p></div>
+        </div>
+        <div class="rule-item">
+          <div class="rn">06</div>
+          <div><h3>A holdout that is spent, not consulted</h3><p>The 2025 panel is evaluated only under written prior authorisation, and every access is logged with its reason. After an evaluation, no further tuning of anything occurs. Where it was reopened — twice, for two pipeline defects — the diffs are published.</p></div>
+        </div>
+        <div class="rule-item">
+          <div class="rn">07</div>
+          <div><h3>Costs that Indian backtests usually omit</h3><p>Securities transaction tax, exchange charges, SEBI turnover fees, GST, stamp duty and brokerage, per leg and per segment, with participation-scaled slippage. Not a flat basis-point haircut. It reverses the sign of 15.6% of the profitable strategies.</p></div>
+        </div>
+        <div class="rule-item">
+          <div class="rn">08</div>
+          <div><h3>Reproducible from raw, at zero cost</h3><p>Global seed 42, a run manifest per execution carrying git SHA, package versions, model tags and input hashes. All inference is local. The market-data budget is ₹0, and no source requiring an account or KYC is used.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ===================== RUN IT ===================== -->
 <section class="sec dark" id="run">
   <div class="wrap">
@@ -361,6 +615,9 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
         <p style="color:#c3cbdb;font-size:19px;line-height:1.6;margin-top:0">Clone it and run a local console that audits and backtests your own strategy against the same instruments used here — the same static auditor, the same point-in-time engine, the same Indian transaction costs. Nothing is uploaded, nothing is ranked, and no account is required.</p>
         <p class="disclaim" style="margin-top:28px"><b>This page computes nothing.</b> Every result above is produced by code you run yourself, against data you build yourself.</p>
         <a class="btn-repo" href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">Repository ↗</a>
+        <div class="warn">
+          <p><b>The console is deliberately not hosted anywhere.</b> It executes whatever Python you paste, in its own process, with no sandbox — which is acceptable only because the person pasting the code and the person running the server are the same person. Its socket is pinned to loopback and there is no flag to change it. Putting it on the open internet would be remote code execution, and that is a thing to build properly or not at all.</p>
+        </div>
       </div>
       <div class="term bp">
         <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
@@ -390,8 +647,63 @@ python webui/server.py</pre>
       <span class="fd">Department of Computer Science &amp; Engineering · MNNIT Allahabad</span>
       <span class="fr"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">Repository ↗</a></span>
     </div>
+    <p class="colophon">
+      Independent research. No funding, no institutional sponsorship, and no commercial relationship with any asset manager, broker, exchange, trading firm, data vendor or model provider. The market-data budget is ₹0 and all inference runs locally.<br>
+      Nothing on this page is investment advice, an offer, or a solicitation. Every figure describes a historical simulation on Indian equities and none of it is a claim about future returns.<br>
+      This page is a single static file. It loads no fonts, no scripts, no trackers and no third-party assets, and it sets no cookies. · <a href="https://orcid.org/0009-0002-9296-8651" rel="me noopener">ORCID</a> · <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/PROJECTS.md">Project map ↗</a> · <a href="#top">Back to top</a>
+    </p>
   </div>
 </footer>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Person",
+      "@id": "https://orcid.org/0009-0002-9296-8651",
+      "name": "Ashwin Jain",
+      "identifier": "https://orcid.org/0009-0002-9296-8651",
+      "affiliation": {
+        "@type": "CollegeOrUniversity",
+        "name": "Motilal Nehru National Institute of Technology Allahabad"
+      }
+    },
+    {
+      "@type": "ResearchProject",
+      "name": "Trivijaya Quant Research",
+      "url": "https://ashwin-aadi.github.io/Trivijaya-Quant-Research/",
+      "description": "Measurement infrastructure for quantitative research on Indian equities: three frozen benchmarks testing whether a trading result is real, when it breaks, and how much capital it can carry.",
+      "founder": {"@id": "https://orcid.org/0009-0002-9296-8651"}
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "name": "Trivijaya-Quant-Research",
+      "codeRepository": "https://github.com/Ashwin-aadi/Trivijaya-Quant-Research",
+      "programmingLanguage": "Python",
+      "author": {"@id": "https://orcid.org/0009-0002-9296-8651"}
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "headline": "Abstention-Calibrated Agentic Strategy Research with Adversarial Self-Audit on Indian Equities",
+      "author": {"@id": "https://orcid.org/0009-0002-9296-8651"},
+      "url": "https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/1-alphaaudit.pdf"
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "headline": "Counterfactual Regime Resampling and Learned Fragility Estimation for Indian Equity Strategies",
+      "author": {"@id": "https://orcid.org/0009-0002-9296-8651"},
+      "url": "https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/2-regimestress.pdf"
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "headline": "Flow-Conditional Capacity and Alpha-Decay Estimation in a Retail-Dominated Equity Market",
+      "author": {"@id": "https://orcid.org/0009-0002-9296-8651"},
+      "url": "https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/3-flowstate.pdf"
+    }
+  ]
+}
+</script>
 
 </body>
 </html>

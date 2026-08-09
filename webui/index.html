@@ -4,12 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Strategy console — Trivijaya Quant Research</title>
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#0b1220">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b1220'/%3E%3Cg stroke='%239fb6dc' stroke-width='2' fill='none'%3E%3Ccircle cx='16' cy='16' r='7'/%3E%3Cpath d='M16 2v6M16 24v6M2 16h6M24 16h6'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 *,*::before,*::after{box-sizing:border-box}
 :root{
   --navy-900:#0b1220;--paper:#f5f5f2;--panel:#fff;
   --ink:#12161f;--muted:#5b6270;--line:rgba(18,22,31,.16);--line-strong:rgba(18,22,31,.32);
-  --accent:#1f3d6b;--accent-bright:#9fb6dc;--flag:#8c2f24;--ok:#1f5c3d;
+  --accent:#1f3d6b;--accent-bright:#9fb6dc;--flag:#8c2f24;--ok:#1f5c3d;--warn:#8a6a1f;
   --serif:Georgia,"Times New Roman",Times,serif;
   --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
 }
@@ -20,6 +24,9 @@ p{margin:0 0 1em;text-wrap:pretty}
 .wrap{max-width:1320px;margin:0 auto;padding:0 44px;width:100%}
 .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--muted);margin:0 0 12px}
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:22px;top:14px;z-index:9;background:var(--accent-bright);color:var(--navy-900);
+  padding:10px 16px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
 /* blueprint frame */
 .bp{position:relative;border:1px solid var(--line)}
 .bp>i.c{position:absolute;width:10px;height:10px;color:var(--line-strong);pointer-events:none}
@@ -40,24 +47,41 @@ header .wrap{position:relative}
   border-bottom:1px solid rgba(245,245,242,.16)}
 .bar .brand{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;
   color:#aab4c6;margin-right:auto}
+.bar a{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:#cdd6e6;text-decoration:none}
+.bar a:hover{color:#fff}
 .bar .host{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--accent-bright)}
 h1{font-family:var(--serif);font-weight:700;letter-spacing:-.025em;line-height:1;
   font-size:clamp(34px,5.5vw,58px);margin:28px 0 0;color:#fff}
 header .lede{font-size:clamp(16px,1.5vw,18.5px);color:#aeb8ca;max-width:66ch;margin:18px 0 0}
 header .lede b{color:#fff;font-weight:400;border-bottom:1px solid rgba(159,182,220,.6)}
+.facts{display:flex;flex-wrap:wrap;gap:0 1px;margin-top:30px;background:rgba(245,245,242,.16);
+  border:1px solid rgba(245,245,242,.16)}
+.facts div{background:var(--navy-900);padding:13px 20px;flex:1 1 190px}
+.facts .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:#8b97ad}
+.facts .v{font-family:var(--mono);font-size:14px;color:#fff;margin-top:5px;letter-spacing:.02em}
 /* layout */
-main{padding:clamp(36px,5vw,64px) 0 80px}
+main{padding:clamp(36px,5vw,64px) 0 40px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}
 @media (max-width:1000px){.grid{grid-template-columns:1fr}}
 @media (max-width:640px){.wrap{padding:0 22px}}
 /* editor */
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;align-items:baseline}
+.presets .pl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin-right:6px}
+.presets button{padding:7px 13px;font-size:11.5px;letter-spacing:.08em;background:transparent;
+  color:var(--navy-900);border:1px solid var(--line-strong)}
+.presets button:hover{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
+.presets button[aria-pressed="true"]{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
 textarea{width:100%;height:520px;padding:18px;border:0;background:#070c15;color:#d6def0;
-  font:13.5px/1.7 var(--mono);resize:vertical;display:block}
+  font:13.5px/1.7 var(--mono);resize:vertical;display:block;tab-size:4}
 textarea:focus{outline:2px solid var(--accent-bright);outline-offset:-2px}
-.editbar{display:flex;align-items:center;gap:8px;padding:11px 16px;background:#070c15;
+.editbar{display:flex;align-items:center;gap:12px;padding:11px 16px;background:#070c15;
   border-bottom:1px solid rgba(245,245,242,.14);color:#8b97ad;font-family:var(--mono);
   font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.editbar .count{margin-left:auto;letter-spacing:.06em;text-transform:none}
 .actions{margin-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 button{font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;
   padding:14px 22px;border:1px solid var(--navy-900);background:var(--navy-900);color:#fff;
@@ -66,6 +90,8 @@ button:hover{background:var(--accent)}
 button.ghost{background:transparent;color:var(--navy-900);border-color:var(--line-strong)}
 button.ghost:hover{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
 button:disabled{opacity:.42;cursor:default;background:var(--navy-900)}
+button.ghost:disabled{background:transparent;color:var(--navy-900)}
+.hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.04em}
 .trials{margin-left:auto;font-family:var(--mono);font-size:12px;letter-spacing:.06em;
   color:var(--muted)}
 /* results */
@@ -75,36 +101,54 @@ button:disabled{opacity:.42;cursor:default;background:var(--navy-900)}
   line-height:1.15;letter-spacing:-.015em;margin:0 0 18px}
 .verdict.flag{color:var(--flag)}
 .verdict.pass{color:var(--ok)}
+.verdict.warn{color:var(--warn)}
 table{width:100%;border-collapse:collapse;margin:0 0 20px}
 th,td{text-align:left;padding:9px 0;border-bottom:1px solid var(--line);font-size:14.5px}
 th{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--muted);font-weight:400;width:52%}
+  color:var(--muted);font-weight:400;width:56%}
 td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+tr.hi th{color:var(--ink)}
+tr.hi td.num{font-weight:700}
 .finding{border-left:2px solid var(--flag);background:var(--paper);padding:14px 16px;
   margin-bottom:12px}
+.finding.med{border-left-color:var(--warn)}
 .finding .cls{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--flag)}
+.finding.med .cls{color:var(--warn)}
 .finding .why{font-size:15px;margin-top:7px;color:#333b48}
 .finding pre{margin:10px 0 0;padding:9px 11px;background:#070c15;color:#d6def0;overflow-x:auto;
   font:12.5px/1.5 var(--mono)}
 .subhead{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--muted);margin:26px 0 12px;padding-top:20px;border-top:1px solid var(--line-strong)}
+.readout{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.03em;
+  margin:0 0 18px}
 /* notes */
-.notes{margin-top:clamp(40px,5vw,64px);display:grid;grid-template-columns:1fr 1fr;gap:32px}
-@media (max-width:1000px){.notes{grid-template-columns:1fr}}
+.notes{margin-top:clamp(40px,5vw,64px);display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px}
+@media (max-width:1100px){.notes{grid-template-columns:1fr 1fr}}
+@media (max-width:720px){.notes{grid-template-columns:1fr}}
 .note{padding:24px 26px;background:var(--panel)}
 .note h3{font-family:var(--serif);font-weight:700;font-size:20px;letter-spacing:-.01em;
   margin:0 0 10px;line-height:1.2}
 .note p{font-size:15.5px;color:#333b48;margin:0 0 .8em}
 .note p:last-child{margin-bottom:0}
+/* footer */
+footer{background:var(--navy-900);color:#8b97ad;margin-top:clamp(48px,6vw,80px);
+  padding:34px 0}
+footer p{font-family:var(--mono);font-size:12px;line-height:1.8;margin:0;max-width:88ch}
+footer b{color:#fff;font-weight:400}
+footer a{color:var(--accent-bright)}
 </style>
 </head>
 <body>
+
+<a class="skip" href="#src">Skip to the editor</a>
 
 <header>
   <div class="wrap">
     <div class="bar">
       <span class="brand">Trivijaya Quant Research</span>
+      <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">Repository ↗</a>
+      <a href="https://ashwin-aadi.github.io/Trivijaya-Quant-Research/">Results ↗</a>
       <span class="host">running locally · 127.0.0.1</span>
     </div>
     <h1>Strategy console</h1>
@@ -112,6 +156,13 @@ td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-num
       point-in-time backtester — Indian equities, 2020&ndash;2024, net of statutory costs.
       Nothing is uploaded, nothing is ranked, and <b>the 2025 holdout is not reachable from this
       page</b>.</p>
+    <div class="facts">
+      <div><div class="k">Panel</div><div class="v">Development · 2020–2024</div></div>
+      <div><div class="k">Sessions per run</div><div class="v">1,232</div></div>
+      <div><div class="k">Costs charged</div><div class="v">STT, exchange, SEBI, GST, stamp, slippage</div></div>
+      <div><div class="k">Auditor</div><div class="v">AlphaAudit static layer, frozen</div></div>
+      <div><div class="k">Trial counter</div><div class="v">In memory, dies with the process</div></div>
+    </div>
   </div>
 </header>
 
@@ -120,24 +171,32 @@ td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-num
     <div class="grid">
       <section>
         <p class="kicker">Strategy source</p>
+        <div class="presets">
+          <span class="pl">Load an example</span>
+          <button type="button" class="preset" data-key="momentum" aria-pressed="true">Honest momentum</button>
+          <button type="button" class="preset" data-key="leaky">Leaky — flagged</button>
+          <button type="button" class="preset" data-key="cash">Holds cash</button>
+        </div>
         <div class="bp">
           <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
-          <div class="editbar">python — submission.py</div>
+          <div class="editbar"><span>python — submission.py</span><span class="count" id="count"></span></div>
+          <label class="skip" for="src">Strategy source code</label>
           <textarea id="src" spellcheck="false"></textarea>
         </div>
         <div class="actions">
           <button id="audit" class="ghost">Audit for leakage</button>
           <button id="run">Audit &amp; backtest</button>
+          <span class="hint">Ctrl + Enter</span>
           <span class="trials" id="trials">No strategies evaluated</span>
         </div>
       </section>
 
       <section>
         <p class="kicker">Result</p>
-        <div class="panel bp" id="out">
+        <div class="panel bp" id="out" aria-live="polite" aria-busy="false">
           <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
-          <p class="empty">Results appear here. The backtest runs 1,232 sessions and takes about
-            half a minute.</p>
+          <p class="empty">Results appear here. The audit is instant; the backtest runs 1,232
+            sessions and takes about half a minute.</p>
         </div>
       </section>
     </div>
@@ -163,12 +222,34 @@ td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-num
         <p>The published results deflate against 1,887 genuinely distinct trials. A session of five
           does not compare.</p>
       </div>
+      <div class="note bp">
+        <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+        <h3>Passing the auditor is not a verdict on the strategy</h3>
+        <p>The static layer reads the code for patterns that see the future. It catches all three
+          deliberately leaky fixtures in the repository and flags none of the thirty honest ones,
+          but it returns a zero on one leak class that the corpus almost certainly contains — a
+          detector gap that is reported rather than quoted as a clean result.</p>
+        <p>The engine is the second line: any signal timestamped later than the data it could have
+          seen raises <em>PointInTimeError</em> rather than quietly producing a good number.</p>
+      </div>
     </div>
   </div>
 </main>
 
+<footer>
+  <div class="wrap">
+    <p><b>This console is not hosted anywhere, and should not be.</b> It executes whatever Python
+      is pasted into it, in its own process, with no sandbox — acceptable only because whoever is
+      pasting the code and whoever is running the server are the same person. The socket is pinned
+      to loopback and there is no flag to change it. · Nothing here is investment advice. Every
+      figure is a historical simulation. · <a
+      href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research">Repository ↗</a></p>
+  </div>
+</footer>
+
 <script>
-const EXAMPLE = `"""Cross-sectional momentum: hold the strongest names over a trailing window.
+const EXAMPLES = {
+momentum: `"""Cross-sectional momentum: hold the strongest names over a trailing window.
 
 A starting point, not a good strategy. Adapted from tests/fixtures/clean/, which holds twenty
 honest and mostly unprofitable strategies used to measure the auditor's false-positive rate.
@@ -210,16 +291,98 @@ class Momentum(Strategy):
         picks = [symbol for symbol, _ in ranked[: self._n_hold]]
         weights = {name: 1.0 / len(picks) for name in picks} if picks else {}
         return Signal(information_available_at=stamp, weights=weights)
-`;
+`,
+
+leaky: `"""Deliberately leaky: builds a feature from the NEXT session's return.
+
+Paste this to watch the static layer fire. The rationale below is entirely plausible and the
+code is tidy, which is the point -- a reviewer skimming for a story would pass it.
+
+Two independent defences catch this, and it is worth seeing both. The static layer flags the
+negative shift, because a feature built that way already contains the outcome it claims to
+predict. And the engine would refuse to serve the future data anyway: MarketView cannot see
+past the decision point, so the pattern is dead on arrival even if the auditor missed it.
+"""
+from datetime import date
+
+from src.backtest.strategy import MarketView, Signal, Strategy
+
+
+class NextSessionDrift(Strategy):
+    rationale = (
+        "Short-horizon drift: names whose price is about to move tend to keep moving, so "
+        "ranking on the forward one-session return captures the strongest continuation."
+    )
+
+    def __init__(self, n_hold: int = 10) -> None:
+        self._n_hold = n_hold
+
+    def generate(self, view: MarketView) -> Signal:
+        history = view.history()
+        stamp = history["session_date"].max() if not history.is_empty() else date(1900, 1, 1)
+
+        closes = view.closes(lookback=20)
+        scores = {}
+        for symbol in view.symbols:
+            if symbol not in closes.columns:
+                continue
+            series = closes[symbol].drop_nulls()
+            if series.len() < 3:
+                continue
+            # THE CHEAT: a negative shift moves a later observation onto the current row.
+            forward = series.shift(-1) / series - 1.0
+            value = forward.drop_nulls()
+            if value.len():
+                scores[symbol] = value[-1]
+
+        ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
+        picks = [symbol for symbol, _ in ranked[: self._n_hold]]
+        weights = {name: 1.0 / len(picks) for name in picks} if picks else {}
+        return Signal(information_available_at=stamp, weights=weights)
+`,
+
+cash: `"""Holds cash, always. The control that should return exactly zero before costs.
+
+Worth running once. It is also the shape of a large part of the generated corpus: 406 of the
+631 strategies that executed at all never took a position, so the console reports "ran, but
+never took a position" as a distinct outcome rather than as a Sharpe near zero.
+"""
+from datetime import date
+
+from src.backtest.strategy import MarketView, Signal, Strategy
+
+
+class Cash(Strategy):
+    rationale = "Holds no position at any time. A control, not a strategy."
+
+    def generate(self, view: MarketView) -> Signal:
+        history = view.history()
+        stamp = history["session_date"].max() if not history.is_empty() else date(1900, 1, 1)
+        return Signal(information_available_at=stamp, weights={})
+`,
+};
 
 const src = document.getElementById("src");
 const out = document.getElementById("out");
 const trials = document.getElementById("trials");
-src.value = EXAMPLE;
+const count = document.getElementById("count");
 
 const MARKS = '<i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>';
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const num = (v, d = 3) => (typeof v === "number" && isFinite(v)) ? v.toFixed(d) : "&mdash;";
+const pct = (v, d = 2) => (typeof v === "number" && isFinite(v)) ? (v * 100).toFixed(d) + "%" : "&mdash;";
+
+function setCount() {
+  const lines = src.value ? src.value.split("\n").length : 0;
+  count.textContent = `${lines} lines · ${src.value.length} chars`;
+}
+
+function loadPreset(key) {
+  src.value = EXAMPLES[key];
+  setCount();
+  document.querySelectorAll(".preset").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.key === key)));
+}
 
 function findingsHtml(a) {
   if (!a.findings.length) {
@@ -227,11 +390,12 @@ function findingsHtml(a) {
             <p class="empty">The static layer reads the code for future-peeking. Passing it is not
             a claim that the strategy is any good — only that it does not visibly cheat.</p>`;
   }
+  const high = a.findings.filter(f => String(f.severity).toLowerCase() === "high").length;
   const head = a.rejected
-    ? `<div class="verdict flag">Rejected — ${a.findings.length} finding(s), at least one high severity.</div>`
-    : `<div class="verdict">${a.findings.length} finding(s), none high severity.</div>`;
+    ? `<div class="verdict flag">Rejected — ${a.findings.length} finding(s), ${high} of them high severity.</div>`
+    : `<div class="verdict warn">${a.findings.length} finding(s), none high severity.</div>`;
   return head + a.findings.map(f => `
-    <div class="finding">
+    <div class="finding${String(f.severity).toLowerCase() === "high" ? "" : " med"}">
       <div class="cls">${esc(f.leak_class)} · ${esc(f.severity)} · line ${esc(f.line)}</div>
       <div class="why">${esc(f.explanation)}</div>
       <pre>${esc(f.snippet)}</pre>
@@ -243,27 +407,38 @@ function backtestHtml(r) {
     return `<div class="verdict flag">Did not run — ${esc(r.outcome)}</div>
             <pre class="finding">${esc(r.error || "no detail recorded")}</pre>`;
   }
+  const drag = (typeof r.sharpe === "number" && typeof r.sharpe_gross === "number")
+    ? r.sharpe_gross - r.sharpe : null;
   const rows = [
-    ["Net Sharpe", num(r.sharpe)],
-    ["Gross Sharpe", num(r.sharpe_gross)],
-    ["Annualised return, net", num(r.annualised_return)],
-    ["Max drawdown", num(r.max_drawdown)],
-    ["Mean turnover", num(r.mean_turnover, 4)],
-    ["Mean cost per session", num(r.mean_cost, 5)],
-    ["Return skew", num(r.skew, 2)],
-    ["Return kurtosis", num(r.kurtosis, 2)],
-    ["Sessions", r.n_sessions ?? "&mdash;"],
-    ["Deflated Sharpe probability", num(r.deflated_sharpe_probability)],
-    ["Trials this session", r.session_trials],
+    ["Net Sharpe", num(r.sharpe), true],
+    ["Gross Sharpe, before costs", num(r.sharpe_gross), false],
+    ["Cost drag, in Sharpe units", num(drag), false],
+    ["Annualised return, net", pct(r.annualised_return), false],
+    ["Annualised return, gross", pct(r.annualised_return_gross), false],
+    ["Annualised volatility", pct(r.volatility), false],
+    ["Max drawdown", pct(r.max_drawdown), false],
+    ["Mean turnover per session", num(r.mean_turnover, 4), false],
+    ["Mean cost per session", num(r.mean_cost, 5), false],
+    ["Ruined on", r.ruined_on ? esc(r.ruined_on) : "never", false],
+    ["Return skew", num(r.skew, 2), false],
+    ["Return kurtosis", num(r.kurtosis, 2), false],
+    ["Sessions", r.n_sessions ?? "&mdash;", false],
+    ["Deflated Sharpe probability", num(r.deflated_sharpe_probability), true],
+    ["Trials this session", r.session_trials, false],
   ];
-  const note = r.deflation_note
-    ? `<p class="empty">${esc(r.deflation_note)}</p>` : "";
+  const note = r.deflation_note ? `<p class="empty">${esc(r.deflation_note)}</p>` : "";
+  const flipped = drag !== null && r.sharpe_gross > 0 && r.sharpe <= 0;
   const traded = (r.mean_turnover || 0) > 0;
-  const head = traded
-    ? `<div class="verdict pass">Ran and took a position.</div>`
-    : `<div class="verdict flag">Ran, but never took a position.</div>`;
-  return head + `<table>${rows.map(([k, v]) =>
-    `<tr><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>` + note;
+  let head;
+  if (!traded) {
+    head = `<div class="verdict flag">Ran, but never took a position.</div>`;
+  } else if (flipped) {
+    head = `<div class="verdict flag">Profitable before costs, unprofitable after them.</div>`;
+  } else {
+    head = `<div class="verdict pass">Ran and took a position.</div>`;
+  }
+  return head + `<table>${rows.map(([k, v, hi]) =>
+    `<tr class="${hi ? "hi" : ""}"><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>` + note;
 }
 
 async function call(path, source) {
@@ -271,13 +446,19 @@ async function call(path, source) {
     method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({source})
   });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({error: `HTTP ${res.status}`}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
   return res.json();
 }
 
 async function go(withBacktest) {
   const buttons = document.querySelectorAll("button");
   buttons.forEach(b => b.disabled = true);
+  out.setAttribute("aria-busy", "true");
   out.innerHTML = MARKS + `<p class="empty">${withBacktest ? "Backtesting over 1,232 sessions&hellip;" : "Auditing&hellip;"}</p>`;
+  const started = performance.now();
   try {
     const a = await call("/api/audit", src.value);
     let html = findingsHtml(a);
@@ -286,16 +467,25 @@ async function go(withBacktest) {
       html += `<p class="subhead">Backtest · development window</p>` + backtestHtml(r);
       trials.textContent = `${r.session_trials} evaluated this session`;
     }
-    out.innerHTML = MARKS + html;
+    const secs = ((performance.now() - started) / 1000).toFixed(1);
+    out.innerHTML = MARKS + `<p class="readout">completed in ${secs}s · development panel, holdout not loaded</p>` + html;
   } catch (e) {
-    out.innerHTML = MARKS + `<div class="verdict flag">Request failed</div><pre class="finding">${esc(e)}</pre>`;
+    out.innerHTML = MARKS + `<div class="verdict flag">Request failed</div><pre class="finding">${esc(e.message || e)}</pre>`;
   } finally {
     buttons.forEach(b => b.disabled = false);
+    out.setAttribute("aria-busy", "false");
   }
 }
 
 document.getElementById("audit").onclick = () => go(false);
 document.getElementById("run").onclick = () => go(true);
+document.querySelectorAll(".preset").forEach(b => b.onclick = () => loadPreset(b.dataset.key));
+src.addEventListener("input", setCount);
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); go(true); }
+});
+
+loadPreset("momentum");
 </script>
 </body>
 </html>

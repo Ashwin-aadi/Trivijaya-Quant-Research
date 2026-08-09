@@ -20,12 +20,17 @@ panel is a separate file and this process does not open the other one. The trial
 written; the session counter below lives in memory and dies with the process.
 
 Usage:
-    python webui/server.py            # then open http://127.0.0.1:8000
+    python webui/server.py                              # then open http://127.0.0.1:8000
+    TRIVIJAYA_WEBUI_PORT=8010 python webui/server.py    # when 8000 is taken
+
+The port is an environment variable because a clash is an inconvenience. The host is a constant in
+this file because changing it is a decision, and a decision should be visible in a diff.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import threading
@@ -43,11 +48,17 @@ from run_corpus_backtest import _worker_init, run_one  # noqa: E402
 from src.audit.stat import deflated_sharpe_ratio  # noqa: E402
 from src.audit.static import Severity, audit_source  # noqa: E402
 
-#: Loopback only, deliberately not configurable. See the module docstring.
+#: Loopback only, deliberately not configurable. See the module docstring. The port is settable
+#: because 8000 is a popular number and a collision is an inconvenience rather than a decision; the
+#: host is not, because changing it is a decision and should read like one in a diff.
 HOST = "127.0.0.1"
-PORT = 8000
+PORT = int(os.environ.get("TRIVIJAYA_WEBUI_PORT", "8000"))
 
 STATIC = Path(__file__).resolve().parent
+#: Served verbatim from this directory. Anything else is a 404, including a path that resolves
+#: outside it -- a single-user loopback server makes that harmless, but "harmless" is not a reason
+#: to hand out arbitrary files on disk.
+SERVABLE = {".html": "text/html", ".css": "text/css", ".js": "text/javascript"}
 
 #: Every strategy this session has evaluated. The Deflated Sharpe Ratio deflates by the number of
 #: things tried, so a user who submits forty variants and keeps the best has earned a harsher
@@ -153,28 +164,39 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        # Nothing here is worth caching, and a stale page after editing index.html is a confusing
+        # ten minutes for whoever is trying to change it.
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler's naming
-        name = "index.html" if self.path in ("/", "/index.html") else self.path.lstrip("/")
-        target = STATIC / name
-        if target.suffix not in (".html", ".css", ".js") or not target.is_file():
-            self._send(b"not found", "text/plain", 404)
+        path = self.path.split("?", 1)[0].split("#", 1)[0]
+        name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
+        target = (STATIC / name).resolve()
+        inside = target.is_relative_to(STATIC)
+        if not inside or target.suffix not in SERVABLE or not target.is_file():
+            self._send(b"not found", "text/plain; charset=utf-8", 404)
             return
-        kind = {"html": "text/html", "css": "text/css", "js": "text/javascript"}[target.suffix[1:]]
-        self._send(target.read_bytes(), f"{kind}; charset=utf-8")
+        self._send(target.read_bytes(), f"{SERVABLE[target.suffix]}; charset=utf-8")
 
     def do_POST(self) -> None:  # noqa: N802
-        length = int(self.headers.get("Content-Length") or 0)
-        source = json.loads(self.rfile.read(length) or b"{}").get("source", "")
-        if self.path == "/api/audit":
-            payload: dict[str, Any] = audit(source)
-        elif self.path == "/api/backtest":
-            payload = backtest(source)
-        else:
-            self._send(b"not found", "text/plain", 404)
+        route = self.path.split("?", 1)[0]
+        if route not in ("/api/audit", "/api/backtest"):
+            self._send(b"not found", "text/plain; charset=utf-8", 404)
             return
+        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            source = json.loads(self.rfile.read(length) or b"{}").get("source", "")
+        except json.JSONDecodeError as exc:
+            self._send(json.dumps({"error": f"malformed request: {exc}"}).encode("utf-8"),
+                       "application/json; charset=utf-8", 400)
+            return
+        if not isinstance(source, str) or not source.strip():
+            self._send(json.dumps({"error": "no source submitted"}).encode("utf-8"),
+                       "application/json; charset=utf-8", 400)
+            return
+        payload: dict[str, Any] = audit(source) if route == "/api/audit" else backtest(source)
         self._send(json.dumps(payload).encode("utf-8"), "application/json; charset=utf-8")
 
     def log_message(self, fmt: str, *args: object) -> None:
@@ -185,10 +207,35 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> int:
     print("loading the development price panel (a few seconds)...", flush=True)
-    _worker_init()  # holdout=False is the default and there is no path here that changes it
+    try:
+        # holdout=False is the default and there is no path here that changes it
+        _worker_init()
+    except FileNotFoundError as exc:
+        # The panel is derived, not shipped: a fresh clone has no data/ at all. Say which command
+        # builds it rather than showing a traceback about a missing parquet file.
+        print(f"\n  Could not load the price panel: {exc}\n\n"
+              "  The panel is built from raw data, which this repository does not ship. Run:\n"
+              "      python scripts/download_bhavcopy.py\n"
+              "      python scripts/build_universe.py\n"
+              "      python scripts/build_corporate_actions.py\n", file=sys.stderr)
+        return 1
+
+    try:
+        server = ThreadingHTTPServer((HOST, PORT), Handler)
+    except OSError as exc:
+        print(f"\n  Cannot listen on {HOST}:{PORT} -- {exc}\n\n"
+              "  Something else is probably using that port. Pick another:\n"
+              f"      TRIVIJAYA_WEBUI_PORT=8010 python webui/server.py\n", file=sys.stderr)
+        return 1
+
     print(f"\n  Trivijaya-Quant strategy console -> http://{HOST}:{PORT}\n"
           f"  Loopback only. Ctrl-C to stop.\n", flush=True)
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n  stopped. The session trial counter died with the process, as intended.")
+    finally:
+        server.server_close()
     return 0
 
 

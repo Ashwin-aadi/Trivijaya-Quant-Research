@@ -1,0 +1,5 @@
+Serve this directory as plain files.
+
+GitHub Pages runs Jekyll by default, which silently drops paths beginning with an
+underscore or a dot and rewrites nothing else usefully for a site that is already a
+single hand-written file. The presence of this file turns that off.

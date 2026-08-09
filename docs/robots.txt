@@ -1,0 +1,8 @@
+# Trivijaya Quant Research — https://ashwin-aadi.github.io/Trivijaya-Quant-Research/
+# The site is one static page of research summaries. Nothing here is private and
+# indexing is welcome.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://ashwin-aadi.github.io/Trivijaya-Quant-Research/sitemap.xml
