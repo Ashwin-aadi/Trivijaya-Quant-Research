@@ -385,17 +385,35 @@ python scripts/build_universe.py
 python scripts/build_corporate_actions.py
 
 
+#  Optional, for the third auditor layer only. A_sem has a local 7B read your
+#  stated rationale against your code. Skip it and every other stage still runs;
+#  that one card says why it could not.
+
+ollama serve
+ollama pull qwen2.5:7b-instruct-q4_K_M
+
+
 #  Start the console, then open http://127.0.0.1:8000
 
 python webui/server.py
 
 
-#  Once it is up, this box holds your strategy instead of these notes. Paste a
-#  Strategy subclass, press "Static layer only" for an instant read of the code,
-#  or "Audit & backtest" to run it over 1,232 sessions net of Indian statutory
-#  costs. The first backtest of a session leaves the deflated Sharpe blank: one
-#  trial cannot show the spread of what you searched over, and the console says
-#  so rather than inventing a flattering number.
+#  Once it is up, this box holds your strategy instead of these notes, and the
+#  import lines above it are fixed -- the engine supplies them, and they are what
+#  make the point-in-time discipline structural rather than a promise. Write a
+#  Strategy subclass below them, with a docstring saying what you think the edge
+#  is: that docstring is what layer 3 checks your code against.
+#
+#  "Static layer only" reads the code for future-peeking and answers instantly.
+#  "Run the full pipeline" puts it through all three frozen benchmarks -- the
+#  leakage audit, the deflation, the semantic check, regime fragility and
+#  deployment capacity -- over 1,232 sessions net of Indian statutory costs.
+#  About half a minute; results appear card by card as each stage finishes.
+#
+#  The first backtest of a session leaves the deflated Sharpe blank. One trial
+#  cannot show the spread of what you searched over, and the console says so
+#  rather than inventing a flattering number. Run a second and it appears --
+#  and keeps falling as you iterate, which is the entire point.
 `,
 
 momentum: `"""Cross-sectional momentum: hold the strongest names over a trailing window.
@@ -502,10 +520,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt
 const PREAMBLE = `from datetime import date
 
 from src.backtest.strategy import MarketView, Signal, Strategy`;
-const LINE_OFFSET = (PREAMBLE + "
-
-").split("
-").length - 1;
+const LINE_OFFSET = (PREAMBLE + "\n\n").split("\n").length - 1;
 
 document.getElementById("preamble").innerHTML =
   `<span class="tag">fixed &middot; supplied by the console &middot; not editable</span>` + esc(PREAMBLE);
@@ -516,8 +531,7 @@ function setCount() {
 }
 
 function loadPreset(key) {
-  src.value = EXAMPLES[key].replace(PREAMBLE + "
-", "");
+  src.value = EXAMPLES[key].replace(PREAMBLE + "\n", "");
   setCount();
   document.querySelectorAll(".preset").forEach(b =>
     b.setAttribute("aria-pressed", String(b.dataset.key === key)));
