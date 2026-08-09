@@ -91,6 +91,7 @@ button.ghost{background:transparent;color:var(--navy-900);border-color:var(--lin
 button.ghost:hover{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
 button:disabled{opacity:.42;cursor:default;background:var(--navy-900)}
 button.ghost:disabled{background:transparent;color:var(--navy-900)}
+button.small{padding:8px 13px;font-size:11px}
 .hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.04em}
 .trials{margin-left:auto;font-family:var(--mono);font-size:12px;letter-spacing:.06em;
   color:var(--muted)}
@@ -163,7 +164,9 @@ footer a{color:var(--accent-bright)}
       <div><div class="k">Sessions per run</div><div class="v">1,232</div></div>
       <div><div class="k">Costs charged</div><div class="v">STT, exchange, SEBI, GST, stamp, slippage</div></div>
       <div><div class="k">Benchmarks</div><div class="v">AlphaAudit · RegimeStress · FlowState, all frozen</div></div>
-      <div><div class="k">Trial counter</div><div class="v">In memory, dies with the process</div></div>
+      <div><div class="k">Auditor layers</div><div class="v">A_static · A_stat · A_sem, each scored separately</div></div>
+      <div><div class="k">Trial counter</div><div class="v">In memory, dies with the process, cannot be reset</div></div>
+      <div><div class="k">Holdout</div><div class="v">Closed. Never loaded by this process</div></div>
     </div>
   </div>
 </header>
@@ -186,10 +189,11 @@ footer a{color:var(--accent-bright)}
           <textarea id="src" spellcheck="false"></textarea>
         </div>
         <div class="actions">
-          <button id="audit" class="ghost">Audit for leakage</button>
-          <button id="run">Audit &amp; backtest</button>
+          <button id="audit" class="ghost">Static layer only</button>
+          <button id="run">Run the full pipeline</button>
           <span class="hint">Ctrl + Enter</span>
           <span class="trials" id="trials">No strategies evaluated</span>
+          <button id="reset" class="ghost small" type="button">Reset trial count</button>
         </div>
       </section>
 
@@ -197,9 +201,10 @@ footer a{color:var(--accent-bright)}
         <p class="kicker">Result</p>
         <div class="panel bp" id="out" aria-live="polite" aria-busy="false">
           <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
-          <p class="empty">Results appear here. The audit is instant; the backtest runs 1,232
-            sessions and takes about half a minute, after which fragility and capacity are
-            computed from the same run.</p>
+          <p class="empty">Results appear here, stage by stage as each finishes. The static layer
+            is instant; the local 7B takes a few seconds; the backtest runs 1,232 sessions and
+            takes about half a minute, after which fragility, capacity and the book measures are
+            computed from that same run.</p>
         </div>
       </section>
     </div>
@@ -412,6 +417,9 @@ function backtestHtml(r) {
   }
   const drag = (typeof r.sharpe === "number" && typeof r.sharpe_gross === "number")
     ? r.sharpe_gross - r.sharpe : null;
+  // Performance only. The deflation lives in its own panel below, because it is a different
+  // layer of the auditor and reading it as one more row of the backtest is how a raw Sharpe ends
+  // up quoted without it.
   const rows = [
     ["Net Sharpe", num(r.sharpe), true],
     ["Gross Sharpe, before costs", num(r.sharpe_gross), false],
@@ -426,11 +434,7 @@ function backtestHtml(r) {
     ["Return skew", num(r.skew, 2), false],
     ["Return kurtosis", num(r.kurtosis, 2), false],
     ["Sessions", r.n_sessions ?? "&mdash;", false],
-    ["Deflated Sharpe probability", num(r.deflated_sharpe_probability), true],
-    ["Trials this session", r.session_trials, false],
   ];
-  const note = r.deflation_note ? `<p class="empty">${esc(r.deflation_note)}</p>` : "";
-  const stages = fragilityHtml(r.fragility) + capacityHtml(r.capacity);
   const flipped = drag !== null && r.sharpe_gross > 0 && r.sharpe <= 0;
   const traded = (r.mean_turnover || 0) > 0;
   let head;
@@ -442,8 +446,88 @@ function backtestHtml(r) {
     head = `<div class="verdict pass">Ran and took a position.</div>`;
   }
   return head + `<table>${rows.map(([k, v, hi]) =>
-    `<tr class="${hi ? "hi" : ""}"><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>`
-    + note + stages;
+    `<tr class="${hi ? "hi" : ""}"><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>`;
+}
+
+// AlphaAudit layer 2. Two probabilities that differ only in what they are measured against: the
+// PSR asks whether this Sharpe beats zero, the DSR asks whether it beats what the luckiest of N
+// tries would have shown anyway. The gap between them is the price of the search.
+function statHtml(r) {
+  if (r.outcome !== "evaluated") return "";
+  const rows = [
+    ["Sharpe per session, the figure deflated", num(r.sharpe_per_observation, 4), false],
+    ["Probabilistic Sharpe, against zero", num(r.probabilistic_sharpe), false],
+    ["Sharpe per session the luckiest of N tries earns", num(r.luck_threshold_sharpe, 4), false],
+    ["Deflated Sharpe probability", num(r.deflated_sharpe_probability), true],
+    ["Return skew", num(r.skew, 2), false],
+    ["Return kurtosis", num(r.kurtosis, 2), false],
+    ["Trials this session, N", r.session_trials, false],
+    ["Trials in the published ledger", r.ledger_trials ?? "&mdash;", false],
+  ];
+  const note = r.deflation_note
+    ? `<p class="empty">${esc(r.deflation_note)}</p>`
+    : `<p class="empty">Every Sharpe in this panel is <b>per session</b>, not annualised: the
+       correction is defined at the frequency of the observation count, and handing it an
+       annualised figure beside a daily count inflates it badly. Divide the table's Sharpe by
+       &radic;252 and you get the first row. The deflation is computed against <b>this session's</b> trials and the
+       spread of their Sharpes — not against the ledger figure beside it, which belongs to the
+       published corpus and is shown here only so the two are never confused.</p>`;
+  return `<p class="subhead">AlphaAudit · layer 2 · A_stat · deflation</p>
+    <table>${rows.map(([k, v, hi]) =>
+      `<tr class="${hi ? "hi" : ""}"><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>`
+    + note;
+}
+
+// AlphaAudit layer 3. A local 7B reads the stated rationale against the code. It is the weakest
+// of the three layers and the paper says so; its agreement with hand labels is reported there.
+function semanticHtml(s) {
+  if (!s) return "";
+  if (!s.available) return unavailable("AlphaAudit · layer 3 · A_sem · rationale vs code", s.why);
+  const verdict = s.is_defect
+    ? `<div class="verdict warn">${esc(s.label)} — the model says the story and the code disagree.</div>`
+    : `<div class="verdict pass">consistent — the model reads the code as doing what the rationale claims.</div>`;
+  return `<p class="subhead">AlphaAudit · layer 3 · A_sem · rationale vs code</p>` + verdict +
+    `<table>
+      <tr class="hi"><th>Label</th><td class="num">${esc(s.label)}</td></tr>
+      <tr><th>Model confidence</th><td class="num">${num(s.confidence, 2)}</td></tr>
+      <tr><th>Model</th><td class="num">${esc(s.model_tag)}</td></tr>
+    </table>
+    <div class="finding med"><div class="cls">why the model said so</div>
+      <div class="why">${esc(s.explanation)}</div></div>
+    <p class="empty">A judgment from a 7B model, not a measurement. Against 50 hand labels this
+      layer reached a Cohen's &kappa; that the paper reports in full, including where it is weak.</p>`;
+}
+
+// The features the fragility predictor is built from, so they belong beside the fragility score.
+function bookHtml(b) {
+  if (!b || !b.available) return "";
+  return `<p class="subhead">Strategy characteristics · from the position book</p>
+    <table>
+      <tr><th>Mean Herfindahl concentration</th><td class="num">${num(b.mean_herfindahl)}</td></tr>
+      <tr><th>Effective holdings, 1/HHI</th><td class="num">${num(b.effective_holdings, 2)}</td></tr>
+      <tr><th>Mean names held</th><td class="num">${num(b.mean_n_holdings, 1)}</td></tr>
+      <tr><th>Mean largest weight share</th><td class="num">${pct(b.mean_largest_weight_share, 1)}</td></tr>
+      <tr><th>Sessions holding nothing</th><td class="num">${pct(b.cash_session_rate, 1)}</td></tr>
+      <tr><th>Mean holding period, sessions</th><td class="num">${num(b.mean_holding_period, 1)}</td></tr>
+      <tr><th>Position entries</th><td class="num">${num(b.n_entries, 0)}</td></tr>
+    </table>`;
+}
+
+// Stage 4 is a refusal, and it is written down rather than left as an absence. Under charter
+// RULE 7 the holdout is evaluated once per project with logged authorisation; a console that
+// scored pasted code against it on demand would spend the only clean data the repository has.
+function holdoutHtml(st) {
+  if (!st) return "";
+  return `<p class="subhead">Stage 4 · Holdout · not run, and not runnable</p>
+    <div class="verdict warn">The ${esc(st.holdout_start)} – ${esc(st.holdout_end)} holdout is
+      closed. This process never opens that panel.</div>
+    <p class="empty">${esc(st.holdout_reason)} Every number above is measured
+      <b>in sample</b>, on ${esc(st.dev_start)} – ${esc(st.dev_end)}, which is the window the
+      strategies were free to be fitted to. That is the whole reason the deflation above exists:
+      in-sample performance is what a search produces, and the holdout is what would have told you
+      whether any of it was real. It was evaluated three times, under logged authorisation, and
+      spending it again on an idea typed into a text box is exactly the trade this repository was
+      built to refuse.</p>`;
 }
 
 function unavailable(stage, why) {
@@ -493,10 +577,24 @@ function capacityHtml(c) {
       <tr><th>Participation limit</th><td class="num">${pct(c.participation_limit, 1)}</td></tr>
       <tr><th>Rebalance sessions</th><td class="num">${esc(c.n_rebalance_sessions)}</td></tr>
     </table>
+    ${flowStateHtml(c.by_flow_state)}
     <p class="empty">The binding figure is the worst session, and it is set by the single least
       liquid name the strategy insists on trading — not by the average liquidity of the book. This
       is a <b>constraint</b>: the largest book that still fits inside the participation limit. It is
       not an estimate of the size at which the edge erodes, which daily bars cannot identify.</p>`;
+}
+
+// P3's actual question: does deployable size collapse when foreign money leaves? The session count
+// travels with every median, because the ratio between two states is what a reader will quote and a
+// ratio computed over thirty sessions is not evidence of anything.
+function flowStateHtml(states) {
+  if (!states || !states.length) return "";
+  const cr = (v) => (typeof v === "number" && isFinite(v)) ? "₹" + v.toFixed(2) + " cr" : "&mdash;";
+  return `<p class="subhead">Capacity by flow state · FII inflow, outflow, neutral</p>
+    <table>${states.map(s => `
+      <tr><th>${esc(s.flow_state)}</th><td class="num">${cr(s.median_capacity_crore)}
+        <span class="n">p05 ${cr(s.p05_capacity_crore)} · n = ${esc(s.n_sessions)}</span></td></tr>`
+    ).join("")}</table>`;
 }
 
 async function call(path, source) {
@@ -511,29 +609,80 @@ async function call(path, source) {
   return res.json();
 }
 
-async function go(withBacktest) {
+// Rendered stage by stage rather than in one lump at the end. The whole pipeline takes the better
+// part of a minute, and watching it arrive in the order the funnel actually applies it is the part
+// worth seeing: the static layer decides before anything is measured, and the deflation arrives
+// after a Sharpe has already had a chance to look impressive.
+async function go(full) {
   const buttons = document.querySelectorAll("button");
   buttons.forEach(b => b.disabled = true);
   out.setAttribute("aria-busy", "true");
-  out.innerHTML = MARKS + `<p class="empty">${withBacktest ? "Backtesting over 1,232 sessions&hellip;" : "Auditing&hellip;"}</p>`;
   const started = performance.now();
-  try {
-    const a = await call("/api/audit", src.value);
-    let html = findingsHtml(a);
-    if (withBacktest) {
-      const r = await call("/api/backtest", src.value);
-      html += `<p class="subhead">Backtest · development window</p>` + backtestHtml(r);
-      trials.textContent = `${r.session_trials} evaluated this session`;
-    }
+  const parts = [];
+  const paint = (pending) => {
     const secs = ((performance.now() - started) / 1000).toFixed(1);
-    out.innerHTML = MARKS + `<p class="readout">completed in ${secs}s · development panel, holdout not loaded</p>` + html;
+    out.innerHTML = MARKS
+      + `<p class="readout">${pending ? pending + "&hellip;" : "completed"} · ${secs}s · development panel, holdout not loaded</p>`
+      + parts.join("");
+  };
+  try {
+    paint("reading the code");
+    const a = await call("/api/audit", src.value);
+    parts.push(`<p class="subhead">AlphaAudit · layer 1 · A_static · leakage in the code</p>`
+               + findingsHtml(a));
+    if (!full) { paint(null); return; }
+
+    paint("asking the local model to read the rationale");
+    const s = await call("/api/semantic", src.value);
+    parts.push(semanticHtml(s));
+
+    paint("backtesting 1,232 sessions");
+    const r = await call("/api/backtest", src.value);
+    parts.push(`<p class="subhead">Backtest · development window</p>` + backtestHtml(r));
+    parts.push(statHtml(r));
+    parts.push(fragilityHtml(r.fragility));
+    parts.push(bookHtml(r.book));
+    parts.push(capacityHtml(r.capacity));
+    parts.push(holdoutHtml(STATUS));
+    trials.textContent = `${r.session_trials} evaluated this session`;
+    paint(null);
   } catch (e) {
-    out.innerHTML = MARKS + `<div class="verdict flag">Request failed</div><pre class="finding">${esc(e.message || e)}</pre>`;
+    parts.push(`<div class="verdict flag">Request failed</div><pre class="finding">${esc(e.message || e)}</pre>`);
+    paint(null);
   } finally {
     buttons.forEach(b => b.disabled = false);
     out.setAttribute("aria-busy", "false");
   }
 }
+
+// The button exists, and it declines. A trial counter you can zero is not a trial counter: the
+// deflated Sharpe is a statement about how hard you searched, and a reset would let forty attempts
+// be reported as one. Restarting the process does clear it, which is the honest way -- it costs
+// every result in the session too, and that symmetry is the point.
+let STATUS = null;
+document.getElementById("reset").onclick = () => {
+  const n = STATUS && STATUS.ledger ? STATUS.ledger.verified : null;
+  out.innerHTML = MARKS + `
+    <div class="verdict warn">The trial count does not reset.</div>
+    <p class="empty">Nothing on this page can lower it. The deflated Sharpe is a statement about
+      how many things you tried before keeping this one, so a counter with a reset button is a
+      counter that reports whatever its user prefers — the precise failure the three papers on the
+      results site were written to detect. Restart the server and the session count goes to zero,
+      along with every result you have looked at, which is the trade that makes it honest.
+      ${n === null ? "" : `The published ledger, separately, holds ${n} verified trials and this
+      process never writes to it.`}</p>`;
+};
+
+async function loadStatus() {
+  try {
+    STATUS = await (await fetch("/api/status")).json();
+    const n = STATUS.ledger && STATUS.ledger.verified;
+    trials.textContent = n
+      ? `No strategies evaluated · ledger holds ${n} verified trials`
+      : "No strategies evaluated";
+  } catch (e) { /* the console works without it; only the holdout panel needs the dates */ }
+}
+loadStatus();
 
 document.getElementById("audit").onclick = () => go(false);
 document.getElementById("run").onclick = () => go(true);

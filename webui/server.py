@@ -29,11 +29,13 @@ this file because changing it is a decision, and a decision should be visible in
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import sys
 import tempfile
 import threading
+from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -45,15 +47,24 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import polars as pl  # noqa: E402
 from run_corpus_backtest import _worker_init, run_one  # noqa: E402
 
-from src.audit.stat import deflated_sharpe_ratio  # noqa: E402
+from src.audit import semantic as sem  # noqa: E402
+from src.audit.stat import (  # noqa: E402
+    TrialCounter,
+    default_counter_path,
+    deflated_sharpe_ratio,
+    expected_max_sharpe,
+    probabilistic_sharpe_ratio,
+)
 from src.audit.static import Severity, audit_source  # noqa: E402
 from src.capacity.deployability import (  # noqa: E402
+    capacity_by_flow_state,
     session_capacity,
     summarise_capacity,
     turnover_by_session,
 )
 from src.capacity.impact import add_daily_measures  # noqa: E402
 from src.common.config import load_config  # noqa: E402
+from src.stress.characteristics import concentration, holding_period  # noqa: E402
 from src.stress.fragility import across_regimes  # noqa: E402
 
 #: Loopback only, deliberately not configurable. See the module docstring. The port is settable
@@ -79,6 +90,15 @@ _TRIALS = 0
 _SHARPES: list[float] = []
 _LOCK = threading.Lock()
 
+#: The engine reports an annualised Sharpe; every figure in ``src.audit.stat`` is per-observation at
+#: the frequency of ``n_observations``, which here is daily sessions. Handing an annualised Sharpe
+#: to those functions alongside a daily count is the mistake that module's docstring warns about by
+#: name, and it inflates the answer badly -- the observed figure grows by sqrt(252) while the luck
+#: threshold and the standard error do not follow it. 252 rather than the ~250 NSE trades, because
+#: src/eval/metrics.py annualises on 252 and the two must agree or the conversion reintroduces the
+#: mismatch it exists to remove.
+SESSIONS_PER_YEAR = 252
+
 
 def _bump() -> int:
     """Count one evaluation, successful or not. Failures consumed search effort too."""
@@ -101,7 +121,10 @@ def _moments(returns: list[float]) -> tuple[float, float]:
 
 
 def _variance_of_trials(sharpe: float) -> float | None:
-    """Spread of this session's Sharpes, or None when one evaluation cannot show a spread.
+    """Spread of this session's per-observation Sharpes, or None when one trial shows no spread.
+
+    Takes the daily figure, not the annualised one, so the variance it returns is already in the
+    units :func:`deflated_sharpe_ratio` expects. See :data:`SESSIONS_PER_YEAR`.
 
     Returning None rather than a placeholder is deliberate. A made-up variance produces a deflated
     Sharpe that looks like a measurement, and on a single trial it produces a very flattering one --
@@ -119,12 +142,16 @@ def _variance_of_trials(sharpe: float) -> float | None:
 #: liquidity frame per submission would add seconds to every run for an identical answer.
 _LABELS: pl.DataFrame | None = None
 _LIQUIDITY: pl.DataFrame | None = None
+_FLOWS: pl.DataFrame | None = None
 _CFG: Any = None
+#: Read once at startup and never written. This is the published corpus's tamper-evident count, and
+#: it is shown beside the session counter so the session's N is never mistaken for the honest one.
+_LEDGER: dict[str, Any] = {}
 
 
 def _load_benchmark_inputs() -> None:
-    """Regime labels for stage 2 and trailing liquidity for stage 3."""
-    global _LABELS, _LIQUIDITY, _CFG  # noqa: PLW0603
+    """Regime labels for stage 2, trailing liquidity and flow states for stage 3."""
+    global _LABELS, _LIQUIDITY, _FLOWS, _CFG  # noqa: PLW0603
     _CFG = load_config()
     _LABELS = pl.read_parquet(_CFG.paths.data_processed / "regime_labels.parquet").select(
         "session_date", "state"
@@ -136,6 +163,27 @@ def _load_benchmark_inputs() -> None:
     _LIQUIDITY = add_daily_measures(
         panel, adv_window=_CFG.constraints.adv_window_sessions
     ).select(["session_date", "symbol", "adv_inr"])
+    _FLOWS = pl.read_parquet(_CFG.paths.data_processed / "participant_flows.parquet").select(
+        ["session_date", "flow_state"]
+    )
+    _read_ledger()
+
+
+def _read_ledger() -> None:
+    """Verify and count the published trial ledger, read-only.
+
+    Opened for reading and never for appending. The count belongs to the published corpus; a
+    strategy tried at this console is not part of that search and must not inflate it, and the
+    ledger is what every deflated Sharpe in the papers was computed against.
+    """
+    counter = TrialCounter(default_counter_path(_CFG))
+    try:
+        _LEDGER["verified"] = counter.verify()
+        _LEDGER["intact"] = True
+    except Exception as exc:  # noqa: BLE001 - a broken chain is a finding to display, not a crash
+        _LEDGER["verified"] = counter.count()
+        _LEDGER["intact"] = False
+        _LEDGER["why"] = f"{type(exc).__name__}: {exc}"
 
 
 def fragility(returns_frame: pl.DataFrame) -> dict[str, Any]:
@@ -185,7 +233,19 @@ def capacity(positions_path: str) -> dict[str, Any]:
         return {"available": False, "why": "no traded name had a trailing liquidity figure"}
     summary = summarise_capacity(per_session, participation_limit=limit)[0]
     crore = 1e7
+    # P3's actual contribution: whether deployable size collapses when foreign money leaves. The
+    # session counts travel with the medians because the ratio between two states is the sentence a
+    # reader will quote, and a ratio computed over thirty sessions is not evidence of anything.
+    assert _FLOWS is not None
+    by_state = [
+        {"flow_state": row["flow_state"],
+         "median_capacity_crore": row["median_capacity_inr"] / crore,
+         "p05_capacity_crore": row["p05_capacity_inr"] / crore,
+         "n_sessions": row["n_sessions"]}
+        for row in capacity_by_flow_state(per_session, _FLOWS).to_dicts()
+    ]
     return {
+        "by_flow_state": by_state,
         "available": True,
         "binding_capacity_crore": summary.binding_capacity_inr / crore,
         "median_capacity_crore": summary.median_capacity_inr / crore,
@@ -198,11 +258,61 @@ def capacity(positions_path: str) -> dict[str, Any]:
     }
 
 
+def book_measures(positions_path: str | None, sessions: list[Any]) -> dict[str, Any]:
+    """Concentration and holding period from the position book, via the frozen P2 measures.
+
+    These are the features the fragility predictor is built on, so they belong beside the fragility
+    score rather than in a separate report. Sessions the book never appears in are rebuilt as empty
+    dictionaries: a session holding nothing is a cash session, and dropping it would quietly raise
+    every concentration figure by deleting the least concentrated days.
+    """
+    if positions_path is None:
+        return {"available": False, "why": "the strategy held no position"}
+    rows = pl.read_parquet(positions_path)
+    held: dict[Any, dict[str, float]] = {}
+    for row in rows.iter_rows(named=True):
+        held.setdefault(row["session_date"], {})[row["symbol"]] = float(row["weight"])
+    books = [held.get(session, {}) for session in sessions]
+    return {"available": True, **concentration(books), **holding_period(books)}
+
+
+def semantic(source: str) -> dict[str, Any]:
+    """A_sem: a local 7B reads the stated rationale against the code that implements it.
+
+    The rationale is the module docstring, which is where the generator was instructed to put it.
+    A strategy with no docstring has stated no rationale, and there is then nothing to check the
+    code against -- that is reported as such rather than audited against an empty string, which
+    would return a label about a claim nobody made.
+    """
+    try:
+        rationale = ast.get_docstring(ast.parse(source)) or ""
+    except SyntaxError as exc:
+        return {"available": False, "why": f"the source does not parse: {exc}"}
+    if not rationale.strip():
+        return {"available": False,
+                "why": "no module docstring, so the strategy states no rationale to check"}
+    if not sem.is_available():
+        return {"available": False,
+                "why": f"no Ollama server answering at {sem.OLLAMA_HOST}. Start it with `ollama "
+                       f"serve`, then `ollama pull {sem.MODEL_TAG}`."}
+    try:
+        finding = sem.classify(rationale, source)
+    except (sem.SemanticAuditUnavailable, sem.SemanticAuditParseError) as exc:
+        return {"available": False, "why": f"{type(exc).__name__}: {exc}"}
+    return {"available": True, "label": finding.label, "confidence": finding.confidence,
+            "explanation": finding.explanation, "model_tag": finding.model_tag,
+            "is_defect": finding.is_defect, "rationale": rationale.strip()}
+
+
 def audit(source: str) -> dict[str, Any]:
     """Static leakage findings for pasted source: the whole list, not merely a verdict."""
     findings = audit_source(source, filename="submission.py")
+    by_severity: dict[str, int] = {}
+    for finding in findings:
+        by_severity[finding.severity.value] = by_severity.get(finding.severity.value, 0) + 1
     return {
         "rejected": any(f.severity is Severity.HIGH for f in findings),
+        "by_severity": by_severity,
         "findings": [
             {"leak_class": f.leak_class.value, "severity": f.severity.value, "line": f.line_number,
              "snippet": f.code_snippet, "explanation": f.explanation}
@@ -237,6 +347,12 @@ def backtest(source: str) -> dict[str, Any]:
                     result["capacity"] = {"available": False, "why": f"{type(exc).__name__}: {exc}"}
             else:
                 result["capacity"] = {"available": False, "why": "the strategy held no position"}
+            try:
+                result["book"] = book_measures(
+                    result.get("positions_path"), frame["session_date"].to_list()
+                )
+            except Exception as exc:  # noqa: BLE001
+                result["book"] = {"available": False, "why": f"{type(exc).__name__}: {exc}"}
 
     result["deflated_sharpe_probability"] = None
     result["deflation_note"] = (
@@ -249,18 +365,62 @@ def backtest(source: str) -> dict[str, Any]:
         # point of the Bailey-Lopez de Prado correction is that fat-tailed, negatively skewed
         # returns need more evidence to be believed, and passing 0 and 3 hands that back.
         skew, kurtosis = _moments(returns)
-        variance = _variance_of_trials(sharpe)
+        observations = result.get("n_sessions") or 1
+        # Per-observation, because n_observations is a count of daily sessions. Everything handed to
+        # src.audit.stat from here down is daily; the annualised figure stays in the results table.
+        daily = float(sharpe) / SESSIONS_PER_YEAR**0.5
+        result["sharpe_per_observation"] = daily
+        # PSR first, because it is the same statistic with the search term switched off: it asks
+        # whether this Sharpe beats zero given the sample length and the shape of the returns. The
+        # distance between it and the DSR below is precisely what the trial count costs.
+        result["probabilistic_sharpe"] = float(
+            probabilistic_sharpe_ratio(daily, benchmark_sharpe=0.0, n_observations=observations,
+                                       skew=skew, kurtosis=kurtosis)
+        )
+        variance = _variance_of_trials(daily)
         if variance is not None:
+            result["luck_threshold_sharpe"] = float(expected_max_sharpe(trials, variance))
             result["deflated_sharpe_probability"] = float(
-                deflated_sharpe_ratio(sharpe, n_trials=trials,
-                                      n_observations=result.get("n_sessions") or 1,
+                deflated_sharpe_ratio(daily, n_trials=trials,
+                                      n_observations=observations,
                                       skew=skew, kurtosis=kurtosis,
                                       variance_of_trial_sharpes=variance)
             )
             result["deflation_note"] = None
         result["skew"], result["kurtosis"] = skew, kurtosis
     result["session_trials"] = trials
+    result["ledger_trials"] = _LEDGER.get("verified")
     return result
+
+
+def status() -> dict[str, Any]:
+    """What this console is measuring against, including the one stage it will not run.
+
+    The holdout entry is a constant, not a switch. This process never opens the holdout panel and
+    there is no request that makes it: under charter RULE 7 the holdout is evaluated once per
+    project with logged PI authorisation, and a console that scored arbitrary pasted code against
+    it -- unbounded, unlogged, and once per keystroke -- would consume the only clean data the
+    repository has and take every published out-of-sample number down with it.
+    """
+    assert _CFG is not None
+    return {
+        "dev_start": str(_CFG.dates.dev_start),
+        "dev_end": str(_CFG.dates.dev_end),
+        "holdout_start": str(_CFG.dates.holdout_start),
+        "holdout_end": str(_CFG.dates.holdout_end),
+        "holdout_available": False,
+        "holdout_reason": (
+            "Evaluated three times under logged PI authorisation and closed. Nothing typed here "
+            "can reopen it, and no result from this console is an out-of-sample result."
+        ),
+        "participation_limit": _CFG.constraints.max_participation_rate,
+        "n_regimes": int(_LABELS.select(pl.col("state").n_unique()).item()) if _LABELS is not None
+        else None,
+        "semantic_model": sem.MODEL_TAG,
+        "semantic_available": sem.is_available(),
+        "ledger": _LEDGER,
+        "session_trials": _TRIALS,
+    }
 
 
 class Server(ThreadingHTTPServer):
@@ -275,8 +435,17 @@ class Server(ThreadingHTTPServer):
     allow_reuse_address = False
 
 
+#: The three stages a submission can ask for, and nothing else. There is no holdout route: see
+#: :func:`status`, where the reason is written down rather than left to be inferred from an absence.
+ROUTES: dict[str, Callable[[str], dict[str, Any]]] = {
+    "/api/audit": audit,
+    "/api/semantic": semantic,
+    "/api/backtest": backtest,
+}
+
+
 class Handler(BaseHTTPRequestHandler):
-    """Two POST endpoints and the page itself. No routing framework; there are three routes."""
+    """Three POST endpoints, a status endpoint, and the page itself. No routing framework."""
 
     def _send(self, body: bytes, content_type: str, status: int = 200) -> None:
         self.send_response(status)
@@ -290,6 +459,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler's naming
         path = self.path.split("?", 1)[0].split("#", 1)[0]
+        if path == "/api/status":
+            self._send(json.dumps(status()).encode("utf-8"), "application/json; charset=utf-8")
+            return
         name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
         target = (STATIC / name).resolve()
         inside = target.is_relative_to(STATIC)
@@ -300,7 +472,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         route = self.path.split("?", 1)[0]
-        if route not in ("/api/audit", "/api/backtest"):
+        if route not in ROUTES:
             self._send(b"not found", "text/plain; charset=utf-8", 404)
             return
         length = int(self.headers.get("Content-Length") or 0)
@@ -314,7 +486,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(json.dumps({"error": "no source submitted"}).encode("utf-8"),
                        "application/json; charset=utf-8", 400)
             return
-        payload: dict[str, Any] = audit(source) if route == "/api/audit" else backtest(source)
+        payload: dict[str, Any] = ROUTES[route](source)
         self._send(json.dumps(payload).encode("utf-8"), "application/json; charset=utf-8")
 
     def log_message(self, fmt: str, *args: object) -> None:

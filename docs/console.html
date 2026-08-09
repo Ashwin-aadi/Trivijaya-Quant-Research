@@ -154,7 +154,9 @@ footer a{color:var(--accent-bright)}
       <div><div class="k">Panel</div><div class="v">Development · 2020–2024</div></div>
       <div><div class="k">Sessions per run</div><div class="v">1,232</div></div>
       <div><div class="k">Costs charged</div><div class="v">STT, exchange, SEBI, GST, stamp, slippage</div></div>
-      <div><div class="k">Auditor</div><div class="v">AlphaAudit static layer, frozen</div></div>
+      <div><div class="k">Auditor layers</div><div class="v">A_static · A_stat · A_sem, each scored separately</div></div>
+      <div><div class="k">Benchmarks</div><div class="v">AlphaAudit · RegimeStress · FlowState, all frozen</div></div>
+      <div><div class="k">Holdout</div><div class="v">Closed. Never loaded, on either machine</div></div>
       <div><div class="k">Runs on</div><div class="v">Your machine, not this one</div></div>
     </div>
   </div>
@@ -218,8 +220,8 @@ python webui/server.py</pre>
           <textarea id="src" spellcheck="false"></textarea>
         </div>
         <div class="actions">
-          <button id="audit" class="ghost">Audit for leakage</button>
-          <button id="run">Audit &amp; backtest</button>
+          <button id="audit" class="ghost">Static layer only</button>
+          <button id="run">Run the full pipeline</button>
           <span class="hint">Ctrl + Enter</span>
           <span class="trials" id="trials">Nothing evaluated — this is a demo</span>
         </div>
@@ -229,8 +231,10 @@ python webui/server.py</pre>
         <p class="kicker">Result</p>
         <div class="panel bp" id="out" aria-live="polite">
           <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
-          <p class="empty">Results appear here. On a real run the audit is instant and the backtest
-            takes about half a minute for 1,232 sessions. Press a button to see what this copy of
+          <p class="empty">Results appear here. On a real run they arrive stage by stage: the
+            static layer instantly, the local 7B a few seconds later, then the backtest over 1,232
+            sessions and, from that same run, the deflation, the fragility score, the strategy
+            characteristics and the deployment capacity. Press a button to see what this copy of
             the page can and cannot do.</p>
         </div>
       </section>
@@ -310,7 +314,7 @@ python webui/server.py
 
 
 #  Once it is up, this box holds your strategy instead of these notes. Paste a
-#  Strategy subclass, press "Audit for leakage" for an instant read of the code,
+#  Strategy subclass, press "Static layer only" for an instant read of the code,
 #  or "Audit & backtest" to run it over 1,232 sessions net of Indian statutory
 #  costs. The first backtest of a session leaves the deflated Sharpe blank: one
 #  trial cannot show the spread of what you searched over, and the console says
@@ -431,8 +435,9 @@ function refuse(action) {
   out.innerHTML = MARKS + `
     <div class="verdict flag">Sorry — this one needs the repository.</div>
     <p>Nothing on this page can ${action} your strategy. A website cannot: the auditor is Python,
-      the backtester needs an 86&nbsp;MB price panel built from NSE archives, and neither exists in
-      your browser. This copy of the console is the interface only.</p>
+      the backtester needs an 86&nbsp;MB price panel built from NSE archives, the semantic layer
+      needs a 7B model running locally, and none of that exists in your browser. This copy of the
+      console is the interface only.</p>
     <div class="finding">
       <div class="cls">what to do instead</div>
       <div class="why">Clone the repository and run it on your own machine. It is the same page,
@@ -451,11 +456,11 @@ python webui/server.py</pre>
 }
 
 document.getElementById("audit").onclick = () => refuse("audit");
-document.getElementById("run").onclick = () => refuse("backtest");
+document.getElementById("run").onclick = () => refuse("run");
 document.querySelectorAll(".preset").forEach(b => b.onclick = () => loadPreset(b.dataset.key));
 src.addEventListener("input", setCount);
 document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); refuse("backtest"); }
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); refuse("run"); }
 });
 
 loadPreset("setup");
