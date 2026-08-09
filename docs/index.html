@@ -189,6 +189,10 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
 .paper .pmeta{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--muted)}
 .paper .plinks{display:flex;flex-direction:column;gap:10px;text-align:right;white-space:nowrap}
 .paper .plinks a{font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:2px}
+/* The download is the primary action, so it reads as a control rather than a link. */
+.paper .plinks a.dl{border:1px solid var(--accent);background:var(--accent);color:var(--paper);
+  padding:9px 14px;text-align:center}
+.paper .plinks a.dl:hover{background:var(--navy-900);border-color:var(--navy-900);color:#fff}
 /* featured */
 .feat{padding:clamp(48px,6vw,84px) clamp(40px,6vw,96px);background:var(--panel)}
 .feat .fq{font-family:var(--serif);font-weight:700;font-size:clamp(28px,4.6vw,58px);line-height:1.08;letter-spacing:-.02em;margin:24px 0 0;text-wrap:balance}
@@ -527,17 +531,17 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
     <div class="paper">
       <div class="pn">[1]</div>
       <div><h3 class="pt">Abstention-Calibrated Agentic Strategy Research with Adversarial Self-Audit on Indian Equities</h3><p class="pabs">A generator proposes trading strategies; a three-layer auditor tries to prove it is fooling itself. The system is then measured on whether it knows when to abstain — whether what it keeps performs better on data it never saw. It does not, and the null is the paper.</p><p class="pmeta">q-fin.TR · cs.LG · AlphaAudit v1.2</p></div>
-      <div class="plinks"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/1-alphaaudit.pdf">PDF ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit.tex">LaTeX source ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit_numbers.tex">Numbers ↗</a></div>
+      <div class="plinks"><a class="dl" href="papers/1-alphaaudit.pdf" download type="application/pdf">Download PDF ↓</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit.tex">LaTeX source ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/alphaaudit_numbers.tex">Numbers ↗</a></div>
     </div>
     <div class="paper">
       <div class="pn">[2]</div>
       <div><h3 class="pt">Counterfactual Regime Resampling and Learned Fragility Estimation for Indian Equity Strategies</h3><p class="pabs">Indian markets since 2015 contain roughly one crash, one full rate cycle and one structural liquidity shift. The number of independent regime observations is very small; this addresses that scarcity rather than assuming it away.</p><p class="pmeta">q-fin.RM · q-fin.PM · RegimeStress v1</p></div>
-      <div class="plinks"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/2-regimestress.pdf">PDF ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress.tex">LaTeX source ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress_numbers.tex">Numbers ↗</a></div>
+      <div class="plinks"><a class="dl" href="papers/2-regimestress.pdf" download type="application/pdf">Download PDF ↓</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress.tex">LaTeX source ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/regimestress_numbers.tex">Numbers ↗</a></div>
     </div>
     <div class="paper">
       <div class="pn">[3]</div>
       <div><h3 class="pt">Flow-Conditional Capacity and Alpha-Decay Estimation in a Retail-Dominated Equity Market</h3><p class="pabs">Deployment capacity for Indian equities, measured from observable liquidity rather than an assumed impact function — together with the demonstration, reported as a principal finding, that daily bars cannot supply one.</p><p class="pmeta">q-fin.TR · FlowState v1</p></div>
-      <div class="plinks"><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/3-flowstate.pdf">PDF ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate.tex">LaTeX source ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate_numbers.tex">Numbers ↗</a></div>
+      <div class="plinks"><a class="dl" href="papers/3-flowstate.pdf" download type="application/pdf">Download PDF ↓</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate.tex">LaTeX source ↗</a><a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/flowstate_numbers.tex">Numbers ↗</a></div>
     </div>
   </div>
 </section>
@@ -651,7 +655,7 @@ python webui/server.py</pre>
     <p class="colophon">
       Independent research. No funding, no institutional sponsorship, and no commercial relationship with any asset manager, broker, exchange, trading firm, data vendor or model provider. The market-data budget is ₹0 and all inference runs locally.<br>
       Nothing on this page is investment advice, an offer, or a solicitation. Every figure describes a historical simulation on Indian equities and none of it is a claim about future returns.<br>
-      This page is a single static file. It loads no fonts, no scripts, no trackers and no third-party assets, and it sets no cookies. · <a href="https://orcid.org/0009-0002-9296-8651" rel="me noopener">ORCID</a> · <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/PROJECTS.md">Project map ↗</a> · <a href="#top">Back to top</a>
+      This page is a single hand-written HTML file, and the papers are served from this site rather than from anywhere else. It loads no fonts, no scripts, no trackers and no third-party assets, and it sets no cookies. · <a href="https://orcid.org/0009-0002-9296-8651" rel="me noopener">ORCID</a> · <a href="https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/PROJECTS.md">Project map ↗</a> · <a href="#top">Back to top</a>
     </p>
   </div>
 </footer>
@@ -688,19 +692,19 @@ python webui/server.py</pre>
       "@type": "ScholarlyArticle",
       "headline": "Abstention-Calibrated Agentic Strategy Research with Adversarial Self-Audit on Indian Equities",
       "author": {"@id": "https://orcid.org/0009-0002-9296-8651"},
-      "url": "https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/1-alphaaudit.pdf"
+      "url": "https://ashwin-aadi.github.io/Trivijaya-Quant-Research/papers/1-alphaaudit.pdf"
     },
     {
       "@type": "ScholarlyArticle",
       "headline": "Counterfactual Regime Resampling and Learned Fragility Estimation for Indian Equity Strategies",
       "author": {"@id": "https://orcid.org/0009-0002-9296-8651"},
-      "url": "https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/2-regimestress.pdf"
+      "url": "https://ashwin-aadi.github.io/Trivijaya-Quant-Research/papers/2-regimestress.pdf"
     },
     {
       "@type": "ScholarlyArticle",
       "headline": "Flow-Conditional Capacity and Alpha-Decay Estimation in a Retail-Dominated Equity Market",
       "author": {"@id": "https://orcid.org/0009-0002-9296-8651"},
-      "url": "https://github.com/Ashwin-aadi/Trivijaya-Quant-Research/blob/main/papers/pdf/3-flowstate.pdf"
+      "url": "https://ashwin-aadi.github.io/Trivijaya-Quant-Research/papers/3-flowstate.pdf"
     }
   ]
 }

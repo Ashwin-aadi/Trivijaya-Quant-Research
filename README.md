@@ -292,6 +292,11 @@ GitHub Pages from the `main` branch, `/docs` folder, under
 *Settings → Pages → Build and deployment → Deploy from a branch*. Nothing else is required: the
 directory ships its own `.nojekyll`, `robots.txt`, `sitemap.xml` and `404.html`.
 
+`docs/papers/` holds a byte-identical copy of the three PDFs in `papers/pdf/`, so the site can serve
+them from its own origin — the `download` attribute is ignored on a cross-origin link, so a paper
+hosted elsewhere opens in a viewer instead of downloading. **Recompile a paper and both copies must
+be refreshed**, or the site will quietly serve the older one.
+
 The abstention figure in the hero is not hand-drawn. `scripts/build_site_figures.py` regenerates
 the SVG and its ablation table from the frozen artifacts and substitutes them between the
 `<!-- FIGURE:AUAP:BEGIN -->` markers, so the page cannot drift from the results it reports. Every
