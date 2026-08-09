@@ -216,6 +216,40 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
 .dark a.btn-repo{display:inline-flex;align-items:center;gap:10px;margin-top:26px;font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--navy-900);background:var(--accent-bright);text-decoration:none;padding:14px 22px;border:1px solid var(--accent-bright)}
 .dark a.btn-repo:hover{background:#fff;color:var(--navy-900)}
+/* console figure — a reproduction, not a photograph; every value is real output */
+.shot{margin:clamp(44px,6vw,72px) 0 0;background:var(--paper)}
+.shot .chrome{display:flex;align-items:center;gap:9px;padding:11px 16px;background:#e4e4de;
+  border-bottom:1px solid rgba(18,22,31,.18)}
+.shot .chrome i{width:10px;height:10px;border-radius:50%;background:#c3c3bc;display:block}
+.shot .url{margin-left:12px;font-family:var(--mono);font-size:11.5px;color:#5b6270;background:#f5f5f2;
+  padding:4px 12px;border:1px solid rgba(18,22,31,.14);flex:1;max-width:340px}
+.shot .panes{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(18,22,31,.14)}
+.shot .pane{background:var(--paper);padding:20px 22px 24px}
+.shot .pl{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+.shot pre{margin:0;padding:14px 16px;background:#070c15;color:#d6def0;overflow-x:auto;
+  font:11.5px/1.7 var(--mono)}
+.shot pre .c{color:#6b7686}
+.shot pre .x{color:#e0a39b}
+.shot .v-flag{font-family:var(--serif);font-weight:700;font-size:19px;line-height:1.2;
+  color:var(--flag);margin:0 0 14px}
+.shot .v-pass{font-family:var(--serif);font-weight:700;font-size:19px;line-height:1.2;
+  color:#1f5c3d;margin:0 0 14px}
+.shot .fnd{border-left:2px solid var(--flag);background:#fff;padding:12px 14px}
+.shot .fnd .cl{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--flag)}
+.shot .fnd .wh{font-size:13.5px;line-height:1.5;color:#333b48;margin-top:6px}
+.shot table{width:100%;border-collapse:collapse;margin:0}
+.shot table th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);font-weight:400;padding:7px 0;
+  border-bottom:1px solid rgba(18,22,31,.12);width:60%}
+.shot table td{text-align:right;font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  padding:7px 0;border-bottom:1px solid rgba(18,22,31,.12);color:#232a36}
+.shot tr.hi th{color:var(--ink)}
+.shot tr.hi td{font-weight:700}
+.shot .cap{font-family:var(--mono);font-size:12px;line-height:1.7;color:#8b97ad;margin:18px 0 0;max-width:86ch}
+.shot .cap b{color:#fff;font-weight:400}
+@media (max-width:860px){.shot .panes{grid-template-columns:1fr}}
 .warn{margin-top:30px;padding:20px 24px;border-left:2px solid var(--accent-bright);background:rgba(255,255,255,.04)}
 .warn p{font-size:15.5px;line-height:1.6;color:#c3cbdb;margin:0}
 .warn b{color:#fff;font-weight:400;border-bottom:1px solid rgba(159,182,220,.6)}
@@ -641,6 +675,62 @@ python scripts/build_corporate_actions.py
 python webui/server.py</pre>
       </div>
     </div>
+
+    <figure class="shot bp">
+      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+      <div class="chrome"><i></i><i></i><i></i><span class="url">127.0.0.1:8000 — strategy console</span></div>
+      <div class="panes">
+        <div class="pane">
+          <p class="pl">Strategy source</p>
+<pre><span class="c"># the bundled "leaky" example</span>
+series = closes[symbol].drop_nulls()
+if series.len() &lt; 3:
+    continue
+<span class="c"># THE CHEAT: a negative shift moves a</span>
+<span class="c"># later observation onto the current row.</span>
+<span class="x">forward = series.shift(-1) / series - 1.0</span>
+value = forward.drop_nulls()</pre>
+        </div>
+        <div class="pane">
+          <p class="pl">Result</p>
+          <p class="v-flag">Rejected — 1 finding, 1 of them high severity.</p>
+          <div class="fnd">
+            <div class="cl">future_indexing · high · line 38</div>
+            <div class="wh">`shift` is called with a negative period, which moves a future observation onto the current row. Any feature built this way already contains the outcome it is meant to predict.</div>
+          </div>
+        </div>
+      </div>
+      <div class="panes">
+        <div class="pane">
+          <p class="pl">Strategy source</p>
+<pre><span class="c"># the bundled "honest momentum" example</span>
+closes = view.closes(lookback=self._lookback + 1)
+scores[symbol] = series[-1] / series[0] - 1.0
+ranked = sorted(scores.items(),
+                key=lambda kv: (-kv[1], kv[0]))
+picks = [s for s, _ in ranked[: self._n_hold]]
+return Signal(information_available_at=stamp,
+              weights=weights)</pre>
+        </div>
+        <div class="pane">
+          <p class="pl">Result · backtest, development window</p>
+          <p class="v-pass">Ran and took a position.</p>
+          <table>
+            <tr class="hi"><th>Net Sharpe</th><td>0.814</td></tr>
+            <tr><th>Gross Sharpe, before costs</th><td>1.092</td></tr>
+            <tr><th>Cost drag, in Sharpe units</th><td>0.278</td></tr>
+            <tr><th>Annualised return, net</th><td>22.78%</td></tr>
+            <tr><th>Max drawdown</th><td>−43.39%</td></tr>
+            <tr><th>Mean turnover per session</th><td>0.1628</td></tr>
+            <tr><th>Return kurtosis</th><td>13.02</td></tr>
+            <tr><th>Sessions</th><td>1232</td></tr>
+            <tr class="hi"><th>Deflated Sharpe probability</th><td>—</td></tr>
+            <tr><th>Trials this session</th><td>1</td></tr>
+          </table>
+        </div>
+      </div>
+      <figcaption class="cap">A reproduction of the console, not a photograph of one — but every figure above is its real output, captured by running the two bundled examples against the development panel. The deflated Sharpe is blank because it is the first evaluation of the session: one trial cannot show the spread of what you searched over, and the console reports that rather than inventing a flattering number. Run a second strategy and it appears — and comes back near 1.000, which reflects a search too small to have found anything by luck rather than a strategy that works.</figcaption>
+    </figure>
   </div>
 </section>
 
