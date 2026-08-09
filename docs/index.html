@@ -622,13 +622,14 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
       <div class="term bp">
         <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <div class="bar">bash — local console</div>
-        <pre class="body"><span class="c"># clone and install</span>
+        <pre class="body"><span class="c"># clone and install — Python 3.11 or newer</span>
 git clone https://github.com/Ashwin-aadi/Trivijaya-Quant-Research.git
 cd Trivijaya-Quant-Research
-pip install -r env/requirements.txt
+bash env/setup.sh
+source .venv/bin/activate       <span class="c"># .venv/Scripts/activate on Windows</span>
 
-<span class="c"># build the price data — immutable raw, then derived</span>
-python scripts/download_bhavcopy.py
+<span class="c"># build the price data — raw archives first, then derived from them</span>
+python scripts/download_bhavcopy.py    <span class="c"># years of NSE end-of-day. Slow.</span>
 python scripts/build_universe.py
 python scripts/build_corporate_actions.py
 
