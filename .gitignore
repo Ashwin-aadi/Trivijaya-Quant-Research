@@ -35,3 +35,9 @@ config/local.yaml
 # --- OS / editor cruft ---
 .DS_Store
 Thumbs.db
+
+# --- ESWA synthesis submission, held back from the repository for now ---
+# The manuscript is anonymised for peer review; publishing it here before
+# submission would defeat that. Untrack, do not delete.
+papers/eswa/
+scripts/build_eswa_docx.py
