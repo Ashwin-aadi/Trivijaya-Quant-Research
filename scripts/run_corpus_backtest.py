@@ -83,13 +83,21 @@ class CandidateResult:
     max_drawdown: float | None
     n_sessions: int
     returns_path: str | None
+    #: Written only when the engine was built with ``record_positions``. Stays None for the corpus
+    #: runs, so their result rows are byte-identical to the ones already published.
+    positions_path: str | None = None
 
 
-def _worker_init(holdout: bool = False) -> None:
+def _worker_init(holdout: bool = False, record_positions: bool = False) -> None:
     """Load the panel and build the engine once per worker process.
 
     The holdout artifacts are separate files, not a filtered view of the development ones, so a
     development run cannot reach holdout rows even by mistake — they are not in the frame it loaded.
+
+    ``record_positions`` keeps each session's book so a caller can measure deployment capacity from
+    the same run that produced the returns. It defaults off, and the corpus runs leave it off: the
+    published backtests were produced without it and holding every book in memory changes nothing
+    about the result but does change the memory profile.
     """
     global _ENGINE, _WINDOW  # noqa: PLW0603
     cfg = load_config()
@@ -101,7 +109,8 @@ def _worker_init(holdout: bool = False) -> None:
     # session (Phase 1.1, PI-approved at Checkpoint 1.1). A gross run is no longer the
     # default: every Sharpe this script reports is now after costs.
     _ENGINE = BacktestEngine(panel=panel, calendar=calendar, universe=universe,
-                             cost_model=CostModel(cfg.costs))
+                             cost_model=CostModel(cfg.costs),
+                             record_positions=record_positions)
     _WINDOW = (
         (cfg.dates.holdout_start, cfg.dates.holdout_end) if holdout
         else (cfg.dates.dev_start, cfg.dates.dev_end)
@@ -181,6 +190,28 @@ def run_one(path_str: str, out_dir_str: str) -> dict[str, Any]:
         "cost": result.costs,
         "turnover": result.turnover,
     }).write_parquet(returns_path)
+
+    # Only when the engine was built to record them, which the corpus runs do not do. The schema
+    # matches scripts/persist_positions.py so the frozen capacity chain reads it unchanged.
+    positions_path: Path | None = None
+    if result.positions:
+        dates, symbols, weights = [], [], []
+        for session, book in zip(result.dates, result.positions, strict=True):
+            for symbol, weight in book.items():
+                if weight:
+                    dates.append(session)
+                    symbols.append(symbol)
+                    weights.append(float(weight))
+        # Only when something was actually held. A strategy that stays in cash records a book per
+        # session and no rows at all, and an empty frame is not a book with no positions -- it has
+        # no session column to speak of, and every consumer downstream would have to guess.
+        if dates:
+            positions_path = out_dir / f"{name}_positions.parquet"
+            pl.DataFrame(
+                {"session_date": dates, "symbol": symbols, "weight": weights},
+                schema={"session_date": pl.Date, "symbol": pl.Utf8, "weight": pl.Float64},
+            ).write_parquet(positions_path)
+
     return asdict(CandidateResult(
         name=name, path=path_str, outcome="evaluated", error=None,
         # The key is `sharpe_ratio`; asking for `sharpe` returned None for every candidate and
@@ -192,6 +223,7 @@ def run_one(path_str: str, out_dir_str: str) -> dict[str, Any]:
         ruined_on=str(result.ruined_on) if result.ruined_on else None,
         volatility=stats["annualised_volatility"], max_drawdown=stats["max_drawdown"],
         n_sessions=len(result.returns), returns_path=str(returns_path),
+        positions_path=str(positions_path) if positions_path else None,
     ))
 
 

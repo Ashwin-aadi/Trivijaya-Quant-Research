@@ -109,6 +109,7 @@ th{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:up
 td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 tr.hi th{color:var(--ink)}
 tr.hi td.num{font-weight:700}
+td.num .n{color:var(--muted);font-size:11.5px;margin-left:10px;font-weight:400}
 .finding{border-left:2px solid var(--flag);background:var(--paper);padding:14px 16px;
   margin-bottom:12px}
 .finding.med{border-left-color:var(--warn)}
@@ -152,15 +153,16 @@ footer a{color:var(--accent-bright)}
       <span class="host">running locally · 127.0.0.1</span>
     </div>
     <h1>Strategy console</h1>
-    <p class="lede">Paste a strategy and run it against the frozen leakage auditor and the
-      point-in-time backtester — Indian equities, 2020&ndash;2024, net of statutory costs.
+    <p class="lede">Paste a strategy and put it through all three frozen benchmarks — leakage
+      audit, regime fragility, deployment capacity — on Indian equities, 2020&ndash;2024, net of
+      statutory costs. The same modules that produced the published results, called unmodified.
       Nothing is uploaded, nothing is ranked, and <b>the 2025 holdout is not reachable from this
       page</b>.</p>
     <div class="facts">
       <div><div class="k">Panel</div><div class="v">Development · 2020–2024</div></div>
       <div><div class="k">Sessions per run</div><div class="v">1,232</div></div>
       <div><div class="k">Costs charged</div><div class="v">STT, exchange, SEBI, GST, stamp, slippage</div></div>
-      <div><div class="k">Auditor</div><div class="v">AlphaAudit static layer, frozen</div></div>
+      <div><div class="k">Benchmarks</div><div class="v">AlphaAudit · RegimeStress · FlowState, all frozen</div></div>
       <div><div class="k">Trial counter</div><div class="v">In memory, dies with the process</div></div>
     </div>
   </div>
@@ -196,7 +198,8 @@ footer a{color:var(--accent-bright)}
         <div class="panel bp" id="out" aria-live="polite" aria-busy="false">
           <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
           <p class="empty">Results appear here. The audit is instant; the backtest runs 1,232
-            sessions and takes about half a minute.</p>
+            sessions and takes about half a minute, after which fragility and capacity are
+            computed from the same run.</p>
         </div>
       </section>
     </div>
@@ -427,6 +430,7 @@ function backtestHtml(r) {
     ["Trials this session", r.session_trials, false],
   ];
   const note = r.deflation_note ? `<p class="empty">${esc(r.deflation_note)}</p>` : "";
+  const stages = fragilityHtml(r.fragility) + capacityHtml(r.capacity);
   const flipped = drag !== null && r.sharpe_gross > 0 && r.sharpe <= 0;
   const traded = (r.mean_turnover || 0) > 0;
   let head;
@@ -438,7 +442,61 @@ function backtestHtml(r) {
     head = `<div class="verdict pass">Ran and took a position.</div>`;
   }
   return head + `<table>${rows.map(([k, v, hi]) =>
-    `<tr class="${hi ? "hi" : ""}"><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>` + note;
+    `<tr class="${hi ? "hi" : ""}"><th>${k}</th><td class="num">${v}</td></tr>`).join("")}</table>`
+    + note + stages;
+}
+
+function unavailable(stage, why) {
+  return `<p class="subhead">${stage}</p><p class="empty">Not computed — ${esc(why)}.</p>`;
+}
+
+// Stage 2. RegimeStress measures how far performance moves between market conditions, so a low
+// score is only good news if the strategy made money somewhere; the frozen measure flags the case
+// where it did not, and so does this.
+function fragilityHtml(f) {
+  if (!f) return "";
+  if (!f.available) return unavailable("Stage 2 · RegimeStress · fragility", f.why);
+  const labels = Object.keys(f.regime_sharpe || {}).sort();
+  const perRegime = labels.map(k => `
+    <tr><th>Sharpe in regime ${esc(k)}</th><td class="num">${num(f.regime_sharpe[k])}
+      <span class="n">n = ${esc(f.regime_sessions[k])}</span></td></tr>`).join("");
+  const caveat = f.mean_is_near_zero
+    ? `<p class="empty"><b>This score is not meaningful.</b> Fragility is a ratio, and this
+       strategy's mean performance across regimes is near zero — a tiny denominator, so the number
+       is arithmetic rather than a statement about robustness.</p>`
+    : `<p class="empty">Lower is steadier across market conditions. The published corpus has a
+       median of 0.618 across four generators, measured this same way. A low score on a strategy
+       that never makes money is not robustness.</p>`;
+  return `<p class="subhead">Stage 2 · RegimeStress · fragility</p>
+    <table>
+      <tr class="hi"><th>Fragility across regimes</th><td class="num">${num(f.fragility_across_regimes)}</td></tr>
+      <tr><th>Mean Sharpe across regimes</th><td class="num">${num(f.mean_regime_sharpe)}</td></tr>
+      ${perRegime}
+      <tr><th>Sessions labelled</th><td class="num">${esc(f.n_sessions)}</td></tr>
+    </table>${caveat}`;
+}
+
+// Stage 3. A constraint computed from observed traded value -- never an estimate of the size at
+// which the edge erodes. The two answer different questions and only one is supported by the data.
+function capacityHtml(c) {
+  if (!c) return "";
+  if (!c.available) return unavailable("Stage 3 · FlowState · deployment capacity", c.why);
+  const cr = (v) => (typeof v === "number" && isFinite(v)) ? "₹" + v.toFixed(2) + " cr" : "&mdash;";
+  return `<p class="subhead">Stage 3 · FlowState · deployment capacity</p>
+    <table>
+      <tr class="hi"><th>Binding capacity</th><td class="num">${cr(c.binding_capacity_crore)}</td></tr>
+      <tr><th>Median session</th><td class="num">${cr(c.median_capacity_crore)}</td></tr>
+      <tr><th>5th percentile session</th><td class="num">${cr(c.p05_capacity_crore)}</td></tr>
+      <tr><th>Opening the position</th><td class="num">${cr(c.entry_capacity_crore)}</td></tr>
+      <tr><th>Tightest name</th><td class="num">${esc(c.binding_symbol)}</td></tr>
+      <tr><th>Sessions bound by one name</th><td class="num">${pct(c.fraction_bound_by_one_name, 1)}</td></tr>
+      <tr><th>Participation limit</th><td class="num">${pct(c.participation_limit, 1)}</td></tr>
+      <tr><th>Rebalance sessions</th><td class="num">${esc(c.n_rebalance_sessions)}</td></tr>
+    </table>
+    <p class="empty">The binding figure is the worst session, and it is set by the single least
+      liquid name the strategy insists on trading — not by the average liquidity of the book. This
+      is a <b>constraint</b>: the largest book that still fits inside the participation limit. It is
+      not an estimate of the size at which the edge erodes, which daily bars cannot identify.</p>`;
 }
 
 async function call(path, source) {
