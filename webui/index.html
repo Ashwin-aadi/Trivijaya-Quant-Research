@@ -625,11 +625,18 @@ function fragilityCard(f) {
        measured this same way. A low score on a strategy that never makes money is not
        robustness.</p>
     <p class="empty">The names are <b>descriptions, not market-cycle labels</b>. An HMM returns
-      integers; these are derived from the two features it was fitted on &mdash; states ranked by
-      average volatility for the first word, the sign of their mean return for the second. "Bull"
-      and "bear" would claim a sustained trend, which is more than the fit measures. Worth one
-      check against your own memory: the <b>turbulent, falling</b> state's longest single stretch
-      runs 2020-02-26 to 2020-07-03.</p>`);
+      integers; these come from the two features it was fitted on &mdash; states ranked by average
+      volatility give the first word, the sign of their mean return the second. "Bull" and "bear"
+      would claim a sustained trend, which is more than the fit measures. A direction is only
+      claimed where <b>two independent fits agree on its sign</b>; where they disagree the state is
+      named <i>sideways</i> rather than resolved by a threshold. Worth one check against your own
+      memory: the <b>turbulent, falling</b> state's longest single stretch runs 2020-02-26 to
+      2020-07-03.</p>
+    <p class="empty">Every state the model found is <b>calmer as it rises and wilder as it
+      falls</b>, at every state count that was tried. There is no quiet-decline regime here, which
+      is a property of the market rather than of the naming: equity falls arrive with volatility.
+      Only k of 2, 3 and 4 were searched, so this is a statement about this window at those state
+      counts and not a law.</p>`);
 }
 
 function bookCard(b) {

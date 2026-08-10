@@ -344,6 +344,18 @@ def _name_regimes() -> None:
     the model assigned to a state, which is a smaller claim and the one the data supports. The state
     number is kept alongside so nothing is lost in translation.
 
+    **A direction is only claimed when two independent fits agree on it.** The repository holds two:
+    the final expanding-window refit in ``regime_diagnostics.json`` and the model-selection fit in
+    ``regime_k_selection.json``. Where their mean returns share a sign, the state has a direction.
+    Where they do not, it is named *sideways* -- which is the honest reading of a state hovering at
+    zero, and it is decided by agreement between fits rather than by a threshold somebody chose.
+
+    That rule is not decorative. The third state comes out at +0.0083 in the refit and -0.0071 in
+    the selection fit, so "rising" would have been a claim resting on which fit happened to be read.
+
+    States are matched between the fits by volatility rank, not by index: the integers are arbitrary
+    and need not agree across fits, whereas the volatility ordering is monotone in both.
+
     The arrangement is checkable against memory, which is the point: the state this names
     *turbulent, falling* is the one whose longest stretch runs 2020-02-26 to 2020-07-03.
     """
@@ -356,9 +368,32 @@ def _name_regimes() -> None:
     if not vols or len(vols) != len(returns):
         return
     order = sorted(range(len(vols)), key=lambda i: vols[i])
+    second = _selection_returns_by_rank(len(vols))
     for rank, state in enumerate(order):
         word = VOL_WORDS[rank] if len(vols) <= len(VOL_WORDS) else f"vol rank {rank + 1}"
-        _REGIME_NAMES[str(state)] = f"{word}, {'rising' if returns[state] > 0 else 'falling'}"
+        _REGIME_NAMES[str(state)] = f"{word}, {_direction(returns[state], second.get(rank))}"
+
+
+def _direction(primary: float, secondary: float | None) -> str:
+    """Rising or falling only when both fits agree; sideways when they differ or one is missing."""
+    if secondary is None or (primary > 0) != (secondary > 0):
+        return "sideways"
+    return "rising" if primary > 0 else "falling"
+
+
+def _selection_returns_by_rank(k: int) -> dict[int, float]:
+    """Mean return per volatility rank from the model-selection fit at the same state count."""
+    path = _CFG.paths.data_processed / "regime_k_selection.json"
+    if not path.exists():
+        return {}
+    for candidate in json.loads(path.read_text(encoding="utf-8")).get("candidates", []):
+        vols = candidate.get("state_mean_log_vol") or []
+        returns = candidate.get("state_mean_cum_return") or []
+        if candidate.get("k") != k or len(vols) != k or len(returns) != k:
+            continue
+        return {rank: returns[state]
+                for rank, state in enumerate(sorted(range(k), key=lambda i: vols[i]))}
+    return {}
 
 
 def _read_ledger() -> None:
