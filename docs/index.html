@@ -68,18 +68,25 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
 .dark .bp{border-color:rgba(245,245,242,.2)}
 .dark .bp>i.c{color:rgba(245,245,242,.5)}
 /* nav — sticky, so it must live outside .hero, whose overflow:hidden would kill it */
-.navbar{position:sticky;top:0;z-index:60;background:var(--navy-900);
+.navbar{position:sticky;top:0;z-index:60;background:#05070c;
   border-bottom:1px solid rgba(245,245,242,.14)}
 .nav{display:flex;align-items:baseline;gap:22px;padding:15px 0 14px;flex-wrap:wrap}
 .nav .brand{font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#aab4c6;margin-right:auto}
 .nav a{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:#cdd6e6;text-decoration:none}
 .nav a:hover{color:#fff}
 /* hero */
-.hero{padding:clamp(56px,8vw,104px) 0 clamp(72px,9vw,120px);position:relative;overflow:hidden}
-.hero::before{content:"";position:absolute;inset:0;pointer-events:none;
+.hero{padding:clamp(56px,8vw,104px) 0 clamp(72px,9vw,120px);position:relative;overflow:hidden;
+  background:#05070c}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
   background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
   background-size:46px 46px;mask:linear-gradient(180deg,#000,transparent 82%)}
-.hero .inner{position:relative}
+/* A falling market drawn behind the masthead. Decoration, and the script says so plainly: the
+   prices are a seeded random walk, not any series this lab holds. The scrim below keeps the
+   type legible over it -- the tape is left brightest on the right, where there is no text. */
+.hero canvas.tape{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:linear-gradient(90deg,#05070c 0%,rgba(5,7,12,.88) 40%,rgba(5,7,12,.42) 74%,rgba(5,7,12,.6) 100%)}
+.hero .inner{position:relative;z-index:2}
 .eyebrow{display:flex;align-items:center;gap:14px;margin-bottom:clamp(28px,5vw,52px)}
 .eyebrow .rule{height:1px;width:52px;background:rgba(245,245,242,.4)}
 .labname{font-family:var(--serif);font-weight:700;letter-spacing:-.035em;line-height:.92;
@@ -97,7 +104,7 @@ h2{font-family:var(--serif);font-weight:700;letter-spacing:-.02em;line-height:1.
 /* scale strip */
 .strip{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;margin-top:clamp(40px,6vw,64px);
   background:rgba(245,245,242,.16);border:1px solid rgba(245,245,242,.16)}
-.strip div{background:var(--navy-900);padding:20px 20px 18px}
+.strip div{background:rgba(5,7,12,.82);padding:20px 20px 18px}
 .strip .v{font-family:var(--serif);font-weight:700;font-size:clamp(24px,3vw,36px);line-height:1;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .strip .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:#8b97ad;margin-top:10px;line-height:1.45}
 @media (max-width:900px){.strip{grid-template-columns:1fr 1fr}}
@@ -267,7 +274,7 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
 }
 @media print{
   .dark{background:#fff;color:#000}
-  .hero::before,header::before{display:none}
+  .hero::before,.hero::after,.hero canvas.tape,header::before{display:none}
   .labname,.thesis,h2{color:#000}
   .nav,.btn-repo{display:none}
 }
@@ -294,6 +301,7 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
 </div>
 
 <header class="dark hero">
+  <canvas class="tape" aria-hidden="true"></canvas>
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow">
@@ -320,6 +328,211 @@ table.data td.name{font-family:var(--serif);font-size:16px;color:var(--ink)}
     </div>
   </div>
 </header>
+
+<script>
+/* Masthead decoration: a candlestick tape falling out of frame.
+
+   Deliberately not real data. The prices come from a seeded random walk whose volatility follows
+   a two-state Markov chain -- quiet stretches, then violent ones -- because that is the shape the
+   lab's own regime work keeps finding, and a uniform fall looks like a screensaver. It is
+   reproducible from seed 42 and it means nothing: no number is printed anywhere on it, so there
+   is nothing here for a reader to mistake for a measurement.
+
+   Honours prefers-reduced-motion by drawing one still frame and starting no loop. */
+(function () {
+  var canvas = document.querySelector(".hero canvas.tape");
+  if (!canvas || !canvas.getContext) return;
+  var ctx = canvas.getContext("2d");
+
+  var PITCH = 15;   /* css px between candle centres */
+  var BODY = 9;     /* css px of candle body width */
+  var SPEED = 26;   /* css px per second the tape travels leftwards */
+
+  /* Two volatility states. Turbulent is rarer, wilder, and falls harder -- the asymmetry is the
+     one property of equity markets worth building into decoration. */
+  var REGIME = [
+    { drift: -0.0026, vol: 0.0075, stay: 0.988 },  /* quiet */
+    { drift: -0.0135, vol: 0.0290, stay: 0.955 }   /* turbulent */
+  ];
+
+  /* mulberry32, seeded 42 to match the repository's global seed. */
+  var seed = 42 >>> 0;
+  function rand() {
+    seed = (seed + 0x6d2b79f5) >>> 0;
+    var t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  function gauss() { /* Box-Muller */
+    var u = 1 - rand(), v = rand();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  var candles = [], last = 100, state = 0, phase = 0, lo = null, hi = null, clock = 0;
+
+  function nextCandle() {
+    if (rand() > REGIME[state].stay) state = state === 0 ? 1 : 0;
+    var r = REGIME[state];
+    var open = last;
+    var step = r.drift + r.vol * gauss();
+    var close = open * Math.exp(step);
+    var reach = Math.abs(gauss()) * r.vol * 0.6;
+    last = close;
+    return {
+      o: open, c: close,
+      h: Math.max(open, close) * (1 + reach),
+      l: Math.min(open, close) * (1 - reach),
+      /* Volume tracks the size of the move, the way it does in the real thing. */
+      vol: Math.abs(step) / r.vol * 0.55 + rand() * 0.45,
+      hot: state === 1
+    };
+  }
+
+  var w = 0, h = 0;
+  function resize() {
+    var rect = canvas.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = Math.max(rect.width, 1); h = Math.max(rect.height, 1);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var want = Math.ceil(w / PITCH) + 3;
+    while (candles.length < want) candles.push(nextCandle());
+    while (candles.length > want) candles.shift();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    if (!candles.length) return;
+
+    /* Frame to the visible candles, easing the window so the scale does not jump when an
+       outlier leaves the left edge. This is what lets the tape fall forever and stay in view. */
+    var tlo = Infinity, thi = -Infinity, vmax = 0.001, i;
+    for (i = 0; i < candles.length; i++) {
+      if (candles[i].l < tlo) tlo = candles[i].l;
+      if (candles[i].h > thi) thi = candles[i].h;
+      if (candles[i].vol > vmax) vmax = candles[i].vol;
+    }
+    var pad = (thi - tlo) * 0.16 || 1;
+    tlo -= pad; thi += pad;
+    lo = lo === null ? tlo : lo + (tlo - lo) * 0.06;
+    hi = hi === null ? thi : hi + (thi - hi) * 0.06;
+
+    var top = h * 0.05, span = h * 0.70;          /* price panel */
+    var vTop = h * 0.83, vSpan = h * 0.14;        /* volume panel beneath it */
+    var y = function (p) { return top + span * (1 - (p - lo) / (hi - lo || 1)); };
+    var xAt = function (j) { return Math.round(j * PITCH - phase) + 0.5; };
+    var fade = function (j) { return Math.min(1, Math.max(0.18, j / candles.length + 0.16)); };
+
+    /* 1. Area under the close, so the fall has weight rather than being a row of sticks. */
+    var grad = ctx.createLinearGradient(0, top, 0, top + span);
+    grad.addColorStop(0, "rgba(96,152,224,.20)");
+    grad.addColorStop(1, "rgba(96,152,224,0)");
+    ctx.beginPath();
+    ctx.moveTo(xAt(0), top + span);
+    for (i = 0; i < candles.length; i++) ctx.lineTo(xAt(i), y(candles[i].c));
+    ctx.lineTo(xAt(candles.length - 1), top + span);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    /* 2. The close line itself, glowing. One shadowed stroke for the whole path is cheap; a
+       shadow per candle is not, and at sixty frames a second that difference is the animation. */
+    ctx.save();
+    ctx.shadowColor = "rgba(110,170,240,.85)";
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = "rgba(158,198,246,.62)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    for (i = 0; i < candles.length; i++) {
+      if (i === 0) ctx.moveTo(xAt(i), y(candles[i].c));
+      else ctx.lineTo(xAt(i), y(candles[i].c));
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    /* 3. Volume, faint, below the price. */
+    for (i = 0; i < candles.length; i++) {
+      var x = xAt(i);
+      if (x < -BODY || x > w + BODY) continue;
+      var vh = Math.max(1, (candles[i].vol / vmax) * vSpan);
+      ctx.globalAlpha = fade(i) * 0.34;
+      ctx.fillStyle = candles[i].c >= candles[i].o ? "#6ea8e8" : "#2b5d94";
+      ctx.fillRect(x - BODY / 2, vTop + vSpan - vh, BODY, vh);
+    }
+
+    /* 4. The candles. Turbulent-regime candles run brighter, so the storms read at a glance. */
+    for (i = 0; i < candles.length; i++) {
+      var k = candles[i];
+      var cx = xAt(i);
+      if (cx < -BODY || cx > w + BODY) continue;
+      var up = k.c >= k.o;
+
+      ctx.globalAlpha = fade(i);
+      ctx.strokeStyle = up ? (k.hot ? "#a8d0ff" : "#7fb4ef") : (k.hot ? "#4f92d8" : "#2f6ba8");
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, y(k.h)); ctx.lineTo(cx, y(k.l));
+      ctx.stroke();
+
+      var yo = y(k.o), yc = y(k.c);
+      var bt = Math.min(yo, yc), bh = Math.max(Math.abs(yc - yo), 1.2);
+      ctx.fillStyle = up ? "rgba(127,180,239,.32)" : (k.hot ? "#1e5088" : "#173a63");
+      ctx.fillRect(cx - BODY / 2, bt, BODY, bh);
+      ctx.strokeRect(cx - BODY / 2, bt, BODY, bh);
+    }
+    ctx.globalAlpha = 1;
+
+    /* 5. The live edge: a dashed level running off to the right and a marker that breathes.
+       No figure is printed beside it -- a number on a background animation is a number someone
+       will eventually quote back at us. */
+    var lastK = candles[candles.length - 1];
+    var lx = xAt(candles.length - 1), ly = y(lastK.c);
+    ctx.save();
+    ctx.setLineDash([3, 6]);
+    ctx.strokeStyle = "rgba(140,186,238,.34)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(lx, Math.round(ly) + 0.5); ctx.lineTo(w, Math.round(ly) + 0.5);
+    ctx.stroke();
+    ctx.restore();
+
+    var pulse = 0.5 + 0.5 * Math.sin(clock * 2.4);
+    ctx.save();
+    ctx.shadowColor = "rgba(150,200,255,.9)";
+    ctx.shadowBlur = 10 + 9 * pulse;
+    ctx.fillStyle = "#cfe3ff";
+    ctx.beginPath();
+    ctx.arc(lx, ly, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = "rgba(160,205,255," + (0.34 - 0.24 * pulse).toFixed(3) + ")";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 4 + 7 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var prev = 0;
+  function frame(now) {
+    var dt = prev ? Math.min((now - prev) / 1000, 0.1) : 0;
+    prev = now;
+    clock += dt;
+    phase += SPEED * dt;
+    while (phase >= PITCH) { phase -= PITCH; candles.shift(); candles.push(nextCandle()); }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  draw();
+  if (!still) requestAnimationFrame(frame);
+  if (window.ResizeObserver) new ResizeObserver(function () { resize(); draw(); }).observe(canvas);
+  else window.addEventListener("resize", function () { resize(); draw(); });
+})();
+</script>
 
 <!-- ===================== ABSTENTION FRONTIER ===================== -->
 <section class="sec" id="frontier" style="padding-bottom:0">
