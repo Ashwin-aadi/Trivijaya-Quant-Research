@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Fixed 1280px viewport, matching index.html: a phone arriving from the front page should not
+     meet a different layout system. 1280 clears every breakpoint here, the widest being 1100. -->
+<meta name="viewport" content="width=1280">
 <title>Strategy console — static demo — Trivijaya Quant Research</title>
 <meta name="robots" content="noindex, follow">
 <meta name="color-scheme" content="light">
@@ -23,7 +25,9 @@
   --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
 }
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
-  font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  /* Fixed-width viewport: stop iOS inflating text and breaking the columns it preserves. */
+  -webkit-text-size-adjust:100%;text-size-adjust:100%}
 p{margin:0 0 1em;text-wrap:pretty}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .wrap{max-width:1320px;margin:0 auto;padding:0 44px;width:100%}
