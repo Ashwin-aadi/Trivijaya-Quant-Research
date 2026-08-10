@@ -210,6 +210,8 @@ _CFG: Any = None
 #: Read once at startup and never written. This is the published corpus's tamper-evident count, and
 #: it is shown beside the session counter so the session's N is never mistaken for the honest one.
 _LEDGER: dict[str, Any] = {}
+#: Plain-language description per HMM state, derived from the fit rather than assumed.
+_REGIME_NAMES: dict[str, str] = {}
 #: The published corpus's return series, and this session's, for the duplicate check.
 _CORPUS: dict[str, np.ndarray] = {}
 _CORPUS_DATES: list[Any] | None = None
@@ -236,6 +238,7 @@ def _load_benchmark_inputs() -> None:
     _FLOWS = pl.read_parquet(_CFG.paths.data_processed / "participant_flows.parquet").select(
         ["session_date", "flow_state"]
     )
+    _name_regimes()
     _read_ledger()
     _load_corpus_returns()
 
@@ -322,6 +325,42 @@ def duplicate_check(trial_index: int, dates: list[Any],
     return result
 
 
+#: Volatility words in rank order, calmest first. Applied to however many states the HMM selected
+#: by BIC, so a different k renames rather than breaks. Beyond four states the rank is used raw.
+VOL_WORDS = ("calm", "steady", "choppy", "turbulent")
+
+
+def _name_regimes() -> None:
+    """Describe each HMM state from what it measurably is, never from what it ought to be.
+
+    The states carry no meaning of their own -- an HMM returns integers, and which integer is which
+    depends on the fit. So the descriptions are derived at startup from the two features the model
+    was actually fitted on, ``log_realised_vol`` and ``cum_log_return``, recorded per state in
+    ``regime_diagnostics.json``: states are ranked by volatility for the first word and the sign of
+    their mean return supplies the second.
+
+    They are descriptions, not the market-cycle names a trader would use. "Bull" and "bear" claim a
+    sustained trend; what is measured here is the average volatility and direction of the sessions
+    the model assigned to a state, which is a smaller claim and the one the data supports. The state
+    number is kept alongside so nothing is lost in translation.
+
+    The arrangement is checkable against memory, which is the point: the state this names
+    *turbulent, falling* is the one whose longest stretch runs 2020-02-26 to 2020-07-03.
+    """
+    path = _CFG.paths.data_processed / "regime_diagnostics.json"
+    if not path.exists():
+        return
+    diagnostics = json.loads(path.read_text(encoding="utf-8"))
+    vols = diagnostics.get("state_mean_log_vol_final_refit") or []
+    returns = diagnostics.get("state_mean_cum_return_final_refit") or []
+    if not vols or len(vols) != len(returns):
+        return
+    order = sorted(range(len(vols)), key=lambda i: vols[i])
+    for rank, state in enumerate(order):
+        word = VOL_WORDS[rank] if len(vols) <= len(VOL_WORDS) else f"vol rank {rank + 1}"
+        _REGIME_NAMES[str(state)] = f"{word}, {'rising' if returns[state] > 0 else 'falling'}"
+
+
 def _read_ledger() -> None:
     """Verify and count the published trial ledger, read-only.
 
@@ -360,6 +399,7 @@ def fragility(returns_frame: pl.DataFrame) -> dict[str, Any]:
     # Fragility is a ratio, and a strategy with performance near zero everywhere has a tiny
     # denominator. The frozen measure sets this flag rather than hiding the case.
     out["mean_is_near_zero"] = bool(measured.mean_is_near_zero)
+    out["regime_names"] = dict(_REGIME_NAMES)
     return out
 
 

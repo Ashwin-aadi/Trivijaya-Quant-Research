@@ -604,7 +604,11 @@ function fragilityCard(f) {
   const title = "Stage 2 &middot; RegimeStress &middot; <b>fragility</b>";
   if (!f.available) return missing(title, f.why);
   const labels = Object.keys(f.regime_sharpe || {}).sort();
-  const perRegime = labels.map(k => [`Sharpe in regime ${esc(k)}`,
+  const named = (k) => {
+    const name = (f.regime_names || {})[k];
+    return name ? `${esc(name)}<span class="n">state ${esc(k)}</span>` : `Regime ${esc(k)}`;
+  };
+  const perRegime = labels.map(k => [named(k),
     `${num(f.regime_sharpe[k])}<span class="n">n = ${esc(f.regime_sessions[k])}</span>`]);
   const head = f.mean_is_near_zero
     ? `<div class="hero warn">This score is not meaningful.</div>
@@ -619,7 +623,13 @@ function fragilityCard(f) {
     ]) + rows(perRegime.concat([["Sessions labelled", esc(f.n_sessions)]]))
     + `<p class="empty">The published corpus has a median of <b>0.618</b> across four generators,
        measured this same way. A low score on a strategy that never makes money is not
-       robustness.</p>`);
+       robustness.</p>
+    <p class="empty">The names are <b>descriptions, not market-cycle labels</b>. An HMM returns
+      integers; these are derived from the two features it was fitted on &mdash; states ranked by
+      average volatility for the first word, the sign of their mean return for the second. "Bull"
+      and "bear" would claim a sustained trend, which is more than the fit measures. Worth one
+      check against your own memory: the <b>turbulent, falling</b> state's longest single stretch
+      runs 2020-02-26 to 2020-07-03.</p>`);
 }
 
 function bookCard(b) {
